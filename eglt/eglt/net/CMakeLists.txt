@@ -1,0 +1,19 @@
+add_library(
+        eglt_net STATIC
+        byte_stream.cc
+        byte_stream.h
+        stream.h
+)
+target_include_directories(
+        eglt_net
+        PRIVATE
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIRS}
+)
+target_link_libraries(
+        eglt_net
+        PUBLIC
+        eglt_absl_headers
+        eglt_concurrency
+        eglt_data
+)

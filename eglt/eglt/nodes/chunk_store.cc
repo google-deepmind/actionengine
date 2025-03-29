@@ -1,0 +1,60 @@
+#include "chunk_store.h"
+
+#include <eglt/absl_headers.h>
+#include <eglt/concurrency/concurrency.h>
+#include <eglt/data/eg_structs.h>
+
+namespace eglt {
+
+absl::StatusOr<base::Chunk> ChunkStore::Get(int seq_id, float timeout) {
+  auto status = this->WaitForSeqId(seq_id, timeout);
+  if (!status.ok()) {
+    LOG(ERROR) << "failed to wait for seq_id: " << status;
+    return status;
+  }
+
+  return this->GetImmediately(seq_id);
+}
+
+absl::StatusOr<base::Chunk> ChunkStore::Pop(int seq_id, float timeout) {
+  auto status = this->WaitForSeqId(seq_id, timeout);
+  if (!status.ok()) {
+    return status;
+  }
+
+  return this->PopImmediately(seq_id);
+}
+
+absl::Status ChunkStore::Put(int seq_id, base::Chunk chunk, bool final) {
+  int final_seq_id = this->GetFinalSeqId();
+
+  concurrency::MutexLock lock(&mutex_);
+
+  bool can_put = final_seq_id == -1 || seq_id <= final_seq_id;
+  if (!can_put) {
+    return absl::FailedPreconditionError(
+        "Cannot put chunks with seq_id > final_seq_id.");
+  }
+
+  bool is_null = base::IsNullChunk(chunk);
+
+  if (final) {
+    final_seq_id = is_null ? seq_id - 1 : seq_id;
+    this->SetFinalSeqId(final_seq_id);
+  }
+
+  auto offset = this->WriteToImmediateStore(seq_id, chunk);
+  if (!offset.ok()) {
+    return offset.status();
+  }
+
+  if (final_seq_id != -1 && *offset >= final_seq_id) {
+    this->NotifyAllWaiters();
+  } else {
+    this->NotifyWaiters(seq_id, offset.value());
+  }
+
+  return absl::OkStatus();
+}
+
+}  // namespace eglt
