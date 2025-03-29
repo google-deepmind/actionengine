@@ -2,3 +2,5 @@ cmake-build-debug/
 cmake-build-release/
 
 .idea/
+
+third_party/build_deps/
