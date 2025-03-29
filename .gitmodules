@@ -1,0 +1,12 @@
+[submodule "third_party/googletest"]
+	path = third_party/googletest
+	url = https://github.com/google/googletest
+[submodule "third_party/abseil-cpp"]
+	path = third_party/abseil-cpp
+	url = https://github.com/abseil/abseil-cpp
+[submodule "third_party/fiber"]
+	path = third_party/fiber
+	url = https://github.com/boostorg/fiber
+[submodule "third_party/poco"]
+	path = third_party/poco
+	url = https://github.com/pocoproject/poco
