@@ -19,11 +19,11 @@ using ReceiveBytesT = std::function<std::optional<Bytes>()>;
 namespace eglt::base {
 
 class EvergreenStream {
- public:
+public:
   virtual ~EvergreenStream() = default;
 
-  virtual auto Send(base::SessionMessage message) -> absl::Status = 0;
-  virtual auto Receive() -> std::optional<base::SessionMessage> = 0;
+  virtual auto Send(SessionMessage message) -> absl::Status = 0;
+  virtual auto Receive() -> std::optional<SessionMessage> = 0;
 
   virtual auto Accept() -> void = 0;
   virtual auto Start() -> void = 0;
@@ -35,14 +35,11 @@ class EvergreenStream {
 
   [[nodiscard]] virtual auto GetImpl() const -> void* { return nullptr; }
 
-  template<typename T>
-  auto GetImpl() const -> T* {
-    return static_cast<T*>(GetImpl());
-  }
+  template <typename T>
+  auto GetImpl() const -> T* { return static_cast<T*>(GetImpl()); }
 };
 
 } // namespace eglt::base
-
 
 
 #endif  // EGLT_NET_STREAM_H_

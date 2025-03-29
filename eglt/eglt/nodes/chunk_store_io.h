@@ -26,7 +26,7 @@ class ChunkStoreReader {
   // various calls.
   // TODO(helenapankov): clarify the thread-compatibility contract and the
   // behavior of GetStatus().
- public:
+public:
   constexpr static float kDefaultWaitTimeout = -1;
   constexpr static float kNoTimeout = -1;
 
@@ -41,17 +41,15 @@ class ChunkStoreReader {
 
   absl::Status Run();
 
-  template<typename T>
+  template <typename T>
   std::optional<T> Next() {
     auto chunk = Next<base::Chunk>();
-    if (!chunk.has_value()) {
-      return std::nullopt;
-    }
+    if (!chunk.has_value()) { return std::nullopt; }
     return base::MoveAs<T>(std::move(*chunk));
   }
 
   // definitions follow in the header for some well-known types.
-  template<typename T>
+  template <typename T>
   friend ChunkStoreReader& operator>>(ChunkStoreReader& reader, T& value);
 
   absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mutex_) {
@@ -59,7 +57,7 @@ class ChunkStoreReader {
     return status_;
   }
 
- private:
+private:
   absl::StatusOr<std::optional<std::pair<int, base::Chunk>>> NextInternal();
   void RunPrefetchLoop();
 
@@ -71,7 +69,8 @@ class ChunkStoreReader {
   }
 
   void Join(bool cancel = false);
-  ChunkStore* chunk_store_ = nullptr;
+
+  ChunkStore* chunk_store_;
   const bool ordered_;
   const bool remove_chunks_;
   const int n_chunks_to_buffer_;
@@ -79,63 +78,54 @@ class ChunkStoreReader {
 
   std::unique_ptr<concurrency::Fiber> fiber_;
   std::unique_ptr<
-      concurrency::Channel<std::optional<std::pair<int, base::Chunk>>>>
-      buffer_;
+    concurrency::Channel<std::optional<std::pair<int, base::Chunk>>>>
+  buffer_;
   int total_chunks_read_ = 0;
 
   absl::Status status_ ABSL_GUARDED_BY(mutex_);
   mutable concurrency::Mutex mutex_;
 };
 
-template<>
+template <>
 inline std::optional<std::pair<int, base::Chunk>> ChunkStoreReader::Next() {
-  if (fiber_ == nullptr) {
-    Run().IgnoreError();
-  }
+  if (fiber_ == nullptr) { Run().IgnoreError(); }
   std::optional<std::pair<int, base::Chunk>> seq_and_chunk;
   bool ok;
-  auto deadline = (timeout_ > 0) ? absl::Now() + absl::Seconds(timeout_)
-                                 : absl::InfiniteFuture();
+  auto deadline = (timeout_ > 0)
+    ? absl::Now() + absl::Seconds(timeout_)
+    : absl::InfiniteFuture();
   int selected = concurrency::SelectUntil(
-      deadline, {buffer_->GetReader()->OnRead(&seq_and_chunk, &ok)});
+    deadline, {buffer_->GetReader()->OnRead(&seq_and_chunk, &ok)});
   if (selected == -1) {
     UpdateStatus(absl::DeadlineExceededError("Timed out waiting for chunk."));
     return std::nullopt;
   }
   UpdateStatus(absl::OkStatus());
-  if (!ok) {
-    return std::nullopt;
-  }
-  if (base::IsNullChunk(seq_and_chunk->second)) {
-    return std::nullopt;
-  }
+  if (!ok) { return std::nullopt; }
+  if (base::IsNullChunk(seq_and_chunk->second)) { return std::nullopt; }
   return seq_and_chunk;
 }
 
-template<>
+template <>
 inline std::optional<base::Chunk> ChunkStoreReader::Next() {
   auto seq_and_chunk = Next<std::pair<int, base::Chunk>>();
-  if (!seq_and_chunk.has_value()) {
-    return std::nullopt;
-  }
+  if (!seq_and_chunk.has_value()) { return std::nullopt; }
   return std::move(seq_and_chunk)->second;
 }
 
-template<typename T>
-inline ChunkStoreReader& operator>>(ChunkStoreReader& reader,
-                                    std::optional<T>& value) {
+template <typename T>
+ChunkStoreReader& operator>>(ChunkStoreReader& reader,
+                             std::optional<T>& value) {
   value = reader.Next<T>();
   return reader;
 }
 
-template<typename T>
-inline ChunkStoreReader& operator>>(ChunkStoreReader& reader,
-                                    std::vector<T>& value) {
+template <typename T>
+ChunkStoreReader& operator>>(ChunkStoreReader& reader,
+                             std::vector<T>& value) {
   while (true) {
     auto chunk = reader.Next<T>();
-    if (!chunk.has_value()) {
-      break;
-    }
+    if (!chunk.has_value()) { break; }
     if (!reader.GetStatus().ok()) {
       LOG(ERROR) << "Error: " << reader.GetStatus() << "\n";
       break;
@@ -145,22 +135,22 @@ inline ChunkStoreReader& operator>>(ChunkStoreReader& reader,
   return reader;
 }
 
-template<typename T>
-inline ChunkStoreReader* operator>>(ChunkStoreReader* reader, T& value) {
+template <typename T>
+ChunkStoreReader* operator>>(ChunkStoreReader* reader, T& value) {
   *reader >> value;
   return reader;
 }
 
-template<typename T>
-inline std::unique_ptr<ChunkStoreReader>& operator>>(
-    std::unique_ptr<ChunkStoreReader>& reader, T& value) {
+template <typename T>
+std::unique_ptr<ChunkStoreReader>& operator>>(
+  std::unique_ptr<ChunkStoreReader>& reader, T& value) {
   *reader >> value;
   return reader;
 }
 
-template<typename T>
-inline std::shared_ptr<ChunkStoreReader>& operator>>(
-    std::shared_ptr<ChunkStoreReader>& reader, T& value) {
+template <typename T>
+std::shared_ptr<ChunkStoreReader>& operator>>(
+  std::shared_ptr<ChunkStoreReader>& reader, T& value) {
   *reader >> value;
   return reader;
 }
@@ -170,7 +160,7 @@ class ChunkStoreWriter {
   // different threads. Chunk store and buffer are only accessed by the writer
   // thread, and are only set on construction. Other fields are only accessed by
   // the internal writer fiber, so access is always synchronous.
- public:
+public:
   explicit ChunkStoreWriter(ChunkStore* chunk_store,
                             int n_chunks_to_buffer = -1);
   ~ChunkStoreWriter() ABSL_LOCKS_EXCLUDED(mutex_);
@@ -178,7 +168,7 @@ class ChunkStoreWriter {
   ChunkStoreWriter(const ChunkStoreWriter& other) = delete;
   ChunkStoreWriter& operator=(const ChunkStoreWriter& other) = delete;
 
-  template<typename T>
+  template <typename T>
   absl::StatusOr<int> Put(T value, int seq = -1, bool final = false)
   ABSL_LOCKS_EXCLUDED(mutex_) {
     return Put(base::Chunk::From(std::move(value)), seq, final);
@@ -186,47 +176,44 @@ class ChunkStoreWriter {
 
   // putting a chunk is considered a base case, therefore the definition is
   // inside the class body.
-  template<>
+  template <>
   absl::StatusOr<int> Put(base::Chunk value, int seq, bool final)
   ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     if (!accepts_puts_) {
       return absl::FailedPreconditionError(
-          "Put was called on a writer that is not accepting more puts.");
+        "Put was called on a writer that is not accepting more puts.");
     }
 
     int written_seq = seq;
-    if (seq == -1) {
-      written_seq = total_chunks_put_;
-    }
+    if (seq == -1) { written_seq = total_chunks_put_; }
     total_chunks_put_++;
 
     EnsureWriteLoop();
     max_seq_put_ = std::max(max_seq_put_, written_seq);
     if (!buffer_->GetWriter()->WriteUnlessCancelled(base::NodeFragment{
-        .chunk = std::move(value),
-        .seq = written_seq,
-        .continued = !final,
-    })) {
-      return absl::CancelledError("Cancelled.");
-    }
+      .chunk = std::move(value),
+      .seq = written_seq,
+      .continued = !final,
+    })) { return absl::CancelledError("Cancelled."); }
 
     return written_seq;
   }
 
   void FinishWrites() ABSL_LOCKS_EXCLUDED(mutex_);
+
   absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     return status_;
   }
 
-  template<typename T>
+  template <typename T>
   friend ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, T value) {
     writer.Put(base::Chunk::From(std::move(value))).IgnoreError();
     return writer;
   }
 
- private:
+private:
   void EnsureWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void SafelyCloseBuffer() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -253,28 +240,26 @@ class ChunkStoreWriter {
 
   std::unique_ptr<concurrency::Fiber> fiber_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<concurrency::Channel<std::optional<base::NodeFragment>>>
-      buffer_;
+  buffer_;
   absl::Status status_ ABSL_GUARDED_BY(mutex_);
 
   mutable concurrency::Mutex mutex_;
 };
 
-template<>
+template <>
 inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
                                     base::Chunk value) {
   bool continued = true;
-  if (base::IsNullChunk(value)) {
-    continued = false;
-  }
+  if (IsNullChunk(value)) { continued = false; }
 
   writer.Put(std::move(value), /*seq=*/-1, /*final=*/!continued).IgnoreError();
   return writer;
 }
 
-template<typename T>
-inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
-                                    std::vector<T> value) {
-  for (auto& element: std::move(value)) {
+template <typename T>
+ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
+                             std::vector<T> value) {
+  for (auto& element : std::move(value)) {
     writer << std::move(element);
     if (!writer.GetStatus().ok()) {
       LOG(ERROR) << "Failed to put element: " << writer.GetStatus();
@@ -284,50 +269,26 @@ inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
   return writer;
 }
 
-template<typename T>
-inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
-                                    std::pair<T, int> value) {
-  auto [data_value, seq] = std::move(value);
-  writer.Put(std::move(data_value), seq, /*final=*/false).IgnoreError();
-  return writer;
-}
-
-template<typename T>
-inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
-                                    std::pair<T, bool> value) {
-  auto [data_value, is_final] = std::move(value);
-  writer.Put(std::move(data_value), -1, /*final=*/is_final).IgnoreError();
-  return writer;
-}
-
-template<typename T>
-inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
-                                    std::tuple<T, int, bool> value) {
-  auto [data_value, seq, final] = std::move(value);
-  writer.Put(std::move(data_value), seq, final).IgnoreError();
-  return writer;
-}
-
-template<typename T>
-inline ChunkStoreWriter* operator<<(ChunkStoreWriter* writer, T value) {
+template <typename T>
+ChunkStoreWriter* operator<<(ChunkStoreWriter* writer, T value) {
   *writer << std::move(value);
   return writer;
 }
 
-template<typename T>
-inline std::unique_ptr<ChunkStoreWriter>& operator<<(
-    std::unique_ptr<ChunkStoreWriter>& writer, T value) {
+template <typename T>
+std::unique_ptr<ChunkStoreWriter>& operator<<(
+  std::unique_ptr<ChunkStoreWriter>& writer, T value) {
   *writer << std::move(value);
   return writer;
 }
 
-template<typename T>
-inline std::shared_ptr<ChunkStoreWriter>& operator<<(
-    std::shared_ptr<ChunkStoreWriter>& writer, T value) {
+template <typename T>
+std::shared_ptr<ChunkStoreWriter>& operator<<(
+  std::shared_ptr<ChunkStoreWriter>& writer, T value) {
   *writer << std::move(value);
   return writer;
 }
 
-}  // namespace eglt
+} // namespace eglt
 
 #endif  // EGLT_NODES_CHUNK_STORE_IO_H_

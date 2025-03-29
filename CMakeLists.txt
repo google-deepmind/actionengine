@@ -19,6 +19,7 @@ set(CMAKE_PREFIX_PATH
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/fiber
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/poco
@@ -34,6 +35,7 @@ find_package(pybind11 REQUIRED)
 
 find_package(GTest REQUIRED)
 find_package(absl REQUIRED)
+find_package(cppitertools REQUIRED)
 find_package(Boost REQUIRED COMPONENTS fiber)
 find_package(GTest REQUIRED)
 find_package(Poco REQUIRED COMPONENTS Foundation Net Util)
@@ -43,6 +45,7 @@ set(EGLT_INCLUDE_DIRS
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp/include
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11/include
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost/include
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools/include
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest/include
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/poco/include
 )
@@ -51,7 +54,7 @@ set(EGLT_INCLUDE_DIRS
 add_subdirectory(eglt)
 
 add_library(eglt-oss SHARED ${EGLT_PROJECT_ROOT}/library.cpp)
-target_link_libraries(eglt-oss eglt_absl_headers eglt_data eglt_concurrency)
+target_link_libraries(eglt-oss eglt_absl_headers eglt_actions eglt_data eglt_concurrency eglt_nodes eglt_net eglt_util)
 target_include_directories(
         eglt-oss
         PUBLIC

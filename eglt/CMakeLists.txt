@@ -7,6 +7,7 @@ target_link_libraries(eglt_absl_headers
         INTERFACE
         absl::base
         absl::flags
+        absl::flat_hash_map
         absl::log
         absl::status
         absl::statusor

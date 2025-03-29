@@ -7,7 +7,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <eglt/absl_headers.h>
@@ -19,7 +18,7 @@ using MimeSerializer = std::function<Bytes(const std::any&)>;
 using MimeDeserializer = std::function<std::optional<std::any>(const Bytes&)>;
 
 class Serializer {
- public:
+public:
   virtual ~Serializer() = default;
 
   virtual Bytes Serialize(const std::any& value) const = 0;
@@ -51,11 +50,11 @@ class Serializer {
     deserializers_[mimetype] = std::move(deserializer);
   }
 
- private:
+private:
   absl::flat_hash_map<std::string, MimeSerializer> serializers_;
   absl::flat_hash_map<std::string, MimeDeserializer> deserializers_;
 };
 
-}  // namespace eglt
+} // namespace eglt
 
 #endif //EGLT_DATA_SERIALIZATION_H_

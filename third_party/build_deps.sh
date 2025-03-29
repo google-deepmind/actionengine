@@ -70,3 +70,15 @@ cmake \
 cmake --build . --parallel "${nproc}" --target install || exit 1
 cd "${third_party_root}" || exit 1
 
+mkdir -p build_deps/cppitertools
+cd cppitertools || exit 1
+mkdir -p __build
+cd __build || exit 1
+cmake \
+  -DCMAKE_CXX_STANDARD="${cc_standard}" \
+  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/cppitertools" \
+  -G "Ninja" \
+  .. || exit 1
+cmake --build . --parallel "${nproc}" --target install || exit 1
+cd "${third_party_root}" || exit 1
+

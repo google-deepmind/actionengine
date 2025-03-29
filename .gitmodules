@@ -13,3 +13,6 @@
 [submodule "third_party/boost"]
 	path = third_party/boost
 	url = https://github.com/boostorg/boost
+[submodule "third_party/cppitertools"]
+	path = third_party/cppitertools
+	url = https://github.com/ryanhaining/cppitertools

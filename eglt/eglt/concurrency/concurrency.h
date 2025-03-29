@@ -2,25 +2,22 @@
 #define EGLT_CONCURRENCY_CONCURRENCY_H_
 
 #include <memory>
-#include <utility>
 
 #include <eglt/absl_headers.h>
-#include <eglt/concurrency/base.h>  // IWYU pragma: export
 #include <eglt/concurrency/implementation.h>  // IWYU pragma: export
 
 namespace eglt::concurrency {
-
 using Case = impl::Case;
 using CaseArray = impl::CaseArray;
 using TreeOptions = impl::TreeOptions;
 
-template<typename T>
+template <typename T>
 using ChannelReader = impl::ChannelReader<T>;
 
-template<typename T>
+template <typename T>
 using ChannelWriter = impl::ChannelWriter<T>;
 
-template<typename T>
+template <typename T>
 using Channel = impl::Channel<T>;
 
 using Fiber = impl::Fiber;
@@ -47,16 +44,15 @@ inline int SelectUntil(absl::Time deadline, const CaseArray& cases) {
   return impl::SelectUntil(deadline, cases);
 }
 
-inline void Detach(const TreeOptions& options, Callable&& fn) {
+inline void
+Detach(const TreeOptions& options, absl::AnyInvocable<void()>&& fn) {
   impl::Detach(options, std::move(fn));
 }
 
 inline std::unique_ptr<Fiber> NewTree(const TreeOptions& options,
-                                      Callable&& fn) {
+                                      absl::AnyInvocable<void()>&& fn) {
   return impl::NewTree(options, std::move(fn));
 }
-
 } // namespace eglt::concurrency
-
 
 #endif  // EGLT_CONCURRENCY_CONCURRENCY_H_

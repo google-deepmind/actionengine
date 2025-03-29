@@ -6,7 +6,7 @@
 
 namespace eglt {
 
-absl::StatusOr<base::Chunk> ChunkStore::Get(int seq_id, float timeout) {
+auto ChunkStore::Get(int seq_id, float timeout) -> absl::StatusOr<base::Chunk> {
   auto status = this->WaitForSeqId(seq_id, timeout);
   if (!status.ok()) {
     LOG(ERROR) << "failed to wait for seq_id: " << status;
@@ -18,9 +18,7 @@ absl::StatusOr<base::Chunk> ChunkStore::Get(int seq_id, float timeout) {
 
 absl::StatusOr<base::Chunk> ChunkStore::Pop(int seq_id, float timeout) {
   auto status = this->WaitForSeqId(seq_id, timeout);
-  if (!status.ok()) {
-    return status;
-  }
+  if (!status.ok()) { return status; }
 
   return this->PopImmediately(seq_id);
 }
@@ -33,7 +31,7 @@ absl::Status ChunkStore::Put(int seq_id, base::Chunk chunk, bool final) {
   bool can_put = final_seq_id == -1 || seq_id <= final_seq_id;
   if (!can_put) {
     return absl::FailedPreconditionError(
-        "Cannot put chunks with seq_id > final_seq_id.");
+      "Cannot put chunks with seq_id > final_seq_id.");
   }
 
   bool is_null = base::IsNullChunk(chunk);
@@ -43,18 +41,15 @@ absl::Status ChunkStore::Put(int seq_id, base::Chunk chunk, bool final) {
     this->SetFinalSeqId(final_seq_id);
   }
 
-  auto offset = this->WriteToImmediateStore(seq_id, chunk);
-  if (!offset.ok()) {
-    return offset.status();
-  }
+  auto offset = this->WriteToImmediateStore(seq_id, std::move(chunk));
+  if (!offset.ok()) { return offset.status(); }
 
   if (final_seq_id != -1 && *offset >= final_seq_id) {
     this->NotifyAllWaiters();
-  } else {
-    this->NotifyWaiters(seq_id, offset.value());
   }
+  else { this->NotifyWaiters(seq_id, offset.value()); }
 
   return absl::OkStatus();
 }
 
-}  // namespace eglt
+} // namespace eglt
