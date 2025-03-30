@@ -1,1 +1,5 @@
-pybind11_add_module(evergreen src/main.cpp)
+pybind11_add_module(
+    evergreen
+    evergreen.cc
+    types.h
+)

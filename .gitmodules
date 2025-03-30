@@ -16,3 +16,6 @@
 [submodule "third_party/cppitertools"]
 	path = third_party/cppitertools
 	url = https://github.com/ryanhaining/cppitertools
+[submodule "third_party/pybind11_abseil"]
+	path = third_party/pybind11_abseil
+	url = https://github.com/pybind/pybind11_abseil
