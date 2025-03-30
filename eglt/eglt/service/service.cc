@@ -18,7 +18,7 @@ namespace eglt {
 absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
                                        Session* session) {
   while (stream != nullptr) {
-    auto message = stream->Receive();
+    std::optional<base::SessionMessage> message = stream->Receive();
     if (!message.has_value()) { break; }
     if (session == nullptr) {
       return absl::FailedPreconditionError(
@@ -30,10 +30,11 @@ absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
 }
 
 std::unique_ptr<Action> MakeActionInConnection(
-  const StreamToSessionConnection& connection, std::string_view action_name,
-  std::string_view action_id) {
-  if (connection.session == nullptr) { return nullptr; }
+  const StreamToSessionConnection& connection,
+  const std::string_view action_name,
+  const std::string_view action_id) {
 
+  if (connection.session == nullptr) { return nullptr; }
   if (connection.session->GetActionRegistry() == nullptr) { return nullptr; }
 
   return connection.session->GetActionRegistry()->MakeAction(
@@ -163,28 +164,28 @@ absl::Status Service::JoinConnection(StreamToSessionConnection* connection) {
   // the lock with a guarantee that they are not modified while we are trying.
   {
     concurrency::MutexLock lock(&mutex_);
-    if (auto node = connections_.extract(connection->stream_id);
+    if (const auto node = connections_.extract(connection->stream_id);
       !node.empty()) {
       std::shared_ptr<StreamToSessionConnection> service_owned_connection =
         std::move(node.mapped());
     }
 
-    if (auto node = connection_fibers_.extract(connection->stream_id);
+    if (const auto node = connection_fibers_.extract(connection->stream_id);
       !node.empty()) { fiber = std::move(node.mapped()); }
   }
 
   if (fiber == nullptr) {
     // Only possible if the connection was already joined.
     // TODO (helenapankov): actually, also if the connection was never
-    // established by this service. For now, it is considered a user error,
-    // therefore Service does not keep track of it.
+    //   established by this service. For now, it is considered a user error,
+    //   therefore Service does not keep track of it.
     return connection->status;
   }
   fiber->Join();
   return connection->status;
 }
 
-void Service::SetActionRegistry(const ActionRegistry& action_registry) {
+void Service::SetActionRegistry(const ActionRegistry& action_registry) const {
   concurrency::MutexLock lock(&mutex_);
   *action_registry_ = action_registry;
 }

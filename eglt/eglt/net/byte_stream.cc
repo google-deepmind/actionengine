@@ -23,21 +23,24 @@ absl::Status EvergreenByteStream::SendBytes(Bytes bytes) const {
 }
 
 absl::Status EvergreenByteStream::Send(base::SessionMessage message) const {
-  auto data = serializer_->Serialize(std::move(message));
+  const auto data = serializer_->Serialize(std::move(message));
   return send_bytes_(data);
 }
 
 std::optional<Bytes> EvergreenByteStream::ReceiveBytes() const {
-  auto data = receive_bytes_();
+  std::optional<Bytes> data = receive_bytes_();
   if (!data.has_value()) { return std::nullopt; }
+
   return *data;
 }
 
 std::optional<base::SessionMessage> EvergreenByteStream::Receive() const {
-  auto data = receive_bytes_();
+  const std::optional<Bytes> data = receive_bytes_();
   if (!data.has_value()) { return std::nullopt; }
+
   auto message = serializer_->Deserialize(*data);
   if (!message.has_value()) { return std::nullopt; }
+
   return std::any_cast<base::SessionMessage>(*message);
 }
 

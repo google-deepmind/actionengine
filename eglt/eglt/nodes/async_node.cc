@@ -52,6 +52,7 @@ AsyncNode::AsyncNode(AsyncNode&& other) noexcept :
 
 AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   if (this == &other) { return *this; }
+
   node_map_ = other.node_map_;
   chunk_store_ = std::move(other.chunk_store_);
   child_ids_ = std::move(other.child_ids_);
@@ -61,6 +62,7 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   other.writer_stream_ = nullptr;
   other.node_map_ = nullptr;
   other.chunk_store_ = nullptr;
+
   return *this;
 }
 
@@ -70,7 +72,7 @@ void AsyncNode::BindWriterStream(base::EvergreenStream* stream) {
 
 template <>
 auto AsyncNode::Put<base::Chunk>(base::Chunk value, int seq_id,
-                                 bool final) -> absl::Status {
+                                 const bool final) -> absl::Status {
   return PutFragment(base::NodeFragment{
     .id = chunk_store_->GetNodeId(),
     .chunk = std::move(value),
@@ -78,7 +80,8 @@ auto AsyncNode::Put<base::Chunk>(base::Chunk value, int seq_id,
   });
 }
 
-absl::Status AsyncNode::PutFragment(base::NodeFragment fragment, int seq_id) {
+absl::Status AsyncNode::PutFragment(base::NodeFragment fragment,
+                                    const int seq_id) {
   if (chunk_store_ == nullptr) {
     return absl::FailedPreconditionError("Chunk storage is not initialized.");
   }
@@ -191,7 +194,7 @@ absl::Status AsyncNode::GetReaderStatus() const {
 }
 
 std::unique_ptr<ChunkStoreReader> AsyncNode::MakeReader(
-  bool ordered, bool remove_chunks, int n_chunks_to_buffer) {
+  bool ordered, bool remove_chunks, int n_chunks_to_buffer) const {
   return std::make_unique<ChunkStoreReader>(chunk_store_.get(), ordered,
                                             remove_chunks, n_chunks_to_buffer);
 }

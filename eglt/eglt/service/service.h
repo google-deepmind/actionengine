@@ -82,7 +82,7 @@ public:
     -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto JoinConnection(StreamToSessionConnection* connection) -> absl::Status;
 
-  auto SetActionRegistry(const ActionRegistry& action_registry) -> void;
+  auto SetActionRegistry(const ActionRegistry& action_registry) const -> void;
 
 private:
   void JoinConnectionsAndCleanUp(bool cancel = false)

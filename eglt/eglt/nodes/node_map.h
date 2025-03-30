@@ -37,11 +37,6 @@ public:
   bool contains(std::string_view id);
 
 private:
-  void MoveImpl(NodeMap&& other) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
-    nodes_ = std::move(other.nodes_);
-    chunk_store_factory_ = std::move(other.chunk_store_factory_);
-  }
-
   concurrency::Mutex mutex_;
   absl::flat_hash_map<std::string, std::unique_ptr<AsyncNode>> nodes_
     ABSL_GUARDED_BY(mutex_){};

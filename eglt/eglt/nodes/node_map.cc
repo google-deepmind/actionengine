@@ -15,7 +15,8 @@ NodeMap::NodeMap(ChunkStoreFactory chunk_store_factory) :
 NodeMap::NodeMap(NodeMap&& other) noexcept {
   concurrency::MutexLock lock(&other.mutex_);
 
-  MoveImpl(std::move(other));
+  nodes_ = std::move(other.nodes_);
+  chunk_store_factory_ = std::move(other.chunk_store_factory_);
 }
 
 NodeMap& NodeMap::operator=(NodeMap&& other) noexcept {
@@ -27,12 +28,14 @@ NodeMap& NodeMap::operator=(NodeMap&& other) noexcept {
   if (&mutex_ < &other.mutex_) {
     concurrency::MutexLock this_lock(&mutex_);
     concurrency::MutexLock other_lock(&other.mutex_);
-    MoveImpl(std::move(other));
+    nodes_ = std::move(other.nodes_);
+    chunk_store_factory_ = std::move(other.chunk_store_factory_);
   }
   else {
     concurrency::MutexLock other_lock(&other.mutex_);
     concurrency::MutexLock this_lock(&mutex_);
-    MoveImpl(std::move(other));
+    nodes_ = std::move(other.nodes_);
+    chunk_store_factory_ = std::move(other.chunk_store_factory_);
   }
 
   return *this;
@@ -47,7 +50,7 @@ AsyncNode* NodeMap::Get(std::string_view id,
       std::make_unique<AsyncNode>(
         id,
         this,
-        MakeChunkStore(std::move(chunk_store_factory))));
+        MakeChunkStore(chunk_store_factory)));
   }
   return nodes_[id].get();
 }
@@ -63,7 +66,7 @@ std::vector<AsyncNode*> NodeMap::Get(const std::vector<std::string_view>& ids,
       nodes_[id] = std::make_unique<AsyncNode>(
         id,
         this,
-        MakeChunkStore(std::move(chunk_store_factory)));
+        MakeChunkStore(chunk_store_factory));
     }
 
     nodes.push_back(nodes_[id].get());

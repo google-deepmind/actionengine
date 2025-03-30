@@ -22,8 +22,8 @@ Session::Session(NodeMap* node_map, ActionRegistry* action_registry,
 
 Session::~Session() { JoinDispatchers(/*cancel=*/false); }
 
-AsyncNode* Session::GetNode(std::string_view id,
-                            ChunkStoreFactory chunk_store_factory) {
+AsyncNode* Session::GetNode(const std::string_view id,
+                            ChunkStoreFactory chunk_store_factory) const {
   ChunkStoreFactory factory = std::move(chunk_store_factory);
   if (factory == nullptr) { factory = chunk_store_factory_; }
   return node_map_->Get(id, factory);
@@ -63,28 +63,28 @@ absl::Status Session::DispatchMessage(base::SessionMessage message,
   }
   for (auto& action_message : message.actions) {
     // for later: error handling
-    concurrency::Detach({},
-                        [action_message =
-                          std::move(action_message), stream, this]() {
-                          auto action =
-                            std::shared_ptr(Action::FromActionMessage(
-                              action_message,
-                              action_registry_,
-                              node_map_,
-                              stream,
-                              this));
-                          auto status = action->Run();
-                          if (!status.ok()) {
-                            LOG(ERROR) << "Failed to run action: " << status;
-                          }
-                        });
+    concurrency::Detach(
+      {},
+      [action_message =
+        std::move(action_message), stream, this] {
+        const auto action =
+          std::shared_ptr(Action::FromActionMessage(
+            action_message,
+            action_registry_,
+            node_map_,
+            stream,
+            this));
+        if (const auto run_status = action->Run(); !run_status.ok()) {
+          LOG(ERROR) << "Failed to run action: " << run_status;
+        }
+      });
   }
   return status;
 }
 
 void Session::StopDispatchingFrom(base::EvergreenStream* stream) {
   std::unique_ptr<concurrency::Fiber> task;
-  if (auto node = dispatch_tasks_.extract(stream); !node.empty()) {
+  if (const auto node = dispatch_tasks_.extract(stream); !node.empty()) {
     task = std::move(node.mapped());
   }
 
@@ -98,7 +98,7 @@ void Session::StopDispatchingFromAll() { JoinDispatchers(/*cancel=*/true); }
 
 void Session::JoinDispatchers(bool cancel) {
   if (cancel) { for (auto& [_, task] : dispatch_tasks_) { task->Cancel(); } }
-  for (auto& task : dispatch_tasks_ | std::views::values) { task->Join(); }
+  for (const auto& [_, task] : dispatch_tasks_) { task->Join(); }
   dispatch_tasks_.clear();
 }
 

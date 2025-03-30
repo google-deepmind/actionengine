@@ -27,8 +27,9 @@ public:
   Session(const Session& other) = delete;
   Session& operator=(const Session& other) = delete;
 
-  AsyncNode* GetNode(std::string_view id,
-                     ChunkStoreFactory chunk_store_factory = {});
+  [[nodiscard]] AsyncNode* GetNode(
+    std::string_view id,
+    ChunkStoreFactory chunk_store_factory = {}) const;
 
   void DispatchFrom(base::EvergreenStream* stream);
   absl::Status DispatchMessage(base::SessionMessage message,

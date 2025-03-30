@@ -32,9 +32,9 @@ LocalChunkStore& LocalChunkStore::operator=(const LocalChunkStore& other) {
     NotifyAllWaiters();
   }
 
-  concurrency::MutexLock lock(&other.mutex_);
   // we only copy the data, not the events because it makes no sense to
   // replicate waiter state on a new object.
+  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
   arrival_order_to_seq_id_ = other.arrival_order_to_seq_id_;
   chunks_ = other.chunks_;
   final_seq_id_ = other.final_seq_id_;
@@ -64,8 +64,9 @@ LocalChunkStore& LocalChunkStore::operator=(LocalChunkStore&& other) noexcept {
     concurrency::MutexLock lock(&mutex_);
     NotifyAllWaiters();
   }
-  concurrency::MutexLock lock(&other.mutex_);
-  concurrency::MutexLock event_lock(&other.event_mutex_);
+
+  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+  concurrency::TwoMutexLock event_lock(&event_mutex_, &other.event_mutex_);
 
   seq_id_readable_events_ = std::move(other.seq_id_readable_events_);
   arrival_offset_readable_events_ =

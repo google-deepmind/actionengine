@@ -58,7 +58,9 @@ public:
   }
 
 private:
-  absl::StatusOr<std::optional<std::pair<int, base::Chunk>>> NextInternal();
+  absl::StatusOr<std::optional<std::pair<int, base::Chunk>>>
+  NextInternal() const;
+
   void RunPrefetchLoop();
 
   // This is primarily used by the prefetch loop to update the status of the

@@ -28,10 +28,52 @@ using MutexLock = impl::MutexLock;
 using ReaderMutexLock = impl::ReaderMutexLock;
 using WriterMutexLock = impl::WriterMutexLock;
 
-// In some implementations, like in google3, we can perform a more
-// efficient join by first selecting on the fiber's joinable event.
-// In other implementations, it might be more efficient to just call Join() to
-// avoid a context switch. Google3's switches are fast, even for actual threads.
+class ABSL_SCOPED_LOCKABLE TwoMutexLock {
+public:
+  explicit TwoMutexLock(Mutex* absl_nonnull mu1, Mutex* absl_nonnull mu2)
+  ABSL_EXCLUSIVE_LOCK_FUNCTION(mu1, mu2)
+    : mu1_(mu1), mu2_(mu2) {
+    if (ABSL_PREDICT_FALSE(mu1_ == mu2_)) {
+      mu1_->Lock();
+      return;
+    }
+
+    if (mu1 < mu2) {
+      mu1_->Lock();
+      mu2_->Lock();
+    }
+    else {
+      mu2_->Lock();
+      mu1_->Lock();
+    }
+  }
+
+  TwoMutexLock(const TwoMutexLock&) = delete; // NOLINT(runtime/mutex)
+  TwoMutexLock(TwoMutexLock&&) = delete; // NOLINT(runtime/mutex)
+  TwoMutexLock& operator=(const TwoMutexLock&) = delete;
+  TwoMutexLock& operator=(TwoMutexLock&&) = delete;
+
+  ~TwoMutexLock() ABSL_UNLOCK_FUNCTION() {
+    if (ABSL_PREDICT_FALSE(mu1_ == mu2_)) {
+      mu1_->Unlock();
+      return;
+    }
+
+    if (mu1_ < mu2_) {
+      mu2_->Unlock();
+      mu1_->Unlock();
+    }
+    else {
+      mu1_->Unlock();
+      mu2_->Unlock();
+    }
+  }
+
+private:
+  Mutex* absl_nonnull const mu1_;
+  Mutex* absl_nonnull const mu2_;
+};
+
 inline void JoinOptimally(Fiber* fiber) { impl::JoinOptimally(fiber); }
 
 inline bool Cancelled() { return impl::Cancelled(); }
@@ -40,7 +82,7 @@ inline Case OnCancel() { return impl::OnCancel(); }
 
 inline int Select(const CaseArray& cases) { return impl::Select(cases); }
 
-inline int SelectUntil(absl::Time deadline, const CaseArray& cases) {
+inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
   return impl::SelectUntil(deadline, cases);
 }
 

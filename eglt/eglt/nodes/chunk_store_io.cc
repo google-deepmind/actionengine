@@ -47,22 +47,20 @@ absl::Status ChunkStoreReader::Run() {
 }
 
 absl::StatusOr<std::optional<std::pair<int, base::Chunk>>>
-ChunkStoreReader::NextInternal() {
+ChunkStoreReader::NextInternal() const {
   if (chunk_store_ == nullptr) {
     return absl::FailedPreconditionError(
       "Chunk store is not initialized or has been destroyed.");
   }
 
   const int next_read_offset = total_chunks_read_;
-  const auto final_seq_id = chunk_store_->GetFinalSeqId();
 
-  if (final_seq_id != -1 && next_read_offset > final_seq_id) {
-    return std::nullopt;
-  }
+  if (const int final_seq_id = chunk_store_->GetFinalSeqId(); final_seq_id != -
+    1 && next_read_offset > final_seq_id) { return std::nullopt; }
 
-  auto status =
-    chunk_store_->WaitForArrivalOffset(next_read_offset, kNoTimeout);
-  if (!status.ok()) { return status; }
+  if (auto status =
+      chunk_store_->WaitForArrivalOffset(next_read_offset, kNoTimeout); !status.
+    ok()) { return status; }
 
   const auto seq_id = chunk_store_->GetSeqIdForArrivalOffset(next_read_offset);
   const auto fragment = chunk_store_->GetImmediately(seq_id);
@@ -236,7 +234,7 @@ void ChunkStoreWriter::RunWriteLoop() {
     // established: we need it both to indicate "normally" ended stream and
     // to indicate "closed in an error state"
     // bool is_null = base::IsNullChunk(*fragment.chunk);
-    auto final_seq_id = chunk_store_->GetFinalSeqId();
+    const auto final_seq_id = chunk_store_->GetFinalSeqId();
     ++total_chunks_written_;
     if (final_seq_id >= 0 &&
       total_chunks_written_ > chunk_store_->GetFinalSeqId()) {

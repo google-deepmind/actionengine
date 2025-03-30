@@ -13,7 +13,7 @@
 #include "eglt/util/random.h"
 
 namespace eglt {
-void ActionRegistry::Register(std::string_view name,
+void ActionRegistry::Register(const std::string_view name,
                               const ActionDefinition& def,
                               const ActionHandler& handler) {
   definitions_[name] = def;
@@ -21,7 +21,7 @@ void ActionRegistry::Register(std::string_view name,
 }
 
 base::ActionMessage ActionRegistry::MakeActionMessage(
-  std::string_view name, std::string_view id) const {
+  const std::string_view name, const std::string_view id) const {
   const ActionDefinition& def = eglt::FindOrDie(definitions_, name);
 
   std::vector<base::NamedParameter> inputs;
@@ -50,7 +50,7 @@ base::ActionMessage ActionRegistry::MakeActionMessage(
 }
 
 std::unique_ptr<Action> ActionRegistry::MakeAction(
-  std::string_view name, std::string_view id, NodeMap* node_map,
+  const std::string_view name, std::string_view id, NodeMap* node_map,
   base::EvergreenStream* stream, Session* session) const {
   std::string action_id = std::string(id);
   if (action_id.empty()) { action_id = GenerateUUID4(); }
@@ -64,7 +64,7 @@ std::unique_ptr<Action> ActionRegistry::MakeAction(
     session);
 }
 
-AsyncNode* Action::GetNode(std::string_view id) const {
+AsyncNode* Action::GetNode(const std::string_view id) const {
   return node_map_->Get(id);
 }
 
@@ -100,7 +100,7 @@ base::ActionMessage Action::GetActionMessage() const {
 }
 
 Action::Action(ActionDefinition def, ActionHandler handler,
-               std::string_view id, NodeMap* node_map,
+               const std::string_view id, NodeMap* node_map,
                base::EvergreenStream* stream, Session* session) :
   def_(std::move(def)),
   handler_(std::move(handler)),

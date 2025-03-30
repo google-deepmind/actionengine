@@ -6,23 +6,21 @@
 #include "eglt/absl_headers.h"
 
 namespace eglt {
-
-template<typename RecordKey, typename Value, typename QueryKey>
+template <typename RecordKey, typename Value, typename QueryKey>
 Value& FindOrDie(absl::flat_hash_map<RecordKey, Value>& map,
-                        QueryKey&& key) {
-  auto it = map.find(std::forward<QueryKey>(key));
+                 const QueryKey& key) {
+  auto it = map.find(key);
   CHECK(it != map.end());
   return it->second;
 }
 
-template<typename RecordKey, typename Value, typename QueryKey>
+template <typename RecordKey, typename Value, typename QueryKey>
 const Value& FindOrDie(const absl::flat_hash_map<RecordKey, Value>& map,
-                              QueryKey&& key) {
-  auto it = map.find(std::forward<QueryKey>(key));
+                       const QueryKey& key) {
+  auto it = map.find(key);
   CHECK(it != map.end());
   return it->second;
 }
-
-}  // namespace eglt
+} // namespace eglt
 
 #endif  // EGLT_UTIL_MAP_UTIL_H_

@@ -9,8 +9,8 @@
 #include <string_view>
 #include <vector>
 
-#include <eglt/data/eg_structs.h>
 #include <eglt/absl_headers.h>
+#include <eglt/data/eg_structs.h>
 #include <eglt/net/stream.h>
 #include <eglt/nodes/async_node.h>
 #include <eglt/nodes/node_map.h>
@@ -60,11 +60,11 @@ public:
                                      base::EvergreenStream* stream,
                                      Session* session = nullptr) const;
 
-  ActionDefinition& GetDefinition(std::string_view name) {
+  ActionDefinition& GetDefinition(const std::string_view name) {
     return eglt::FindOrDie(definitions_, name);
   }
 
-  ActionHandler& GetHandler(std::string_view name) {
+  ActionHandler& GetHandler(const std::string_view name) {
     return eglt::FindOrDie(handlers_, name);
   }
 
@@ -72,7 +72,7 @@ public:
   absl::flat_hash_map<std::string, ActionHandler> handlers_;
 
 private:
-  [[nodiscard]] bool IsRegistered(std::string_view name) const {
+  [[nodiscard]] bool IsRegistered(const std::string_view name) const {
     return definitions_.contains(name) && handlers_.contains(name);
   }
 };
@@ -99,9 +99,9 @@ public:
   AsyncNode* GetNode(std::string_view id) const;
 
   AsyncNode* GetInput(std::string_view name,
-                      std::optional<bool> bind_stream = std::nullopt) {
+                      const std::optional<bool> bind_stream = std::nullopt) {
     // TODO(helenapankov): just use hash maps instead of vectors
-    auto it = std::find_if(
+    const auto it = std::find_if(
       def_.inputs.begin(), def_.inputs.end(),
       [name](const ActionNode& node) { return node.name == name; });
     if (it == def_.inputs.end()) { return nullptr; }
@@ -116,8 +116,8 @@ public:
   }
 
   AsyncNode* GetOutput(std::string_view name,
-                       std::optional<bool> bind_stream = std::nullopt) {
-    auto it = std::find_if(
+                       const std::optional<bool> bind_stream = std::nullopt) {
+    const auto it = std::find_if(
       def_.outputs.begin(), def_.outputs.end(),
       [name](const ActionNode& node) { return node.name == name; });
     if (it == def_.outputs.end()) { return nullptr; }
@@ -133,8 +133,9 @@ public:
 
   void SetHandler(ActionHandler handler) { handler_ = std::move(handler); }
 
-  std::unique_ptr<Action> MakeActionInSameSession(std::string_view name,
-                                                  std::string_view id = "") {
+  std::unique_ptr<Action> MakeActionInSameSession(
+    const std::string_view name,
+    const std::string_view id = "") const {
     return GetRegistry()->MakeAction(name, id, node_map_, stream_, session_);
   }
 
@@ -164,11 +165,11 @@ public:
 private:
   Session* GetSession() const { return session_; }
 
-  std::string GetInputId(std::string_view name) const {
+  std::string GetInputId(const std::string_view name) const {
     return absl::StrCat(id_, "#", name);
   }
 
-  std::string GetOutputId(std::string_view name) const {
+  std::string GetOutputId(const std::string_view name) const {
     return absl::StrCat(id_, "#", name);
   }
 

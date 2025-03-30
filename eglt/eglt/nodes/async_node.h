@@ -24,7 +24,8 @@ absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream* stream,
 
 class AsyncNode {
 public:
-  explicit AsyncNode(std::string_view id = "", NodeMap* node_map = nullptr,
+  explicit AsyncNode(std::string_view id = "",
+                     NodeMap* node_map = nullptr,
                      std::unique_ptr<ChunkStore> chunk_store = nullptr);
 
   AsyncNode(AsyncNode& other) = delete;
@@ -84,8 +85,9 @@ public:
   auto WaitForCompletion() -> absl::StatusOr<std::vector<base::Chunk>>;
   auto GetReader() -> ChunkStoreReader&;
   auto GetReaderStatus() const -> absl::Status;
-  auto MakeReader(bool ordered = false, bool remove_chunks = false,
-                  int n_chunks_to_buffer = -1)
+  [[nodiscard]] auto MakeReader(bool ordered = false,
+                                bool remove_chunks = false,
+                                int n_chunks_to_buffer = -1) const
     -> std::unique_ptr<ChunkStoreReader>;
   auto SetReaderOptions(bool ordered = false, bool remove_chunks = false,
                         int n_chunks_to_buffer = -1) -> AsyncNode&;
@@ -171,14 +173,14 @@ AsyncNode*& operator>>(AsyncNode*& node, T& value) {
 
 template <typename T>
 std::unique_ptr<AsyncNode>& operator>>(std::unique_ptr<AsyncNode>& node,
-                                              T& value) {
+                                       T& value) {
   *node >> value;
   return node;
 }
 
 template <typename T>
 std::shared_ptr<AsyncNode>& operator>>(std::shared_ptr<AsyncNode>& node,
-                                              T& value) {
+                                       T& value) {
   *node >> value;
   return node;
 }

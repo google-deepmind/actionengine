@@ -7,8 +7,7 @@
 namespace eglt {
 
 auto ChunkStore::Get(int seq_id, float timeout) -> absl::StatusOr<base::Chunk> {
-  auto status = this->WaitForSeqId(seq_id, timeout);
-  if (!status.ok()) {
+  if (auto status = this->WaitForSeqId(seq_id, timeout); !status.ok()) {
     LOG(ERROR) << "failed to wait for seq_id: " << status;
     return status;
   }
@@ -17,8 +16,9 @@ auto ChunkStore::Get(int seq_id, float timeout) -> absl::StatusOr<base::Chunk> {
 }
 
 absl::StatusOr<base::Chunk> ChunkStore::Pop(int seq_id, float timeout) {
-  auto status = this->WaitForSeqId(seq_id, timeout);
-  if (!status.ok()) { return status; }
+  if (auto status = this->WaitForSeqId(seq_id, timeout); !status.ok()) {
+    return status;
+  }
 
   return this->PopImmediately(seq_id);
 }
@@ -34,7 +34,7 @@ absl::Status ChunkStore::Put(int seq_id, base::Chunk chunk, bool final) {
       "Cannot put chunks with seq_id > final_seq_id.");
   }
 
-  bool is_null = base::IsNullChunk(chunk);
+  const bool is_null = base::IsNullChunk(chunk);
 
   if (final) {
     final_seq_id = is_null ? seq_id - 1 : seq_id;
