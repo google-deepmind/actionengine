@@ -1,14 +1,16 @@
 #ifndef EGLT_CONCURRENCY_BASE_H_
 #define EGLT_CONCURRENCY_BASE_H_
 
+#if !defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
+
+#define __EGLT_CONCURRENCY_IMPLEMENTATION__
+#define __EGLT_CONCURRENCY_IMPLEMENTATION_NOT_IMPLEMENTED__
+
 #include <cstddef>
 #include <memory>
 #include <type_traits>
 
 #include "eglt/absl_headers.h"
-
-
-#if !defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
 
 namespace eglt::concurrency::impl {
 class Case {};
@@ -119,8 +121,7 @@ public:
 
 using Mutex = absl::Mutex;
 using MutexLock = absl::MutexLock;
-using ReaderMutexLock = absl::ReaderMutexLock;
-using WriterMutexLock = absl::WriterMutexLock;
+using CondVar = absl::CondVar;
 
 inline void JoinOptimally(Fiber* fiber) { fiber->Join(); }
 
@@ -140,8 +141,6 @@ inline std::unique_ptr<Fiber> NewTree(const TreeOptions&,
                                         maybe_unused]]) { return nullptr; }
 } // namespace eglt::concurrency::impl
 
-
 #endif  // !defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
-
 
 #endif  // EGLT_CONCURRENCY_BASE_H_

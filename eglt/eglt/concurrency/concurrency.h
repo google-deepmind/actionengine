@@ -5,9 +5,11 @@
 
 #include "eglt/absl_headers.h"
 
-#if !defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
+#ifndef __EGLT_CONCURRENCY_IMPLEMENTATION__
 #include "eglt/concurrency/not_implemented.h"
-#endif  // defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
+#elifdef __EGLT_CONCURRENCY_IMPLEMENTATION_BOOST_FIBER__
+#include "eglt/concurrency/boost_fiber.h"
+#endif
 
 namespace eglt::concurrency {
 using Case = impl::Case;
@@ -28,8 +30,6 @@ using PermanentEvent = impl::PermanentEvent;
 
 using Mutex = impl::Mutex;
 using MutexLock = impl::MutexLock;
-using ReaderMutexLock = impl::ReaderMutexLock;
-using WriterMutexLock = impl::WriterMutexLock;
 
 class ABSL_SCOPED_LOCKABLE TwoMutexLock {
 public:
