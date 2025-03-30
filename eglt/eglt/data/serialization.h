@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-#include <eglt/absl_headers.h>
+#include "eglt/absl_headers.h"
 
 namespace eglt {
 
@@ -21,19 +21,22 @@ class Serializer {
 public:
   virtual ~Serializer() = default;
 
-  virtual Bytes Serialize(const std::any& value) const = 0;
+  [[nodiscard]] virtual Bytes Serialize(const std::any& value) const = 0;
 
-  Bytes Serialize(const std::any& value, std::string_view mimetype) const {
+  [[nodiscard]] Bytes Serialize(const std::any& value,
+                                const std::string_view mimetype) const {
     if (serializers_.contains(mimetype)) {
       return serializers_.at(mimetype)(value);
     }
-    return Bytes();
+    return {};
   }
 
-  virtual std::optional<std::any> Deserialize(const Bytes& data) const = 0;
+  [[nodiscard]] virtual std::optional<std::any> Deserialize(
+    const Bytes& data) const = 0;
 
-  std::optional<std::any> Deserialize(const Bytes& data,
-                                      std::string_view mimetype) const {
+  [[nodiscard]] std::optional<std::any> Deserialize(
+    const Bytes& data,
+    const std::string_view mimetype) const {
     if (deserializers_.contains(mimetype)) {
       return deserializers_.at(mimetype)(data);
     }

@@ -3,10 +3,10 @@
 #include <string_view>
 #include <vector>
 
-#include <eglt/absl_headers.h>
-#include <eglt/concurrency/concurrency.h>
-#include <eglt/nodes/async_node.h>
-#include <eglt/nodes/chunk_store.h>
+#include "eglt/absl_headers.h"
+#include "eglt/concurrency/concurrency.h"
+#include "eglt/nodes/async_node.h"
+#include "eglt/nodes/chunk_store.h"
 
 namespace eglt {
 NodeMap::NodeMap(ChunkStoreFactory chunk_store_factory) :
@@ -22,21 +22,9 @@ NodeMap::NodeMap(NodeMap&& other) noexcept {
 NodeMap& NodeMap::operator=(NodeMap&& other) noexcept {
   if (this == &other) { return *this; }
 
-  // TODO (helenapankov): this is a hack to avoid deadlock by establishing a
-  // lock order. A longer term solution would be to come up with a utility
-  // function similar to std::lock to lock several mutexes in a defined order.
-  if (&mutex_ < &other.mutex_) {
-    concurrency::MutexLock this_lock(&mutex_);
-    concurrency::MutexLock other_lock(&other.mutex_);
-    nodes_ = std::move(other.nodes_);
-    chunk_store_factory_ = std::move(other.chunk_store_factory_);
-  }
-  else {
-    concurrency::MutexLock other_lock(&other.mutex_);
-    concurrency::MutexLock this_lock(&mutex_);
-    nodes_ = std::move(other.nodes_);
-    chunk_store_factory_ = std::move(other.chunk_store_factory_);
-  }
+  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+  nodes_ = std::move(other.nodes_);
+  chunk_store_factory_ = std::move(other.chunk_store_factory_);
 
   return *this;
 }
@@ -55,12 +43,14 @@ AsyncNode* NodeMap::Get(std::string_view id,
   return nodes_[id].get();
 }
 
-std::vector<AsyncNode*> NodeMap::Get(const std::vector<std::string_view>& ids,
-                                     const ChunkStoreFactory&
-                                     chunk_store_factory) {
+std::vector<AsyncNode*> NodeMap::Get(
+  const std::vector<std::string_view>& ids,
+  const ChunkStoreFactory& chunk_store_factory) {
   concurrency::MutexLock lock(&mutex_);
+
   std::vector<AsyncNode*> nodes;
   nodes.reserve(ids.size());
+
   for (const auto& id : ids) {
     if (!nodes_.contains(id)) {
       nodes_[id] = std::make_unique<AsyncNode>(

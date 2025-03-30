@@ -3,8 +3,11 @@
 
 #include <memory>
 
-#include <eglt/absl_headers.h>
-#include <eglt/concurrency/implementation.h>  // IWYU pragma: export
+#include "eglt/absl_headers.h"
+
+#if !defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
+#include "eglt/concurrency/not_implemented.h"
+#endif  // defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
 
 namespace eglt::concurrency {
 using Case = impl::Case;

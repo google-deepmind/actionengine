@@ -9,12 +9,12 @@
 #include <string_view>
 #include <vector>
 
-#include <eglt/absl_headers.h>
-#include <eglt/data/eg_structs.h>
-#include <eglt/net/stream.h>
-#include <eglt/nodes/async_node.h>
-#include <eglt/nodes/node_map.h>
-#include <eglt/util/map_util.h>
+#include "eglt/absl_headers.h"
+#include "eglt/data/eg_structs.h"
+#include "eglt/net/stream.h"
+#include "eglt/nodes/async_node.h"
+#include "eglt/nodes/node_map.h"
+#include "eglt/util/map_util.h"
 
 namespace eglt {
 

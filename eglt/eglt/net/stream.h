@@ -5,9 +5,9 @@
 #include <optional>
 #include <string>
 
-#include <eglt/absl_headers.h>
-#include <eglt/data/eg_structs.h>
-#include <eglt/data/serialization.h>
+#include "eglt/absl_headers.h"
+#include "eglt/data/eg_structs.h"
+#include "eglt/data/serialization.h"
 
 namespace eglt {
 

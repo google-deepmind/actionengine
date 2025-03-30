@@ -17,16 +17,22 @@ namespace eglt {
 
 absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
                                        Session* session) {
-  while (stream != nullptr) {
+  if (stream == nullptr) {
+    return absl::InvalidArgumentError("Stream is null.");
+  }
+
+  if (session == nullptr) {
+    return absl::InvalidArgumentError("Session is null.");
+  }
+
+  absl::Status status;
+  while (true) {
     std::optional<base::SessionMessage> message = stream->Receive();
     if (!message.has_value()) { break; }
-    if (session == nullptr) {
-      return absl::FailedPreconditionError(
-        "Got a message from stream, but session is null.");
-    }
-    auto status = session->DispatchMessage(message.value(), stream);
+    status = session->DispatchMessage(message.value(), stream);
   }
-  return absl::OkStatus();
+
+  return status;
 }
 
 std::unique_ptr<Action> MakeActionInConnection(
@@ -138,7 +144,7 @@ Service::EstablishConnection(std::shared_ptr<base::EvergreenStream>&& stream,
       connection->status =
         resolved_handler(connection->stream, connection->session);
 
-      concurrency::MutexLock lock(&mutex_);
+      concurrency::MutexLock cleanup_lock(&mutex_);
 
       streams_.erase(stream_id);
       if (streams_per_session_.contains(connection->session_id)) {
@@ -150,7 +156,6 @@ Service::EstablishConnection(std::shared_ptr<base::EvergreenStream>&& stream,
           node_maps_.erase(connection->session_id);
         }
       }
-
       connections_.erase(stream_id);
     });
 

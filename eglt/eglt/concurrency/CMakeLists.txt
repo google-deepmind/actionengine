@@ -5,7 +5,6 @@ target_precompile_headers(
     eglt_concurrency INTERFACE
     not_implemented.h
     concurrency.h
-    implementation.h
 )
 target_include_directories(
     eglt_concurrency INTERFACE

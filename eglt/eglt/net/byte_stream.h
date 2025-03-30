@@ -4,10 +4,10 @@
 #include <memory>
 #include <optional>
 
-#include <eglt/absl_headers.h>
-#include <eglt/data/eg_structs.h>
-#include <eglt/data/serialization.h>
-#include <eglt/net/stream.h>
+#include "eglt/absl_headers.h"
+#include "eglt/data/eg_structs.h"
+#include "eglt/data/serialization.h"
+#include "eglt/net/stream.h"
 
 namespace eglt {
 

@@ -7,7 +7,8 @@
 #include <utility>
 #include <vector>
 
-#include <eglt/absl_headers.h>
+#include "eglt/absl_headers.h"
+#include "eglt/data/mimetypes.h"
 
 namespace eglt {
 namespace base {
@@ -216,7 +217,7 @@ constexpr base::Chunk MakeNullChunk() {
   return base::Chunk{
     .metadata =
     base::ChunkMetadata{
-      .mimetype = "application/octet-stream",
+      .mimetype = kMimetypeBytes,
     },
     .data = "",
   };

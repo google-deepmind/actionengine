@@ -5,7 +5,7 @@
 #include <memory>
 #include <type_traits>
 
-#include <eglt/absl_headers.h>
+#include "eglt/absl_headers.h"
 
 
 #if !defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)

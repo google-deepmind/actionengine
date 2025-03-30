@@ -9,11 +9,11 @@
 #include <utility>
 #include <vector>
 
-#include <eglt/absl_headers.h>
-#include <eglt/data/eg_structs.h>
-#include <eglt/net/stream.h>
-#include <eglt/nodes/chunk_store.h>
-#include <eglt/nodes/chunk_store_io.h>
+#include "eglt/absl_headers.h"
+#include "eglt/data/eg_structs.h"
+#include "eglt/net/stream.h"
+#include "eglt/nodes/chunk_store.h"
+#include "eglt/nodes/chunk_store_io.h"
 
 namespace eglt {
 

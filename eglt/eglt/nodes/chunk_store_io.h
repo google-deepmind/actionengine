@@ -8,9 +8,9 @@
 #include <utility>
 #include <vector>
 
-#include <eglt/absl_headers.h>
-#include <eglt/concurrency/concurrency.h>
-#include <eglt/data/eg_structs.h>
+#include "eglt/absl_headers.h"
+#include "eglt/concurrency/concurrency.h"
+#include "eglt/data/eg_structs.h"
 
 namespace eglt {
 

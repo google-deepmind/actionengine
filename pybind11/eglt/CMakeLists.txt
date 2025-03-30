@@ -1,0 +1,1 @@
+pybind11_add_module(evergreen src/main.cpp)

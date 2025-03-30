@@ -4,12 +4,13 @@
 #include <string>
 #include <vector>
 
-#include <eglt/absl_headers.h>
+#include "eglt/absl_headers.h"
 
 namespace eglt::base {
 
 std::vector<std::string> Indent(std::vector<std::string> fields,
-                                int indentation, bool indent_first_line) {
+                                const int indentation,
+                                const bool indent_first_line) {
   if (fields.empty()) { return fields; }
 
   std::vector<std::string> result = std::move(fields);
@@ -22,20 +23,21 @@ std::vector<std::string> Indent(std::vector<std::string> fields,
   return result;
 }
 
-std::string Indent(std::string field, int indentation, bool indent_first_line) {
-  std::vector<std::string> lines = Indent(
+std::string Indent(std::string field, const int indentation,
+                   const bool indent_first_line) {
+  const std::vector<std::string> lines = Indent(
     absl::StrSplit(std::move(field), '\n'), indentation, indent_first_line);
 
-  return absl::StrJoin(lines,
-                       "\n",
-                       [](std::string* out, std::string_view line) {
-                         absl::StrAppend(out, line);
-                       });
+  return absl::StrJoin(
+    lines,
+    "\n",
+    [](std::string* out, const std::string_view line) {
+      absl::StrAppend(out, line);
+    });
 }
 
 bool IsNullChunk(const Chunk& chunk) {
-  return chunk.metadata.mimetype == "application/octet-stream" &&
-    chunk.data.empty();
+  return chunk.metadata.mimetype == kMimetypeBytes && chunk.data.empty();
 }
 
 } // namespace eglt::base

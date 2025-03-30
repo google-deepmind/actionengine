@@ -14,3 +14,7 @@ target_link_libraries(
     eglt_data PUBLIC
     eglt_absl_headers
 )
+target_precompile_headers(
+    eglt_data PUBLIC
+    mimetypes.h
+)
