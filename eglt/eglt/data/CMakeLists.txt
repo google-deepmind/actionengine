@@ -1,20 +1,21 @@
 add_library(
-    eglt_data STATIC
-    chunk_factories.cc
-    eg_structs.h
-    eg_structs.cc
-    serialization.h
+        eglt_data STATIC
+        chunk_factories.cc
+        eg_structs.h
+        eg_structs.cc
+        serialization.h
 )
+add_library(eglt::data ALIAS eglt_data)
 target_include_directories(
-    eglt_data PRIVATE
-    ${EGLT_PROJECT_TOP_LEVEL}
-    ${EGLT_INCLUDE_DIRS}
+        eglt_data PRIVATE
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIRS}
 )
 target_link_libraries(
-    eglt_data PUBLIC
-    eglt_absl_headers
+        eglt_data PUBLIC
+        eglt::absl_headers
 )
 target_precompile_headers(
-    eglt_data PUBLIC
-    mimetypes.h
+        eglt_data PUBLIC
+        mimetypes.h
 )

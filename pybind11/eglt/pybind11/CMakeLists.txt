@@ -2,6 +2,10 @@ pybind11_add_module(
         evergreen
         evergreen.cc
 )
+add_library(
+        eglt::pybind11 ALIAS
+        evergreen
+)
 
 target_precompile_headers(
         evergreen PRIVATE
@@ -26,14 +30,14 @@ target_sources(
 
 target_link_libraries(
         evergreen PRIVATE
-        eglt_absl_headers
-        eglt_actions
-        eglt_data
-        eglt_concurrency
-        eglt_net
-        eglt_nodes
-        eglt_service
-        eglt_util
+        eglt::absl_headers
+        eglt::actions
+        eglt::data
+        eglt::concurrency
+        eglt::net
+        eglt::nodes
+        eglt::service
+        eglt::util
 )
 
 target_include_directories(

@@ -1,4 +1,5 @@
 add_library(eglt_util INTERFACE)
+add_library(eglt::util ALIAS eglt_util)
 set_target_properties(eglt_util PROPERTIES
         LANGUAGE CXX
         LINKER_LANGUAGE CXX
@@ -15,5 +16,5 @@ target_include_directories(
 target_link_libraries(
         eglt_util
         INTERFACE
-        eglt_absl_headers
+        eglt::absl_headers
 )
