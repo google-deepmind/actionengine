@@ -26,7 +26,7 @@ class ChunkStoreReader {
   // various calls.
   // TODO(helenapankov): clarify the thread-compatibility contract and the
   // behavior of GetStatus().
-public:
+ public:
   constexpr static float kDefaultWaitTimeout = -1;
   constexpr static float kNoTimeout = -1;
 
@@ -44,7 +44,9 @@ public:
   template <typename T>
   std::optional<T> Next() {
     auto chunk = Next<base::Chunk>();
-    if (!chunk.has_value()) { return std::nullopt; }
+    if (!chunk.has_value()) {
+      return std::nullopt;
+    }
     return base::MoveAs<T>(std::move(*chunk));
   }
 
@@ -57,9 +59,9 @@ public:
     return status_;
   }
 
-private:
-  absl::StatusOr<std::optional<std::pair<int, base::Chunk>>>
-  NextInternal() const;
+ private:
+  absl::StatusOr<std::optional<std::pair<int, base::Chunk>>> NextInternal()
+      const;
 
   void RunPrefetchLoop();
 
@@ -80,8 +82,8 @@ private:
 
   std::unique_ptr<concurrency::Fiber> fiber_;
   std::unique_ptr<
-    concurrency::Channel<std::optional<std::pair<int, base::Chunk>>>>
-  buffer_;
+      concurrency::Channel<std::optional<std::pair<int, base::Chunk>>>>
+      buffer_;
   int total_chunks_read_ = 0;
 
   absl::Status status_ ABSL_GUARDED_BY(mutex_);
@@ -90,28 +92,35 @@ private:
 
 template <>
 inline std::optional<std::pair<int, base::Chunk>> ChunkStoreReader::Next() {
-  if (fiber_ == nullptr) { Run().IgnoreError(); }
+  if (fiber_ == nullptr) {
+    Run().IgnoreError();
+  }
   std::optional<std::pair<int, base::Chunk>> seq_and_chunk;
   bool ok;
-  auto deadline = (timeout_ > 0)
-    ? absl::Now() + absl::Seconds(timeout_)
-    : absl::InfiniteFuture();
+  auto deadline = (timeout_ > 0) ? absl::Now() + absl::Seconds(timeout_)
+                                 : absl::InfiniteFuture();
   int selected = concurrency::SelectUntil(
-    deadline, {buffer_->GetReader()->OnRead(&seq_and_chunk, &ok)});
+      deadline, {buffer_->GetReader()->OnRead(&seq_and_chunk, &ok)});
   if (selected == -1) {
     UpdateStatus(absl::DeadlineExceededError("Timed out waiting for chunk."));
     return std::nullopt;
   }
   UpdateStatus(absl::OkStatus());
-  if (!ok) { return std::nullopt; }
-  if (base::IsNullChunk(seq_and_chunk->second)) { return std::nullopt; }
+  if (!ok) {
+    return std::nullopt;
+  }
+  if (base::IsNullChunk(seq_and_chunk->second)) {
+    return std::nullopt;
+  }
   return seq_and_chunk;
 }
 
 template <>
 inline std::optional<base::Chunk> ChunkStoreReader::Next() {
   auto seq_and_chunk = Next<std::pair<int, base::Chunk>>();
-  if (!seq_and_chunk.has_value()) { return std::nullopt; }
+  if (!seq_and_chunk.has_value()) {
+    return std::nullopt;
+  }
   return std::move(seq_and_chunk)->second;
 }
 
@@ -123,11 +132,12 @@ ChunkStoreReader& operator>>(ChunkStoreReader& reader,
 }
 
 template <typename T>
-ChunkStoreReader& operator>>(ChunkStoreReader& reader,
-                             std::vector<T>& value) {
+ChunkStoreReader& operator>>(ChunkStoreReader& reader, std::vector<T>& value) {
   while (true) {
     auto chunk = reader.Next<T>();
-    if (!chunk.has_value()) { break; }
+    if (!chunk.has_value()) {
+      break;
+    }
     if (!reader.GetStatus().ok()) {
       LOG(ERROR) << "Error: " << reader.GetStatus() << "\n";
       break;
@@ -145,14 +155,14 @@ ChunkStoreReader* operator>>(ChunkStoreReader* reader, T& value) {
 
 template <typename T>
 std::unique_ptr<ChunkStoreReader>& operator>>(
-  std::unique_ptr<ChunkStoreReader>& reader, T& value) {
+    std::unique_ptr<ChunkStoreReader>& reader, T& value) {
   *reader >> value;
   return reader;
 }
 
 template <typename T>
 std::shared_ptr<ChunkStoreReader>& operator>>(
-  std::shared_ptr<ChunkStoreReader>& reader, T& value) {
+    std::shared_ptr<ChunkStoreReader>& reader, T& value) {
   *reader >> value;
   return reader;
 }
@@ -162,7 +172,7 @@ class ChunkStoreWriter {
   // different threads. Chunk store and buffer are only accessed by the writer
   // thread, and are only set on construction. Other fields are only accessed by
   // the internal writer fiber, so access is always synchronous.
-public:
+ public:
   explicit ChunkStoreWriter(ChunkStore* chunk_store,
                             int n_chunks_to_buffer = -1);
   ~ChunkStoreWriter() ABSL_LOCKS_EXCLUDED(mutex_);
@@ -172,7 +182,7 @@ public:
 
   template <typename T>
   absl::StatusOr<int> Put(T value, int seq = -1, bool final = false)
-  ABSL_LOCKS_EXCLUDED(mutex_) {
+      ABSL_LOCKS_EXCLUDED(mutex_) {
     return Put(base::Chunk::From(std::move(value)), seq, final);
   }
 
@@ -180,24 +190,28 @@ public:
   // inside the class body.
   template <>
   absl::StatusOr<int> Put(base::Chunk value, int seq, bool final)
-  ABSL_LOCKS_EXCLUDED(mutex_) {
+      ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     if (!accepts_puts_) {
       return absl::FailedPreconditionError(
-        "Put was called on a writer that is not accepting more puts.");
+          "Put was called on a writer that is not accepting more puts.");
     }
 
     int written_seq = seq;
-    if (seq == -1) { written_seq = total_chunks_put_; }
+    if (seq == -1) {
+      written_seq = total_chunks_put_;
+    }
     total_chunks_put_++;
 
     EnsureWriteLoop();
     max_seq_put_ = std::max(max_seq_put_, written_seq);
     if (!buffer_->GetWriter()->WriteUnlessCancelled(base::NodeFragment{
-      .chunk = std::move(value),
-      .seq = written_seq,
-      .continued = !final,
-    })) { return absl::CancelledError("Cancelled."); }
+            .chunk = std::move(value),
+            .seq = written_seq,
+            .continued = !final,
+        })) {
+      return absl::CancelledError("Cancelled.");
+    }
 
     return written_seq;
   }
@@ -215,7 +229,7 @@ public:
     return writer;
   }
 
-private:
+ private:
   void EnsureWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void SafelyCloseBuffer() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -242,7 +256,7 @@ private:
 
   std::unique_ptr<concurrency::Fiber> fiber_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<concurrency::Channel<std::optional<base::NodeFragment>>>
-  buffer_;
+      buffer_;
   absl::Status status_ ABSL_GUARDED_BY(mutex_);
 
   mutable concurrency::Mutex mutex_;
@@ -252,15 +266,16 @@ template <>
 inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
                                     base::Chunk value) {
   bool continued = true;
-  if (IsNullChunk(value)) { continued = false; }
+  if (IsNullChunk(value)) {
+    continued = false;
+  }
 
   writer.Put(std::move(value), /*seq=*/-1, /*final=*/!continued).IgnoreError();
   return writer;
 }
 
 template <typename T>
-ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
-                             std::vector<T> value) {
+ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, std::vector<T> value) {
   for (auto& element : std::move(value)) {
     writer << std::move(element);
     if (!writer.GetStatus().ok()) {
@@ -279,18 +294,18 @@ ChunkStoreWriter* operator<<(ChunkStoreWriter* writer, T value) {
 
 template <typename T>
 std::unique_ptr<ChunkStoreWriter>& operator<<(
-  std::unique_ptr<ChunkStoreWriter>& writer, T value) {
+    std::unique_ptr<ChunkStoreWriter>& writer, T value) {
   *writer << std::move(value);
   return writer;
 }
 
 template <typename T>
 std::shared_ptr<ChunkStoreWriter>& operator<<(
-  std::shared_ptr<ChunkStoreWriter>& writer, T value) {
+    std::shared_ptr<ChunkStoreWriter>& writer, T value) {
   *writer << std::move(value);
   return writer;
 }
 
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_NODES_CHUNK_STORE_IO_H_

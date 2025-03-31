@@ -28,7 +28,9 @@ absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
   absl::Status status;
   while (true) {
     std::optional<base::SessionMessage> message = stream->Receive();
-    if (!message.has_value()) { break; }
+    if (!message.has_value()) {
+      break;
+    }
     status = session->DispatchMessage(message.value(), stream);
   }
 
@@ -36,26 +38,31 @@ absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
 }
 
 std::unique_ptr<Action> MakeActionInConnection(
-  const StreamToSessionConnection& connection,
-  const std::string_view action_name,
-  const std::string_view action_id) {
+    const StreamToSessionConnection& connection,
+    const std::string_view action_name, const std::string_view action_id) {
 
-  if (connection.session == nullptr) { return nullptr; }
-  if (connection.session->GetActionRegistry() == nullptr) { return nullptr; }
+  if (connection.session == nullptr) {
+    return nullptr;
+  }
+  if (connection.session->GetActionRegistry() == nullptr) {
+    return nullptr;
+  }
 
   return connection.session->GetActionRegistry()->MakeAction(
-    action_name, action_id, connection.session->GetNodeMap(),
-    connection.stream, connection.session);
+      action_name, action_id, connection.session->GetNodeMap(),
+      connection.stream, connection.session);
 }
 
 Service::Service(ActionRegistry* action_registry,
                  EvergreenConnectionHandler connection_handler,
-                 ChunkStoreFactory chunk_store_factory) :
-  action_registry_(std::make_unique<ActionRegistry>(*action_registry)),
-  connection_handler_(std::move(connection_handler)),
-  chunk_store_factory_(std::move(chunk_store_factory)) {}
+                 ChunkStoreFactory chunk_store_factory)
+    : action_registry_(std::make_unique<ActionRegistry>(*action_registry)),
+      connection_handler_(std::move(connection_handler)),
+      chunk_store_factory_(std::move(chunk_store_factory)) {}
 
-Service::~Service() { JoinConnectionsAndCleanUp(); }
+Service::~Service() {
+  JoinConnectionsAndCleanUp();
+}
 
 base::EvergreenStream* Service::GetStream(std::string_view stream_id) const {
   concurrency::MutexLock lock(&mutex_);
@@ -67,7 +74,9 @@ base::EvergreenStream* Service::GetStream(std::string_view stream_id) const {
 
 Session* Service::GetSession(std::string_view session_id) const {
   concurrency::MutexLock lock(&mutex_);
-  if (sessions_.contains(session_id)) { return sessions_.at(session_id).get(); }
+  if (sessions_.contains(session_id)) {
+    return sessions_.at(session_id).get();
+  }
   return nullptr;
 }
 
@@ -75,7 +84,9 @@ std::vector<std::string> Service::GetSessionKeys() const {
   concurrency::MutexLock lock(&mutex_);
   std::vector<std::string> keys;
   keys.reserve(sessions_.size());
-  for (const auto& [key, _] : sessions_) { keys.push_back(key); }
+  for (const auto& [key, _] : sessions_) {
+    keys.push_back(key);
+  }
   return keys;
 }
 
@@ -96,41 +107,43 @@ Service::EstablishConnection(std::shared_ptr<base::EvergreenStream>&& stream,
 
   if (cleanup_started_) {
     return absl::FailedPreconditionError(
-      "Service is shutting down, cannot establish new connections.");
+        "Service is shutting down, cannot establish new connections.");
   }
 
   streams_.emplace(stream_id, std::move(stream));
 
   if (connections_.contains(stream_id)) {
     return absl::AlreadyExistsError(
-      absl::StrCat("Stream ", stream_id, " is already connected."));
+        absl::StrCat("Stream ", stream_id, " is already connected."));
   }
 
   if (!sessions_.contains(session_id)) {
     node_maps_.emplace(session_id, std::make_unique<NodeMap>());
     sessions_.emplace(session_id,
                       std::make_unique<Session>(
-                        /*node_map=*/node_maps_.at(session_id).get(),
-                                     /*action_registry=*/action_registry_.get(),
-                                     /*chunk_store_factory=*/
-                                     chunk_store_factory_));
+                          /*node_map=*/node_maps_.at(session_id).get(),
+                          /*action_registry=*/action_registry_.get(),
+                          /*chunk_store_factory=*/
+                          chunk_store_factory_));
   }
 
   streams_per_session_[session_id].insert(stream_id);
 
   connections_[stream_id] =
-    std::make_shared<StreamToSessionConnection>(StreamToSessionConnection{
-      .stream = streams_.at(stream_id).get(),
-      .session = sessions_.at(session_id).get(),
-      .session_id = session_id,
-      .stream_id = stream_id,
-    });
+      std::make_shared<StreamToSessionConnection>(StreamToSessionConnection{
+          .stream = streams_.at(stream_id).get(),
+          .session = sessions_.at(session_id).get(),
+          .session_id = session_id,
+          .stream_id = stream_id,
+      });
 
   EvergreenConnectionHandler resolved_handler = std::move(connection_handler);
-  if (resolved_handler == nullptr) { resolved_handler = connection_handler_; }
+  if (resolved_handler == nullptr) {
+    resolved_handler = connection_handler_;
+  }
   if (resolved_handler == nullptr) {
     LOG(FATAL)
-            << "no connection handler provided, and no default handler is set.";
+        << "no connection handler provided, and no default handler is set.";
   }
 
   // for later: Stubby streams require Accept() to be called before returning
@@ -138,26 +151,26 @@ Service::EstablishConnection(std::shared_ptr<base::EvergreenStream>&& stream,
   connections_.at(stream_id)->stream->Accept();
 
   connection_fibers_[stream_id] = concurrency::NewTree(
-    concurrency::TreeOptions(),
-    [this, stream_id, resolved_handler = std::move(resolved_handler),
-      connection = connections_.at(stream_id)]() {
-      connection->status =
-        resolved_handler(connection->stream, connection->session);
+      concurrency::TreeOptions(),
+      [this, stream_id, resolved_handler = std::move(resolved_handler),
+       connection = connections_.at(stream_id)]() {
+        connection->status =
+            resolved_handler(connection->stream, connection->session);
 
-      concurrency::MutexLock cleanup_lock(&mutex_);
+        concurrency::MutexLock cleanup_lock(&mutex_);
 
-      streams_.erase(stream_id);
-      if (streams_per_session_.contains(connection->session_id)) {
-        streams_per_session_.at(connection->session_id).erase(stream_id);
-        if (streams_per_session_.at(connection->session_id).empty()) {
-          LOG(INFO) << "session " << connection->session_id
+        streams_.erase(stream_id);
+        if (streams_per_session_.contains(connection->session_id)) {
+          streams_per_session_.at(connection->session_id).erase(stream_id);
+          if (streams_per_session_.at(connection->session_id).empty()) {
+            LOG(INFO) << "session " << connection->session_id
                       << " has no more stable connections, deleting.";
-          sessions_.erase(connection->session_id);
-          node_maps_.erase(connection->session_id);
+            sessions_.erase(connection->session_id);
+            node_maps_.erase(connection->session_id);
+          }
         }
-      }
-      connections_.erase(stream_id);
-    });
+        connections_.erase(stream_id);
+      });
 
   return connections_.at(stream_id);
 }
@@ -170,13 +183,15 @@ absl::Status Service::JoinConnection(StreamToSessionConnection* connection) {
   {
     concurrency::MutexLock lock(&mutex_);
     if (const auto node = connections_.extract(connection->stream_id);
-      !node.empty()) {
+        !node.empty()) {
       std::shared_ptr<StreamToSessionConnection> service_owned_connection =
-        std::move(node.mapped());
+          std::move(node.mapped());
     }
 
     if (const auto node = connection_fibers_.extract(connection->stream_id);
-      !node.empty()) { fiber = std::move(node.mapped()); }
+        !node.empty()) {
+      fiber = std::move(node.mapped());
+    }
   }
 
   if (fiber == nullptr) {
@@ -209,9 +224,9 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
       fibers = std::move(connection_fibers_);
       connection_fibers_.clear();
 
-      absl::flat_hash_map<std::string, std::shared_ptr<
-                            StreamToSessionConnection>>
-        connections = std::move(connections_);
+      absl::flat_hash_map<std::string,
+                          std::shared_ptr<StreamToSessionConnection>>
+          connections = std::move(connections_);
       connections_.clear();
     }
   }
@@ -234,13 +249,17 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
   // the fibers, and then join them.
   if (cancel) {
     for (const auto& [_, fiber] : fibers) {
-      if (fiber != nullptr) { fiber->Cancel(); }
+      if (fiber != nullptr) {
+        fiber->Cancel();
+      }
     }
   }
 
   for (const auto& [_, fiber] : fibers) {
-    if (fiber != nullptr) { concurrency::JoinOptimally(fiber.get()); }
+    if (fiber != nullptr) {
+      concurrency::JoinOptimally(fiber.get());
+    }
   }
 }
 
-} // namespace eglt
+}  // namespace eglt

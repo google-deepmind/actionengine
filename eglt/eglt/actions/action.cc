@@ -21,47 +21,41 @@ void ActionRegistry::Register(const std::string_view name,
 }
 
 base::ActionMessage ActionRegistry::MakeActionMessage(
-  const std::string_view name, const std::string_view id) const {
+    const std::string_view name, const std::string_view id) const {
   const ActionDefinition& def = eglt::FindOrDie(definitions_, name);
 
   std::vector<base::NamedParameter> inputs;
   inputs.reserve(def.inputs.size());
   for (auto& input : def.inputs) {
-    inputs.push_back(
-      base::NamedParameter{
-        .name = input.name, .id = absl::StrCat(id, "#", input.name)
-      });
+    inputs.push_back(base::NamedParameter{
+        .name = input.name, .id = absl::StrCat(id, "#", input.name)});
   }
 
   std::vector<base::NamedParameter> outputs;
   outputs.reserve(def.outputs.size());
   for (auto& output : def.outputs) {
-    outputs.push_back(
-      base::NamedParameter{
-        .name = output.name, .id = absl::StrCat(id, "#", output.name)
-      });
+    outputs.push_back(base::NamedParameter{
+        .name = output.name, .id = absl::StrCat(id, "#", output.name)});
   }
 
   return base::ActionMessage{
-    .name = def.name,
-    .inputs = inputs,
-    .outputs = outputs,
+      .name = def.name,
+      .inputs = inputs,
+      .outputs = outputs,
   };
 }
 
 std::unique_ptr<Action> ActionRegistry::MakeAction(
-  const std::string_view name, std::string_view id, NodeMap* node_map,
-  base::EvergreenStream* stream, Session* session) const {
+    const std::string_view name, std::string_view id, NodeMap* node_map,
+    base::EvergreenStream* stream, Session* session) const {
   std::string action_id = std::string(id);
-  if (action_id.empty()) { action_id = GenerateUUID4(); }
+  if (action_id.empty()) {
+    action_id = GenerateUUID4();
+  }
 
-  return std::make_unique<Action>(
-    eglt::FindOrDie(definitions_, name),
-    eglt::FindOrDie(handlers_, name),
-    action_id,
-    node_map,
-    stream,
-    session);
+  return std::make_unique<Action>(eglt::FindOrDie(definitions_, name),
+                                  eglt::FindOrDie(handlers_, name), action_id,
+                                  node_map, stream, session);
 }
 
 AsyncNode* Action::GetNode(const std::string_view id) const {
@@ -76,50 +70,51 @@ base::ActionMessage Action::GetActionMessage() const {
 
   std::vector<base::NamedParameter> inputs;
   inputs.reserve(def.inputs.size());
-  for (auto& input : def.inputs) {
+  for (auto& [name, _] : def.inputs) {
     inputs.push_back(
-      base::NamedParameter{
-        .name = input.name, .id = absl::StrCat(id_, "#", input.name)
-      });
+        base::NamedParameter{.name = name, .id = absl::StrCat(id_, "#", name)});
   }
 
   std::vector<base::NamedParameter> outputs;
   outputs.reserve(def.outputs.size());
-  for (auto& output : def.outputs) {
+  for (auto& [name, _] : def.outputs) {
     outputs.push_back(
-      base::NamedParameter{
-        .name = output.name, .id = absl::StrCat(id_, "#", output.name)
-      });
+        base::NamedParameter{.name = name, .id = absl::StrCat(id_, "#", name)});
   }
 
   return base::ActionMessage{
-    .name = def.name,
-    .inputs = inputs,
-    .outputs = outputs,
+      .name = def.name,
+      .inputs = inputs,
+      .outputs = outputs,
   };
 }
 
 Action::Action(ActionDefinition def, ActionHandler handler,
                const std::string_view id, NodeMap* node_map,
-               base::EvergreenStream* stream, Session* session) :
-  def_(std::move(def)),
-  handler_(std::move(handler)),
-  id_(id),
-  node_map_(node_map),
-  stream_(stream),
-  session_(session) { id_ = id.empty() ? GenerateUUID4() : std::string(id); }
+               base::EvergreenStream* stream, Session* session)
+    : def_(std::move(def)),
+      handler_(std::move(handler)),
+      id_(id),
+      node_map_(node_map),
+      stream_(stream),
+      session_(session) {
+  id_ = id.empty() ? GenerateUUID4() : std::string(id);
+}
 
 std::unique_ptr<Action> Action::FromActionMessage(
-  const base::ActionMessage& action, ActionRegistry* registry,
-  NodeMap* node_map, base::EvergreenStream* stream, Session* session) {
+    const base::ActionMessage& action, ActionRegistry* registry,
+    NodeMap* node_map, base::EvergreenStream* stream, Session* session) {
   const auto inputs = action.inputs;
   const auto outputs = action.outputs;
 
   std::string action_id_src;
-  if (inputs.empty()) { action_id_src = outputs[0].id; }
-  else { action_id_src = inputs[0].id; }
+  if (inputs.empty()) {
+    action_id_src = outputs[0].id;
+  } else {
+    action_id_src = inputs[0].id;
+  }
   auto action_id_parts =
-    std::vector<std::string>(absl::StrSplit(action_id_src, '#'));
+      std::vector<std::string>(absl::StrSplit(action_id_src, '#'));
   std::string action_id = action_id_parts[0];
 
   std::vector<std::string> input_names;
@@ -134,13 +129,10 @@ std::unique_ptr<Action> Action::FromActionMessage(
   }
 
   return std::make_unique<Action>(
-    /*def=*/registry->GetDefinition(action.name),
-            /*handler=*/
-            registry->GetHandler(action.name),
-            /*id=*/
-            action_id,
-            node_map,
-            stream,
-            session);
+      /*def=*/registry->GetDefinition(action.name),
+      /*handler=*/
+      registry->GetHandler(action.name),
+      /*id=*/
+      action_id, node_map, stream, session);
 }
-} // namespace eglt
+}  // namespace eglt

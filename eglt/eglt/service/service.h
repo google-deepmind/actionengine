@@ -7,7 +7,6 @@
 #include <string_view>
 #include <vector>
 
-#include "eglt/absl_headers.h"
 #include "eglt/actions/action.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/net/stream.h"
@@ -23,18 +22,18 @@ struct StreamToSessionConnection {
   base::EvergreenStream* stream = nullptr;
   Session* session = nullptr;
 
-  std::string session_id; // dead sessions may lose their id.
-  std::string stream_id; // dead streams may lose their id.
+  std::string session_id;  // dead sessions may lose their id.
+  std::string stream_id;   // dead streams may lose their id.
 
   absl::Status status;
 };
 
 std::unique_ptr<Action> MakeActionInConnection(
-  const StreamToSessionConnection& connection, std::string_view action_name,
-  std::string_view action_id = "");
+    const StreamToSessionConnection& connection, std::string_view action_name,
+    std::string_view action_id = "");
 
 using EvergreenConnectionHandler =
-std::function<absl::Status(base::EvergreenStream*, Session*)>;
+    std::function<absl::Status(base::EvergreenStream*, Session*)>;
 
 absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
                                        Session* session);
@@ -61,11 +60,11 @@ class Service : public std::enable_shared_from_this<Service> {
   // joining all the connections and cleaning up all the fibers. However, the
   // Service object itself will not be destroyed until all the connections have
   // been joined.
-public:
+ public:
   explicit Service(
-    ActionRegistry* action_registry = nullptr,
-    EvergreenConnectionHandler connection_handler = RunSimpleEvergreenSession,
-    ChunkStoreFactory chunk_store_factory = {});
+      ActionRegistry* action_registry = nullptr,
+      EvergreenConnectionHandler connection_handler = RunSimpleEvergreenSession,
+      ChunkStoreFactory chunk_store_factory = {});
 
   ~Service();
 
@@ -77,16 +76,16 @@ public:
   auto GetSessionKeys() const -> std::vector<std::string>;
 
   auto EstablishConnection(
-    std::shared_ptr<base::EvergreenStream>&& stream,
-    EvergreenConnectionHandler connection_handler = nullptr)
-    -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
+      std::shared_ptr<base::EvergreenStream>&& stream,
+      EvergreenConnectionHandler connection_handler = nullptr)
+      -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto JoinConnection(StreamToSessionConnection* connection) -> absl::Status;
 
   auto SetActionRegistry(const ActionRegistry& action_registry) const -> void;
 
-private:
+ private:
   void JoinConnectionsAndCleanUp(bool cancel = false)
-  ABSL_LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   std::unique_ptr<ActionRegistry> action_registry_;
   EvergreenConnectionHandler connection_handler_;
@@ -94,24 +93,24 @@ private:
 
   mutable concurrency::Mutex mutex_;
   absl::flat_hash_map<std::string, std::shared_ptr<base::EvergreenStream>>
-  streams_ ABSL_GUARDED_BY(mutex_);
+      streams_ ABSL_GUARDED_BY(mutex_);
   // for now, we only support one-to-one session-stream mapping, therefore we
   // use the stream id as the session id.
   absl::flat_hash_map<std::string, std::unique_ptr<NodeMap>> node_maps_
-  ABSL_GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, std::unique_ptr<Session>> sessions_
-  ABSL_GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, std::shared_ptr<StreamToSessionConnection>>
-  connections_ ABSL_GUARDED_BY(mutex_);
+      connections_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>>
-  streams_per_session_ ABSL_GUARDED_BY(mutex_);
+      streams_per_session_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, std::unique_ptr<concurrency::Fiber>>
-  connection_fibers_ ABSL_GUARDED_BY(mutex_);
+      connection_fibers_ ABSL_GUARDED_BY(mutex_);
 
   bool cleanup_started_ ABSL_GUARDED_BY(mutex_) = false;
   concurrency::PermanentEvent cleanup_done_;
 };
 
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_SERVICE_SERVICE_H_

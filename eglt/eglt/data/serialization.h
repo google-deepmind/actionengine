@@ -18,7 +18,7 @@ using MimeSerializer = std::function<Bytes(const std::any&)>;
 using MimeDeserializer = std::function<std::optional<std::any>(const Bytes&)>;
 
 class Serializer {
-public:
+ public:
   virtual ~Serializer() = default;
 
   [[nodiscard]] virtual Bytes Serialize(const std::any& value) const = 0;
@@ -32,11 +32,10 @@ public:
   }
 
   [[nodiscard]] virtual std::optional<std::any> Deserialize(
-    const Bytes& data) const = 0;
+      const Bytes& data) const = 0;
 
   [[nodiscard]] std::optional<std::any> Deserialize(
-    const Bytes& data,
-    const std::string_view mimetype) const {
+      const Bytes& data, const std::string_view mimetype) const {
     if (deserializers_.contains(mimetype)) {
       return deserializers_.at(mimetype)(data);
     }
@@ -53,11 +52,11 @@ public:
     deserializers_[mimetype] = std::move(deserializer);
   }
 
-private:
+ private:
   absl::flat_hash_map<std::string, MimeSerializer> serializers_;
   absl::flat_hash_map<std::string, MimeDeserializer> deserializers_;
 };
 
-} // namespace eglt
+}  // namespace eglt
 
-#endif //EGLT_DATA_SERIALIZATION_H_
+#endif  //EGLT_DATA_SERIALIZATION_H_

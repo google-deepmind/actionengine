@@ -1,0 +1,154 @@
+#include "eglt/pybind11/service.h"
+
+#include <memory>
+#include <string>
+#include <string_view>
+
+#include <pybind11/attr.h>
+#include <pybind11/pybind11.h>
+
+#include "eglt/data/eg_structs.h"
+#include "eglt/net/stream.h"
+#include "eglt/nodes/node_map.h"
+#include "eglt/pybind11/chunk_store.h"  // IWYU pragma: keep
+#include "eglt/pybind11/pybind11_headers.h"
+#include "eglt/pybind11/utils.h"
+#include "eglt/service/service.h"
+#include "eglt/service/session.h"
+
+namespace eglt::pybindings {
+
+namespace py = ::pybind11;
+
+void BindStream(py::handle scope, std::string_view name) {
+  const std::string name_str(name);
+
+  py::class_<base::EvergreenStream, std::shared_ptr<base::EvergreenStream>>(
+      scope, absl::StrCat(name, "VirtualBase").c_str())
+      .def("send", &base::EvergreenStream::Send,
+           py::call_guard<py::gil_scoped_release>())
+      .def("receive", &base::EvergreenStream::Receive,
+           py::call_guard<py::gil_scoped_release>())
+      .def("accept", &base::EvergreenStream::Accept)
+      .def("start", &base::EvergreenStream::Start)
+      .def("close", &base::EvergreenStream::HalfClose)
+      .def("get_last_send_status", &base::EvergreenStream::GetLastSendStatus)
+      .def("get_id", &base::EvergreenStream::GetId);
+
+  py::class_<PyEvergreenStream, base::EvergreenStream,
+             std::shared_ptr<PyEvergreenStream>>(scope, name_str.c_str())
+      .def(py::init<>(), pybindings::keep_event_loop_memo())
+      .def(MakeSameObjectRefConstructor<PyEvergreenStream>())
+      .def("send", &PyEvergreenStream::Send, py::arg("message"),
+           py::call_guard<py::gil_scoped_release>())
+      .def("receive", &PyEvergreenStream::Receive,
+           py::call_guard<py::gil_scoped_release>())
+      .def("accept", &PyEvergreenStream::Accept)
+      .def("start", &PyEvergreenStream::Start)
+      .def("close", &PyEvergreenStream::HalfClose)
+      .def("get_last_send_status", &PyEvergreenStream::GetLastSendStatus)
+      .def("get_id", &PyEvergreenStream::GetId);
+}
+
+void BindSession(py::handle scope, std::string_view name) {
+  py::class_<Session, std::shared_ptr<Session>>(scope,
+                                                std::string(name).c_str())
+      .def(py::init([](NodeMap* node_map = nullptr,
+                       ActionRegistry* action_registry = nullptr) {
+             return std::make_shared<Session>(node_map, action_registry);
+           }),
+           py::arg("node_map"), py::arg_v("action_registry", nullptr))
+      .def(MakeSameObjectRefConstructor<Session>())
+      .def(
+          "get_node",
+          [](const std::shared_ptr<Session>& self, const std::string_view id,
+             const ChunkStoreFactory& chunk_store_factory = {}) {
+            return ShareWithNoDeleter(self->GetNode(id, chunk_store_factory));
+          },
+          py::arg_v("id", ""), py::arg_v("chunk_store_factory", py::none()))
+      .def("dispatch_from",
+           [](const std::shared_ptr<Session>& self,
+              base::EvergreenStream* stream) { self->DispatchFrom(stream); })
+      .def("dispatch_message", &Session::DispatchMessage,
+           py::call_guard<py::gil_scoped_release>())
+      .def("get_node_map",
+           [](const std::shared_ptr<Session>& self) {
+             return ShareWithNoDeleter(self->GetNodeMap());
+           })
+      .def("get_action_registry",
+           [](const std::shared_ptr<Session>& self) {
+             return ShareWithNoDeleter(self->GetActionRegistry());
+           })
+      .def("set_action_registry", &Session::SetActionRegistry,
+           py::arg("action_registry"));
+}
+
+void BindService(py::handle scope, std::string_view name) {
+  py::class_<Service, std::shared_ptr<Service>>(scope,
+                                                std::string(name).c_str())
+      .def(py::init([](ActionRegistry* action_registry = nullptr,
+                       EvergreenConnectionHandler connection_handler =
+                           RunSimpleEvergreenSession) {
+             if (connection_handler == nullptr) {
+               connection_handler = RunSimpleEvergreenSession;
+             }
+             return std::make_shared<Service>(action_registry,
+                                              std::move(connection_handler));
+           }),
+           py::arg("action_registry"),
+           py::arg_v("connection_handler", py::none()))
+      .def("get_stream",
+           [](const std::shared_ptr<Service>& self,
+              const std::string& stream_id) {
+             return ShareWithNoDeleter(self->GetStream(stream_id));
+           })
+      .def("get_session",
+           [](const std::shared_ptr<Service>& self,
+              const std::string& session_id) {
+             return ShareWithNoDeleter(self->GetSession(session_id));
+           })
+      .def("get_session_keys", &Service::GetSessionKeys,
+           py::call_guard<py::gil_scoped_release>())
+      .def("establish_connection",
+           [](const std::shared_ptr<Service>& self,
+              const std::shared_ptr<PyEvergreenStream>& stream) {
+             return self->EstablishConnection(stream);
+           })
+      .def("join_connection", &Service::JoinConnection,
+           py::call_guard<py::gil_scoped_release>())
+      .def("set_action_registry", &Service::SetActionRegistry,
+           py::arg("action_registry"));
+}
+
+void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
+  py::class_<StreamToSessionConnection,
+             std::shared_ptr<StreamToSessionConnection>>(
+      scope, std::string(name).c_str())
+      .def(MakeSameObjectRefConstructor<StreamToSessionConnection>())
+      .def("get_stream",
+           [](const StreamToSessionConnection& self) {
+             return ShareWithNoDeleter(
+                 dynamic_cast<PyEvergreenStream*>(self.stream));
+           })
+      .def("get_session",
+           [](const StreamToSessionConnection& self) {
+             return ShareWithNoDeleter(self.session);
+           })
+      .def_readwrite("stream_id", &StreamToSessionConnection::stream_id)
+      .def_readwrite("session_id", &StreamToSessionConnection::session_id);
+}
+
+pybind11::module_ MakeServiceModule(pybind11::module_ scope,
+                                    std::string_view module_name) {
+  pybind11::module_ service = scope.def_submodule(
+      std::string(module_name).c_str(), "Evergreen v2 Service interface.");
+
+  BindStream(service, "EvergreenStream");
+  BindSession(service, "Session");
+  BindService(service, "Service");
+  BindStreamToSessionConnection(service, "StreamToSessionConnection");
+
+  return service;
+}
+
+}  // namespace eglt::pybindings

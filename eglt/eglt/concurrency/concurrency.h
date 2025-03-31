@@ -5,9 +5,9 @@
 
 #include "eglt/absl_headers.h"
 
-#ifndef __EGLT_CONCURRENCY_IMPLEMENTATION__
+#if !defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
 #include "eglt/concurrency/not_implemented.h"
-#elifdef __EGLT_CONCURRENCY_IMPLEMENTATION_BOOST_FIBER__
+#elif defined(__EGLT_CONCURRENCY_IMPLEMENTATION_BOOST_FIBER__)
 #include "eglt/concurrency/boost_fiber.h"
 #endif
 
@@ -32,10 +32,10 @@ using Mutex = impl::Mutex;
 using MutexLock = impl::MutexLock;
 
 class ABSL_SCOPED_LOCKABLE TwoMutexLock {
-public:
+ public:
   explicit TwoMutexLock(Mutex* absl_nonnull mu1, Mutex* absl_nonnull mu2)
-  ABSL_EXCLUSIVE_LOCK_FUNCTION(mu1, mu2)
-    : mu1_(mu1), mu2_(mu2) {
+      ABSL_EXCLUSIVE_LOCK_FUNCTION(mu1, mu2)
+      : mu1_(mu1), mu2_(mu2) {
     if (ABSL_PREDICT_FALSE(mu1_ == mu2_)) {
       mu1_->Lock();
       return;
@@ -44,15 +44,14 @@ public:
     if (mu1 < mu2) {
       mu1_->Lock();
       mu2_->Lock();
-    }
-    else {
+    } else {
       mu2_->Lock();
       mu1_->Lock();
     }
   }
 
-  TwoMutexLock(const TwoMutexLock&) = delete; // NOLINT(runtime/mutex)
-  TwoMutexLock(TwoMutexLock&&) = delete; // NOLINT(runtime/mutex)
+  TwoMutexLock(const TwoMutexLock&) = delete;  // NOLINT(runtime/mutex)
+  TwoMutexLock(TwoMutexLock&&) = delete;       // NOLINT(runtime/mutex)
   TwoMutexLock& operator=(const TwoMutexLock&) = delete;
   TwoMutexLock& operator=(TwoMutexLock&&) = delete;
 
@@ -65,32 +64,39 @@ public:
     if (mu1_ < mu2_) {
       mu2_->Unlock();
       mu1_->Unlock();
-    }
-    else {
+    } else {
       mu1_->Unlock();
       mu2_->Unlock();
     }
   }
 
-private:
+ private:
   Mutex* absl_nonnull const mu1_;
   Mutex* absl_nonnull const mu2_;
 };
 
-inline void JoinOptimally(Fiber* fiber) { impl::JoinOptimally(fiber); }
+inline void JoinOptimally(Fiber* fiber) {
+  impl::JoinOptimally(fiber);
+}
 
-inline bool Cancelled() { return impl::Cancelled(); }
+inline bool Cancelled() {
+  return impl::Cancelled();
+}
 
-inline Case OnCancel() { return impl::OnCancel(); }
+inline Case OnCancel() {
+  return impl::OnCancel();
+}
 
-inline int Select(const CaseArray& cases) { return impl::Select(cases); }
+inline int Select(const CaseArray& cases) {
+  return impl::Select(cases);
+}
 
 inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
   return impl::SelectUntil(deadline, cases);
 }
 
-inline void
-Detach(const TreeOptions& options, absl::AnyInvocable<void()>&& fn) {
+inline void Detach(const TreeOptions& options,
+                   absl::AnyInvocable<void()>&& fn) {
   impl::Detach(options, std::move(fn));
 }
 
@@ -98,6 +104,6 @@ inline std::unique_ptr<Fiber> NewTree(const TreeOptions& options,
                                       absl::AnyInvocable<void()>&& fn) {
   return impl::NewTree(options, std::move(fn));
 }
-} // namespace eglt::concurrency
+}  // namespace eglt::concurrency
 
 #endif  // EGLT_CONCURRENCY_CONCURRENCY_H_

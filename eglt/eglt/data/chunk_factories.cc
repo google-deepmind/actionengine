@@ -8,7 +8,9 @@
 namespace eglt::base {
 
 template <>
-Chunk ConstructFrom(std::nullptr_t) { return MakeNullChunk(); }
+Chunk ConstructFrom(std::nullptr_t) {
+  return MakeNullChunk();
+}
 
 template <>
 Chunk ConstructFrom(std::string value) {
@@ -31,12 +33,10 @@ template <>
 absl::StatusOr<std::string> MoveAsAndReturnStatus(Chunk value) {
   if (!MimetypeIsTextual(value.metadata.mimetype)) {
     return absl::InvalidArgumentError(
-      absl::StrCat("Cannot move as std::string from a non-textual chunk: ",
-                   value.metadata.mimetype));
+        absl::StrCat("Cannot move as std::string from a non-textual chunk: ",
+                     value.metadata.mimetype));
   }
   return std::move(value.data);
 }
 
-} // namespace eglt::base
-
-
+}  // namespace eglt::base

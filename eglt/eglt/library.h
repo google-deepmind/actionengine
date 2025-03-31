@@ -6,4 +6,4 @@
 
 void hello();
 
-#endif //EGLT_OSS_LIBRARY_H
+#endif  //EGLT_OSS_LIBRARY_H

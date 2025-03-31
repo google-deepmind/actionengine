@@ -10,13 +10,12 @@
 
 namespace eglt {
 
-EvergreenByteStream::EvergreenByteStream(SendBytesT send_bytes,
-                                         ReceiveBytesT receive_bytes,
-                                         const std::shared_ptr<Serializer>&
-                                         serializer) :
-  send_bytes_(std::move(send_bytes)),
-  receive_bytes_(std::move(receive_bytes)),
-  serializer_(serializer) {}
+EvergreenByteStream::EvergreenByteStream(
+    SendBytesT send_bytes, ReceiveBytesT receive_bytes,
+    const std::shared_ptr<Serializer>& serializer)
+    : send_bytes_(std::move(send_bytes)),
+      receive_bytes_(std::move(receive_bytes)),
+      serializer_(serializer) {}
 
 absl::Status EvergreenByteStream::SendBytes(Bytes bytes) const {
   return send_bytes_(std::move(bytes));
@@ -29,19 +28,25 @@ absl::Status EvergreenByteStream::Send(base::SessionMessage message) const {
 
 std::optional<Bytes> EvergreenByteStream::ReceiveBytes() const {
   std::optional<Bytes> data = receive_bytes_();
-  if (!data.has_value()) { return std::nullopt; }
+  if (!data.has_value()) {
+    return std::nullopt;
+  }
 
   return *data;
 }
 
 std::optional<base::SessionMessage> EvergreenByteStream::Receive() const {
   const std::optional<Bytes> data = receive_bytes_();
-  if (!data.has_value()) { return std::nullopt; }
+  if (!data.has_value()) {
+    return std::nullopt;
+  }
 
   auto message = serializer_->Deserialize(*data);
-  if (!message.has_value()) { return std::nullopt; }
+  if (!message.has_value()) {
+    return std::nullopt;
+  }
 
   return std::any_cast<base::SessionMessage>(*message);
 }
 
-} // namespace eglt
+}  // namespace eglt

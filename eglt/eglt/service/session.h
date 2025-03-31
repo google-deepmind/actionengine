@@ -16,10 +16,10 @@ namespace eglt {
 class ActionRegistry;
 
 using DebugHandler =
-std::function<void(const base::SessionMessage&, base::EvergreenStream*)>;
+    std::function<void(const base::SessionMessage&, base::EvergreenStream*)>;
 
 class Session {
-public:
+ public:
   explicit Session(NodeMap* node_map, ActionRegistry* action_registry = nullptr,
                    ChunkStoreFactory chunk_store_factory = {});
   ~Session();
@@ -28,8 +28,8 @@ public:
   Session& operator=(const Session& other) = delete;
 
   [[nodiscard]] AsyncNode* GetNode(
-    std::string_view id,
-    ChunkStoreFactory chunk_store_factory = {}) const;
+      std::string_view id,
+      const ChunkStoreFactory& chunk_store_factory = {}) const;
 
   void DispatchFrom(base::EvergreenStream* stream);
   absl::Status DispatchMessage(base::SessionMessage message,
@@ -48,17 +48,17 @@ public:
     action_registry_ = action_registry;
   }
 
-private:
+ private:
   void JoinDispatchers(bool cancel = false);
   absl::flat_hash_map<base::EvergreenStream*,
                       std::unique_ptr<concurrency::Fiber>>
-  dispatch_tasks_;
+      dispatch_tasks_;
 
   NodeMap* node_map_ = nullptr;
   ActionRegistry* action_registry_ = nullptr;
   ChunkStoreFactory chunk_store_factory_;
 };
 
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_SERVICE_SESSION_H_

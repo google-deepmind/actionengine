@@ -14,12 +14,12 @@ namespace eglt {
 using SendBytesT = std::function<absl::Status(Bytes bytes)>;
 using ReceiveBytesT = std::function<std::optional<Bytes>()>;
 
-} // namespace eglt
+}  // namespace eglt
 
 namespace eglt::base {
 
 class EvergreenStream {
-public:
+ public:
   virtual ~EvergreenStream() = default;
 
   virtual auto Send(SessionMessage message) -> absl::Status = 0;
@@ -36,10 +36,11 @@ public:
   [[nodiscard]] virtual auto GetImpl() const -> void* { return nullptr; }
 
   template <typename T>
-  auto GetImpl() const -> T* { return static_cast<T*>(GetImpl()); }
+  auto GetImpl() const -> T* {
+    return static_cast<T*>(GetImpl());
+  }
 };
 
-} // namespace eglt::base
-
+}  // namespace eglt::base
 
 #endif  // EGLT_NET_STREAM_H_

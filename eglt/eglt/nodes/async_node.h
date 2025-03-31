@@ -23,9 +23,8 @@ absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream* stream,
                                           base::NodeFragment&& fragment);
 
 class AsyncNode {
-public:
-  explicit AsyncNode(std::string_view id = "",
-                     NodeMap* node_map = nullptr,
+ public:
+  explicit AsyncNode(std::string_view id = "", NodeMap* node_map = nullptr,
                      std::unique_ptr<ChunkStore> chunk_store = nullptr);
 
   AsyncNode(AsyncNode& other) = delete;
@@ -50,7 +49,7 @@ public:
   auto Put(base::NodeFragment value, int seq_id, bool final) -> absl::Status {
     bool explicitly_final = !value.continued && value.seq != -1;
     bool chunk_is_null =
-      value.chunk.has_value() && base::IsNullChunk(*value.chunk);
+        value.chunk.has_value() && base::IsNullChunk(*value.chunk);
 
     // if the node fragment contains a null chunk, we make sure that it is
     // marked as final.
@@ -72,7 +71,9 @@ public:
     if (!default_reader_->GetStatus().ok()) {
       return default_reader_->GetStatus();
     }
-    if (!next.has_value()) { return std::nullopt; }
+    if (!next.has_value()) {
+      return std::nullopt;
+    }
     return next;
   }
 
@@ -88,7 +89,7 @@ public:
   [[nodiscard]] auto MakeReader(bool ordered = false,
                                 bool remove_chunks = false,
                                 int n_chunks_to_buffer = -1) const
-    -> std::unique_ptr<ChunkStoreReader>;
+      -> std::unique_ptr<ChunkStoreReader>;
   auto SetReaderOptions(bool ordered = false, bool remove_chunks = false,
                         int n_chunks_to_buffer = -1) -> AsyncNode&;
   auto ResetReader() -> AsyncNode&;
@@ -99,19 +100,19 @@ public:
   template <typename T>
   friend AsyncNode& operator<<(AsyncNode& node, T value);
 
-private:
+ private:
   auto EnsureReader(bool ordered = false, bool remove_chunks = false,
                     int n_chunks_to_buffer = -1) -> void;
 
   auto EnsureWriter(int n_chunks_to_buffer = -1) -> void;
 
   auto WaitForChildren()
-    -> absl::StatusOr<std::vector<std::vector<base::Chunk>>>;
+      -> absl::StatusOr<std::vector<std::vector<base::Chunk>>>;
 
   auto PutFragment(base::NodeFragment fragment, int seq_id = -1)
-    -> absl::Status;
+      -> absl::Status;
   auto PutChunk(base::Chunk chunk, int seq_id = -1, bool final = false)
-    -> absl::Status;
+      -> absl::Status;
 
   NodeMap* node_map_ = nullptr;
   std::unique_ptr<ChunkStore> chunk_store_;
@@ -257,6 +258,6 @@ std::shared_ptr<AsyncNode>& operator<<(std::shared_ptr<AsyncNode>& node,
   return node;
 }
 
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_NODES_ASYNC_NODE_H_

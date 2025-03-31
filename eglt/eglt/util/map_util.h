@@ -21,6 +21,6 @@ const Value& FindOrDie(const absl::flat_hash_map<RecordKey, Value>& map,
   CHECK(it != map.end());
   return it->second;
 }
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_UTIL_MAP_UTIL_H_

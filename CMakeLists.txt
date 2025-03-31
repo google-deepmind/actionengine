@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wthread-safety -Werror=thread-safety")
 
 set(EGLT_PROJECT_TOP_LEVEL ${CMAKE_CURRENT_SOURCE_DIR}/eglt)
 set(EGLT_PROJECT_ROOT ${EGLT_PROJECT_TOP_LEVEL}/eglt)
+set(EGLT_PYBIND11_TOP_LEVEL ${CMAKE_CURRENT_SOURCE_DIR}/pybind11)
 
 set(EGLT_THIRD_PARTY_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 set(EGLT_THIRD_PARTY_INSTALL_ROOT ${EGLT_THIRD_PARTY_ROOT}/build_deps)
@@ -62,6 +63,7 @@ set(EGLT_INCLUDE_DIRS
 
 
 add_subdirectory(eglt)
+add_subdirectory(pybind11/eglt/pybind11)
 
 add_library(eglt-oss SHARED ${EGLT_PROJECT_ROOT}/library.cpp)
 target_link_libraries(eglt-oss eglt_absl_headers eglt_actions eglt_data eglt_concurrency eglt_nodes eglt_net eglt_util)

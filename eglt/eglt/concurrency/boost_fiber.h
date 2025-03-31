@@ -22,7 +22,8 @@ static void InitRand32() {
   // GoogleOnceInit is an acquire barrier on remote-cpus.
   uint32_t seed = absl::Uniform<uint32_t>(absl::BitGen());
   // Avoid 0 which generates a sequence of 0s.
-  if (seed == 0) seed = 1;
+  if (seed == 0)
+    seed = 1;
   last_rand32.store(seed, std::memory_order_release);
 }
 
@@ -34,13 +35,13 @@ static uint32_t Rand32() {
   absl::call_once(init_rand32_once, InitRand32);
   uint32_t r = last_rand32.load(std::memory_order_relaxed);
   r = (r << 1) ^
-    ((static_cast<int32_t>(r) >> 31) & poly); // shift sign-extends
+      ((static_cast<int32_t>(r) >> 31) & poly);  // shift sign-extends
   last_rand32.store(r, std::memory_order_relaxed);
   return r;
 }
 
 class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
-public:
+ public:
   Mutex();
   ~Mutex();
 
@@ -49,29 +50,31 @@ public:
 
   friend class CondVar;
 
-private:
+ private:
   boost::fibers::mutex& GetImpl() { return mu_; }
   boost::fibers::mutex mu_;
 };
 
 class ABSL_SCOPED_LOCKABLE MutexLock {
-public:
+ public:
   explicit MutexLock(Mutex* absl_nonnull mu) ABSL_EXCLUSIVE_LOCK_FUNCTION(mu)
-    : mu_(mu) { this->mu_->Lock(); }
+      : mu_(mu) {
+    this->mu_->Lock();
+  }
 
-  MutexLock(const MutexLock&) = delete; // NOLINT(runtime/mutex)
-  MutexLock(MutexLock&&) = delete; // NOLINT(runtime/mutex)
+  MutexLock(const MutexLock&) = delete;  // NOLINT(runtime/mutex)
+  MutexLock(MutexLock&&) = delete;       // NOLINT(runtime/mutex)
   MutexLock& operator=(const MutexLock&) = delete;
   MutexLock& operator=(MutexLock&&) = delete;
 
   ~MutexLock() ABSL_UNLOCK_FUNCTION() { this->mu_->Unlock(); }
 
-private:
+ private:
   Mutex* absl_nonnull const mu_;
 };
 
 class CondVar {
-public:
+ public:
   CondVar();
 
   void Wait(Mutex* absl_nonnull mu) { return cv_.wait(mu->GetImpl()); }
@@ -82,9 +85,11 @@ public:
   }
 
   bool WaitWithDeadline(Mutex* absl_nonnull mu, const absl::Time deadline) {
-    const cv_status status = cv_.wait_until(mu->GetImpl(),
-                                            absl::ToChronoTime(deadline));
-    if (status == cv_status::timeout) { return false; }
+    const cv_status status =
+        cv_.wait_until(mu->GetImpl(), absl::ToChronoTime(deadline));
+    if (status == cv_status::timeout) {
+      return false;
+    }
     return true;
   }
 
@@ -92,7 +97,7 @@ public:
 
   void SignalAll() { cv_.notify_all(); }
 
-private:
+ private:
   boost::fibers::condition_variable_any cv_;
   CondVar(const CondVar&) = delete;
   CondVar& operator=(const CondVar&) = delete;
@@ -117,7 +122,7 @@ struct Case {
 struct CaseState;
 
 class Selectable {
-public:
+ public:
   virtual ~Selectable() = default;
 
   virtual bool Handle(CaseState* c, bool enqueue) = 0;
@@ -132,7 +137,9 @@ struct CaseState {
   CaseState* next;
 
   [[nodiscard]] bool Pick() const {
-    if (selector->picked != Selector::kNonePicked) { return false; }
+    if (selector->picked != Selector::kNonePicked) {
+      return false;
+    }
 
     selector->picked = index;
     selector->cv.Signal();
@@ -142,7 +149,7 @@ struct CaseState {
 };
 
 class PermanentEvent final : public Selectable {
-public:
+ public:
   PermanentEvent() = default;
 
   void Notify() {
@@ -166,7 +173,9 @@ public:
     MutexLock event_lock(&mutex_);
     MutexLock selector_lock(&case_state->selector->mutex);
 
-    if (notified_) { return case_state->Pick(); }
+    if (notified_) {
+      return case_state->Pick();
+    }
 
     return false;
   }
@@ -175,7 +184,7 @@ public:
     MutexLock event_lock(&mutex_);
   }
 
-private:
+ private:
   mutable Mutex mutex_;
   CondVar cv_;
   bool notified_ ABSL_GUARDED_BY(mutex_) = false;
@@ -189,7 +198,7 @@ template <typename T>
 class ChannelReader {
   // Implementers of this class should ideally mimic google3's thread::Reader.
   // The required behaviours are described in method comments below.
-public:
+ public:
   // Block until either
   // (a) the next item has been read into *item; returns true.
   // (b) Close() has been called on the corresponding writer and
@@ -216,7 +225,7 @@ template <typename T>
 class ChannelWriter {
   // Implementers of this class should ideally mimic google3's thread::Writer.
   // The required behaviours are described in method comments below.
-public:
+ public:
   // Blocks until the channel is able to accept a value (for a description of
   // buffering see Channel()) and writes "item" to the channel.
   //
@@ -243,7 +252,7 @@ template <typename T>
 class Channel {
   // Implementers of this class should ideally mimic google3's thread::Channel.
   // The required behaviours are described in method comments below.
-public:
+ public:
   static_assert(std::is_move_assignable_v<T>,
                 "Channel<T> requires T to be MoveAssignable.");
 
@@ -263,7 +272,7 @@ struct FiberProperties {
 };
 
 class Fiber {
-public:
+ public:
   template <typename F,
             // Avoid binding Fiber(const Fiber&) or Fiber(Fiber):
             typename = std::invoke_result_t<F>>
@@ -271,7 +280,9 @@ public:
 
   void Cancel() {
     FiberProperties& props = GetProperties();
-    if (props.cancelled) { return; }
+    if (props.cancelled) {
+      return;
+    }
     props.cancelled = true;
     props.cancelled_event_.Notify();
   }
@@ -284,7 +295,7 @@ public:
   friend void Detach(const TreeOptions& options,
                      absl::AnyInvocable<void()>&& fn);
 
-private:
+ private:
   FiberProperties& GetProperties() {
     return fiber_.properties<FiberProperties>();
   }
@@ -299,14 +310,16 @@ private:
   boost::fibers::fiber fiber_;
 };
 
-inline void JoinOptimally(Fiber* fiber) { fiber->Join(); }
+inline void JoinOptimally(Fiber* fiber) {
+  fiber->Join();
+}
 
 bool Cancelled();
 
 Case OnCancel();
 
 inline bool CvBlock(const absl::Time deadline, Selector* sel)
-ABSL_SHARED_LOCKS_REQUIRED(sel->mutex) {
+    ABSL_SHARED_LOCKS_REQUIRED(sel->mutex) {
   // We must first check that no notification occurred between registration
   // with Handle and reaching here.
   while (sel->picked == Selector::kNonePicked) {
@@ -314,7 +327,9 @@ ABSL_SHARED_LOCKS_REQUIRED(sel->mutex) {
     // true (indicating timeout) when racing with Signal().  To handle this we
     // re-check against sel.picked before returning expiring_index.
     if (sel->cv.WaitWithDeadline(&sel->mutex, deadline) &&
-      sel->picked == Selector::kNonePicked) { return false; }
+        sel->picked == Selector::kNonePicked) {
+      return false;
+    }
   }
   return true;
 }
@@ -329,9 +344,11 @@ inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
 
   // Use inside-out Fisher-Yates shuffle to combine initialization and
   // permutation.
-  if (num_cases > 0) { case_states[0].index = 0; }
+  if (num_cases > 0) {
+    case_states[0].index = 0;
+  }
   for (int i = 1; i < num_cases; i++) {
-    int swap = Rand32() % (i + 1);
+    const int swap = Rand32() % (i + 1);
     case_states[i].index = case_states[swap].index;
     case_states[swap].index = i;
   }
@@ -343,7 +360,7 @@ inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
     CaseState* case_state = &case_states[registered_limit];
     const Case* assoc_case = &cases[case_state->index];
     case_state->params = assoc_case;
-    case_state->prev = nullptr; // Not on any list.
+    case_state->prev = nullptr;  // Not on any list.
     case_state->selector = &sel;
     if (assoc_case->selectable->Handle(case_state, /*enqueue=*/blocking)) {
       ready = true;
@@ -374,8 +391,8 @@ inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
   // there was no non-blocking index and that we attempted to enqueue against
   // all cases with index smaller than registered_limit.
   for (int i = 0; i < registered_limit; i++) {
-    if (CaseState* case_state = &case_states[i]; case_state->index != sel.
-      picked) {
+    if (CaseState* case_state = &case_states[i];
+        case_state->index != sel.picked) {
       // sel.picked was unregistered by the notifier.
       case_state->params->selectable->Unregister(case_state);
     }
@@ -395,8 +412,10 @@ inline void Detach(const TreeOptions& options,
 
 // inlined only to avoid ODR violations.
 inline std::unique_ptr<Fiber> NewTree(const TreeOptions&,
-                                      absl::AnyInvocable<void()>&& fn [[
-                                        maybe_unused]]) { return nullptr; }
-} // namespace eglt::concurrency::impl
+                                      absl::AnyInvocable<void()>&& fn
+                                      [[maybe_unused]]) {
+  return nullptr;
+}
+}  // namespace eglt::concurrency::impl
 
 #endif  // EGLT_CONCURRENCY_BOOST_FIBER_H_

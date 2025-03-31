@@ -14,17 +14,19 @@
 namespace eglt {
 
 class ChunkStore {
-public:
+ public:
   ChunkStore() = default;
   virtual ~ChunkStore() = default;
+
+  ChunkStore(const ChunkStore&) = delete;
+  ChunkStore(ChunkStore&& other) = delete;
 
   ChunkStore& operator=(const ChunkStore& other) = delete;
   ChunkStore& operator=(ChunkStore&& other) = delete;
 
   virtual auto Get(int seq_id, float timeout) -> absl::StatusOr<base::Chunk>;
   virtual auto Pop(int seq_id, float timeout) -> absl::StatusOr<base::Chunk>;
-  virtual auto Put(int seq_id, base::Chunk chunk, bool final)
-    -> absl::Status;
+  virtual auto Put(int seq_id, base::Chunk chunk, bool final) -> absl::Status;
 
   virtual auto GetImmediately(int seq_id) -> absl::StatusOr<base::Chunk> = 0;
   virtual auto PopImmediately(int seq_id) -> absl::StatusOr<base::Chunk> = 0;
@@ -41,12 +43,12 @@ public:
   // TODO(helenapankov): use absl::Duration instead of float
   virtual auto WaitForSeqId(int seq_id, float timeout) -> absl::Status = 0;
   virtual auto WaitForArrivalOffset(int arrival_offset, float timeout)
-    -> absl::Status = 0;
+      -> absl::Status = 0;
   // TODO (helenapankov): add a method to wait for finalisation
 
-protected:
+ protected:
   virtual auto WriteToImmediateStore(int seq_id, base::Chunk chunk)
-    -> absl::StatusOr<int> = 0;
+      -> absl::StatusOr<int> = 0;
 
   virtual void NotifyWaiters(int seq_id, int arrival_offset) = 0;
 
@@ -61,8 +63,10 @@ protected:
 using ChunkStoreFactory = std::function<std::unique_ptr<ChunkStore>()>;
 
 template <typename T>
-std::unique_ptr<T> MakeChunkStore() { return std::make_unique<T>(); }
+std::unique_ptr<T> MakeChunkStore() {
+  return std::make_unique<T>();
+}
 
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_NODES_CHUNK_STORE_H_

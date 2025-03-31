@@ -53,7 +53,7 @@ struct ChunkMetadata {
 
   [[nodiscard]] bool Empty() const {
     return mimetype.empty() && role.empty() && channel.empty() &&
-      environment.empty() && original_file_name.empty();
+           environment.empty() && original_file_name.empty();
   }
 
   template <typename Sink>
@@ -97,8 +97,12 @@ struct Chunk {
     if (!chunk.ref.empty() && !chunk.data.empty()) {
       LOG(FATAL) << "Chunk has both ref and data set.";
     }
-    if (!chunk.ref.empty()) { absl::Format(&sink, "ref: %s\n", chunk.ref); }
-    if (!chunk.data.empty()) { absl::Format(&sink, "data: %s\n", chunk.data); }
+    if (!chunk.ref.empty()) {
+      absl::Format(&sink, "ref: %s\n", chunk.ref);
+    }
+    if (!chunk.data.empty()) {
+      absl::Format(&sink, "data: %s\n", chunk.data);
+    }
   }
 };
 
@@ -116,13 +120,19 @@ struct NodeFragment {
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const NodeFragment& fragment) {
-    if (!fragment.id.empty()) { absl::Format(&sink, "id: %s\n", fragment.id); }
+    if (!fragment.id.empty()) {
+      absl::Format(&sink, "id: %s\n", fragment.id);
+    }
     if (fragment.chunk.has_value()) {
       absl::Format(&sink, "chunk: \n%s",
                    Indent(absl::StrCat(*fragment.chunk), 2, true));
     }
-    if (fragment.seq != -1) { absl::Format(&sink, "seq: %d\n", fragment.seq); }
-    if (!fragment.continued) { sink.Append("continued: false\n"); }
+    if (fragment.seq != -1) {
+      absl::Format(&sink, "seq: %d\n", fragment.seq);
+    }
+    if (!fragment.continued) {
+      sink.Append("continued: false\n");
+    }
     if (!fragment.child_ids.empty()) {
       absl::Format(&sink, "child_ids: %s\n",
                    absl::StrJoin(fragment.child_ids, ", "));
@@ -194,16 +204,14 @@ struct SessionMessage {
     if (!message.node_fragments.empty()) {
       sink.Append("node_fragments: \n");
       for (const auto& node_fragment : message.node_fragments) {
-        absl::Format(
-          &sink, "%s\n",
-          Indent(absl::StrCat(node_fragment), 2, true));
+        absl::Format(&sink, "%s\n",
+                     Indent(absl::StrCat(node_fragment), 2, true));
       }
     }
     if (!message.actions.empty()) {
       sink.Append(absl::StrCat("actions: \n"));
       for (const auto& action : message.actions) {
-        absl::Format(&sink, "%s\n",
-                     Indent(absl::StrCat(action), 2, true));
+        absl::Format(&sink, "%s\n", Indent(absl::StrCat(action), 2, true));
       }
     }
   }
@@ -211,20 +219,22 @@ struct SessionMessage {
 
 bool IsNullChunk(const Chunk& chunk);
 
-} // namespace base
+}  // namespace base
 
 constexpr base::Chunk MakeNullChunk() {
   return base::Chunk{
-    .metadata =
-    base::ChunkMetadata{
-      .mimetype = kMimetypeBytes,
-    },
-    .data = "",
+      .metadata =
+          base::ChunkMetadata{
+              .mimetype = kMimetypeBytes,
+          },
+      .data = "",
   };
 }
 
-constexpr base::Chunk EndOfStream() { return MakeNullChunk(); }
+constexpr base::Chunk EndOfStream() {
+  return MakeNullChunk();
+}
 
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_DATA_EG_STRUCTS_H_

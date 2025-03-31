@@ -23,35 +23,39 @@ namespace eglt {
 absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream* stream,
                                           base::NodeFragment&& fragment) {
   // if stream is null, we don't send anything and it is ok.
-  if (stream == nullptr) { return absl::OkStatus(); }
+  if (stream == nullptr) {
+    return absl::OkStatus();
+  }
 
   return stream->Send(
-    base::SessionMessage{.node_fragments = {std::move(fragment)}});
+      base::SessionMessage{.node_fragments = {std::move(fragment)}});
 }
 
 AsyncNode::AsyncNode(std::string_view id, NodeMap* node_map,
-                     std::unique_ptr<ChunkStore> chunk_store) :
-  node_map_(node_map), chunk_store_(std::move(chunk_store)) {
+                     std::unique_ptr<ChunkStore> chunk_store)
+    : node_map_(node_map), chunk_store_(std::move(chunk_store)) {
   if (chunk_store_ == nullptr) {
     chunk_store_ = std::make_unique<LocalChunkStore>();
   }
   chunk_store_->SetNodeId(id);
 }
 
-AsyncNode::AsyncNode(AsyncNode&& other) noexcept :
-  node_map_(other.node_map_),
-  chunk_store_(std::move(other.chunk_store_)),
-  child_ids_(std::move(other.child_ids_)),
-  default_reader_(std::move(other.default_reader_)),
-  default_writer_(std::move(other.default_writer_)),
-  writer_stream_(other.writer_stream_) {
+AsyncNode::AsyncNode(AsyncNode&& other) noexcept
+    : node_map_(other.node_map_),
+      chunk_store_(std::move(other.chunk_store_)),
+      child_ids_(std::move(other.child_ids_)),
+      default_reader_(std::move(other.default_reader_)),
+      default_writer_(std::move(other.default_writer_)),
+      writer_stream_(other.writer_stream_) {
   other.writer_stream_ = nullptr;
   other.node_map_ = nullptr;
   other.chunk_store_ = nullptr;
 }
 
 AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
-  if (this == &other) { return *this; }
+  if (this == &other) {
+    return *this;
+  }
 
   node_map_ = other.node_map_;
   chunk_store_ = std::move(other.chunk_store_);
@@ -74,9 +78,9 @@ template <>
 auto AsyncNode::Put<base::Chunk>(base::Chunk value, int seq_id,
                                  const bool final) -> absl::Status {
   return PutFragment(base::NodeFragment{
-    .id = chunk_store_->GetNodeId(),
-    .chunk = std::move(value),
-    .continued = !final,
+      .id = chunk_store_->GetNodeId(),
+      .chunk = std::move(value),
+      .continued = !final,
   });
 }
 
@@ -92,18 +96,20 @@ absl::Status AsyncNode::PutFragment(base::NodeFragment fragment,
     }
   }
 
-  auto node_id = chunk_store_->GetNodeId();
+  const std::string node_id = chunk_store_->GetNodeId();
   if (!fragment.id.empty()) {
     if (fragment.id != node_id) {
       return absl::FailedPreconditionError(absl::StrCat(
-        "Fragment id: ", fragment.id,
-        " does not match the node id: ", chunk_store_->GetNodeId()));
+          "Fragment id: ", fragment.id,
+          " does not match the node id: ", chunk_store_->GetNodeId()));
+    } else if (node_id.empty()) {
+      chunk_store_->SetNodeId(fragment.id);
     }
-    else
-      if (node_id.empty()) { chunk_store_->SetNodeId(fragment.id); }
   }
 
-  if (!fragment.chunk) { return absl::OkStatus(); }
+  if (!fragment.chunk) {
+    return absl::OkStatus();
+  }
 
   return PutChunk(std::move(*fragment.chunk), seq_id,
                   /*final=*/!fragment.continued);
@@ -127,12 +133,12 @@ absl::Status AsyncNode::PutChunk(base::Chunk chunk, int seq_id, bool final) {
   }
 
   auto stream_sending_status = SendToStreamIfNotNullAndOpen(
-    writer_stream_, base::NodeFragment{
-      .id = std::string(chunk_store_->GetNodeId()),
-      .chunk = std::move(copy_to_stream),
-      .seq = status_or_seq.value(),
-      .continued = !final,
-    });
+      writer_stream_, base::NodeFragment{
+                          .id = std::string(chunk_store_->GetNodeId()),
+                          .chunk = std::move(copy_to_stream),
+                          .seq = status_or_seq.value(),
+                          .continued = !final,
+                      });
   if (!stream_sending_status.ok()) {
     LOG(ERROR) << "Failed to send to stream: " << stream_sending_status;
     // just log the error, do not return it, because we have already written
@@ -163,16 +169,22 @@ absl::StatusOr<std::vector<base::Chunk>> AsyncNode::WaitForCompletion() {
     if (!default_reader_->GetStatus().ok()) {
       return default_reader_->GetStatus();
     }
-    if (!next_chunk.has_value()) { break; }
+    if (!next_chunk.has_value()) {
+      break;
+    }
     chunks.push_back(std::move(next_chunk.value()));
   }
 
   default_reader_ = nullptr;
 
-  if (child_ids_.empty()) { return chunks; }
+  if (child_ids_.empty()) {
+    return chunks;
+  }
 
   auto child_results = WaitForChildren();
-  if (!child_results.ok()) { return child_results.status(); }
+  if (!child_results.ok()) {
+    return child_results.status();
+  }
 
   for (const auto& child_result : child_results.value()) {
     chunks.insert(chunks.end(), child_result.begin(), child_result.end());
@@ -194,7 +206,7 @@ absl::Status AsyncNode::GetReaderStatus() const {
 }
 
 std::unique_ptr<ChunkStoreReader> AsyncNode::MakeReader(
-  bool ordered, bool remove_chunks, int n_chunks_to_buffer) const {
+    bool ordered, bool remove_chunks, int n_chunks_to_buffer) const {
   return std::make_unique<ChunkStoreReader>(chunk_store_.get(), ordered,
                                             remove_chunks, n_chunks_to_buffer);
 }
@@ -203,8 +215,8 @@ AsyncNode& AsyncNode::SetReaderOptions(bool ordered, bool remove_chunks,
                                        int n_chunks_to_buffer) {
   if (default_reader_ != nullptr) {
     LOG(WARNING)
-            << "Reader already exists on the node, changes to reader "
-               "options will be ignored. You may want to reset the reader.";
+        << "Reader already exists on the node, changes to reader "
+           "options will be ignored. You may want to reset the reader.";
   }
   EnsureReader(ordered, remove_chunks, n_chunks_to_buffer);
   return *this;
@@ -219,14 +231,14 @@ void AsyncNode::EnsureReader(bool ordered, bool remove_chunks,
                              int n_chunks_to_buffer) {
   if (default_reader_ == nullptr) {
     default_reader_ = std::make_unique<ChunkStoreReader>(
-      chunk_store_.get(), ordered, remove_chunks, n_chunks_to_buffer);
+        chunk_store_.get(), ordered, remove_chunks, n_chunks_to_buffer);
   }
 }
 
 void AsyncNode::EnsureWriter(int n_chunks_to_buffer) {
   if (default_writer_ == nullptr) {
     default_writer_ = std::make_unique<ChunkStoreWriter>(chunk_store_.get(),
-      n_chunks_to_buffer);
+                                                         n_chunks_to_buffer);
   }
 }
 
@@ -234,8 +246,8 @@ absl::StatusOr<std::vector<std::vector<base::Chunk>>>
 AsyncNode::WaitForChildren() {
   if (node_map_ == nullptr) {
     return absl::FailedPreconditionError(
-      "Node map is not initialized or has been destroyed, cannot wait for "
-      "children.");
+        "Node map is not initialized or has been destroyed, cannot wait for "
+        "children.");
   }
 
   std::vector<std::string_view> child_ids;
@@ -250,13 +262,15 @@ AsyncNode::WaitForChildren() {
   for (const auto& [child, child_id] : iter::zip(children, child_ids)) {
     if (child == nullptr) {
       return absl::InternalError(
-        absl::StrCat("Child node is null for id: ", child_id));
+          absl::StrCat("Child node is null for id: ", child_id));
     }
     auto child_result = child->WaitForCompletion();
-    if (!child_result.ok()) { return child_result.status(); }
+    if (!child_result.ok()) {
+      return child_result.status();
+    }
     child_results.push_back(child_result.value());
   }
   return child_results;
 }
 
-} // namespace eglt
+}  // namespace eglt

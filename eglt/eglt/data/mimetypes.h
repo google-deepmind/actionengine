@@ -10,6 +10,6 @@ constexpr auto kMimetypeTextPlain = "text/plain";
 constexpr bool MimetypeIsTextual(const std::string_view mimetype) {
   return mimetype == kMimetypeTextPlain || mimetype == kMimetypeBytes;
 }
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_DATA_MIMETYPES_H_

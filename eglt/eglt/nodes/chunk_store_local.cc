@@ -10,8 +10,7 @@
 
 namespace eglt {
 
-LocalChunkStore::LocalChunkStore() :
-  ChunkStore() {}
+LocalChunkStore::LocalChunkStore() : ChunkStore() {}
 
 LocalChunkStore::LocalChunkStore(const LocalChunkStore& other) {
   concurrency::MutexLock lock(&other.mutex_);
@@ -24,7 +23,9 @@ LocalChunkStore::LocalChunkStore(const LocalChunkStore& other) {
 }
 
 LocalChunkStore& LocalChunkStore::operator=(const LocalChunkStore& other) {
-  if (this == &other) { return *this; }
+  if (this == &other) {
+    return *this;
+  }
 
   {
     // we're about to be replaced, so we should notify all waiters immediately.
@@ -49,7 +50,7 @@ LocalChunkStore::LocalChunkStore(LocalChunkStore&& other) noexcept {
 
   seq_id_readable_events_ = std::move(other.seq_id_readable_events_);
   arrival_offset_readable_events_ =
-    std::move(other.arrival_offset_readable_events_);
+      std::move(other.arrival_offset_readable_events_);
   arrival_order_to_seq_id_ = std::move(other.arrival_order_to_seq_id_);
   chunks_ = std::move(other.chunks_);
   final_seq_id_ = other.final_seq_id_;
@@ -57,7 +58,9 @@ LocalChunkStore::LocalChunkStore(LocalChunkStore&& other) noexcept {
 }
 
 LocalChunkStore& LocalChunkStore::operator=(LocalChunkStore&& other) noexcept {
-  if (this == &other) { return *this; }
+  if (this == &other) {
+    return *this;
+  }
 
   {
     // we're about to be replaced, so we should notify all waiters immediately.
@@ -70,7 +73,7 @@ LocalChunkStore& LocalChunkStore::operator=(LocalChunkStore&& other) noexcept {
 
   seq_id_readable_events_ = std::move(other.seq_id_readable_events_);
   arrival_offset_readable_events_ =
-    std::move(other.arrival_offset_readable_events_);
+      std::move(other.arrival_offset_readable_events_);
   arrival_order_to_seq_id_ = std::move(other.arrival_order_to_seq_id_);
   chunks_ = std::move(other.chunks_);
   final_seq_id_ = other.final_seq_id_;
@@ -110,12 +113,16 @@ bool LocalChunkStore::Contains(int seq_id) {
 void LocalChunkStore::NotifyAllWaiters() {
   concurrency::MutexLock lock(&event_mutex_);
   for (const auto& [arrival_offset, event] : arrival_offset_readable_events_) {
-    if (event->HasBeenNotified()) { continue; }
+    if (event->HasBeenNotified()) {
+      continue;
+    }
     event->Notify();
   }
 
   for (const auto& [seq_id, event] : seq_id_readable_events_) {
-    if (event->HasBeenNotified()) { continue; }
+    if (event->HasBeenNotified()) {
+      continue;
+    }
     event->Notify();
   }
 }
@@ -131,10 +138,12 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, float timeout) {
     concurrency::MutexLock data_lock(&mutex_);
     concurrency::MutexLock event_lock(&event_mutex_);
 
-    if (chunks_.contains(seq_id)) { return absl::OkStatus(); }
+    if (chunks_.contains(seq_id)) {
+      return absl::OkStatus();
+    }
 
     std::unique_ptr<concurrency::PermanentEvent>& event_ptr =
-      seq_id_readable_events_[seq_id];
+        seq_id_readable_events_[seq_id];
     if (!event_ptr) {
       event_ptr = std::make_unique<concurrency::PermanentEvent>();
     }
@@ -143,21 +152,22 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, float timeout) {
     // this may happen if another thread has just been selected after waiting,
     // but has not obtained the lock to erase the event yet. If we don't check
     // this, we may end up calling ->OnEvent() on a deleted object.
-    if (event->HasBeenNotified()) { return absl::OkStatus(); }
+    if (event->HasBeenNotified()) {
+      return absl::OkStatus();
+    }
   }
 
-  absl::Time deadline = timeout < 0
-    ? absl::InfiniteFuture()
-    : absl::Now() + absl::Seconds(timeout);
+  absl::Time deadline = timeout < 0 ? absl::InfiniteFuture()
+                                    : absl::Now() + absl::Seconds(timeout);
   int selected = concurrency::SelectUntil(
-    deadline, {event->OnEvent(), concurrency::OnCancel()});
+      deadline, {event->OnEvent(), concurrency::OnCancel()});
   if (selected == -1) {
     return absl::DeadlineExceededError(absl::StrCat(
-      "Timed out waiting for seq_id: ", seq_id, " timeout: ", timeout));
+        "Timed out waiting for seq_id: ", seq_id, " timeout: ", timeout));
   }
   if (selected == 1) {
     return absl::CancelledError(absl::StrCat(
-      "Cancelled waiting for seq_id: ", seq_id, " timeout: ", timeout));
+        "Cancelled waiting for seq_id: ", seq_id, " timeout: ", timeout));
   }
 
   concurrency::MutexLock event_lock(&event_mutex_);
@@ -166,8 +176,8 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, float timeout) {
   return absl::OkStatus();
 }
 
-absl::StatusOr<int> LocalChunkStore::WriteToImmediateStore(
-  int seq_id, base::Chunk chunk) {
+absl::StatusOr<int> LocalChunkStore::WriteToImmediateStore(int seq_id,
+                                                           base::Chunk chunk) {
   arrival_order_to_seq_id_[write_offset_] = seq_id;
   chunks_[seq_id] = std::move(chunk);
 
@@ -186,7 +196,7 @@ void LocalChunkStore::NotifyWaiters(int seq_id, int arrival_offset) {
 
   if (arrival_offset_readable_events_.contains(arrival_offset)) {
     if (!arrival_offset_readable_events_.at(arrival_offset)
-                                        ->HasBeenNotified()) {
+             ->HasBeenNotified()) {
       arrival_offset_readable_events_.at(arrival_offset)->Notify();
     }
   }
@@ -204,7 +214,7 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
     }
 
     std::unique_ptr<concurrency::PermanentEvent>& event_ptr =
-      arrival_offset_readable_events_[arrival_offset];
+        arrival_offset_readable_events_[arrival_offset];
     if (!event_ptr) {
       event_ptr = std::make_unique<concurrency::PermanentEvent>();
     }
@@ -213,23 +223,24 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
     // this may happen if another thread has just been selected after waiting,
     // but has not obtained the lock to erase the event yet. If we don't check
     // this, we may end up calling ->OnEvent() on a deleted object.
-    if (event->HasBeenNotified()) { return absl::OkStatus(); }
+    if (event->HasBeenNotified()) {
+      return absl::OkStatus();
+    }
   }
 
-  absl::Time deadline = timeout < 0
-    ? absl::InfiniteFuture()
-    : absl::Now() + absl::Seconds(timeout);
+  absl::Time deadline = timeout < 0 ? absl::InfiniteFuture()
+                                    : absl::Now() + absl::Seconds(timeout);
   int selected = concurrency::SelectUntil(
-    deadline, {event->OnEvent(), concurrency::OnCancel()});
+      deadline, {event->OnEvent(), concurrency::OnCancel()});
   if (selected == -1) {
     return absl::DeadlineExceededError(
-      absl::StrCat("Timed out waiting for arrival offset: ", arrival_offset,
-                   " timeout: ", timeout));
+        absl::StrCat("Timed out waiting for arrival offset: ", arrival_offset,
+                     " timeout: ", timeout));
   }
   if (selected == 1) {
     return absl::CancelledError(
-      absl::StrCat("Cancelled waiting for arrival offset: ", arrival_offset,
-                   " timeout: ", timeout));
+        absl::StrCat("Cancelled waiting for arrival offset: ", arrival_offset,
+                     " timeout: ", timeout));
   }
 
   concurrency::MutexLock event_lock(&event_mutex_);
@@ -239,7 +250,9 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
 }
 
 int LocalChunkStore::GetSeqIdForArrivalOffset(int arrival_offset) {
-  if (!arrival_order_to_seq_id_.contains(arrival_offset)) { return -1; }
+  if (!arrival_order_to_seq_id_.contains(arrival_offset)) {
+    return -1;
+  }
   return arrival_order_to_seq_id_.at(arrival_offset);
 }
 
@@ -247,4 +260,4 @@ void LocalChunkStore::SetFinalSeqId(int final_seq_id) {
   final_seq_id_ = final_seq_id;
 }
 
-} // namespace eglt
+}  // namespace eglt

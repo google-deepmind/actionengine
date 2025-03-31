@@ -22,7 +22,7 @@ class Session;
 
 class Action;
 using ActionHandler =
-std::function<absl::Status(const std::shared_ptr<Action>&)>;
+    std::function<absl::Status(const std::shared_ptr<Action>&)>;
 
 struct ActionNode {
   template <typename Sink>
@@ -48,12 +48,12 @@ struct ActionDefinition {
 };
 
 class ActionRegistry {
-public:
+ public:
   void Register(std::string_view name, const ActionDefinition& def,
                 const ActionHandler& handler);
 
-  [[nodiscard]] base::ActionMessage MakeActionMessage(std::string_view name,
-    std::string_view id) const;
+  [[nodiscard]] base::ActionMessage MakeActionMessage(
+      std::string_view name, std::string_view id) const;
 
   std::unique_ptr<Action> MakeAction(std::string_view name, std::string_view id,
                                      NodeMap* node_map,
@@ -71,7 +71,7 @@ public:
   absl::flat_hash_map<std::string, ActionDefinition> definitions_;
   absl::flat_hash_map<std::string, ActionHandler> handlers_;
 
-private:
+ private:
   [[nodiscard]] bool IsRegistered(const std::string_view name) const {
     return definitions_.contains(name) && handlers_.contains(name);
   }
@@ -80,7 +80,7 @@ private:
 class Session;
 
 class Action : public std::enable_shared_from_this<Action> {
-public:
+ public:
   explicit Action(ActionDefinition def, ActionHandler handler,
                   std::string_view id = "", NodeMap* node_map = nullptr,
                   base::EvergreenStream* stream = nullptr,
@@ -92,9 +92,9 @@ public:
   base::ActionMessage GetActionMessage() const;
 
   static std::unique_ptr<Action> FromActionMessage(
-    const base::ActionMessage& action, ActionRegistry* registry,
-    NodeMap* node_map, base::EvergreenStream* stream,
-    Session* session = nullptr);
+      const base::ActionMessage& action, ActionRegistry* registry,
+      NodeMap* node_map, base::EvergreenStream* stream,
+      Session* session = nullptr);
 
   AsyncNode* GetNode(std::string_view id) const;
 
@@ -102,13 +102,15 @@ public:
                       const std::optional<bool> bind_stream = std::nullopt) {
     // TODO(helenapankov): just use hash maps instead of vectors
     const auto it = std::find_if(
-      def_.inputs.begin(), def_.inputs.end(),
-      [name](const ActionNode& node) { return node.name == name; });
-    if (it == def_.inputs.end()) { return nullptr; }
+        def_.inputs.begin(), def_.inputs.end(),
+        [name](const ActionNode& node) { return node.name == name; });
+    if (it == def_.inputs.end()) {
+      return nullptr;
+    }
 
     AsyncNode* node = GetNode(GetInputId(name));
     if (stream_ != nullptr &&
-      bind_stream.value_or(bind_streams_on_inputs_default_)) {
+        bind_stream.value_or(bind_streams_on_inputs_default_)) {
       node->BindWriterStream(stream_);
       nodes_with_bound_streams_.insert(node);
     }
@@ -118,13 +120,15 @@ public:
   AsyncNode* GetOutput(std::string_view name,
                        const std::optional<bool> bind_stream = std::nullopt) {
     const auto it = std::find_if(
-      def_.outputs.begin(), def_.outputs.end(),
-      [name](const ActionNode& node) { return node.name == name; });
-    if (it == def_.outputs.end()) { return nullptr; }
+        def_.outputs.begin(), def_.outputs.end(),
+        [name](const ActionNode& node) { return node.name == name; });
+    if (it == def_.outputs.end()) {
+      return nullptr;
+    }
 
     AsyncNode* node = GetNode(GetOutputId(name));
     if (stream_ != nullptr &&
-      bind_stream.value_or(bind_streams_on_outputs_default_)) {
+        bind_stream.value_or(bind_streams_on_outputs_default_)) {
       node->BindWriterStream(stream_);
       nodes_with_bound_streams_.insert(node);
     }
@@ -134,8 +138,7 @@ public:
   void SetHandler(ActionHandler handler) { handler_ = std::move(handler); }
 
   std::unique_ptr<Action> MakeActionInSameSession(
-    const std::string_view name,
-    const std::string_view id = "") const {
+      const std::string_view name, const std::string_view id = "") const {
     return GetRegistry()->MakeAction(name, id, node_map_, stream_, session_);
   }
 
@@ -162,7 +165,7 @@ public:
     return status;
   }
 
-private:
+ private:
   Session* GetSession() const { return session_; }
 
   std::string GetInputId(const std::string_view name) const {
@@ -175,7 +178,9 @@ private:
 
   void UnbindStreams() {
     for (const auto& node : nodes_with_bound_streams_) {
-      if (node == nullptr) { continue; }
+      if (node == nullptr) {
+        continue;
+      }
       node->BindWriterStream(nullptr);
     }
     nodes_with_bound_streams_.clear();
@@ -194,6 +199,6 @@ private:
   absl::flat_hash_set<AsyncNode*> nodes_with_bound_streams_;
 };
 
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_ACTIONS_ACTION_H_

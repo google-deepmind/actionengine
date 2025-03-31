@@ -9,8 +9,8 @@
 #include "eglt/nodes/chunk_store.h"
 
 namespace eglt {
-NodeMap::NodeMap(ChunkStoreFactory chunk_store_factory) :
-  chunk_store_factory_(std::move(chunk_store_factory)) {}
+NodeMap::NodeMap(ChunkStoreFactory chunk_store_factory)
+    : chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 NodeMap::NodeMap(NodeMap&& other) noexcept {
   concurrency::MutexLock lock(&other.mutex_);
@@ -20,7 +20,9 @@ NodeMap::NodeMap(NodeMap&& other) noexcept {
 }
 
 NodeMap& NodeMap::operator=(NodeMap&& other) noexcept {
-  if (this == &other) { return *this; }
+  if (this == &other) {
+    return *this;
+  }
 
   concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
   nodes_ = std::move(other.nodes_);
@@ -33,19 +35,15 @@ AsyncNode* NodeMap::Get(std::string_view id,
                         const ChunkStoreFactory& chunk_store_factory) {
   concurrency::MutexLock lock(&mutex_);
   if (!nodes_.contains(id)) {
-    nodes_.emplace(
-      id,
-      std::make_unique<AsyncNode>(
-        id,
-        this,
-        MakeChunkStore(chunk_store_factory)));
+    nodes_.emplace(id, std::make_unique<AsyncNode>(
+                           id, this, MakeChunkStore(chunk_store_factory)));
   }
   return nodes_[id].get();
 }
 
 std::vector<AsyncNode*> NodeMap::Get(
-  const std::vector<std::string_view>& ids,
-  const ChunkStoreFactory& chunk_store_factory) {
+    const std::vector<std::string_view>& ids,
+    const ChunkStoreFactory& chunk_store_factory) {
   concurrency::MutexLock lock(&mutex_);
 
   std::vector<AsyncNode*> nodes;
@@ -54,9 +52,7 @@ std::vector<AsyncNode*> NodeMap::Get(
   for (const auto& id : ids) {
     if (!nodes_.contains(id)) {
       nodes_[id] = std::make_unique<AsyncNode>(
-        id,
-        this,
-        MakeChunkStore(chunk_store_factory));
+          id, this, MakeChunkStore(chunk_store_factory));
     }
 
     nodes.push_back(nodes_[id].get());
@@ -68,12 +64,8 @@ std::vector<AsyncNode*> NodeMap::Get(
 AsyncNode* NodeMap::operator[](std::string_view id) {
   concurrency::MutexLock lock(&mutex_);
   if (!nodes_.contains(id)) {
-    nodes_.emplace(
-      id,
-      std::make_unique<AsyncNode>(
-        id,
-        this,
-        MakeChunkStore(chunk_store_factory_)));
+    nodes_.emplace(id, std::make_unique<AsyncNode>(
+                           id, this, MakeChunkStore(chunk_store_factory_)));
   }
   return nodes_[id].get();
 }
@@ -90,9 +82,13 @@ bool NodeMap::contains(std::string_view id) {
 }
 
 std::unique_ptr<ChunkStore> NodeMap::MakeChunkStore(
-  const ChunkStoreFactory& factory) const {
-  if (factory) { return factory(); }
-  if (chunk_store_factory_) { return chunk_store_factory_(); }
+    const ChunkStoreFactory& factory) const {
+  if (factory) {
+    return factory();
+  }
+  if (chunk_store_factory_) {
+    return chunk_store_factory_();
+  }
   return nullptr;
 }
-} // namespace eglt
+}  // namespace eglt

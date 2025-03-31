@@ -1,0 +1,98 @@
+#ifndef EGLT_PYBIND11_EGLT_SERVICE_H_
+#define EGLT_PYBIND11_EGLT_SERVICE_H_
+
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
+#include "eglt/data/eg_structs.h"
+#include "eglt/net/stream.h"
+#include "eglt/pybind11/pybind11_headers.h"
+#include "eglt/pybind11/utils.h"
+
+namespace eglt::pybindings {
+
+namespace py = ::pybind11;
+
+void BindStream(py::handle scope, std::string_view name = "EvergreenStream");
+void BindSession(py::handle scope, std::string_view name = "Session");
+void BindService(py::handle scope, std::string_view name = "Service");
+void BindStreamToSessionConnection(
+    py::handle scope, std::string_view name = "StreamToSessionConnection");
+
+class PyEvergreenStream final : public base::EvergreenStream {
+ public:
+  using EvergreenStream::EvergreenStream;
+
+  PyEvergreenStream() : EvergreenStream() {}
+
+  absl::Status Send(base::SessionMessage message) override {
+    py::gil_scoped_acquire gil;
+    const py::function function = py::get_override(this, "send");
+
+    if (!function) {
+      throw py::error_already_set();
+    }
+    const py::object py_result = function(message);
+
+    const absl::StatusOr<py::object> result =
+        pybindings::RunThreadsafeIfCoroutine(py_result);
+
+    if (!result.ok()) {
+      return result.status();
+    }
+    return absl::OkStatus();
+  }
+
+  std::optional<base::SessionMessage> Receive() override {
+    py::gil_scoped_acquire gil;
+    const py::function function = py::get_override(this, "receive");
+
+    if (!function) {
+      throw py::error_already_set();
+    }
+    const py::object py_result = function();
+
+    absl::StatusOr<py::object> result =
+        pybindings::RunThreadsafeIfCoroutine(py_result);
+
+    if (!result.ok() || result->is_none()) {
+      return std::nullopt;
+    }
+    return std::move(result)->cast<base::SessionMessage>();
+  }
+
+  void Accept() override {
+    PYBIND11_OVERRIDE_PURE_NAME(void, PyEvergreenStream, "accept", Accept, );
+  }
+
+  void Start() override {
+    PYBIND11_OVERRIDE_PURE_NAME(void, PyEvergreenStream, "start", Start, );
+  }
+
+  void HalfClose() override {
+    PYBIND11_OVERRIDE_PURE_NAME(void, PyEvergreenStream, "close", Close, );
+  }
+
+  absl::Status GetLastSendStatus() const override {
+    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyEvergreenStream,
+                                "get_last_send_status", GetLastSendStatus, );
+  }
+
+  [[nodiscard]] py::object GetLoop() const {
+    PYBIND11_OVERRIDE_PURE_NAME(py::object, PyEvergreenStream, "get_loop",
+                                GetLoop, );
+  }
+
+  [[nodiscard]] std::string GetId() const override {
+    PYBIND11_OVERRIDE_PURE_NAME(std::string, PyEvergreenStream, "get_id",
+                                GetId, );
+  }
+};
+
+py::module_ MakeServiceModule(py::module_ scope,
+                              std::string_view module_name = "service");
+}  // namespace eglt::pybindings
+
+#endif  // EGLT_PYBIND11_EGLT_SERVICE_H_

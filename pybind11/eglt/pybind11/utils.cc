@@ -1,0 +1,65 @@
+#include "eglt/pybind11/utils.h"
+
+#include <eglt/absl_headers.h>
+#include <eglt/pybind11/pybind11_headers.h>
+
+namespace eglt::pybindings {
+namespace py = ::pybind11;
+
+py::object& GetGloballySavedEventLoop() {
+  static py::object* global_event_loop_object = new py::none();
+  return *global_event_loop_object;
+}
+
+void SaveFirstEncounteredEventLoop() {
+  if (py::object& global_event_loop_object = GetGloballySavedEventLoop();
+      global_event_loop_object.is_none()) {
+    try {
+      global_event_loop_object =
+          py::module_::import("asyncio").attr("get_running_loop")();
+      LOG(INFO) << "Saved event loop: ";
+    } catch (py::error_already_set&) {
+      // No event loop was found.
+    }
+  }
+}
+
+absl::StatusOr<py::object> RunThreadsafeIfCoroutine(
+    py::object function_call_result, py::object loop) {
+  if (const py::function iscoroutine =
+          py::module_::import("inspect").attr("iscoroutine");
+      !iscoroutine(function_call_result)) {
+    return function_call_result;
+  }
+
+  py::object resolved_loop = std::move(loop);
+
+  if (resolved_loop.is_none()) {
+    resolved_loop = GetGloballySavedEventLoop();
+  }
+
+  if (resolved_loop.is_none()) {
+    return absl::FailedPreconditionError(
+        "No asyncio loop was explicitly provided or could be deduced from "
+        "previous library calls. Please provide an asyncio loop explicitly.");
+  }
+
+  py::object running_loop = py::none();
+  try {
+    running_loop = py::module_::import("asyncio").attr("get_running_loop")();
+    if (const py::function equals = py::module_::import("operator").attr("eq");
+        equals(running_loop, resolved_loop)) {
+      return absl::FailedPreconditionError(
+          "Target event loop resolves to the current thread's loop, which is "
+          "not an intended use for asyncio.run_coroutine_threadsafe. Please "
+          "provide a different event loop if you intend to use this "
+          "function from an async context, or use it from a sync context.");
+    }
+  } catch (py::error_already_set&) {}
+
+  const py::function run_coroutine_threadsafe =
+      py::module_::import("asyncio").attr("run_coroutine_threadsafe");
+  return run_coroutine_threadsafe(function_call_result, resolved_loop)
+      .attr("result")();
+}
+}  // namespace eglt::pybindings

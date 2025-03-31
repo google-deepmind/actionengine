@@ -36,6 +36,6 @@ inline std::string GenerateUUID4() {
   return oss.str();
 }
 
-} // namespace eglt
+}  // namespace eglt
 
-#endif // EGLT_UTIL_RANDOM_H_
+#endif  // EGLT_UTIL_RANDOM_H_
