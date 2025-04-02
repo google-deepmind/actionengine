@@ -1,7 +1,0 @@
-<map id="MakeAction" name="MakeAction">
-<area shape="rect" id="Node000001" title=" " alt="" coords="250,35,340,60"/>
-<area shape="rect" id="Node000002" href="$namespaceeglt.html#a95366fc4aaf2b267febdfedd75fab80f" title=" " alt="" coords="5,5,202,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="234,41,191,34,192,29,235,36"/>
-<area shape="rect" id="Node000003" href="$classeglt_1_1_action.html#a9da84dfe723ceffb3aa40b722e9bc38c" title="Makes a different action in the same session. Should be used to create nested actions." alt="" coords="21,55,186,96"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="235,59,187,66,186,61,234,54"/>
-</map>

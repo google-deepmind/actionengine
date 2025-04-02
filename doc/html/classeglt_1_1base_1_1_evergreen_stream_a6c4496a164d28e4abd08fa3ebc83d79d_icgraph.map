@@ -1,7 +1,0 @@
-<map id="Receive" name="Receive">
-<area shape="rect" id="Node000001" title="Receives an Evergreen session message from the stream." alt="" coords="241,35,310,60"/>
-<area shape="rect" id="Node000002" href="$classeglt_1_1_session.html#a9d124daa5a683635acb09dc3d25beac1" title=" " alt="" coords="5,5,193,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="225,42,180,34,181,29,226,37"/>
-<area shape="rect" id="Node000003" href="$namespaceeglt.html#a64b25ce286e2492002d161095e418aa4" title=" " alt="" coords="12,55,186,96"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="226,58,186,64,186,59,225,53"/>
-</map>

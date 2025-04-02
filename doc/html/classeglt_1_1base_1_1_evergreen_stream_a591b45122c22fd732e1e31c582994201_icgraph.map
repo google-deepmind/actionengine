@@ -1,5 +1,0 @@
-<map id="Send" name="Send">
-<area shape="rect" id="Node000001" title="Sends an Evergreen session message over the stream." alt="" coords="242,13,293,38"/>
-<area shape="rect" id="Node000002" href="$namespaceeglt.html#a5aaf1db447b8c75f9757b8042f62a5f5" title=" " alt="" coords="5,5,194,46"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="226,28,194,28,194,23,226,23"/>
-</map>

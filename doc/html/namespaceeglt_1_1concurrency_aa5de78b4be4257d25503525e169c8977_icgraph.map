@@ -1,9 +1,0 @@
-<map id="SelectUntil" name="SelectUntil">
-<area shape="rect" id="Node000001" title=" " alt="" coords="215,78,300,104"/>
-<area shape="rect" id="Node000002" href="$classeglt_1_1_chunk_store_reader.html#aaa18bc2443d0fb0b3668a53e1b56a5ae" title=" " alt="" coords="5,5,167,46"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="207,75,140,49,142,44,209,70"/>
-<area shape="rect" id="Node000003" href="$classeglt_1_1_local_chunk_store.html#a6016beca22856b29c54245b31477794f" title=" " alt="" coords="11,71,161,111"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="199,94,161,94,161,88,199,88"/>
-<area shape="rect" id="Node000004" href="$classeglt_1_1_local_chunk_store.html#aa8b6b2e66ec7a2e7074c0d08a6e22782" title=" " alt="" coords="11,136,161,177"/>
-<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="209,112,142,138,140,133,207,107"/>
-</map>

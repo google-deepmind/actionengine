@@ -1,7 +1,0 @@
-<map id="Service" name="Service">
-<area shape="rect" id="Node000001" title=" " alt="" coords="130,31,195,56"/>
-<area shape="rect" id="Node000002" href="$classeglt_1_1_service.html#a4dfff76ceb56a099b1a54da73e0c57d4" title=" " alt="" coords="5,5,82,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="114,36,82,29,83,24,115,31"/>
-<area shape="rect" id="Node000003" href="$classeglt_1_1_service.html#ae8283129cfc6b23d2fe8ce2227f49827" title=" " alt="" coords="11,55,76,80"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="115,56,77,64,76,58,114,51"/>
-</map>
