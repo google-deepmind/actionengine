@@ -1,0 +1,7 @@
+<map id="GetDefinition" name="GetDefinition">
+<area shape="rect" id="Node000001" title="Returns the action&#39;s fully qualified (inputs/outputs with IDs) definition." alt="" coords="278,5,375,31"/>
+<area shape="rect" id="Node000002" href="$classeglt_1_1_action.html#af07a335d641c6daeb60eca6a43023928" title="Makes an action message to be sent on an EvergreenStream." alt="" coords="98,5,230,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="263,21,230,21,230,16,263,16"/>
+<area shape="rect" id="Node000003" href="$classeglt_1_1_action.html#a5a4b53e20388d5584638570b735eaed9" title="Calls the action by sending an Evergreen action message to associated stream." alt="" coords="5,5,50,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="82,21,50,21,50,16,82,16"/>
+</map>

@@ -1,0 +1,11 @@
+<map id="GetGloballySavedEventLoop" name="GetGloballySavedEventLoop">
+<area shape="rect" id="Node000001" title="Returns the globally saved event loop." alt="" coords="471,70,659,96"/>
+<area shape="rect" id="Node000002" href="$namespaceeglt_1_1pybindings.html#a0cf0e6d7c8ff8c380649ee4598a76045" title="Runs a coroutine in a threadsafe manner in the given event loop." alt="" coords="249,45,423,70"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="456,74,423,70,424,65,456,68"/>
+<area shape="rect" id="Node000005" href="$namespaceeglt_1_1pybindings.html#a1e774758adfcd0aacdef0e757f02c42b" title="Saves the given event loop as a global variable further available to GetGloballySavedEventLoop()." alt="" coords="256,94,416,120"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="456,97,417,101,416,96,456,92"/>
+<area shape="rect" id="Node000003" href="$classeglt_1_1pybindings_1_1_py_evergreen_stream.html#a614306a5214ae044d261e4c322fed49c" title="Receives an Evergreen session message from the stream." alt="" coords="5,5,201,46"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="233,46,201,42,202,36,234,41"/>
+<area shape="rect" id="Node000004" href="$classeglt_1_1pybindings_1_1_py_evergreen_stream.html#ae9770c9b3dd950a326ddb9494c426c46" title="Sends an Evergreen session message over the stream." alt="" coords="5,71,201,111"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="234,75,202,80,201,74,233,70"/>
+</map>

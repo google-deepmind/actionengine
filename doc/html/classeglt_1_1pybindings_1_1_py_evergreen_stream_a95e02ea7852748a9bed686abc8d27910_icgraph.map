@@ -1,0 +1,20 @@
+<map id="PyEvergreenStream" name="PyEvergreenStream">
+<area shape="rect" id="Node000001" title=" " alt="" coords="189,213,327,239"/>
+<area shape="rect" id="Node000002" href="$classeglt_1_1pybindings_1_1_py_evergreen_stream.html#a4092d07dd4acdedd0f2f535276be30da" title="Accept the stream on the server side. Clients should not call this." alt="" coords="42,29,104,55"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="241,201,201,135,173,99,139,68,103,51,106,47,142,64,176,96,206,132,246,198"/>
+<area shape="rect" id="Node000003" href="$classeglt_1_1pybindings_1_1_py_evergreen_stream.html#a8f6ca913ff7bdb455d9acd67657272ba" title="Returns the implementation&#45;dependent identifier of the stream." alt="" coords="46,103,100,128"/>
+<area shape="poly" id="edge3_Node000001_Node000003" title=" " alt="" coords="229,205,188,173,139,142,99,125,101,120,142,137,191,169,232,201"/>
+<area shape="rect" id="Node000004" href="$classeglt_1_1pybindings_1_1_py_evergreen_stream.html#ab97599bf0a2f4ac493700a590e5a66b3" title="Returns the status of the last send operation." alt="" coords="5,176,141,202"/>
+<area shape="poly" id="edge5_Node000001_Node000004" title=" " alt="" coords="175,212,139,205,141,200,176,207"/>
+<area shape="rect" id="Node000005" href="$classeglt_1_1pybindings_1_1_py_evergreen_stream.html#a894e8bdaacc808f0c063651064091bc4" title=" " alt="" coords="38,249,108,275"/>
+<area shape="poly" id="edge7_Node000001_Node000005" title=" " alt="" coords="174,245,109,258,108,253,173,240"/>
+<area shape="rect" id="Node000006" href="$classeglt_1_1pybindings_1_1_py_evergreen_stream.html#a77428c6c7aebd3c4380911ba02b41f84" title=" " alt="" coords="33,299,113,324"/>
+<area shape="poly" id="edge9_Node000001_Node000006" title=" " alt="" coords="222,249,142,290,114,301,112,296,140,285,219,245"/>
+<area shape="rect" id="Node000007" href="$classeglt_1_1pybindings_1_1_py_evergreen_stream.html#a156f3866ca69d98b4d9e6e1c1b3ec7da" title="Start the stream on the client side. Servers should not call this." alt="" coords="48,372,98,398"/>
+<area shape="poly" id="edge10_Node000001_Node000007" title=" " alt="" coords="235,252,142,339,96,374,92,370,139,335,231,248"/>
+<area shape="poly" id="edge2_Node000002_Node000002" title=" " alt="" coords="105,16,94,10,73,8,54,10,43,15,41,20,46,27,42,30,36,21,39,11,52,5,73,3,95,5,107,12"/>
+<area shape="poly" id="edge4_Node000003_Node000003" title=" " alt="" coords="106,93,96,85,73,81,53,83,43,88,41,94,48,102,44,105,36,95,39,85,51,78,73,76,99,80,109,89"/>
+<area shape="poly" id="edge6_Node000004_Node000004" title=" " alt="" coords="105,163,94,157,73,155,54,157,43,161,41,167,46,174,42,177,36,167,39,158,52,152,73,149,95,152,107,158"/>
+<area shape="poly" id="edge8_Node000005_Node000005" title=" " alt="" coords="105,236,94,230,73,228,54,230,43,235,41,240,46,247,42,250,36,241,39,231,52,225,73,223,95,225,107,232"/>
+<area shape="poly" id="edge11_Node000007_Node000007" title=" " alt="" coords="105,364,104,359,99,355,73,351,52,353,42,358,42,364,50,373,46,377,37,366,38,355,51,348,73,345,101,350,108,356,110,362"/>
+</map>

@@ -162,7 +162,7 @@ $(function(){initNavTree('async__node_8h_source.html',''); initResizable(true); 
 <div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
 <div class="foldopen" id="foldopen00053" data-start="{" data-end="}">
 <div class="line"><a id="l00053" name="l00053"></a><span class="lineno"><a class="line" href="classeglt_1_1_async_node.html#a134d6f1813eb5f5d3a5f2c7cf826851b">   53</a></span>  <span class="keyword">auto</span> <a class="code hl_function" href="classeglt_1_1_async_node.html#a134d6f1813eb5f5d3a5f2c7cf826851b">Put</a>(T value, <span class="keywordtype">int</span> seq_id = -1, <span class="keywordtype">bool</span> <span class="keyword">final</span> = <span class="keyword">false</span>) -&gt; absl::Status {</div>
-<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>    <span class="keywordflow">return</span> <a class="code hl_function" href="classeglt_1_1_async_node.html#a134d6f1813eb5f5d3a5f2c7cf826851b">Put</a>(<a class="code hl_function" href="structeglt_1_1base_1_1_chunk.html#a76b3066d4b5b471fa49f84106a53b747">base::Chunk::From</a>(std::move(value)), seq_id, <span class="keyword">final</span>);</div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>    <span class="keywordflow">return</span> <a class="code hl_function" href="classeglt_1_1_async_node.html#a134d6f1813eb5f5d3a5f2c7cf826851b">Put</a>(base::Chunk::From(std::move(value)), seq_id, <span class="keyword">final</span>);</div>
 <div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span>  }</div>
 </div>
 <div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span> </div>
@@ -279,7 +279,7 @@ $(function(){initNavTree('async__node_8h_source.html',''); initResizable(true); 
 <div class="foldopen" id="foldopen00157" data-start="{" data-end="}">
 <div class="line"><a id="l00157" name="l00157"></a><span class="lineno"><a class="line" href="classeglt_1_1_async_node.html#a082156a3f3afb00ffa347dceff148366">  157</a></span><a class="code hl_function" href="classeglt_1_1_async_node.html#a0d64ea621448d7667c93bc0c62076a2c">AsyncNode</a>&amp; <a class="code hl_friend" href="classeglt_1_1_async_node.html#a082156a3f3afb00ffa347dceff148366">operator&lt;&lt;</a>(<a class="code hl_function" href="classeglt_1_1_async_node.html#a0d64ea621448d7667c93bc0c62076a2c">AsyncNode</a>&amp; node, T value) {</div>
 <div class="line"><a id="l00158" name="l00158"></a><span class="lineno">  158</span>  node.EnsureWriter();</div>
-<div class="line"><a id="l00159" name="l00159"></a><span class="lineno">  159</span>  <span class="keywordflow">return</span> node &lt;&lt; std::move(<a class="code hl_function" href="structeglt_1_1base_1_1_chunk.html#a76b3066d4b5b471fa49f84106a53b747">base::Chunk::From</a>(std::move(value)));</div>
+<div class="line"><a id="l00159" name="l00159"></a><span class="lineno">  159</span>  <span class="keywordflow">return</span> node &lt;&lt; std::move(base::Chunk::From(std::move(value)));</div>
 <div class="line"><a id="l00160" name="l00160"></a><span class="lineno">  160</span>}</div>
 </div>
 <div class="line"><a id="l00161" name="l00161"></a><span class="lineno">  161</span> </div>
@@ -438,9 +438,8 @@ $(function(){initNavTree('async__node_8h_source.html',''); initResizable(true); 
 <div class="ttc" id="anamespaceeglt_html"><div class="ttname"><a href="namespaceeglt.html">eglt</a></div><div class="ttdef"><b>Definition</b> action.cc:29</div></div>
 <div class="ttc" id="anamespaceeglt_html_a5aaf1db447b8c75f9757b8042f62a5f5"><div class="ttname"><a href="namespaceeglt.html#a5aaf1db447b8c75f9757b8042f62a5f5">eglt::SendToStreamIfNotNullAndOpen</a></div><div class="ttdeci">absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream *stream, base::NodeFragment &amp;&amp;fragment)</div><div class="ttdef"><b>Definition</b> async_node.cc:37</div></div>
 <div class="ttc" id="astream_8h_html"><div class="ttname"><a href="stream_8h.html">stream.h</a></div></div>
-<div class="ttc" id="astructeglt_1_1base_1_1_chunk_html"><div class="ttname"><a href="structeglt_1_1base_1_1_chunk.html">eglt::base::Chunk</a></div><div class="ttdoc">Evergreen chunk.</div><div class="ttdef"><b>Definition</b> eg_structs.h:230</div></div>
-<div class="ttc" id="astructeglt_1_1base_1_1_chunk_html_a76b3066d4b5b471fa49f84106a53b747"><div class="ttname"><a href="structeglt_1_1base_1_1_chunk.html#a76b3066d4b5b471fa49f84106a53b747">eglt::base::Chunk::From</a></div><div class="ttdeci">static Chunk From(T &amp;&amp;value)</div><div class="ttdef"><b>Definition</b> eg_structs.h:237</div></div>
-<div class="ttc" id="astructeglt_1_1base_1_1_node_fragment_html"><div class="ttname"><a href="structeglt_1_1base_1_1_node_fragment.html">eglt::base::NodeFragment</a></div><div class="ttdoc">Evergreen node fragment.</div><div class="ttdef"><b>Definition</b> eg_structs.h:265</div></div>
+<div class="ttc" id="astructeglt_1_1base_1_1_chunk_html"><div class="ttname"><a href="structeglt_1_1base_1_1_chunk.html">eglt::base::Chunk</a></div><div class="ttdoc">Evergreen chunk.</div><div class="ttdef"><b>Definition</b> eg_structs.h:231</div></div>
+<div class="ttc" id="astructeglt_1_1base_1_1_node_fragment_html"><div class="ttname"><a href="structeglt_1_1base_1_1_node_fragment.html">eglt::base::NodeFragment</a></div><div class="ttdoc">Evergreen node fragment.</div><div class="ttdef"><b>Definition</b> eg_structs.h:267</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- HTML footer for doxygen 1.13.2-->

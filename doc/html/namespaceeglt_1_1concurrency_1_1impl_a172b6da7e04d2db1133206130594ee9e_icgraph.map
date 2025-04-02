@@ -1,0 +1,9 @@
+<map id="OnCancel" name="OnCancel">
+<area shape="rect" id="Node000001" title=" " alt="" coords="381,46,460,72"/>
+<area shape="rect" id="Node000002" href="$namespaceeglt_1_1concurrency.html#a172b6da7e04d2db1133206130594ee9e" title="Gets the current fiber&#39;s cancellation case." alt="" coords="204,39,333,79"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="365,62,333,62,333,56,365,56"/>
+<area shape="rect" id="Node000003" href="$classeglt_1_1_local_chunk_store.html#a6016beca22856b29c54245b31477794f" title=" " alt="" coords="5,5,156,46"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="188,47,155,42,156,36,189,42"/>
+<area shape="rect" id="Node000004" href="$classeglt_1_1_local_chunk_store.html#aa8b6b2e66ec7a2e7074c0d08a6e22782" title=" " alt="" coords="5,71,156,111"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="189,75,156,81,155,76,188,70"/>
+</map>

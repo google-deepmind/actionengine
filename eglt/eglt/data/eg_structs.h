@@ -190,6 +190,7 @@ struct ChunkMetadata {
   std::string mimetype;  //! The mimetype of the data in the chunk.
   absl::Time timestamp;  //! The timestamp associated with the chunk.
 
+  /// @private
   template <typename T>
   static ChunkMetadata From(T&& value) {
     return ConstructFrom<ChunkMetadata>(std::forward<T>(value));
@@ -233,6 +234,7 @@ struct Chunk {
   std::string ref;
   std::string data;
 
+  /// @private
   template <typename T>
   static Chunk From(T&& value) {
     return ConstructFrom<Chunk>(std::forward<T>(value));
@@ -275,6 +277,7 @@ struct NodeFragment {
   //! Whether more node fragments are expected.
   bool continued = false;
 
+  /// @private
   template <typename T>
   static NodeFragment From(T&& value) {
     return ConstructFrom<NodeFragment>(std::forward<T>(value));
@@ -302,6 +305,7 @@ struct NamedParameter {
   std::string name;
   std::string id;
 
+  /// @private
   template <typename T>
   static NamedParameter From(T&& value) {
     return ConstructFrom<NamedParameter>(std::forward<T>(value));
@@ -323,6 +327,7 @@ struct ActionMessage {
   std::vector<NamedParameter> inputs;
   std::vector<NamedParameter> outputs;
 
+  /// @private
   template <typename T>
   static ActionMessage From(T&& value) {
     return ConstructFrom<ActionMessage>(std::forward<T>(value));
@@ -352,6 +357,7 @@ struct SessionMessage {
   std::vector<NodeFragment> node_fragments;
   std::vector<ActionMessage> actions;
 
+  /// @private
   template <typename T>
   static SessionMessage From(T&& value) {
     return ConstructFrom<SessionMessage>(std::forward<T>(value));

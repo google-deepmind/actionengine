@@ -1,0 +1,5 @@
+<map id="GetRegistry" name="GetRegistry">
+<area shape="rect" id="Node000001" title="Returns the action registry from the session." alt="" coords="236,5,327,31"/>
+<area shape="rect" id="Node000002" href="$classeglt_1_1_action.html#a9da84dfe723ceffb3aa40b722e9bc38c" title="Makes a different action in the same session. Should be used to create nested actions." alt="" coords="5,5,188,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="220,21,188,21,188,16,220,16"/>
+</map>
