@@ -28,6 +28,7 @@ var annotated_dup =
       ] ],
       [ "pybindings", "namespaceeglt_1_1pybindings.html", [
         [ "keep_event_loop_memo", "structeglt_1_1pybindings_1_1keep__event__loop__memo.html", null ],
+        [ "PyChunkStore", "classeglt_1_1pybindings_1_1_py_chunk_store.html", "classeglt_1_1pybindings_1_1_py_chunk_store" ],
         [ "PyEvergreenStream", "classeglt_1_1pybindings_1_1_py_evergreen_stream.html", "classeglt_1_1pybindings_1_1_py_evergreen_stream" ]
       ] ],
       [ "Action", "classeglt_1_1_action.html", "classeglt_1_1_action" ],
@@ -41,7 +42,6 @@ var annotated_dup =
       [ "EvergreenByteStream", "classeglt_1_1_evergreen_byte_stream.html", "classeglt_1_1_evergreen_byte_stream" ],
       [ "LocalChunkStore", "classeglt_1_1_local_chunk_store.html", "classeglt_1_1_local_chunk_store" ],
       [ "NodeMap", "classeglt_1_1_node_map.html", "classeglt_1_1_node_map" ],
-      [ "PyChunkStore", "classeglt_1_1_py_chunk_store.html", "classeglt_1_1_py_chunk_store" ],
       [ "Serializer", "classeglt_1_1_serializer.html", "classeglt_1_1_serializer" ],
       [ "Service", "classeglt_1_1_service.html", "classeglt_1_1_service" ],
       [ "Session", "classeglt_1_1_session.html", "classeglt_1_1_session" ],

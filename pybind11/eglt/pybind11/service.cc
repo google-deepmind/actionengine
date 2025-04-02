@@ -160,7 +160,7 @@ void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
 pybind11::module_ MakeServiceModule(pybind11::module_ scope,
                                     std::string_view module_name) {
   pybind11::module_ service = scope.def_submodule(
-      std::string(module_name).c_str(), "Evergreen v2 Service interface.");
+      std::string(module_name).c_str(), "Evergreen Service interface.");
 
   BindStream(service, "EvergreenStream");
   BindSession(service, "Session");

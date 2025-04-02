@@ -12,6 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @file
+ * @brief
+ *   Concurrency utilities for Evergreen.
+ *
+ * This file provides a set of concurrency utilities for use in Evergreen.
+ * It includes classes and functions for managing fibers, channels, and
+ * synchronization primitives.
+ */
+
 #ifndef EGLT_CONCURRENCY_CONCURRENCY_H_
 #define EGLT_CONCURRENCY_CONCURRENCY_H_
 

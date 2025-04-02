@@ -46,7 +46,7 @@ void BindActionNode(py::handle scope, std::string_view name) {
       .def_readwrite("type", &ActionNode::type)
       .def("__repr__",
            [](const ActionNode& node) { return absl::StrCat(node); })
-      .doc() = "An Evergreen v2 ActionNode.";
+      .doc() = "An Evergreen ActionNode.";
 }
 
 /// @private
@@ -69,7 +69,7 @@ void BindActionDefinition(py::handle scope, std::string_view name) {
       .def_readwrite("outputs", &ActionDefinition::outputs)
       .def("__repr__",
            [](const ActionDefinition& def) { return absl::StrCat(def); })
-      .doc() = "An Evergreen v2 ActionDefinition.";
+      .doc() = "An Evergreen ActionDefinition.";
 }
 
 /// @private
@@ -155,7 +155,7 @@ void BindAction(py::handle scope, std::string_view name) {
 /// @private
 py::module_ MakeActionsModule(py::module_ scope, std::string_view module_name) {
   py::module_ actions = scope.def_submodule(std::string(module_name).c_str(),
-                                            "Evergreen v2 Actions interface.");
+                                            "Evergreen Actions interface.");
 
   BindActionNode(actions, "ActionNode");
   BindActionDefinition(actions, "ActionDefinition");

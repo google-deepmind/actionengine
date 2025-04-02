@@ -115,7 +115,7 @@ $(function(){initNavTree('structeglt_1_1base_1_1_chunk_metadata.html',''); initR
 <div class="contents">
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Evergreen chunk metadata. </p>
-<p>This structure is used to store metadata about a chunk of data in the Evergreen V2 format. It includes fields for mimetype, role, channel, environment, and original file name. </p>
+<p>This structure is used to store metadata about a chunk of data in the Evergreen format. It includes fields for mimetype and timestamp. </p>
 </div>
 <p><code>#include &lt;<a class="el" href="eg__structs_8h_source.html">eg_structs.h</a>&gt;</code></p>
 <table class="memberdecls">
@@ -129,21 +129,16 @@ Public Member Functions</h2></td></tr>
 Static Public Member Functions</h2></td></tr>
 <tr class="memitem:a8dc1aa491e8fe80055413476adaa680f" id="r_a8dc1aa491e8fe80055413476adaa680f"><td class="memTemplParams" colspan="2">template&lt;typename T&gt; </td></tr>
 <tr class="memitem:a8dc1aa491e8fe80055413476adaa680f"><td class="memTemplItemLeft" align="right" valign="top">static <a class="el" href="structeglt_1_1base_1_1_chunk_metadata.html">ChunkMetadata</a>&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="#a8dc1aa491e8fe80055413476adaa680f">From</a> (T &amp;&amp;value)</td></tr>
+<tr class="memdesc:a8dc1aa491e8fe80055413476adaa680f"><td class="mdescLeft">&#160;</td><td class="mdescRight">The timestamp associated with the chunk.  <br /></td></tr>
 <tr class="separator:a8dc1aa491e8fe80055413476adaa680f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a35d5eea8367e0a223915b33394223dcc" id="r_a35d5eea8367e0a223915b33394223dcc"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a35d5eea8367e0a223915b33394223dcc">mimetype</a></td></tr>
 <tr class="separator:a35d5eea8367e0a223915b33394223dcc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af3e5220f5a9e8d12b1431c2600585e29" id="r_af3e5220f5a9e8d12b1431c2600585e29"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af3e5220f5a9e8d12b1431c2600585e29">role</a></td></tr>
-<tr class="memdesc:af3e5220f5a9e8d12b1431c2600585e29"><td class="mdescLeft">&#160;</td><td class="mdescRight">The mimetype of the data in the chunk.  <br /></td></tr>
-<tr class="separator:af3e5220f5a9e8d12b1431c2600585e29"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae4f7bbb68f157183d7cab76ae0d103af" id="r_ae4f7bbb68f157183d7cab76ae0d103af"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae4f7bbb68f157183d7cab76ae0d103af">channel</a></td></tr>
-<tr class="separator:ae4f7bbb68f157183d7cab76ae0d103af"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abebb3a455665b9b9fe0637f307d8b19d" id="r_abebb3a455665b9b9fe0637f307d8b19d"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abebb3a455665b9b9fe0637f307d8b19d">environment</a></td></tr>
-<tr class="separator:abebb3a455665b9b9fe0637f307d8b19d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aef0e33db6a4e60f29432340be6dbdf79" id="r_aef0e33db6a4e60f29432340be6dbdf79"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aef0e33db6a4e60f29432340be6dbdf79">original_file_name</a></td></tr>
-<tr class="separator:aef0e33db6a4e60f29432340be6dbdf79"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a29d3a146602eafff62a69f3d55ea36e9" id="r_a29d3a146602eafff62a69f3d55ea36e9"><td class="memItemLeft" align="right" valign="top">absl::Time&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a29d3a146602eafff62a69f3d55ea36e9">timestamp</a></td></tr>
+<tr class="memdesc:a29d3a146602eafff62a69f3d55ea36e9"><td class="mdescLeft">&#160;</td><td class="mdescRight">The mimetype of the data in the chunk.  <br /></td></tr>
+<tr class="separator:a29d3a146602eafff62a69f3d55ea36e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="friends" name="friends"></a>
 Friends</h2></td></tr>
@@ -176,7 +171,7 @@ Friends</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Checks if the metadata is empty. </p>
-<dl class="section return"><dt>Returns</dt><dd>true if all fields are empty, false otherwise. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>true if both fields are empty, false otherwise. </dd></dl>
 
 </div>
 </div>
@@ -204,6 +199,8 @@ template&lt;typename T&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
+<p>The timestamp associated with the chunk. </p>
 
 </div>
 </div>
@@ -240,34 +237,6 @@ template&lt;typename Sink&gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="ae4f7bbb68f157183d7cab76ae0d103af" name="ae4f7bbb68f157183d7cab76ae0d103af"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae4f7bbb68f157183d7cab76ae0d103af">&#9670;&#160;</a></span>channel</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::string channel</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="abebb3a455665b9b9fe0637f307d8b19d" name="abebb3a455665b9b9fe0637f307d8b19d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abebb3a455665b9b9fe0637f307d8b19d">&#9670;&#160;</a></span>environment</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::string environment</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a35d5eea8367e0a223915b33394223dcc" name="a35d5eea8367e0a223915b33394223dcc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a35d5eea8367e0a223915b33394223dcc">&#9670;&#160;</a></span>mimetype</h2>
 
@@ -282,28 +251,14 @@ template&lt;typename Sink&gt; </div>
 
 </div>
 </div>
-<a id="aef0e33db6a4e60f29432340be6dbdf79" name="aef0e33db6a4e60f29432340be6dbdf79"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aef0e33db6a4e60f29432340be6dbdf79">&#9670;&#160;</a></span>original_file_name</h2>
+<a id="a29d3a146602eafff62a69f3d55ea36e9" name="a29d3a146602eafff62a69f3d55ea36e9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a29d3a146602eafff62a69f3d55ea36e9">&#9670;&#160;</a></span>timestamp</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::string original_file_name</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="af3e5220f5a9e8d12b1431c2600585e29" name="af3e5220f5a9e8d12b1431c2600585e29"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af3e5220f5a9e8d12b1431c2600585e29">&#9670;&#160;</a></span>role</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::string role</td>
+          <td class="memname">absl::Time timestamp</td>
         </tr>
       </table>
 </div><div class="memdoc">

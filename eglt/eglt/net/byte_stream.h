@@ -12,6 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @file
+ * @brief
+ *   A wrapper to make an EvergreenStream from send/recv-like functions.
+ *
+ * This file contains the definition of the EvergreenByteStream class, which is
+ * used to create an EvergreenStream from raw byte streams. It provides methods
+ * to send and receive messages, as well as to send and receive raw bytes.
+ */
+
 #ifndef EGLT_NET_BYTE_STREAM_H_
 #define EGLT_NET_BYTE_STREAM_H_
 

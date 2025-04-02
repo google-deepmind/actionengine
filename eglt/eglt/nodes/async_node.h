@@ -120,9 +120,6 @@ class AsyncNode {
 
   auto EnsureWriter(int n_chunks_to_buffer = -1) -> void;
 
-  auto WaitForChildren()
-      -> absl::StatusOr<std::vector<std::vector<base::Chunk>>>;
-
   auto PutFragment(base::NodeFragment fragment, int seq_id = -1)
       -> absl::Status;
   auto PutChunk(base::Chunk chunk, int seq_id = -1, bool final = false)
@@ -130,7 +127,6 @@ class AsyncNode {
 
   NodeMap* node_map_ = nullptr;
   std::unique_ptr<ChunkStore> chunk_store_;
-  absl::flat_hash_set<std::string> child_ids_;
 
   std::unique_ptr<ChunkStoreReader> default_reader_;
   std::unique_ptr<ChunkStoreWriter> default_writer_;

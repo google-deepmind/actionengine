@@ -15,7 +15,7 @@ var hierarchy =
     [ "ChunkMetadata", "structeglt_1_1base_1_1_chunk_metadata.html", null ],
     [ "ChunkStore", "classeglt_1_1_chunk_store.html", [
       [ "LocalChunkStore", "classeglt_1_1_local_chunk_store.html", null ],
-      [ "PyChunkStore", "classeglt_1_1_py_chunk_store.html", null ]
+      [ "PyChunkStore", "classeglt_1_1pybindings_1_1_py_chunk_store.html", null ]
     ] ],
     [ "ChunkStoreReader", "classeglt_1_1_chunk_store_reader.html", null ],
     [ "ChunkStoreWriter", "classeglt_1_1_chunk_store_writer.html", null ],

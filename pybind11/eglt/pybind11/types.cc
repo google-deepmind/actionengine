@@ -27,30 +27,16 @@ namespace eglt::pybindings {
 void BindChunkMetadata(py::handle scope, std::string_view name) {
   py::class_<base::ChunkMetadata>(scope, std::string(name).c_str())
       .def(py::init<>())
-      .def(py::init([](std::string_view mimetype, std::string_view role,
-                       std::string_view channel, std::string_view environment,
-                       std::string_view original_file_name) {
-             return base::ChunkMetadata{
-                 .mimetype = std::string(mimetype),
-                 .role = std::string(role),
-                 .channel = std::string(channel),
-                 .environment = std::string(environment),
-                 .original_file_name = std::string(original_file_name)};
+      .def(py::init([](std::string_view mimetype) {
+             return base::ChunkMetadata{.mimetype = std::string(mimetype)};
            }),
-           py::kw_only(), py::arg_v("mimetype", "text/plain"),
-           py::arg_v("role", ""), py::arg_v("channel", ""),
-           py::arg_v("environment", ""), py::arg_v("original_file_name", ""))
+           py::kw_only(), py::arg_v("mimetype", "text/plain"))
       .def_readwrite("mimetype", &base::ChunkMetadata::mimetype)
-      .def_readwrite("role", &base::ChunkMetadata::role)
-      .def_readwrite("channel", &base::ChunkMetadata::channel)
-      .def_readwrite("environment", &base::ChunkMetadata::environment)
-      .def_readwrite("original_file_name",
-                     &base::ChunkMetadata::original_file_name)
       .def("__repr__",
            [](const base::ChunkMetadata& metadata) {
              return absl::StrCat(metadata);
            })
-      .doc() = "Metadata for an Evergreen v2 Chunk.";
+      .doc() = "Metadata for an Evergreen Chunk.";
 }
 
 /// @private
@@ -76,7 +62,7 @@ void BindChunk(py::handle scope, std::string_view name) {
       .def("__repr__",
            [](const base::Chunk& chunk) { return absl::StrCat(chunk); })
       .doc() =
-      "An Evergreen v2 Chunk containing metadata and either a reference to or "
+      "An Evergreen Chunk containing metadata and either a reference to or "
       "the data themselves.";
 }
 
@@ -84,28 +70,25 @@ void BindChunk(py::handle scope, std::string_view name) {
 void BindNodeFragment(py::handle scope, std::string_view name) {
   py::class_<base::NodeFragment>(scope, std::string(name).c_str())
       .def(py::init<>())
-      .def(py::init([](std::string id, base::Chunk chunk, int seq,
-                       bool continued, std::vector<std::string> child_ids) {
-             return base::NodeFragment{.id = std::move(id),
-                                       .chunk = std::move(chunk),
-                                       .seq = seq,
-                                       .continued = continued,
-                                       .child_ids = std::move(child_ids)};
-           }),
+      .def(py::init(
+               [](std::string id, base::Chunk chunk, int seq, bool continued) {
+                 return base::NodeFragment{.id = std::move(id),
+                                           .chunk = std::move(chunk),
+                                           .seq = seq,
+                                           .continued = continued};
+               }),
            py::kw_only(), py::arg_v("id", ""),
            py::arg_v("chunk", base::Chunk()), py::arg_v("seq", 0),
-           py::arg_v("continued", false),
-           py::arg_v("child_ids", std::vector<std::string>()))
+           py::arg_v("continued", false))
       .def_readwrite("id", &base::NodeFragment::id)
       .def_readwrite("chunk", &base::NodeFragment::chunk)
       .def_readwrite("seq", &base::NodeFragment::seq)
       .def_readwrite("continued", &base::NodeFragment::continued)
-      .def_readwrite("child_ids", &base::NodeFragment::child_ids)
       .def("__repr__",
            [](const base::NodeFragment& fragment) {
              return absl::StrCat(fragment);
            })
-      .doc() = "An Evergreen v2 NodeFragment.";
+      .doc() = "An Evergreen NodeFragment.";
 }
 
 /// @private
@@ -125,7 +108,7 @@ void BindNamedParameter(py::handle scope, std::string_view name) {
            [](const base::NamedParameter& parameter) {
              return absl::StrCat(parameter);
            })
-      .doc() = "An Evergreen v2 NamedParameter for an Action.";
+      .doc() = "An Evergreen NamedParameter for an Action.";
 }
 
 /// @private
@@ -149,7 +132,7 @@ void BindActionMessage(py::handle scope, std::string_view name) {
            [](const base::ActionMessage& action) {
              return absl::StrCat(action);
            })
-      .doc() = "An Evergreen v2 ActionMessage definition.";
+      .doc() = "An Evergreen ActionMessage definition.";
 }
 
 /// @private
@@ -171,14 +154,13 @@ void BindSessionMessage(py::handle scope, std::string_view name) {
            [](const base::SessionMessage& message) {
              return absl::StrCat(message);
            })
-      .doc() = "An Evergreen v2 SessionMessage data structure.";
+      .doc() = "An Evergreen SessionMessage data structure.";
 }
 
 /// @private
 py::module_ MakeTypesModule(py::module_ scope, std::string_view module_name) {
-  py::module_ types =
-      scope.def_submodule(std::string(module_name).c_str(),
-                          "Evergreen v2 data structures, as PODs.");
+  py::module_ types = scope.def_submodule(
+      std::string(module_name).c_str(), "Evergreen data structures, as PODs.");
 
   BindChunkMetadata(types, "ChunkMetadata");
   BindChunk(types, "Chunk");

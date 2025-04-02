@@ -11,8 +11,7 @@ var searchData=
   ['registerdeserializer_8',['RegisterDeserializer',['../classeglt_1_1_serializer.html#a3531979c6cd318817fc8dbe89cb0c719',1,'eglt::Serializer']]],
   ['registerserializer_9',['RegisterSerializer',['../classeglt_1_1_serializer.html#a3d983653b97fd6661e43b056ff01b455',1,'eglt::Serializer']]],
   ['resetreader_10',['ResetReader',['../classeglt_1_1_async_node.html#a19708025b66cc5cd66bea421ea2f9fad',1,'eglt::AsyncNode']]],
-  ['role_11',['role',['../structeglt_1_1base_1_1_chunk_metadata.html#af3e5220f5a9e8d12b1431c2600585e29',1,'eglt::base::ChunkMetadata']]],
-  ['run_12',['Run',['../classeglt_1_1_action.html#a487bb77aa51db57e589a7b3df272ab74',1,'eglt::Action::Run()'],['../classeglt_1_1_chunk_store_reader.html#a487bb77aa51db57e589a7b3df272ab74',1,'eglt::ChunkStoreReader::Run()']]],
-  ['runsimpleevergreensession_13',['RunSimpleEvergreenSession',['../namespaceeglt.html#a64b25ce286e2492002d161095e418aa4',1,'eglt']]],
-  ['runthreadsafeifcoroutine_14',['RunThreadsafeIfCoroutine',['../namespaceeglt_1_1pybindings.html#a0cf0e6d7c8ff8c380649ee4598a76045',1,'eglt::pybindings']]]
+  ['run_11',['Run',['../classeglt_1_1_action.html#a487bb77aa51db57e589a7b3df272ab74',1,'eglt::Action::Run()'],['../classeglt_1_1_chunk_store_reader.html#a487bb77aa51db57e589a7b3df272ab74',1,'eglt::ChunkStoreReader::Run()']]],
+  ['runsimpleevergreensession_12',['RunSimpleEvergreenSession',['../namespaceeglt.html#a64b25ce286e2492002d161095e418aa4',1,'eglt']]],
+  ['runthreadsafeifcoroutine_13',['RunThreadsafeIfCoroutine',['../namespaceeglt_1_1pybindings.html#a0cf0e6d7c8ff8c380649ee4598a76045',1,'eglt::pybindings']]]
 ];

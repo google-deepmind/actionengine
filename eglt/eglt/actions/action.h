@@ -30,6 +30,16 @@
 #include "eglt/nodes/node_map.h"
 #include "eglt/util/map_util.h"
 
+/**
+ * @file
+ * @brief
+ *   An interface for Evergreen Action launch helper / handler context.
+ *
+ * This file contains the definition of the Action class, which is used to
+ * call Evergreen actions and provide context in handlers (e.g. node map,
+ * session, stream).
+ */
+
 namespace eglt {
 
 class Session;

@@ -23,7 +23,7 @@
 #include "eglt/nodes/chunk_store.h"
 #include "eglt/pybind11/pybind11_headers.h"
 
-namespace eglt {
+namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
@@ -105,8 +105,6 @@ class PyChunkStore final : public ChunkStore {
   }
 };
 
-namespace pybindings {
-
 void BindChunkStore(py::handle scope, std::string_view name = "ChunkStore");
 
 void BindLocalChunkStore(py::handle scope,
@@ -114,9 +112,7 @@ void BindLocalChunkStore(py::handle scope,
 
 py::module_ MakeChunkStoreModule(py::module_ scope,
                                  std::string_view module_name = "chunk_store");
-}  // namespace pybindings
-
-}  // namespace eglt
+}  // namespace eglt::pybindings
 
 namespace pybind11::detail {
 /// @private

@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @file
+ * @brief
+ *   Evergreen data structures used to implement actions and nodes (data
+ *   streams).
+ */
+
 #ifndef EGLT_DATA_EG_STRUCTS_H_
 #define EGLT_DATA_EG_STRUCTS_H_
 
@@ -69,7 +76,7 @@ std::string Indent(std::string field, int indentation = 0,
  * }
  *
  * void SomeApplicationCode() {
- * // create some users
+ *   // create some users
  *   std::vector<User> users = {
  *       User{.name = "John Doe", .email = "johndoe@example.com"},
  *       User{.name = "Alice Smith", .email = "smith@example.com"},
@@ -78,12 +85,12 @@ std::string Indent(std::string field, int indentation = 0,
  *
  *   // create a node
  *   auto node_that_streams_users = AsyncNode(/"users");
- * for (const auto& user : users) {
- *   if (const auto status = node_that_streams_users.Put(user); !status.ok()) {
- *     LOG(FATAL) << "Error: " << status;
+ *   for (const auto& user : users) {
+ *     if (const auto status = node_that_streams_users.Put(user); !status.ok()) {
+ *       LOG(FATAL) << "Error: " << status;
+ *     }
  *   }
- * }
- * node_that_streams_users.Put(eglt::EndOfStream()).IgnoreError();
+ *   node_that_streams_users.Put(eglt::EndOfStream()).IgnoreError();
  * ```
  * </details>
  *
@@ -177,30 +184,26 @@ T MoveAs(S value) {
 //! Evergreen chunk metadata.
 /*!
  This structure is used to store metadata about a chunk of data in the
- Evergreen V2 format. It includes fields for mimetype, role, channel,
- environment, and original file name.
+ Evergreen format. It includes fields for mimetype and timestamp.
 */
 struct ChunkMetadata {
   std::string mimetype;  //! The mimetype of the data in the chunk.
-  [[deprecated]] std::string role;
-  [[deprecated]] std::string channel;
-  [[deprecated]] std::string environment;
-  [[deprecated]] std::string original_file_name;
-  // google::protobuf::Timestamp capture_time;
-  // std::vector<google::protobuf::Any> experimental;
+  absl::Time timestamp;  //! The timestamp associated with the chunk.
 
   template <typename T>
   static ChunkMetadata From(T&& value) {
     return ConstructFrom<ChunkMetadata>(std::forward<T>(value));
   }
 
-  //! Checks if the metadata is empty.
-  /*!
-   \return true if all fields are empty, false otherwise.
-  */
+  /**
+   * @brief
+   *   Checks if the metadata is empty.
+   *
+   * @return
+   *  true if both fields are empty, false otherwise.
+   */
   [[nodiscard]] bool Empty() const {
-    return mimetype.empty() && role.empty() && channel.empty() &&
-           environment.empty() && original_file_name.empty();
+    return mimetype.empty() && timestamp == absl::Time();
   }
 
   template <typename Sink>
@@ -208,25 +211,18 @@ struct ChunkMetadata {
     if (!metadata.mimetype.empty()) {
       absl::Format(&sink, "mimetype: %s\n", metadata.mimetype);
     }
-    if (!metadata.role.empty()) {
-      absl::Format(&sink, "role: %s\n", metadata.role);
-    }
-    if (!metadata.channel.empty()) {
-      absl::Format(&sink, "channel: %s\n", metadata.channel);
-    }
-    if (!metadata.environment.empty()) {
-      absl::Format(&sink, "environment: %s\n", metadata.environment);
-    }
-    if (!metadata.original_file_name.empty()) {
-      absl::Format(&sink, "original_file_name: %s\n",
-                   metadata.original_file_name);
+    if (metadata.timestamp != absl::Time()) {
+      absl::Format(&sink, "timestamp: %s\n",
+                   absl::FormatTime(metadata.timestamp));
     }
   }
 };
 
-//! Evergreen chunk.
-/*!
- * This structure is used to store a chunk of data in the Evergreen V2 format.
+/**
+ * @brief
+ *   Evergreen chunk.
+ *
+ * This structure is used to store a chunk of data in the Evergreen format.
  * It includes fields for metadata, a reference to the data, and the actual
  * data itself. Data can be either a reference or the actual data, but not both.
  * However, this is not enforced in the structure itself at this time.
@@ -262,9 +258,9 @@ struct Chunk {
 
 //! Evergreen node fragment.
 /*!
- * This structure is used to store a fragment of a node in the Evergreen V2
- * format. It includes fields for the node ID, chunk, sequence number, whether
- * the fragment is continued, and child IDs.
+ * This structure is used to store a fragment of a node in the Evergreen
+ * format. It includes fields for the node ID, chunk, sequence number, and
+ * whether the fragment is continued.
  */
 struct NodeFragment {
   //! The node ID for this fragment.
@@ -278,9 +274,6 @@ struct NodeFragment {
 
   //! Whether more node fragments are expected.
   bool continued = false;
-
-  //! The IDs of child nodes.
-  [[deprecated]] std::vector<std::string> child_ids;
 
   template <typename T>
   static NodeFragment From(T&& value) {
@@ -301,10 +294,6 @@ struct NodeFragment {
     }
     if (!fragment.continued) {
       sink.Append("continued: false\n");
-    }
-    if (!fragment.child_ids.empty()) {
-      absl::Format(&sink, "child_ids: %s\n",
-                   absl::StrJoin(fragment.child_ids, ", "));
     }
   }
 };

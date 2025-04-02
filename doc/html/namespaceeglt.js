@@ -14,7 +14,6 @@ var namespaceeglt =
     [ "EvergreenByteStream", "classeglt_1_1_evergreen_byte_stream.html", "classeglt_1_1_evergreen_byte_stream" ],
     [ "LocalChunkStore", "classeglt_1_1_local_chunk_store.html", "classeglt_1_1_local_chunk_store" ],
     [ "NodeMap", "classeglt_1_1_node_map.html", "classeglt_1_1_node_map" ],
-    [ "PyChunkStore", "classeglt_1_1_py_chunk_store.html", "classeglt_1_1_py_chunk_store" ],
     [ "Serializer", "classeglt_1_1_serializer.html", "classeglt_1_1_serializer" ],
     [ "Service", "classeglt_1_1_service.html", "classeglt_1_1_service" ],
     [ "Session", "classeglt_1_1_session.html", "classeglt_1_1_session" ],

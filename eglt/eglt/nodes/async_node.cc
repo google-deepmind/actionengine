@@ -57,7 +57,6 @@ AsyncNode::AsyncNode(std::string_view id, NodeMap* node_map,
 AsyncNode::AsyncNode(AsyncNode&& other) noexcept
     : node_map_(other.node_map_),
       chunk_store_(std::move(other.chunk_store_)),
-      child_ids_(std::move(other.child_ids_)),
       default_reader_(std::move(other.default_reader_)),
       default_writer_(std::move(other.default_writer_)),
       writer_stream_(other.writer_stream_) {
@@ -73,7 +72,6 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
 
   node_map_ = other.node_map_;
   chunk_store_ = std::move(other.chunk_store_);
-  child_ids_ = std::move(other.child_ids_);
   default_reader_ = std::move(other.default_reader_);
   default_writer_ = std::move(other.default_writer_);
   writer_stream_ = other.writer_stream_;
@@ -102,12 +100,6 @@ absl::Status AsyncNode::PutFragment(base::NodeFragment fragment,
                                     const int seq_id) {
   if (chunk_store_ == nullptr) {
     return absl::FailedPreconditionError("Chunk storage is not initialized.");
-  }
-
-  if (!fragment.child_ids.empty()) {
-    for (const auto& child_id : fragment.child_ids) {
-      child_ids_.insert(child_id);
-    }
   }
 
   const std::string node_id = chunk_store_->GetNodeId();
@@ -191,19 +183,6 @@ absl::StatusOr<std::vector<base::Chunk>> AsyncNode::WaitForCompletion() {
 
   default_reader_ = nullptr;
 
-  if (child_ids_.empty()) {
-    return chunks;
-  }
-
-  auto child_results = WaitForChildren();
-  if (!child_results.ok()) {
-    return child_results.status();
-  }
-
-  for (const auto& child_result : child_results.value()) {
-    chunks.insert(chunks.end(), child_result.begin(), child_result.end());
-  }
-
   return chunks;
 }
 
@@ -254,37 +233,6 @@ void AsyncNode::EnsureWriter(int n_chunks_to_buffer) {
     default_writer_ = std::make_unique<ChunkStoreWriter>(chunk_store_.get(),
                                                          n_chunks_to_buffer);
   }
-}
-
-absl::StatusOr<std::vector<std::vector<base::Chunk>>>
-AsyncNode::WaitForChildren() {
-  if (node_map_ == nullptr) {
-    return absl::FailedPreconditionError(
-        "Node map is not initialized or has been destroyed, cannot wait for "
-        "children.");
-  }
-
-  std::vector<std::string_view> child_ids;
-  child_ids.reserve(child_ids_.size());
-  std::copy(child_ids_.begin(), child_ids_.end(),
-            std::back_inserter(child_ids));
-
-  std::vector<AsyncNode*> children = node_map_->Get(child_ids);
-
-  std::vector<std::vector<base::Chunk>> child_results;
-  child_results.reserve(children.size());
-  for (const auto& [child, child_id] : iter::zip(children, child_ids)) {
-    if (child == nullptr) {
-      return absl::InternalError(
-          absl::StrCat("Child node is null for id: ", child_id));
-    }
-    auto child_result = child->WaitForCompletion();
-    if (!child_result.ok()) {
-      return child_result.status();
-    }
-    child_results.push_back(child_result.value());
-  }
-  return child_results;
 }
 
 }  // namespace eglt

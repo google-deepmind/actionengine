@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @file
+ * @brief
+ *   An abstract interface for raw data storage and retrieval for Evergreen
+ *   nodes.
+ */
+
 #ifndef EGLT_NODES_CHUNK_STORE_H_
 #define EGLT_NODES_CHUNK_STORE_H_
 

@@ -114,7 +114,7 @@ $(function(){initNavTree('structeglt_1_1base_1_1_node_fragment.html',''); initRe
 <div class="contents">
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Evergreen node fragment. </p>
-<p>This structure is used to store a fragment of a node in the Evergreen V2 format. It includes fields for the node ID, chunk, sequence number, whether the fragment is continued, and child IDs. </p>
+<p>This structure is used to store a fragment of a node in the Evergreen format. It includes fields for the node ID, chunk, sequence number, and whether the fragment is continued. </p>
 </div>
 <p><code>#include &lt;<a class="el" href="eg__structs_8h_source.html">eg_structs.h</a>&gt;</code></p>
 <table class="memberdecls">
@@ -138,9 +138,6 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ac8aa38fa7fee83e3a535c20301024429" id="r_ac8aa38fa7fee83e3a535c20301024429"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac8aa38fa7fee83e3a535c20301024429">continued</a> = false</td></tr>
 <tr class="memdesc:ac8aa38fa7fee83e3a535c20301024429"><td class="mdescLeft">&#160;</td><td class="mdescRight">Whether more node fragments are expected.  <br /></td></tr>
 <tr class="separator:ac8aa38fa7fee83e3a535c20301024429"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa6df425cfe4e309b3d6f88f62f2e2dbc" id="r_aa6df425cfe4e309b3d6f88f62f2e2dbc"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa6df425cfe4e309b3d6f88f62f2e2dbc">child_ids</a></td></tr>
-<tr class="memdesc:aa6df425cfe4e309b3d6f88f62f2e2dbc"><td class="mdescLeft">&#160;</td><td class="mdescRight">The IDs of child nodes.  <br /></td></tr>
-<tr class="separator:aa6df425cfe4e309b3d6f88f62f2e2dbc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="friends" name="friends"></a>
 Friends</h2></td></tr>
@@ -209,22 +206,6 @@ template&lt;typename Sink&gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="aa6df425cfe4e309b3d6f88f62f2e2dbc" name="aa6df425cfe4e309b3d6f88f62f2e2dbc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa6df425cfe4e309b3d6f88f62f2e2dbc">&#9670;&#160;</a></span>child_ids</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::vector&lt;std::string&gt; child_ids</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>The IDs of child nodes. </p>
-
-</div>
-</div>
 <a id="ac2a72f5b4bb6f1003f5e05718b3ba905" name="ac2a72f5b4bb6f1003f5e05718b3ba905"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac2a72f5b4bb6f1003f5e05718b3ba905">&#9670;&#160;</a></span>chunk</h2>
 
