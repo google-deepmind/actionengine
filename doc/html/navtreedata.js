@@ -61,7 +61,7 @@ var NAVTREEINDEX =
 "action_8cc.html",
 "classeglt_1_1_local_chunk_store.html#abf08dd75cc379f6816c33d3c8a5285a4",
 "classeglt_1_1concurrency_1_1impl_1_1_fiber.html#a172b6da7e04d2db1133206130594ee9e",
-"namespaceeglt_1_1concurrency_1_1impl.html#a8b91cb9fabdab7437bc158be24739924"
+"namespaceeglt_1_1pybindings.html#a2410e465f41da1fa0461d5e2368ae04f"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronization';

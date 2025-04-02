@@ -274,7 +274,7 @@ $(function(){initNavTree('async__node_8h_source.html',''); initResizable(true); 
 <div class="line"><a id="l00152" name="l00152"></a><span class="lineno">  152</span>    value = std::nullopt;</div>
 <div class="line"><a id="l00153" name="l00153"></a><span class="lineno">  153</span>    return node;</div>
 <div class="line"><a id="l00154" name="l00154"></a><span class="lineno">  154</span>  }</div>
-<div class="line"><a id="l00155" name="l00155"></a><span class="lineno">  155</span>  value = <a class="code hl_function" href="namespaceeglt_1_1base.html#aecade04a002dcf6056c9d6ecefed8872">base::MoveAs&lt;T&gt;</a>(std::move(*chunk));</div>
+<div class="line"><a id="l00155" name="l00155"></a><span class="lineno">  155</span>  value = base::MoveAs&lt;T&gt;(std::move(*chunk));</div>
 <div class="line"><a id="l00156" name="l00156"></a><span class="lineno">  156</span>  <span class="keywordflow">return</span> node;</div>
 <div class="line"><a id="l00157" name="l00157"></a><span class="lineno">  157</span>}</div>
 </div>
@@ -438,14 +438,13 @@ $(function(){initNavTree('async__node_8h_source.html',''); initResizable(true); 
 <div class="ttc" id="aeg__structs_8h_html"><div class="ttname"><a href="eg__structs_8h.html">eg_structs.h</a></div></div>
 <div class="ttc" id="aeglt_2eglt_2nodes_2chunk__store_8h_html"><div class="ttname"><a href="eglt_2eglt_2nodes_2chunk__store_8h.html">chunk_store.h</a></div></div>
 <div class="ttc" id="anamespaceeglt_1_1base_html"><div class="ttname"><a href="namespaceeglt_1_1base.html">eglt::base</a></div><div class="ttdef"><b>Definition</b> chunk_factories.cc:22</div></div>
-<div class="ttc" id="anamespaceeglt_1_1base_html_ab96a0ae5bbff26c0146493bea46e6972"><div class="ttname"><a href="namespaceeglt_1_1base.html#ab96a0ae5bbff26c0146493bea46e6972">eglt::base::IsNullChunk</a></div><div class="ttdeci">bool IsNullChunk(const Chunk &amp;chunk)</div><div class="ttdef"><b>Definition</b> eg_structs.cc:53</div></div>
-<div class="ttc" id="anamespaceeglt_1_1base_html_aecade04a002dcf6056c9d6ecefed8872"><div class="ttname"><a href="namespaceeglt_1_1base.html#aecade04a002dcf6056c9d6ecefed8872">eglt::base::MoveAs</a></div><div class="ttdeci">T MoveAs(S value)</div><div class="ttdef"><b>Definition</b> eg_structs.h:44</div></div>
+<div class="ttc" id="anamespaceeglt_1_1base_html_ab96a0ae5bbff26c0146493bea46e6972"><div class="ttname"><a href="namespaceeglt_1_1base.html#ab96a0ae5bbff26c0146493bea46e6972">eglt::base::IsNullChunk</a></div><div class="ttdeci">bool IsNullChunk(const Chunk &amp;chunk)</div><div class="ttdef"><b>Definition</b> eg_structs.cc:55</div></div>
 <div class="ttc" id="anamespaceeglt_html"><div class="ttname"><a href="namespaceeglt.html">eglt</a></div><div class="ttdef"><b>Definition</b> action.cc:29</div></div>
 <div class="ttc" id="anamespaceeglt_html_a5aaf1db447b8c75f9757b8042f62a5f5"><div class="ttname"><a href="namespaceeglt.html#a5aaf1db447b8c75f9757b8042f62a5f5">eglt::SendToStreamIfNotNullAndOpen</a></div><div class="ttdeci">absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream *stream, base::NodeFragment &amp;&amp;fragment)</div><div class="ttdef"><b>Definition</b> async_node.cc:37</div></div>
 <div class="ttc" id="astream_8h_html"><div class="ttname"><a href="stream_8h.html">stream.h</a></div></div>
-<div class="ttc" id="astructeglt_1_1base_1_1_chunk_html"><div class="ttname"><a href="structeglt_1_1base_1_1_chunk.html">eglt::base::Chunk</a></div><div class="ttdoc">Evergreen chunk.</div><div class="ttdef"><b>Definition</b> eg_structs.h:110</div></div>
-<div class="ttc" id="astructeglt_1_1base_1_1_chunk_html_a76b3066d4b5b471fa49f84106a53b747"><div class="ttname"><a href="structeglt_1_1base_1_1_chunk.html#a76b3066d4b5b471fa49f84106a53b747">eglt::base::Chunk::From</a></div><div class="ttdeci">static Chunk From(T &amp;&amp;value)</div><div class="ttdef"><b>Definition</b> eg_structs.h:117</div></div>
-<div class="ttc" id="astructeglt_1_1base_1_1_node_fragment_html"><div class="ttname"><a href="structeglt_1_1base_1_1_node_fragment.html">eglt::base::NodeFragment</a></div><div class="ttdoc">Evergreen node fragment.</div><div class="ttdef"><b>Definition</b> eg_structs.h:145</div></div>
+<div class="ttc" id="astructeglt_1_1base_1_1_chunk_html"><div class="ttname"><a href="structeglt_1_1base_1_1_chunk.html">eglt::base::Chunk</a></div><div class="ttdoc">Evergreen chunk.</div><div class="ttdef"><b>Definition</b> eg_structs.h:234</div></div>
+<div class="ttc" id="astructeglt_1_1base_1_1_chunk_html_a76b3066d4b5b471fa49f84106a53b747"><div class="ttname"><a href="structeglt_1_1base_1_1_chunk.html#a76b3066d4b5b471fa49f84106a53b747">eglt::base::Chunk::From</a></div><div class="ttdeci">static Chunk From(T &amp;&amp;value)</div><div class="ttdef"><b>Definition</b> eg_structs.h:241</div></div>
+<div class="ttc" id="astructeglt_1_1base_1_1_node_fragment_html"><div class="ttname"><a href="structeglt_1_1base_1_1_node_fragment.html">eglt::base::NodeFragment</a></div><div class="ttdoc">Evergreen node fragment.</div><div class="ttdef"><b>Definition</b> eg_structs.h:269</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- HTML footer for doxygen 1.13.2-->

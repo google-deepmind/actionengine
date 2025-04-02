@@ -22,6 +22,7 @@
 
 namespace eglt::base {
 
+/// @private
 std::vector<std::string> Indent(std::vector<std::string> fields,
                                 const int indentation,
                                 const bool indent_first_line) {
@@ -39,6 +40,7 @@ std::vector<std::string> Indent(std::vector<std::string> fields,
   return result;
 }
 
+/// @private
 std::string Indent(std::string field, const int indentation,
                    const bool indent_first_line) {
   const std::vector<std::string> lines = Indent(

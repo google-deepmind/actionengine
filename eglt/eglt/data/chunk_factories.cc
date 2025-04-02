@@ -21,28 +21,33 @@
 
 namespace eglt::base {
 
+/// @private
 template <>
 Chunk ConstructFrom(std::nullptr_t) {
   return MakeNullChunk();
 }
 
+/// @private
 template <>
 Chunk ConstructFrom(std::string value) {
   return Chunk{.metadata = {.mimetype = kMimetypeTextPlain},
                .data = std::move(value)};
 }
 
+/// @private
 template <>
 Chunk ConstructFrom(const std::string_view value) {
   return Chunk{.metadata = {.mimetype = kMimetypeTextPlain},
                .data = std::string(value)};
 }
 
+/// @private
 template <>
 Chunk ConstructFrom(const char* value) {
   return ConstructFrom<Chunk>(std::string(value));
 }
 
+/// @private
 template <>
 absl::StatusOr<std::string> MoveAsAndReturnStatus(Chunk value) {
   if (!MimetypeIsTextual(value.metadata.mimetype)) {

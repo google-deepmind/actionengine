@@ -27,19 +27,143 @@
 namespace eglt {
 namespace base {
 
+/// @private
 std::vector<std::string> Indent(std::vector<std::string> fields,
                                 int indentation = 0,
                                 bool indent_first_line = false);
 
+/// @private
 std::string Indent(std::string field, int indentation = 0,
                    bool indent_first_line = false);
 
+/**
+ * @brief
+ *   Constructs an object of type S from a value of type T.
+ *
+ * Library users may want to implement this function to enable library's
+ * IO syntax to be used with their own types.
+ *
+* ```cc
+ * // A custom data type: a user with a name and an email.
+ * struct User {
+ *   std::string name;
+ *   std::string email;
+ * };
+ * ```
+ *
+ * <details>
+ *
+ * <summary>Example: Reading `User` directly from AsyncNode</summary>
+ *
+ * ```cc
+ * // Define how to serialize a User to a Chunk.
+ * template <>
+ * Chunk eglt::base::ConstructFrom(User value) {
+ *   Chunk chunk;
+ *   // we need to assign a mimetype to the chunk that is unique to this type.
+ *   // This is used by the Evergreen protocol to determine how to deserialize the
+ *   // chunk.
+ *   chunk.metadata.mimetype = "application/x-eglt;User";
+ *   chunk.data = absl::StrCat(value.name, ":::", value.email);
+ *   return chunk;
+ * }
+ *
+ * void SomeApplicationCode() {
+ * // create some users
+ *   std::vector<User> users = {
+ *       User{.name = "John Doe", .email = "johndoe@example.com"},
+ *       User{.name = "Alice Smith", .email = "smith@example.com"},
+ *       User{.name = "Bob Jones", .email = "jones@example.com"},
+ *   };
+ *
+ *   // create a node
+ *   auto node_that_streams_users = AsyncNode(/"users");
+ * for (const auto& user : users) {
+ *   if (const auto status = node_that_streams_users.Put(user); !status.ok()) {
+ *     LOG(FATAL) << "Error: " << status;
+ *   }
+ * }
+ * node_that_streams_users.Put(eglt::EndOfStream()).IgnoreError();
+ * ```
+ * </details>
+ *
+ * \tparam S The type of the object to construct.
+ * \tparam T The type of the value to convert.
+ * \param value The value to convert.
+ * \return
+ *   An object of type S constructed from the value.
+ */
 template <typename S, typename T>
 S ConstructFrom(T value);
 
+/**
+ * @brief
+ *   Constructs an object of type T from a value of type S,
+ *   returning an error if the conversion fails.
+ *
+ * Library users may want to implement this function to enable library's
+ * IO syntax to be used with their own types.
+ *
+ * ```cc
+ * // A custom data type: a user with a name and an email.
+ * struct User {
+ *   std::string name;
+ *   std::string email;
+ * };
+ * ```
+ *
+ * <details>
+ *
+ * <summary>Example: Reading `User` directly from AsyncNode</summary>
+ * ```cc
+ * // Define how to deserialize a User from a Chunk.
+ * template <>
+ * absl::StatusOr<User> eglt::base::MoveAsAndReturnStatus(Chunk value) {
+ *   // this validation is application-level logic, but it is considered best
+ *   // practice to validate the mimetype of the chunk to ensure that it is
+ *   // compatible with the type we are trying to deserialize it to.
+ *   if (value.metadata.mimetype != "application/x-eglt;User") {
+ *     return absl::InvalidArgumentError("Invalid mimetype.");
+ *   }
+ *
+ *   // this validation is application-level logic
+ *   std::vector<std::string> parts = absl::StrSplit(value.data, ":::");
+ *   if (parts.size() != 2) {
+ *     return absl::InvalidArgumentError("Invalid data.");
+ *   }
+ *
+ *   return User{.name = parts[0], .email = parts[1]};
+ * }
+ *
+ * void SomeApplicationCode() {
+ *   AsyncNode node_that_streams_users("users");
+ *
+ *   std::optional<User> user;
+ *   while (true) {
+ *     user = node_that_streams_users.Next<User>();
+ *
+ *     if (!node_that_streams_users.GetReaderStatus().ok()) {
+ *       break;
+ *     }
+ *
+ *     if (!user.has_value()) {
+ *       break;
+ *     }
+ *   }
+ * ```
+ * </details>
+ *
+ * @tparam T The type of the object to construct.
+ * @tparam S The type of the value to convert.
+ * @param value The value to convert.
+ * @return
+ *  An object of type T constructed from the value, or an error if the
+ *  conversion fails.
+ */
 template <typename T, typename S>
 absl::StatusOr<T> MoveAsAndReturnStatus(S value);
 
+/// @private
 template <typename T, typename S>
 T MoveAs(S value) {
   absl::StatusOr<T> result = MoveAsAndReturnStatus<T, S>(std::move(value));
@@ -262,6 +386,7 @@ struct SessionMessage {
   }
 };
 
+/// @private
 bool IsNullChunk(const Chunk& chunk);
 
 }  // namespace base
