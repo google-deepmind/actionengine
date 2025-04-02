@@ -49,7 +49,7 @@ cd build || exit 1
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${boost_install_dir}" \
-  -DBOOST_INCLUDE_LIBRARIES="fiber" \
+  -DBOOST_INCLUDE_LIBRARIES="fiber;intrusive" \
   -DBOOST_ENABLE_CMAKE=ON \
   -G "Ninja" \
   .. || exit 1

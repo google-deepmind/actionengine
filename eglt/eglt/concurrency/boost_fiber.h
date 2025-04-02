@@ -9,6 +9,7 @@
 #include <type_traits>
 
 #include <boost/fiber/all.hpp>
+#include <boost/intrusive/list.hpp>
 
 #include "eglt/absl_headers.h"
 
@@ -24,7 +25,7 @@ static void InitRand32() {
   // Avoid 0 which generates a sequence of 0s.
   if (seed == 0)
     seed = 1;
-  last_rand32.store(seed, std::memory_order_release);
+  last_rand32.store(static_cast<int32_t>(seed), std::memory_order_release);
 }
 
 // Pseudo-random number generator using Linear Shift Feedback Register (LSFB)
@@ -36,7 +37,7 @@ static uint32_t Rand32() {
   uint32_t r = last_rand32.load(std::memory_order_relaxed);
   r = (r << 1) ^
       ((static_cast<int32_t>(r) >> 31) & poly);  // shift sign-extends
-  last_rand32.store(r, std::memory_order_relaxed);
+  last_rand32.store(static_cast<int32_t>(r), std::memory_order_relaxed);
   return r;
 }
 
@@ -77,6 +78,9 @@ class CondVar {
  public:
   CondVar();
 
+  CondVar(const CondVar&) = delete;
+  CondVar& operator=(const CondVar&) = delete;
+
   void Wait(Mutex* absl_nonnull mu) { return cv_.wait(mu->GetImpl()); }
 
   bool WaitWithTimeout(Mutex* absl_nonnull mu, const absl::Duration timeout) {
@@ -88,9 +92,9 @@ class CondVar {
     const cv_status status =
         cv_.wait_until(mu->GetImpl(), absl::ToChronoTime(deadline));
     if (status == cv_status::timeout) {
-      return false;
+      return true;
     }
-    return true;
+    return false;
   }
 
   void Signal() { cv_.notify_one(); }
@@ -99,8 +103,6 @@ class CondVar {
 
  private:
   boost::fibers::condition_variable_any cv_;
-  CondVar(const CondVar&) = delete;
-  CondVar& operator=(const CondVar&) = delete;
 };
 
 struct Selector {
@@ -236,6 +238,7 @@ class ChannelWriter {
   //
   // REQUIRES: May not be called after this->Close().
   void Write(const T& item [[maybe_unused]]) {}
+
   void Write(T&& item [[maybe_unused]]) {}
 
   bool WriteUnlessCancelled(const T& item [[maybe_unused]]) { return false; }
@@ -264,59 +267,110 @@ class Channel {
   [[nodiscard]] size_t Size() const { return 0; }
 };
 
-struct FiberProperties {
-  PermanentEvent joinable_;
+class Fiber;
 
+struct FiberProperties {
+  Fiber* fiber = nullptr;
+
+  PermanentEvent joinable;
   bool cancelled = false;
-  PermanentEvent cancelled_event_;
+  PermanentEvent cancelled_event;
 };
+
+class FiberPropertiesWithContext final
+    : public boost::fibers::fiber_properties {
+ public:
+  explicit FiberPropertiesWithContext(boost::fibers::context* context) noexcept
+      : boost::fibers::fiber_properties(context) {}
+
+  FiberProperties& Get() { return props_; }
+
+ private:
+  FiberProperties props_;
+};
+
+class work_stealing_with_properties final
+    : public boost::fibers::algo::algorithm_with_properties<
+          FiberPropertiesWithContext>,
+      public boost::fibers::algo::work_stealing {};
+
+inline void UseSchedulerWithProperties() {
+  thread_local bool initialized = false;
+  if (initialized) {
+    return;
+  }
+
+  // boost::fibers::use_scheduling_algorithm<FiberPropertiesWithContext>();
+  initialized = true;
+}
+
+struct FiberCancellationTag {};
+
+using FiberListHook = boost::intrusive::list_base_hook<
+    boost::intrusive::tag<FiberCancellationTag>>;
 
 class Fiber {
  public:
   template <typename F,
             // Avoid binding Fiber(const Fiber&) or Fiber(Fiber):
             typename = std::invoke_result_t<F>>
-  explicit Fiber(F f [[maybe_unused]]) {}
+  explicit Fiber(F f) {
+    UseSchedulerWithProperties();
+  }
 
   void Cancel() {
-    FiberProperties& props = GetProperties();
+    FiberProperties& props = props_.Get();
     if (props.cancelled) {
       return;
     }
     props.cancelled = true;
-    props.cancelled_event_.Notify();
+    props.cancelled_event.Notify();
   }
 
-  Case OnCancel() { return GetProperties().cancelled_event_.OnEvent(); }
+  Case OnCancel() { return GetProperties().cancelled_event.OnEvent(); }
 
   void Join() { fiber_.join(); }
-  Case OnJoinable() { return GetProperties().joinable_.OnEvent(); }
+  Case OnJoinable() { return GetProperties().joinable.OnEvent(); }
 
   friend void Detach(const TreeOptions& options,
                      absl::AnyInvocable<void()>&& fn);
 
  private:
   FiberProperties& GetProperties() {
-    return fiber_.properties<FiberProperties>();
+    return fiber_.properties<FiberPropertiesWithContext>().Get();
   }
 
-  auto WrapBodyFunction(absl::AnyInvocable<void()>&& fn) {
+  absl::AnyInvocable<void()> WrapBodyFunction(absl::AnyInvocable<void()>&& fn) {
     return [fn = std::move(fn), props = &GetProperties()]() mutable {
       fn();
-      props->joinable_.Notify();
+      props->joinable.Notify();
     };
   }
 
   boost::fibers::fiber fiber_;
+  FiberPropertiesWithContext props_;
+
+  mutable Mutex mutex_;
+
+  const Fiber* parent;
+  // boost::intrusive::list<Fiber> children_ ABSL_GUARDED_BY(mutex_);
 };
 
 inline void JoinOptimally(Fiber* fiber) {
   fiber->Join();
 }
 
-bool Cancelled();
+inline bool Cancelled() {
+  return boost::this_fiber::properties<FiberPropertiesWithContext>()
+      .Get()
+      .cancelled;
+}
 
-Case OnCancel();
+inline Case OnCancel() {
+  return boost::this_fiber::properties<FiberPropertiesWithContext>()
+      .Get()
+      .cancelled_event.OnEvent();
+}
 
 inline bool CvBlock(const absl::Time deadline, Selector* sel)
     ABSL_SHARED_LOCKS_REQUIRED(sel->mutex) {
@@ -337,7 +391,7 @@ inline bool CvBlock(const absl::Time deadline, Selector* sel)
 inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
   Selector sel;
   sel.picked = Selector::kNonePicked;
-  const int num_cases = cases.size();
+  const auto num_cases = cases.size();
 
   // Initialize internal representation of passed Cases
   absl::FixedArray<CaseState, 4> case_states(num_cases);
@@ -348,7 +402,7 @@ inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
     case_states[0].index = 0;
   }
   for (int i = 1; i < num_cases; i++) {
-    const int swap = Rand32() % (i + 1);
+    const uint32_t swap = Rand32() % (i + 1);
     case_states[i].index = case_states[swap].index;
     case_states[swap].index = i;
   }
