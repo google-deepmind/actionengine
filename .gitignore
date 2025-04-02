@@ -2,6 +2,7 @@ build/
 cmake-build-debug/
 cmake-build-release/
 
+**/.DS_Store/
 .idea/
 
 third_party/build_deps/*
