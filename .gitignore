@@ -6,4 +6,3 @@ cmake-build-release/
 .idea/
 
 third_party/build_deps/*
-!third_party/build_deps/cppack/

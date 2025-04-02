@@ -1,11 +1,14 @@
-add_library(
-        eglt_data STATIC
+add_library(eglt_data STATIC)
+add_library(eglt::data ALIAS eglt_data)
+
+target_sources(eglt_data
+        PRIVATE
         chunk_factories.cc
-        eg_structs.h
         eg_structs.cc
+        eg_structs.h
+        mimetypes.h
         serialization.h
 )
-add_library(eglt::data ALIAS eglt_data)
 target_include_directories(
         eglt_data PRIVATE
         ${EGLT_PROJECT_TOP_LEVEL}
@@ -13,9 +16,6 @@ target_include_directories(
 )
 target_link_libraries(
         eglt_data PUBLIC
+        cppack
         eglt::absl_headers
-)
-target_precompile_headers(
-        eglt_data PUBLIC
-        mimetypes.h
 )

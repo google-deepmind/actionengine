@@ -1,7 +1,7 @@
 add_library(
         eglt_actions STATIC
-        action.h
         action.cc
+        action.h
 )
 add_library(
         eglt::actions ALIAS
@@ -16,9 +16,9 @@ target_include_directories(
 target_link_libraries(
         eglt_actions
         PUBLIC
-        eglt_absl_headers
-        eglt_data
-        eglt_net
-        eglt_nodes
-        eglt_util
+        eglt::absl_headers
+        eglt::data
+        eglt::net
+        eglt::nodes
+        eglt::util
 )

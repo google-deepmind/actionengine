@@ -17,24 +17,24 @@ set(EGLT_THIRD_PARTY_INSTALL_ROOT ${EGLT_THIRD_PARTY_ROOT}/build_deps)
 set(EGLT_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include)
 
 set(CMAKE_PREFIX_PATH
-    ${CMAKE_PREFIX_PATH}
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11
-    ${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/fiber
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/poco
+        ${CMAKE_PREFIX_PATH}
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11
+        ${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/fiber
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/poco
 )
 
 execute_process(
-    COMMAND python3 -c "import sys; print(sys.executable, end='')"
-    OUTPUT_VARIABLE Python_EXECUTABLE
+        COMMAND python3 -c "import sys; print(sys.executable, end='')"
+        OUTPUT_VARIABLE Python_EXECUTABLE
 )
 execute_process(
-    COMMAND python3 -c "import sys; print(sys.executable, end='')"
-    OUTPUT_VARIABLE Python3_EXECUTABLE
+        COMMAND python3 -c "import sys; print(sys.executable, end='')"
+        OUTPUT_VARIABLE Python3_EXECUTABLE
 )
 find_package(Python REQUIRED COMPONENTS Development Interpreter)
 find_package(Python3 REQUIRED COMPONENTS Development.Module Interpreter)
@@ -48,17 +48,18 @@ find_package(Boost REQUIRED COMPONENTS fiber)
 find_package(GTest REQUIRED)
 find_package(Poco REQUIRED COMPONENTS Foundation Net Util)
 
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/cppack)
 add_subdirectory(${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil)
 
 set(EGLT_INCLUDE_DIRS
-    ${EGLT_INCLUDE_DIR}
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp/include
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11/include
-    ${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost/include
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools/include
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest/include
-    ${EGLT_THIRD_PARTY_INSTALL_ROOT}/poco/include
+        ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp/include
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11/include
+        ${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost/include
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools/include
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest/include
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/poco/include
 )
 
 
@@ -68,7 +69,7 @@ add_subdirectory(pybind11/eglt/pybind11)
 add_library(eglt-oss SHARED ${EGLT_PROJECT_ROOT}/library.cpp)
 target_link_libraries(eglt-oss eglt_absl_headers eglt_actions eglt_data eglt_concurrency eglt_nodes eglt_net eglt_util)
 target_include_directories(
-    eglt-oss
-    PUBLIC
-    ${EGLT_INCLUDE_DIRS}
+        eglt-oss
+        PUBLIC
+        ${EGLT_INCLUDE_DIRS}
 )
