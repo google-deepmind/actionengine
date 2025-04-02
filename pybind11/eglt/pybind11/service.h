@@ -105,6 +105,7 @@ class PyEvergreenStream final : public base::EvergreenStream {
   }
 };
 
+/// @private
 py::module_ MakeServiceModule(py::module_ scope,
                               std::string_view module_name = "service");
 }  // namespace eglt::pybindings

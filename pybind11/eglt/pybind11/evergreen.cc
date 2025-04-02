@@ -25,6 +25,7 @@ namespace eglt {
 
 namespace py = ::pybind11;
 
+/// @private
 PYBIND11_MODULE(evergreen_pybind11, m) {
   pybind11::google::ImportStatusModule();
   // pybind11_protobuf::ImportNativeProtoCasters();

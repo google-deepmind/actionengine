@@ -32,6 +32,7 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
+/// @private
 void BindActionNode(py::handle scope, std::string_view name) {
   py::class_<ActionNode, std::shared_ptr<ActionNode>>(scope,
                                                       std::string(name).c_str())
@@ -48,6 +49,7 @@ void BindActionNode(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen v2 ActionNode.";
 }
 
+/// @private
 void BindActionDefinition(py::handle scope, std::string_view name) {
   py::class_<ActionDefinition, std::shared_ptr<ActionDefinition>>(
       scope, std::string(name).c_str())
@@ -70,6 +72,7 @@ void BindActionDefinition(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen v2 ActionDefinition.";
 }
 
+/// @private
 void BindActionRegistry(py::handle scope, std::string_view name) {
   py::class_<ActionRegistry, std::shared_ptr<ActionRegistry>>(
       scope, std::string(name).c_str())
@@ -91,6 +94,7 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
           py::arg_v("stream", nullptr), py::arg_v("session", nullptr));
 }
 
+/// @private
 void BindAction(py::handle scope, std::string_view name) {
   py::class_<Action, std::shared_ptr<Action>>(scope, std::string(name).c_str())
       .def(MakeSameObjectRefConstructor<Action>())
@@ -148,6 +152,7 @@ void BindAction(py::handle scope, std::string_view name) {
       .def("set_handler", &Action::SetHandler, py::arg("handler"));
 }
 
+/// @private
 py::module_ MakeActionsModule(py::module_ scope, std::string_view module_name) {
   py::module_ actions = scope.def_submodule(std::string(module_name).c_str(),
                                             "Evergreen v2 Actions interface.");

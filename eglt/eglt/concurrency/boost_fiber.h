@@ -127,16 +127,20 @@ struct Selector {
   static constexpr int kNonePicked = -1;
 };
 
+/// @private
 class Selectable;
 
+/// @private
 struct Case {
   Selectable* selectable = nullptr;
   Selector* selector = nullptr;
   int selection_index = -1;
 };
 
+/// @private
 struct CaseState;
 
+/// @private
 class Selectable {
  public:
   virtual ~Selectable() = default;
@@ -145,6 +149,7 @@ class Selectable {
   virtual void Unregister(CaseState* c) = 0;
 };
 
+/// @private
 struct CaseState {
   const Case* params;
   int index;
@@ -283,6 +288,7 @@ class Channel {
 
 class Fiber;
 
+/// @private
 struct FiberProperties {
   Fiber* fiber = nullptr;
 
@@ -291,6 +297,7 @@ struct FiberProperties {
   PermanentEvent cancelled_event;
 };
 
+/// @private
 class FiberPropertiesWithContext final
     : public boost::fibers::fiber_properties {
  public:
@@ -318,8 +325,10 @@ inline void UseSchedulerWithProperties() {
   initialized = true;
 }
 
+/// @private
 struct FiberCancellationTag {};
 
+/// @private
 using FiberListHook = boost::intrusive::list_base_hook<
     boost::intrusive::tag<FiberCancellationTag>>;
 

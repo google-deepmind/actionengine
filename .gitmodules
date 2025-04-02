@@ -19,3 +19,6 @@
 [submodule "third_party/pybind11_abseil"]
 	path = third_party/pybind11_abseil
 	url = https://github.com/pybind/pybind11_abseil
+[submodule "doc/doxygen-awesome-css"]
+	path = doc/doxygen-awesome-css
+	url = https://github.com/jothepro/doxygen-awesome-css.git

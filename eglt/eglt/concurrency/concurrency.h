@@ -97,6 +97,13 @@ inline bool Cancelled() {
   return impl::Cancelled();
 }
 
+/**
+ * @brief Gets the current fiber's cancellation case.
+ *
+ * This case can be passed to Select() to wait for cancellation.
+ *
+ * @return The cancellation case.
+ */
 inline Case OnCancel() {
   return impl::OnCancel();
 }

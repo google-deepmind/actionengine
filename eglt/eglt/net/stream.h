@@ -32,25 +32,56 @@ using ReceiveBytesT = std::function<std::optional<Bytes>()>;
 
 namespace eglt::base {
 
+//! An abstract base class for an Evergreen stream.
+/*!
+ * This class provides an interface for sending and receiving messages over a
+ * stream. It is intended to be used as a base class for specific stream
+ * implementations, such as WebSocket or gRPC streams.
+ */
 class EvergreenStream {
  public:
   virtual ~EvergreenStream() = default;
 
+  //! Sends an Evergreen session message over the stream.
   virtual auto Send(SessionMessage message) -> absl::Status = 0;
+  //! Receives an Evergreen session message from the stream.
   virtual auto Receive() -> std::optional<SessionMessage> = 0;
 
+  //! Accept the stream on the server side. Clients should not call this.
   virtual auto Accept() -> void = 0;
+  //! Start the stream on the client side. Servers should not call this.
   virtual auto Start() -> void = 0;
+  //! Initiates a graceful shutdown of the stream. Should be called from the
+  //! client first.
   virtual auto HalfClose() -> void = 0;
 
+  //! Returns the status of the last send operation.
   virtual auto GetLastSendStatus() const -> absl::Status = 0;
 
+  //! Returns the implementation-dependent identifier of the stream.
   [[nodiscard]] virtual auto GetId() const -> std::string = 0;
 
+  //! Returns the underlying implementation of the stream.
+  /*!
+   * This function is intended to be overridden by derived classes to provide
+   * access to the specific implementation of the stream. The default
+   * implementation returns a null pointer.
+   *
+   * \return A pointer to the underlying implementation of the stream.
+   */
   [[nodiscard]] virtual auto GetImpl() const -> void* { return nullptr; }
 
+  //! Returns the underlying implementation of the stream.
+  /*!
+   * This function is a template that allows the user to specify the type of
+   * the underlying implementation. It uses static_cast to convert the void*
+   * pointer returned by GetImpl() to the specified type.
+   *
+   * \tparam T The type of the underlying implementation.
+   * \return A pointer to the underlying implementation of type T.
+   */
   template <typename T>
-  auto GetImpl() const -> T* {
+  [[nodiscard]] auto GetImpl() const -> T* {
     return static_cast<T*>(GetImpl());
   }
 };

@@ -26,6 +26,7 @@
 
 namespace eglt::pybindings {
 
+/// @private
 void BindChunkStore(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
@@ -74,6 +75,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen v2 ChunkStore interface.";
 }
 
+/// @private
 void BindLocalChunkStore(py::handle scope, std::string_view name) {
   py::class_<LocalChunkStore, ChunkStore, std::shared_ptr<LocalChunkStore>>(
       scope, std::string(name).c_str())
@@ -89,6 +91,7 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen v2 LocalChunkStore interface.";
 }
 
+/// @private
 py::module_ MakeChunkStoreModule(py::module_ scope,
                                  std::string_view module_name) {
   py::module_ chunk_store = scope.def_submodule(

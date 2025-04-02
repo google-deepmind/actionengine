@@ -288,6 +288,7 @@ inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
   return writer;
 }
 
+/// @private
 template <typename T>
 ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, std::vector<T> value) {
   for (auto& element : std::move(value)) {
@@ -300,12 +301,14 @@ ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, std::vector<T> value) {
   return writer;
 }
 
+/// @private
 template <typename T>
 ChunkStoreWriter* operator<<(ChunkStoreWriter* writer, T value) {
   *writer << std::move(value);
   return writer;
 }
 
+/// @private
 template <typename T>
 std::unique_ptr<ChunkStoreWriter>& operator<<(
     std::unique_ptr<ChunkStoreWriter>& writer, T value) {
@@ -313,6 +316,7 @@ std::unique_ptr<ChunkStoreWriter>& operator<<(
   return writer;
 }
 
+/// @private
 template <typename T>
 std::shared_ptr<ChunkStoreWriter>& operator<<(
     std::shared_ptr<ChunkStoreWriter>& writer, T value) {

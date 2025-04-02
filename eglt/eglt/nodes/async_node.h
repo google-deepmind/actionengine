@@ -156,6 +156,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
   return node;
 }
 
+/// @private
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, T value) {
   node.EnsureWriter();
@@ -203,12 +204,14 @@ std::shared_ptr<AsyncNode>& operator>>(std::shared_ptr<AsyncNode>& node,
 // -----------------------------------------------------------------------------
 // "Concrete" instantiations for the operator<< for Chunk and NodeFragment.
 // -----------------------------------------------------------------------------
+/// @private
 template <>
 inline AsyncNode& operator<<(AsyncNode& node, base::NodeFragment value) {
   node.Put(std::move(value)).IgnoreError();
   return node;
 }
 
+/// @private
 template <>
 inline AsyncNode& operator<<(AsyncNode& node, base::Chunk value) {
   node.Put(std::move(value), /*seq_id=*/-1, /*final=*/false).IgnoreError();
@@ -217,6 +220,7 @@ inline AsyncNode& operator<<(AsyncNode& node, base::Chunk value) {
 
 // -----------------------------------------------------------------------------
 
+/// @private
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, std::vector<T> value) {
   for (auto& element : std::move(value)) {
@@ -229,6 +233,7 @@ AsyncNode& operator<<(AsyncNode& node, std::vector<T> value) {
   return node;
 }
 
+/// @private
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, std::pair<T, int> value) {
   auto [data_value, seq] = std::move(value);
@@ -236,6 +241,7 @@ AsyncNode& operator<<(AsyncNode& node, std::pair<T, int> value) {
   return node;
 }
 
+/// @private
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, std::pair<T, bool> value) {
   auto [data_value, is_final] = std::move(value);
@@ -243,6 +249,7 @@ AsyncNode& operator<<(AsyncNode& node, std::pair<T, bool> value) {
   return node;
 }
 
+/// @private
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, std::tuple<T, int, bool> value) {
   auto [data_value, seq, final] = std::move(value);
@@ -252,12 +259,14 @@ AsyncNode& operator<<(AsyncNode& node, std::tuple<T, int, bool> value) {
 
 // Convenience operators to write to an AsyncNode pointers (such as in the case
 // of action->GetOutput("text"))
+/// @private
 template <typename T>
 AsyncNode* operator<<(AsyncNode* node, T value) {
   *node << std::move(value);
   return node;
 }
 
+/// @private
 template <typename T>
 std::unique_ptr<AsyncNode>& operator<<(std::unique_ptr<AsyncNode>& node,
                                        T value) {
@@ -265,6 +274,7 @@ std::unique_ptr<AsyncNode>& operator<<(std::unique_ptr<AsyncNode>& node,
   return node;
 }
 
+/// @private
 template <typename T>
 std::shared_ptr<AsyncNode>& operator<<(std::shared_ptr<AsyncNode>& node,
                                        T value) {

@@ -27,6 +27,7 @@
 
 namespace eglt::pybindings {
 
+/// @private
 void BindNodeMap(py::handle scope, std::string_view name) {
   py::class_<NodeMap, std::shared_ptr<NodeMap>>(scope,
                                                 std::string(name).c_str())
@@ -45,6 +46,7 @@ void BindNodeMap(py::handle scope, std::string_view name) {
            });
 }
 
+/// @private
 void BindAsyncNode(py::handle scope, std::string_view name) {
   py::class_<AsyncNode, std::shared_ptr<AsyncNode>>(scope,
                                                     std::string(name).c_str())

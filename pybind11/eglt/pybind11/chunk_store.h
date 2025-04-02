@@ -119,6 +119,7 @@ py::module_ MakeChunkStoreModule(py::module_ scope,
 }  // namespace eglt
 
 namespace pybind11::detail {
+/// @private
 template <>
 class type_caster<std::unique_ptr<eglt::ChunkStore>>
     : public type_caster_base<std::unique_ptr<eglt::ChunkStore>> {};

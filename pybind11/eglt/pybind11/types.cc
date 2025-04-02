@@ -23,6 +23,7 @@
 
 namespace eglt::pybindings {
 
+/// @private
 void BindChunkMetadata(py::handle scope, std::string_view name) {
   py::class_<base::ChunkMetadata>(scope, std::string(name).c_str())
       .def(py::init<>())
@@ -52,6 +53,7 @@ void BindChunkMetadata(py::handle scope, std::string_view name) {
       .doc() = "Metadata for an Evergreen v2 Chunk.";
 }
 
+/// @private
 void BindChunk(py::handle scope, std::string_view name) {
   py::class_<base::Chunk>(scope, std::string(name).c_str())
       .def(py::init<>())
@@ -78,6 +80,7 @@ void BindChunk(py::handle scope, std::string_view name) {
       "the data themselves.";
 }
 
+/// @private
 void BindNodeFragment(py::handle scope, std::string_view name) {
   py::class_<base::NodeFragment>(scope, std::string(name).c_str())
       .def(py::init<>())
@@ -105,6 +108,7 @@ void BindNodeFragment(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen v2 NodeFragment.";
 }
 
+/// @private
 void BindNamedParameter(py::handle scope, std::string_view name) {
   py::class_<base::NamedParameter>(scope, std::string(name).c_str())
       .def(py::init<>())
@@ -124,6 +128,7 @@ void BindNamedParameter(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen v2 NamedParameter for an Action.";
 }
 
+/// @private
 void BindActionMessage(py::handle scope, std::string_view name) {
   py::class_<base::ActionMessage>(scope, std::string(name).c_str())
       .def(py::init<>())
@@ -147,6 +152,7 @@ void BindActionMessage(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen v2 ActionMessage definition.";
 }
 
+/// @private
 void BindSessionMessage(py::handle scope, std::string_view name) {
   py::class_<base::SessionMessage>(scope, std::string(name).c_str())
       .def(py::init<>())
@@ -168,6 +174,7 @@ void BindSessionMessage(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen v2 SessionMessage data structure.";
 }
 
+/// @private
 py::module_ MakeTypesModule(py::module_ scope, std::string_view module_name) {
   py::module_ types =
       scope.def_submodule(std::string(module_name).c_str(),

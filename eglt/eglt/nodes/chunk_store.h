@@ -67,8 +67,10 @@ class ChunkStore {
 
   virtual void SetFinalSeqId(int final_seq_id) = 0;
 
-  mutable concurrency::Mutex mutex_ ABSL_ACQUIRED_BEFORE(event_mutex_);
-  mutable concurrency::Mutex event_mutex_ ABSL_ACQUIRED_AFTER(mutex_);
+  ABSL_ACQUIRED_BEFORE(event_mutex_)
+  mutable concurrency::Mutex mutex_;
+  ABSL_ACQUIRED_AFTER(mutex_)
+  mutable concurrency::Mutex event_mutex_;
 
   std::string node_id_;
 };
