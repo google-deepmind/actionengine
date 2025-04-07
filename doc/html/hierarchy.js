@@ -29,7 +29,7 @@ var hierarchy =
       [ "PyEvergreenStream", "classeglt_1_1pybindings_1_1_py_evergreen_stream.html", null ]
     ] ],
     [ "Fiber", "classeglt_1_1concurrency_1_1impl_1_1_fiber.html", null ],
-    [ "keep_event_loop_memo", "structeglt_1_1pybindings_1_1keep__event__loop__memo.html", null ],
+    [ "keep_event_loop_memo", "namespaceeglt_1_1pybindings.html#structeglt_1_1pybindings_1_1keep__event__loop__memo", null ],
     [ "Mutex", "classeglt_1_1concurrency_1_1impl_1_1_mutex.html", null ],
     [ "MutexLock", "classeglt_1_1concurrency_1_1impl_1_1_mutex_lock.html", null ],
     [ "NamedParameter", "structeglt_1_1base_1_1_named_parameter.html", null ],
@@ -40,8 +40,8 @@ var hierarchy =
     [ "Serializer", "classeglt_1_1_serializer.html", null ],
     [ "Session", "classeglt_1_1_session.html", null ],
     [ "SessionMessage", "structeglt_1_1base_1_1_session_message.html", null ],
-    [ "StreamToSessionConnection", "structeglt_1_1_stream_to_session_connection.html", null ],
-    [ "TreeOptions", "classeglt_1_1concurrency_1_1impl_1_1_tree_options.html", null ],
+    [ "StreamToSessionConnection", "namespaceeglt.html#structeglt_1_1_stream_to_session_connection", null ],
+    [ "TreeOptions", "namespaceeglt_1_1concurrency_1_1impl.html#classeglt_1_1concurrency_1_1impl_1_1_tree_options", null ],
     [ "TwoMutexLock", "classeglt_1_1concurrency_1_1_two_mutex_lock.html", null ],
     [ "work_stealing", null, [
       [ "work_stealing_with_properties", "classeglt_1_1concurrency_1_1impl_1_1work__stealing__with__properties.html", null ]

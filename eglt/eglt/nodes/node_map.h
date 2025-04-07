@@ -28,6 +28,16 @@
 namespace eglt {
 class AsyncNode;
 
+/**
+ * @brief
+ *   A thread-safe map of Evergreen nodes.
+ *
+ * This class is used to manage a collection of nodes, allowing for the
+ * retrieval and insertion of nodes by their ID. It also provides a way to
+ * use a custom ChunkStore factory for creating chunk stores.
+ *
+ * @headerfile eglt/nodes/node_map.h
+ */
 class NodeMap {
  public:
   explicit NodeMap(ChunkStoreFactory chunk_store_factory = {});
@@ -47,7 +57,9 @@ class NodeMap {
            const ChunkStoreFactory& chunk_store_factory = {})
       -> std::vector<AsyncNode*>;
 
+  /// @private
   auto insert(std::string_view id, AsyncNode&& node) -> AsyncNode&;
+  /// @private
   bool contains(std::string_view id);
 
  private:

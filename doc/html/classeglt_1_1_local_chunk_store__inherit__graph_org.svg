@@ -11,7 +11,7 @@
 <!-- Node1 -->
 <g id="Node000001" class="node">
 <title>Node1</title>
-<g id="a_Node000001"><a xlink:title=" ">
+<g id="a_Node000001"><a xlink:title="A local chunk store for storing a node&#39;s chunks in memory.">
 <polygon fill="#999999" stroke="#666666" points="91,-19.25 0,-19.25 0,0 91,0 91,-19.25"/>
 <text text-anchor="middle" x="45.5" y="-5.75" font-family="Helvetica,sans-Serif" font-size="10.00">LocalChunkStore</text>
 </a>

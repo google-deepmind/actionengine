@@ -35,6 +35,18 @@
 
 namespace eglt {
 
+/**
+ * @brief
+ *   A wrapper to make an EvergreenStream from send/recv-like functions.
+ *
+ * This class provides a way to create an EvergreenStream from raw byte streams.
+ * It allows for sending and receiving messages, as well as sending and receiving
+ * raw bytes.
+ *
+ * WARNING: currently, this class does NOT actually implement EvergreenStream.
+ *
+ * @headerfile eglt/net/byte_stream.h
+ */
 class EvergreenByteStream {
  public:
   explicit EvergreenByteStream(

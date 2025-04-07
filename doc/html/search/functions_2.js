@@ -11,6 +11,5 @@ var searchData=
   ['condvar_8',['CondVar',['../classeglt_1_1concurrency_1_1impl_1_1_cond_var.html#a4034e777251972e12e22cce91fc2785f',1,'eglt::concurrency::impl::CondVar::CondVar()'],['../classeglt_1_1concurrency_1_1impl_1_1_cond_var.html#a286cfb55fd5b4767ebee1ac6ebe035d4',1,'eglt::concurrency::impl::CondVar::CondVar(const CondVar &amp;)=delete']]],
   ['constructfrom_9',['ConstructFrom',['../namespaceeglt_1_1base.html#aea157b5d8559580e8d716fe2f82b0a9a',1,'eglt::base']]],
   ['contains_10',['Contains',['../classeglt_1_1_chunk_store.html#a3c1b933bcd687513d91609fdf4a2ddcb',1,'eglt::ChunkStore::Contains()'],['../classeglt_1_1_local_chunk_store.html#a1763ee9dec6a0d11d9d1b1d8a8133f24',1,'eglt::LocalChunkStore::Contains()'],['../classeglt_1_1pybindings_1_1_py_chunk_store.html#a1763ee9dec6a0d11d9d1b1d8a8133f24',1,'eglt::pybindings::PyChunkStore::Contains()']]],
-  ['contains_11',['contains',['../classeglt_1_1_node_map.html#a3526756a07afb2dde8d9fe9c0f31dace',1,'eglt::NodeMap']]],
-  ['cvblock_12',['CvBlock',['../namespaceeglt_1_1concurrency_1_1impl.html#af6bc71e326c7c62f1b2bfb388c3400d4',1,'eglt::concurrency::impl']]]
+  ['cvblock_11',['CvBlock',['../namespaceeglt_1_1concurrency_1_1impl.html#af6bc71e326c7c62f1b2bfb388c3400d4',1,'eglt::concurrency::impl']]]
 ];

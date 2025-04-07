@@ -57,8 +57,8 @@ static uint32_t Rand32() {
 
 class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
  public:
-  Mutex();
-  ~Mutex();
+  Mutex() = default;
+  ~Mutex() = default;
 
   void Lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() { mu_.lock(); }
   void Unlock() ABSL_UNLOCK_FUNCTION() { mu_.unlock(); }
@@ -90,7 +90,7 @@ class ABSL_SCOPED_LOCKABLE MutexLock {
 
 class CondVar {
  public:
-  CondVar();
+  CondVar() = default;
 
   CondVar(const CondVar&) = delete;
   CondVar& operator=(const CondVar&) = delete;

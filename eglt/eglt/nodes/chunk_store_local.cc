@@ -171,8 +171,9 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, float timeout) {
     }
   }
 
-  absl::Time deadline = timeout < 0 ? absl::InfiniteFuture()
-                                    : absl::Now() + absl::Seconds(timeout);
+  absl::Time deadline = timeout < 0
+                          ? absl::InfiniteFuture()
+                          : absl::Now() + absl::Seconds(timeout);
   int selected = concurrency::SelectUntil(
       deadline, {event->OnEvent(), concurrency::OnCancel()});
   if (selected == -1) {
@@ -191,7 +192,7 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, float timeout) {
 }
 
 absl::StatusOr<int> LocalChunkStore::WriteToImmediateStore(int seq_id,
-                                                           base::Chunk chunk) {
+  base::Chunk chunk) {
   arrival_order_to_seq_id_[write_offset_] = seq_id;
   chunks_[seq_id] = std::move(chunk);
 
@@ -210,7 +211,7 @@ void LocalChunkStore::NotifyWaiters(int seq_id, int arrival_offset) {
 
   if (arrival_offset_readable_events_.contains(arrival_offset)) {
     if (!arrival_offset_readable_events_.at(arrival_offset)
-             ->HasBeenNotified()) {
+                                        ->HasBeenNotified()) {
       arrival_offset_readable_events_.at(arrival_offset)->Notify();
     }
   }
@@ -242,8 +243,9 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
     }
   }
 
-  absl::Time deadline = timeout < 0 ? absl::InfiniteFuture()
-                                    : absl::Now() + absl::Seconds(timeout);
+  absl::Time deadline = timeout < 0
+                          ? absl::InfiniteFuture()
+                          : absl::Now() + absl::Seconds(timeout);
   int selected = concurrency::SelectUntil(
       deadline, {event->OnEvent(), concurrency::OnCancel()});
   if (selected == -1) {
@@ -264,6 +266,7 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
 }
 
 int LocalChunkStore::GetSeqIdForArrivalOffset(int arrival_offset) {
+  concurrency::MutexLock lock(&mutex_);
   if (!arrival_order_to_seq_id_.contains(arrival_offset)) {
     return -1;
   }
@@ -274,4 +277,4 @@ void LocalChunkStore::SetFinalSeqId(int final_seq_id) {
   final_seq_id_ = final_seq_id;
 }
 
-}  // namespace eglt
+} // namespace eglt

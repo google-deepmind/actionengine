@@ -132,8 +132,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structeglt_1_1concurrency_1_1impl_1_1_selector.html">Selector</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1concurrency_1_1impl_1_1_tree_options.html">TreeOptions</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:classeglt_1_1concurrency_1_1impl_1_1_tree_options" id="r_classeglt_1_1concurrency_1_1impl_1_1_tree_options"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#classeglt_1_1concurrency_1_1impl_1_1_tree_options">TreeOptions</a></td></tr>
+<tr class="separator:classeglt_1_1concurrency_1_1impl_1_1_tree_options"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1concurrency_1_1impl_1_1work__stealing__with__properties.html">work_stealing_with_properties</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -166,11 +166,26 @@ Functions</h2></td></tr>
 <tr class="separator:aa5de78b4be4257d25503525e169c8977"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4aad6b0fb87adc2f41f048458a6ffab2" id="r_a4aad6b0fb87adc2f41f048458a6ffab2"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4aad6b0fb87adc2f41f048458a6ffab2">Select</a> (const <a class="el" href="#afc660f392dc5710eb5e98f8f5a7ad9c0">CaseArray</a> &amp;cases)</td></tr>
 <tr class="separator:a4aad6b0fb87adc2f41f048458a6ffab2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a77157cd3b42efdd8a4591aa709d4d457" id="r_a77157cd3b42efdd8a4591aa709d4d457"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a77157cd3b42efdd8a4591aa709d4d457">Detach</a> (const <a class="el" href="classeglt_1_1concurrency_1_1impl_1_1_tree_options.html">TreeOptions</a> &amp;options, absl::AnyInvocable&lt; void()&gt; &amp;&amp;fn)</td></tr>
+<tr class="memitem:a77157cd3b42efdd8a4591aa709d4d457" id="r_a77157cd3b42efdd8a4591aa709d4d457"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a77157cd3b42efdd8a4591aa709d4d457">Detach</a> (const <a class="el" href="#classeglt_1_1concurrency_1_1impl_1_1_tree_options">TreeOptions</a> &amp;options, absl::AnyInvocable&lt; void()&gt; &amp;&amp;fn)</td></tr>
 <tr class="separator:a77157cd3b42efdd8a4591aa709d4d457"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a01f9bd53ed4228bd1d16d93c7715da9b" id="r_a01f9bd53ed4228bd1d16d93c7715da9b"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classeglt_1_1concurrency_1_1impl_1_1_fiber.html">Fiber</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a01f9bd53ed4228bd1d16d93c7715da9b">NewTree</a> (const <a class="el" href="classeglt_1_1concurrency_1_1impl_1_1_tree_options.html">TreeOptions</a> &amp;, absl::AnyInvocable&lt; void()&gt; &amp;&amp;fn)</td></tr>
+<tr class="memitem:a01f9bd53ed4228bd1d16d93c7715da9b" id="r_a01f9bd53ed4228bd1d16d93c7715da9b"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classeglt_1_1concurrency_1_1impl_1_1_fiber.html">Fiber</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a01f9bd53ed4228bd1d16d93c7715da9b">NewTree</a> (const <a class="el" href="#classeglt_1_1concurrency_1_1impl_1_1_tree_options">TreeOptions</a> &amp;, absl::AnyInvocable&lt; void()&gt; &amp;&amp;fn)</td></tr>
 <tr class="separator:a01f9bd53ed4228bd1d16d93c7715da9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<hr/><h2 class="groupheader">Class Documentation</h2>
+<a name="classeglt_1_1concurrency_1_1impl_1_1_tree_options" id="classeglt_1_1concurrency_1_1impl_1_1_tree_options"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#classeglt_1_1concurrency_1_1impl_1_1_tree_options">&#9670;&#160;</a></span>eglt::concurrency::impl::TreeOptions</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">class eglt::concurrency::impl::TreeOptions</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="afc660f392dc5710eb5e98f8f5a7ad9c0" name="afc660f392dc5710eb5e98f8f5a7ad9c0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afc660f392dc5710eb5e98f8f5a7ad9c0">&#9670;&#160;</a></span>CaseArray</h2>
@@ -309,7 +324,7 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">void Detach </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="classeglt_1_1concurrency_1_1impl_1_1_tree_options.html">TreeOptions</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>options</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="#classeglt_1_1concurrency_1_1impl_1_1_tree_options">TreeOptions</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>options</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -363,7 +378,7 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">std::unique_ptr&lt; <a class="el" href="classeglt_1_1concurrency_1_1impl_1_1_fiber.html">Fiber</a> &gt; NewTree </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="classeglt_1_1concurrency_1_1impl_1_1_tree_options.html">TreeOptions</a> &amp;</td>          <td class="paramname"><span class="paramname"><em></em></span>, </td>
+          <td class="paramtype">const <a class="el" href="#classeglt_1_1concurrency_1_1impl_1_1_tree_options">TreeOptions</a> &amp;</td>          <td class="paramname"><span class="paramname"><em></em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>

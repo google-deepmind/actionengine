@@ -1,6 +1,6 @@
 var namespaceeglt_1_1pybindings =
 [
-    [ "keep_event_loop_memo", "structeglt_1_1pybindings_1_1keep__event__loop__memo.html", null ],
+    [ "keep_event_loop_memo", "namespaceeglt_1_1pybindings.html#structeglt_1_1pybindings_1_1keep__event__loop__memo", null ],
     [ "PyChunkStore", "classeglt_1_1pybindings_1_1_py_chunk_store.html", "classeglt_1_1pybindings_1_1_py_chunk_store" ],
     [ "PyEvergreenStream", "classeglt_1_1pybindings_1_1_py_evergreen_stream.html", "classeglt_1_1pybindings_1_1_py_evergreen_stream" ],
     [ "GetGloballySavedEventLoop", "namespaceeglt_1_1pybindings.html#a2410e465f41da1fa0461d5e2368ae04f", null ],

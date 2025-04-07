@@ -117,11 +117,6 @@ Inheritance diagram for PyEvergreenStream:</div>
 <div class="dyncontent">
 <div class="center"><iframe scrolling="no" frameborder="0" src="classeglt_1_1pybindings_1_1_py_evergreen_stream__inherit__graph.svg" width="150" height="111"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
-<div class="dynheader">
-Collaboration diagram for PyEvergreenStream:</div>
-<div class="dyncontent">
-<div class="center"><iframe scrolling="no" frameborder="0" src="classeglt_1_1pybindings_1_1_py_evergreen_stream__coll__graph.svg" width="150" height="111"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
-</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -140,6 +135,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a156f3866ca69d98b4d9e6e1c1b3ec7da"><td class="mdescLeft">&#160;</td><td class="mdescRight">Start the stream on the client side. Servers should not call this.  <br /></td></tr>
 <tr class="separator:a156f3866ca69d98b4d9e6e1c1b3ec7da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77428c6c7aebd3c4380911ba02b41f84" id="r_a77428c6c7aebd3c4380911ba02b41f84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a77428c6c7aebd3c4380911ba02b41f84">HalfClose</a> () override</td></tr>
+<tr class="memdesc:a77428c6c7aebd3c4380911ba02b41f84"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initiates a graceful shutdown of the stream. Should be called from the client first.  <br /></td></tr>
 <tr class="separator:a77428c6c7aebd3c4380911ba02b41f84"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab97599bf0a2f4ac493700a590e5a66b3" id="r_ab97599bf0a2f4ac493700a590e5a66b3"><td class="memItemLeft" align="right" valign="top">absl::Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab97599bf0a2f4ac493700a590e5a66b3">GetLastSendStatus</a> () const override</td></tr>
 <tr class="memdesc:ab97599bf0a2f4ac493700a590e5a66b3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the status of the last send operation.  <br /></td></tr>
@@ -321,6 +317,7 @@ Public Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
 <p>Initiates a graceful shutdown of the stream. Should be called from the client first. </p>
 
 <p>Implements <a class="el" href="classeglt_1_1base_1_1_evergreen_stream.html#a0321a41bb1e80d95ca15e7e321880c7f">EvergreenStream</a>.</p>

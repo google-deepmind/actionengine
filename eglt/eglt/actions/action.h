@@ -49,6 +49,8 @@ using ActionHandler =
     std::function<absl::Status(const std::shared_ptr<Action>&)>;
 
 struct ActionNode {
+
+  /// @private
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const ActionNode& node) {
     absl::Format(&sink, "ActionNode{name: %s, type: %s}", node.name, node.type);
@@ -64,6 +66,8 @@ struct ActionNode {
 };
 
 struct ActionDefinition {
+
+  /// @private
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const ActionDefinition& def) {
     absl::Format(&sink, "ActionDefinition{name: %s, inputs: %s, outputs: %s}",

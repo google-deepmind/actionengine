@@ -10,6 +10,8 @@ target_link_libraries(eglt_absl_headers
         absl::flags
         absl::flat_hash_map
         absl::log
+        absl::log_initialize
+        absl::random_random
         absl::status
         absl::statusor
         absl::strings

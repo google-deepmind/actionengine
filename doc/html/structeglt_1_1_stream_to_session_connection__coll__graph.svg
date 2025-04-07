@@ -22,7 +22,7 @@
 <!-- Node1 -->
 <g id="Node000001" class="node">
 <title>Node1</title>
-<g id="a_Node000001"><a xlink:title=" ">
+<g id="a_Node000001"><a xlink:title="A connection between a stream and a session.">
 <polygon fill="#999999" stroke="#666666" points="162.25,-19.25 19.5,-19.25 19.5,0 162.25,0 162.25,-19.25"/>
 <text text-anchor="middle" x="90.88" y="-5.75" font-family="Helvetica,sans-Serif" font-size="10.00">StreamToSessionConnection</text>
 </a>
@@ -50,7 +50,7 @@
 <!-- Node3 -->
 <g id="Node000003" class="node">
 <title>Node3</title>
-<g id="a_Node000003"><a xlink:href="classeglt_1_1_session.html" target="_top" xlink:title=" ">
+<g id="a_Node000003"><a xlink:href="classeglt_1_1_session.html" target="_top" xlink:title="A session for handling Evergreen actions.">
 <polygon fill="white" stroke="#666666" points="161.5,-85.75 110.25,-85.75 110.25,-66.5 161.5,-66.5 161.5,-85.75"/>
 <text text-anchor="middle" x="135.88" y="-72.25" font-family="Helvetica,sans-Serif" font-size="10.00">Session</text>
 </a>

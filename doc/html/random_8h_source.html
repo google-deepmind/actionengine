@@ -131,41 +131,38 @@ $(function(){initNavTree('random_8h_source.html',''); initResizable(true); });
 <div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespaceeglt.html">eglt</a> {</div>
 <div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span> </div>
 <div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span><span class="comment">// TODO: Check this for correctness</span></div>
-<div class="foldopen" id="foldopen00025" data-start="{" data-end="}">
-<div class="line"><a id="l00025" name="l00025"></a><span class="lineno"><a class="line" href="namespaceeglt.html#aba34a1ac73fe4ade9b990d4e31828bc1">   25</a></span><span class="keyword">inline</span> std::string <a class="code hl_function" href="namespaceeglt.html#aba34a1ac73fe4ade9b990d4e31828bc1">GenerateUUID4</a>() {</div>
-<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span>  absl::BitGen gen;  <span class="comment">// Abseil random number generator</span></div>
-<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span> </div>
-<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span>  <span class="comment">// Generate 16 random bytes</span></div>
-<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span>  std::array&lt;uint8_t, 16&gt; bytes{};</div>
-<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span>  <span class="keywordflow">for</span> (<span class="keywordtype">int</span> i = 0; i &lt; 16; ++i) {</div>
-<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span>    bytes[i] = absl::Uniform&lt;int&gt;(gen, 0, 256);  <span class="comment">// Generate random byte (0-255)</span></div>
-<div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span>  }</div>
-<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span> </div>
-<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span>  <span class="comment">// Set the version (UUID version 4) - The 7th nibble (most significant nibble of 13th byte) must be 4</span></div>
-<div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span>  bytes[6] = (bytes[6] &amp; 0x0f) | 0x40;</div>
-<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span> </div>
-<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span>  <span class="comment">// Set the variant (the 9th nibble must be 8, 9, A, or B)</span></div>
-<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span>  bytes[8] = (bytes[8] &amp; 0x3f) | 0x80;</div>
-<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span> </div>
-<div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span>  <span class="comment">// Convert to string (UUID format: 8-4-4-4-12)</span></div>
-<div class="line"><a id="l00041" name="l00041"></a><span class="lineno">   41</span>  std::ostringstream oss;</div>
-<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span>  <span class="keywordflow">for</span> (<span class="keywordtype">size_t</span> i = 0; i &lt; bytes.size(); ++i) {</div>
-<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span>    <span class="keywordflow">if</span> (i == 4 || i == 6 || i == 8 || i == 10) {</div>
-<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>      oss &lt;&lt; <span class="stringliteral">&quot;-&quot;</span>;</div>
-<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span>    }</div>
-<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>    oss &lt;&lt; std::hex &lt;&lt; std::setw(2) &lt;&lt; std::setfill(<span class="charliteral">&#39;0&#39;</span>)</div>
-<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>        &lt;&lt; <span class="keyword">static_cast&lt;</span><span class="keywordtype">int</span><span class="keyword">&gt;</span>(bytes[i]);</div>
-<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>  }</div>
-<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span> </div>
-<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>  <span class="keywordflow">return</span> oss.str();</div>
-<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>}</div>
-</div>
-<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span> </div>
-<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span>}  <span class="comment">// namespace eglt</span></div>
-<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span> </div>
-<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span><span class="preprocessor">#endif  </span><span class="comment">// EGLT_UTIL_RANDOM_H_</span></div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span><span class="keyword">inline</span> std::string GenerateUUID4() {</div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span>  absl::BitGen gen;  <span class="comment">// Abseil random number generator</span></div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span> </div>
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span>  <span class="comment">// Generate 16 random bytes</span></div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span>  std::array&lt;uint8_t, 16&gt; bytes{};</div>
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span>  <span class="keywordflow">for</span> (<span class="keywordtype">int</span> i = 0; i &lt; 16; ++i) {</div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span>    bytes[i] = absl::Uniform&lt;int&gt;(gen, 0, 256);  <span class="comment">// Generate random byte (0-255)</span></div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span>  }</div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span> </div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span>  <span class="comment">// Set the version (UUID version 4) - The 7th nibble (most significant nibble of 13th byte) must be 4</span></div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span>  bytes[6] = (bytes[6] &amp; 0x0f) | 0x40;</div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span> </div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span>  <span class="comment">// Set the variant (the 9th nibble must be 8, 9, A, or B)</span></div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span>  bytes[8] = (bytes[8] &amp; 0x3f) | 0x80;</div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span> </div>
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno">   41</span>  <span class="comment">// Convert to string (UUID format: 8-4-4-4-12)</span></div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span>  std::ostringstream oss;</div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span>  <span class="keywordflow">for</span> (<span class="keywordtype">size_t</span> i = 0; i &lt; bytes.size(); ++i) {</div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>    <span class="keywordflow">if</span> (i == 4 || i == 6 || i == 8 || i == 10) {</div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span>      oss &lt;&lt; <span class="stringliteral">&quot;-&quot;</span>;</div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>    }</div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>    oss &lt;&lt; std::hex &lt;&lt; std::setw(2) &lt;&lt; std::setfill(<span class="charliteral">&#39;0&#39;</span>)</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>        &lt;&lt; <span class="keyword">static_cast&lt;</span><span class="keywordtype">int</span><span class="keyword">&gt;</span>(bytes[i]);</div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>  }</div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span> </div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>  <span class="keywordflow">return</span> oss.str();</div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>}</div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span> </div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>}  <span class="comment">// namespace eglt</span></div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span> </div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span><span class="preprocessor">#endif  </span><span class="comment">// EGLT_UTIL_RANDOM_H_</span></div>
 <div class="ttc" id="anamespaceeglt_html"><div class="ttname"><a href="namespaceeglt.html">eglt</a></div><div class="ttdef"><b>Definition</b> action.cc:29</div></div>
-<div class="ttc" id="anamespaceeglt_html_aba34a1ac73fe4ade9b990d4e31828bc1"><div class="ttname"><a href="namespaceeglt.html#aba34a1ac73fe4ade9b990d4e31828bc1">eglt::GenerateUUID4</a></div><div class="ttdeci">std::string GenerateUUID4()</div><div class="ttdef"><b>Definition</b> random.h:25</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- HTML footer for doxygen 1.13.2-->

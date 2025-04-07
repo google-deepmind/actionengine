@@ -143,19 +143,25 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1_chunk_store_writer.html">ChunkStoreWriter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1_evergreen_byte_stream.html">EvergreenByteStream</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A wrapper to make an EvergreenStream from send/recv-like functions.  <a href="classeglt_1_1_evergreen_byte_stream.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1_local_chunk_store.html">LocalChunkStore</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A local chunk store for storing a node's chunks in memory.  <a href="classeglt_1_1_local_chunk_store.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1_node_map.html">NodeMap</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A thread-safe map of Evergreen nodes.  <a href="classeglt_1_1_node_map.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1_serializer.html">Serializer</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1_service.html">Service</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">The Evergreen service class. Manages sessions, streams, and connections.  <a href="classeglt_1_1_service.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1_session.html">Session</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A session for handling Evergreen actions.  <a href="classeglt_1_1_session.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structeglt_1_1_stream_to_session_connection" id="r_structeglt_1_1_stream_to_session_connection"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a></td></tr>
+<tr class="memdesc:structeglt_1_1_stream_to_session_connection"><td class="mdescLeft">&#160;</td><td class="mdescRight">A connection between a stream and a session.  <a href="#structeglt_1_1_stream_to_session_connection">More...</a><br /></td></tr>
+<tr class="separator:structeglt_1_1_stream_to_session_connection"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
@@ -229,16 +235,8 @@ Functions</h2></td></tr>
 <tr class="separator:a8b111d164774a256a58f202a8f5136c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64b25ce286e2492002d161095e418aa4" id="r_a64b25ce286e2492002d161095e418aa4"><td class="memItemLeft" align="right" valign="top">absl::Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a64b25ce286e2492002d161095e418aa4">RunSimpleEvergreenSession</a> (<a class="el" href="classeglt_1_1base_1_1_evergreen_stream.html">base::EvergreenStream</a> *stream, <a class="el" href="classeglt_1_1_session.html">Session</a> *session)</td></tr>
 <tr class="separator:a64b25ce286e2492002d161095e418aa4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a95366fc4aaf2b267febdfedd75fab80f" id="r_a95366fc4aaf2b267febdfedd75fab80f"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classeglt_1_1_action.html">Action</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a95366fc4aaf2b267febdfedd75fab80f">MakeActionInConnection</a> (const <a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a> &amp;connection, const std::string_view action_name, const std::string_view action_id)</td></tr>
+<tr class="memitem:a95366fc4aaf2b267febdfedd75fab80f" id="r_a95366fc4aaf2b267febdfedd75fab80f"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classeglt_1_1_action.html">Action</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a95366fc4aaf2b267febdfedd75fab80f">MakeActionInConnection</a> (const <a class="el" href="#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a> &amp;connection, const std::string_view action_name, const std::string_view action_id)</td></tr>
 <tr class="separator:a95366fc4aaf2b267febdfedd75fab80f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9d3d4ae0a50cc3d000ef7d0e90916135" id="r_a9d3d4ae0a50cc3d000ef7d0e90916135"><td class="memTemplParams" colspan="2">template&lt;typename RecordKey, typename Value, typename QueryKey&gt; </td></tr>
-<tr class="memitem:a9d3d4ae0a50cc3d000ef7d0e90916135"><td class="memTemplItemLeft" align="right" valign="top">Value &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="#a9d3d4ae0a50cc3d000ef7d0e90916135">FindOrDie</a> (absl::flat_hash_map&lt; RecordKey, Value &gt; &amp;map, const QueryKey &amp;key)</td></tr>
-<tr class="separator:a9d3d4ae0a50cc3d000ef7d0e90916135"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a348fccd740bcdf789c756e0124091336" id="r_a348fccd740bcdf789c756e0124091336"><td class="memTemplParams" colspan="2">template&lt;typename RecordKey, typename Value, typename QueryKey&gt; </td></tr>
-<tr class="memitem:a348fccd740bcdf789c756e0124091336"><td class="memTemplItemLeft" align="right" valign="top">const Value &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="#a348fccd740bcdf789c756e0124091336">FindOrDie</a> (const absl::flat_hash_map&lt; RecordKey, Value &gt; &amp;map, const QueryKey &amp;key)</td></tr>
-<tr class="separator:a348fccd740bcdf789c756e0124091336"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aba34a1ac73fe4ade9b990d4e31828bc1" id="r_aba34a1ac73fe4ade9b990d4e31828bc1"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aba34a1ac73fe4ade9b990d4e31828bc1">GenerateUUID4</a> ()</td></tr>
-<tr class="separator:aba34a1ac73fe4ade9b990d4e31828bc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="var-members" name="var-members"></a>
 Variables</h2></td></tr>
@@ -247,6 +245,59 @@ Variables</h2></td></tr>
 <tr class="memitem:a7e1a0ddc1545b30e2dae1e8e321c5697" id="r_a7e1a0ddc1545b30e2dae1e8e321c5697"><td class="memItemLeft" align="right" valign="top">constexpr auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7e1a0ddc1545b30e2dae1e8e321c5697">kMimetypeTextPlain</a> = &quot;text/plain&quot;</td></tr>
 <tr class="separator:a7e1a0ddc1545b30e2dae1e8e321c5697"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<hr/><h2 class="groupheader">Class Documentation</h2>
+<a name="structeglt_1_1_stream_to_session_connection" id="structeglt_1_1_stream_to_session_connection"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structeglt_1_1_stream_to_session_connection">&#9670;&#160;</a></span>eglt::StreamToSessionConnection</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct eglt::StreamToSessionConnection</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="dynheader">
+Collaboration diagram for StreamToSessionConnection:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="structeglt_1_1_stream_to_session_connection__coll__graph.svg" width="227" height="126"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<table class="fieldtable">
+<tr><th colspan="3">Class Members</th></tr>
+<tr><td class="fieldtype">
+<a id="a6b32f07deadd1d267d1b669bc819f4fe" name="a6b32f07deadd1d267d1b669bc819f4fe"></a><a class="el" href="classeglt_1_1_session.html">Session</a> *</td>
+<td class="fieldname">
+session = nullptr</td>
+<td class="fielddoc">
+</td></tr>
+<tr><td class="fieldtype">
+<a id="a1a2874e866f7fa13d9cc3114100cb102" name="a1a2874e866f7fa13d9cc3114100cb102"></a>string</td>
+<td class="fieldname">
+session_id</td>
+<td class="fielddoc">
+</td></tr>
+<tr><td class="fieldtype">
+<a id="a2237393c7ae7ad7344c9885066d5ab6d" name="a2237393c7ae7ad7344c9885066d5ab6d"></a>Status</td>
+<td class="fieldname">
+status</td>
+<td class="fielddoc">
+</td></tr>
+<tr><td class="fieldtype">
+<a id="a264e92ad925750c6a380567c29632bb6" name="a264e92ad925750c6a380567c29632bb6"></a>EvergreenStream *</td>
+<td class="fieldname">
+stream = nullptr</td>
+<td class="fielddoc">
+</td></tr>
+<tr><td class="fieldtype">
+<a id="a0711bda8872652c7e03fa8bd37a57e62" name="a0711bda8872652c7e03fa8bd37a57e62"></a>string</td>
+<td class="fieldname">
+stream_id</td>
+<td class="fielddoc">
+</td></tr>
+</table>
+
+</div>
+</div>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="acb9b2555e78c04854653c48f4183929f" name="acb9b2555e78c04854653c48f4183929f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#acb9b2555e78c04854653c48f4183929f">&#9670;&#160;</a></span>ActionHandler</h2>
@@ -306,7 +357,7 @@ Variables</h2></td></tr>
 <b>Initial value:</b><div class="fragment"><div class="line"> </div>
 <div class="line">    std::function&lt;void(<span class="keyword">const</span> <a class="code hl_struct" href="structeglt_1_1base_1_1_session_message.html">base::SessionMessage</a>&amp;, <a class="code hl_class" href="classeglt_1_1base_1_1_evergreen_stream.html">base::EvergreenStream</a>*)&gt;</div>
 <div class="ttc" id="aclasseglt_1_1base_1_1_evergreen_stream_html"><div class="ttname"><a href="classeglt_1_1base_1_1_evergreen_stream.html">eglt::base::EvergreenStream</a></div><div class="ttdoc">An abstract base class for an Evergreen stream.</div><div class="ttdef"><b>Definition</b> stream.h:41</div></div>
-<div class="ttc" id="astructeglt_1_1base_1_1_session_message_html"><div class="ttname"><a href="structeglt_1_1base_1_1_session_message.html">eglt::base::SessionMessage</a></div><div class="ttdef"><b>Definition</b> eg_structs.h:356</div></div>
+<div class="ttc" id="astructeglt_1_1base_1_1_session_message_html"><div class="ttname"><a href="structeglt_1_1base_1_1_session_message.html">eglt::base::SessionMessage</a></div><div class="ttdef"><b>Definition</b> eg_structs.h:292</div></div>
 </div><!-- fragment -->
 </div>
 </div>
@@ -323,7 +374,7 @@ Variables</h2></td></tr>
 </div><div class="memdoc">
 <b>Initial value:</b><div class="fragment"><div class="line"> </div>
 <div class="line">    std::function&lt;absl::Status(<a class="code hl_class" href="classeglt_1_1base_1_1_evergreen_stream.html">base::EvergreenStream</a>*, <a class="code hl_class" href="classeglt_1_1_session.html">Session</a>*)&gt;</div>
-<div class="ttc" id="aclasseglt_1_1_session_html"><div class="ttname"><a href="classeglt_1_1_session.html">eglt::Session</a></div><div class="ttdef"><b>Definition</b> session.h:35</div></div>
+<div class="ttc" id="aclasseglt_1_1_session_html"><div class="ttname"><a href="classeglt_1_1_session.html">eglt::Session</a></div><div class="ttdoc">A session for handling Evergreen actions.</div><div class="ttdef"><b>Definition</b> session.h:44</div></div>
 </div><!-- fragment -->
 </div>
 </div>
@@ -437,77 +488,6 @@ template&lt;&gt; </div>
 
 </div>
 </div>
-<a id="a9d3d4ae0a50cc3d000ef7d0e90916135" name="a9d3d4ae0a50cc3d000ef7d0e90916135"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9d3d4ae0a50cc3d000ef7d0e90916135">&#9670;&#160;</a></span>FindOrDie() <span class="overload">[1/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename RecordKey, typename Value, typename QueryKey&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">Value &amp; FindOrDie </td>
-          <td>(</td>
-          <td class="paramtype">absl::flat_hash_map&lt; RecordKey, Value &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>map</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const QueryKey &amp;</td>          <td class="paramname"><span class="paramname"><em>key</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a348fccd740bcdf789c756e0124091336" name="a348fccd740bcdf789c756e0124091336"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a348fccd740bcdf789c756e0124091336">&#9670;&#160;</a></span>FindOrDie() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename RecordKey, typename Value, typename QueryKey&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">const Value &amp; FindOrDie </td>
-          <td>(</td>
-          <td class="paramtype">const absl::flat_hash_map&lt; RecordKey, Value &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>map</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const QueryKey &amp;</td>          <td class="paramname"><span class="paramname"><em>key</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="aba34a1ac73fe4ade9b990d4e31828bc1" name="aba34a1ac73fe4ade9b990d4e31828bc1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aba34a1ac73fe4ade9b990d4e31828bc1">&#9670;&#160;</a></span>GenerateUUID4()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::string GenerateUUID4 </td>
-          <td>(</td>
-          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a95366fc4aaf2b267febdfedd75fab80f" name="a95366fc4aaf2b267febdfedd75fab80f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a95366fc4aaf2b267febdfedd75fab80f">&#9670;&#160;</a></span>MakeActionInConnection()</h2>
 
@@ -517,7 +497,7 @@ template&lt;typename RecordKey, typename Value, typename QueryKey&gt; </div>
         <tr>
           <td class="memname">std::unique_ptr&lt; <a class="el" href="classeglt_1_1_action.html">Action</a> &gt; MakeActionInConnection </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>connection</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>connection</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>

@@ -1,6 +1,6 @@
 var not__implemented_8h =
 [
-    [ "TreeOptions", "classeglt_1_1concurrency_1_1impl_1_1_tree_options.html", null ],
+    [ "TreeOptions", "namespaceeglt_1_1concurrency_1_1impl.html#classeglt_1_1concurrency_1_1impl_1_1_tree_options", null ],
     [ "ChannelReader< T >", "classeglt_1_1concurrency_1_1impl_1_1_channel_reader.html", "classeglt_1_1concurrency_1_1impl_1_1_channel_reader" ],
     [ "ChannelWriter< T >", "classeglt_1_1concurrency_1_1impl_1_1_channel_writer.html", "classeglt_1_1concurrency_1_1impl_1_1_channel_writer" ],
     [ "Channel< T >", "classeglt_1_1concurrency_1_1impl_1_1_channel.html", "classeglt_1_1concurrency_1_1impl_1_1_channel" ],

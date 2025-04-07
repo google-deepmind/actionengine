@@ -32,6 +32,18 @@ namespace eglt {
 
 class Action;
 
+/**
+ * @brief
+ *   A connection between a stream and a session.
+ *
+ * This struct is used to represent a connection between a stream and a session.
+ * It contains the stream, session, and their IDs, as well as the status of the
+ * connection.
+ *
+ * @collaborationgraph
+ *
+ * @headerfile eglt/service/service.h
+ */
 struct StreamToSessionConnection {
   base::EvergreenStream* stream = nullptr;
   Session* session = nullptr;
@@ -53,28 +65,33 @@ using EvergreenConnectionHandler =
 absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
                                        Session* session);
 
+/**
+ * @brief
+ *   The Evergreen service class. Manages sessions, streams, and connections.
+ *
+ * This class provides methods to establish and join connections, as well as
+ * to set the action registry.
+ *
+ * The service can be instantiated with an optional action registry and
+ * connection handler. If the action registry is not provided, it will be
+ * initialized with an empty registry. If the connection handler is not
+ * provided, it will be initialized with RunSimpleEvergreenSession. The chunk
+ * store factory is used to create chunk stores for new sessions. By default,
+ * `LocalChunkStore`s are created.
+ *
+ * This class is thread-safe. Whenever a connection is joined, it is moved out
+ * of the Service object under a lock, and the Service object is no longer
+ * responsible for managing it. Action registry is set under a lock, and
+ * getters use read locks.
+ *
+ * The Service object can be destroyed at any time, and it will take care of
+ * joining all the connections and cleaning up all the fibers. However, the
+ * Service object itself will not be destroyed until all the connections have
+ * been joined.
+ *
+ * @headerfile eglt/service/service.h
+ */
 class Service : public std::enable_shared_from_this<Service> {
-  // This class is the main entry point for the Evergreen service. It is
-  // responsible for managing sessions, streams, and connections. It also
-  // provides methods to establish and join connections, as well as to set the
-  // action registry.
-  //
-  // The service can be instantiated with an optional action registry and
-  // connection handler. If the action registry is not provided, it will be
-  // initialized with an empty registry. If the connection handler is not
-  // provided, it will be initialized with RunSimpleEvergreenSession. The chunk
-  // store factory is used to create chunk stores for new sessions. By default,
-  // LocalChunkStore-s are created.
-  //
-  // This class is thread-safe. Whenever a connection is joined, it is moved out
-  // of the Service object under a lock, and the Service object is no longer
-  // responsible for managing it. Action registry is set under a lock, and
-  // getters use read locks.
-  //
-  // The Service object can be destroyed at any time, and it will take care of
-  // joining all the connections and cleaning up all the fibers. However, the
-  // Service object itself will not be destroyed until all the connections have
-  // been joined.
  public:
   explicit Service(
       ActionRegistry* action_registry = nullptr,

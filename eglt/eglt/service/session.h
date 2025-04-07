@@ -32,6 +32,15 @@ class ActionRegistry;
 using DebugHandler =
     std::function<void(const base::SessionMessage&, base::EvergreenStream*)>;
 
+/**
+ * @brief
+ *   A session for handling Evergreen actions.
+ *
+ * This class is used to manage the lifecycle of a session, including dispatching
+ * messages and managing nodes and actions.
+ *
+ * @headerfile eglt/service/session.h
+ */
 class Session {
  public:
   explicit Session(NodeMap* node_map, ActionRegistry* action_registry = nullptr,

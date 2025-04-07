@@ -5,5 +5,5 @@ var searchData=
   ['service_2',['Service',['../classeglt_1_1_service.html',1,'eglt']]],
   ['session_3',['Session',['../classeglt_1_1_session.html',1,'eglt']]],
   ['sessionmessage_4',['SessionMessage',['../structeglt_1_1base_1_1_session_message.html',1,'eglt::base']]],
-  ['streamtosessionconnection_5',['StreamToSessionConnection',['../structeglt_1_1_stream_to_session_connection.html',1,'eglt']]]
+  ['streamtosessionconnection_5',['StreamToSessionConnection',['../namespaceeglt.html#structeglt_1_1_stream_to_session_connection',1,'eglt']]]
 ];

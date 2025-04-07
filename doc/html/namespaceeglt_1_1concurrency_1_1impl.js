@@ -9,7 +9,7 @@ var namespaceeglt_1_1concurrency_1_1impl =
     [ "MutexLock", "classeglt_1_1concurrency_1_1impl_1_1_mutex_lock.html", "classeglt_1_1concurrency_1_1impl_1_1_mutex_lock" ],
     [ "PermanentEvent", "classeglt_1_1concurrency_1_1impl_1_1_permanent_event.html", "classeglt_1_1concurrency_1_1impl_1_1_permanent_event" ],
     [ "Selector", "structeglt_1_1concurrency_1_1impl_1_1_selector.html", "structeglt_1_1concurrency_1_1impl_1_1_selector" ],
-    [ "TreeOptions", "classeglt_1_1concurrency_1_1impl_1_1_tree_options.html", null ],
+    [ "TreeOptions", "namespaceeglt_1_1concurrency_1_1impl.html#classeglt_1_1concurrency_1_1impl_1_1_tree_options", null ],
     [ "work_stealing_with_properties", "classeglt_1_1concurrency_1_1impl_1_1work__stealing__with__properties.html", null ],
     [ "CaseArray", "namespaceeglt_1_1concurrency_1_1impl.html#afc660f392dc5710eb5e98f8f5a7ad9c0", null ],
     [ "CondVar", "namespaceeglt_1_1concurrency_1_1impl.html#a8b91cb9fabdab7437bc158be24739924", null ],

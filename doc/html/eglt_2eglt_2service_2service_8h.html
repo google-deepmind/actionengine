@@ -128,9 +128,11 @@ $(function(){initNavTree('eglt_2eglt_2service_2service_8h.html',''); initResizab
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structeglt_1_1_stream_to_session_connection" id="r_structeglt_1_1_stream_to_session_connection"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceeglt.html#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a></td></tr>
+<tr class="memdesc:structeglt_1_1_stream_to_session_connection"><td class="mdescLeft">&#160;</td><td class="mdescRight">A connection between a stream and a session.  <a href="namespaceeglt.html#structeglt_1_1_stream_to_session_connection">More...</a><br /></td></tr>
+<tr class="separator:structeglt_1_1_stream_to_session_connection"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1_service.html">Service</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">The Evergreen service class. Manages sessions, streams, and connections.  <a href="classeglt_1_1_service.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="namespaces" name="namespaces"></a>
@@ -145,11 +147,64 @@ Typedefs</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a95366fc4aaf2b267febdfedd75fab80f" id="r_a95366fc4aaf2b267febdfedd75fab80f"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classeglt_1_1_action.html">Action</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceeglt.html#a95366fc4aaf2b267febdfedd75fab80f">MakeActionInConnection</a> (const <a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a> &amp;connection, const std::string_view action_name, const std::string_view action_id)</td></tr>
+<tr class="memitem:a95366fc4aaf2b267febdfedd75fab80f" id="r_a95366fc4aaf2b267febdfedd75fab80f"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classeglt_1_1_action.html">Action</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceeglt.html#a95366fc4aaf2b267febdfedd75fab80f">MakeActionInConnection</a> (const <a class="el" href="namespaceeglt.html#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a> &amp;connection, const std::string_view action_name, const std::string_view action_id)</td></tr>
 <tr class="separator:a95366fc4aaf2b267febdfedd75fab80f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64b25ce286e2492002d161095e418aa4" id="r_a64b25ce286e2492002d161095e418aa4"><td class="memItemLeft" align="right" valign="top">absl::Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceeglt.html#a64b25ce286e2492002d161095e418aa4">RunSimpleEvergreenSession</a> (<a class="el" href="classeglt_1_1base_1_1_evergreen_stream.html">base::EvergreenStream</a> *stream, <a class="el" href="classeglt_1_1_session.html">Session</a> *session)</td></tr>
 <tr class="separator:a64b25ce286e2492002d161095e418aa4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<hr/><h2 class="groupheader">Class Documentation</h2>
+<a name="structeglt_1_1_stream_to_session_connection" id="structeglt_1_1_stream_to_session_connection"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structeglt_1_1_stream_to_session_connection">&#9670;&#160;</a></span>eglt::StreamToSessionConnection</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct eglt::StreamToSessionConnection</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="dynheader">
+Collaboration diagram for StreamToSessionConnection:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="structeglt_1_1_stream_to_session_connection__coll__graph.svg" width="227" height="126"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<table class="fieldtable">
+<tr><th colspan="3">Class Members</th></tr>
+<tr><td class="fieldtype">
+<a id="a6b32f07deadd1d267d1b669bc819f4fe" name="a6b32f07deadd1d267d1b669bc819f4fe"></a><a class="el" href="classeglt_1_1_session.html">Session</a> *</td>
+<td class="fieldname">
+session = nullptr</td>
+<td class="fielddoc">
+</td></tr>
+<tr><td class="fieldtype">
+<a id="a1a2874e866f7fa13d9cc3114100cb102" name="a1a2874e866f7fa13d9cc3114100cb102"></a>string</td>
+<td class="fieldname">
+session_id</td>
+<td class="fielddoc">
+</td></tr>
+<tr><td class="fieldtype">
+<a id="a2237393c7ae7ad7344c9885066d5ab6d" name="a2237393c7ae7ad7344c9885066d5ab6d"></a>Status</td>
+<td class="fieldname">
+status</td>
+<td class="fielddoc">
+</td></tr>
+<tr><td class="fieldtype">
+<a id="a264e92ad925750c6a380567c29632bb6" name="a264e92ad925750c6a380567c29632bb6"></a>EvergreenStream *</td>
+<td class="fieldname">
+stream = nullptr</td>
+<td class="fielddoc">
+</td></tr>
+<tr><td class="fieldtype">
+<a id="a0711bda8872652c7e03fa8bd37a57e62" name="a0711bda8872652c7e03fa8bd37a57e62"></a>string</td>
+<td class="fieldname">
+stream_id</td>
+<td class="fielddoc">
+</td></tr>
+</table>
+
+</div>
+</div>
 </div><!-- contents -->
 </div><!-- doc-content -->
 <!-- HTML footer for doxygen 1.13.2-->

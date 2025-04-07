@@ -110,17 +110,18 @@ $(function(){initNavTree('classeglt_1_1_service.html',''); initResizable(true); 
   <div class="headertitle"><div class="title">Service Class Reference</div></div>
 </div><!--header-->
 <div class="contents">
-
-<p><code>#include &lt;<a class="el" href="eglt_2eglt_2service_2service_8h_source.html">service.h</a>&gt;</code></p>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>The Evergreen service class. Manages sessions, streams, and connections. </p>
+<p>This class provides methods to establish and join connections, as well as to set the action registry.</p>
+<p>The service can be instantiated with an optional action registry and connection handler. If the action registry is not provided, it will be initialized with an empty registry. If the connection handler is not provided, it will be initialized with RunSimpleEvergreenSession. The chunk store factory is used to create chunk stores for new sessions. By default, <code><a class="el" href="classeglt_1_1_local_chunk_store.html" title="A local chunk store for storing a node&#39;s chunks in memory.">LocalChunkStore</a></code>s are created.</p>
+<p>This class is thread-safe. Whenever a connection is joined, it is moved out of the <a class="el" href="classeglt_1_1_service.html" title="The Evergreen service class. Manages sessions, streams, and connections.">Service</a> object under a lock, and the <a class="el" href="classeglt_1_1_service.html" title="The Evergreen service class. Manages sessions, streams, and connections.">Service</a> object is no longer responsible for managing it. <a class="el" href="classeglt_1_1_action.html" title="An accessor class for an Evergreen action.">Action</a> registry is set under a lock, and getters use read locks.</p>
+<p>The <a class="el" href="classeglt_1_1_service.html" title="The Evergreen service class. Manages sessions, streams, and connections.">Service</a> object can be destroyed at any time, and it will take care of joining all the connections and cleaning up all the fibers. However, the <a class="el" href="classeglt_1_1_service.html" title="The Evergreen service class. Manages sessions, streams, and connections.">Service</a> object itself will not be destroyed until all the connections have been joined. </p>
+</div>
+<p><code>#include &lt;<a class="el" href="eglt_2eglt_2service_2service_8h_source.html">eglt/service/service.h</a>&gt;</code></p>
 <div class="dynheader">
 Inheritance diagram for Service:</div>
 <div class="dyncontent">
 <div class="center"><iframe scrolling="no" frameborder="0" src="classeglt_1_1_service__inherit__graph.svg" width="150" height="126"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
-</div>
-<div class="dynheader">
-Collaboration diagram for Service:</div>
-<div class="dyncontent">
-<div class="center"><iframe scrolling="no" frameborder="0" src="classeglt_1_1_service__coll__graph.svg" width="150" height="126"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
@@ -139,9 +140,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a22c2c7bcee1dba0471da0ea4229091e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a380c1b15d64f648839569a87ea6fa687" id="r_a380c1b15d64f648839569a87ea6fa687"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a380c1b15d64f648839569a87ea6fa687">GetSessionKeys</a> () const -&gt; std::vector&lt; std::string &gt;</td></tr>
 <tr class="separator:a380c1b15d64f648839569a87ea6fa687"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2f080d2a2960977a7463531eb649cc53" id="r_a2f080d2a2960977a7463531eb649cc53"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2f080d2a2960977a7463531eb649cc53">EstablishConnection</a> (std::shared_ptr&lt; <a class="el" href="classeglt_1_1base_1_1_evergreen_stream.html">base::EvergreenStream</a> &gt; &amp;&amp;stream, <a class="el" href="namespaceeglt.html#a12517e9f53e6af7c440be86d69a6147d">EvergreenConnectionHandler</a> connection_handler=nullptr) -&gt; absl::StatusOr&lt; std::shared_ptr&lt; <a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a> &gt; &gt;</td></tr>
+<tr class="memitem:a2f080d2a2960977a7463531eb649cc53" id="r_a2f080d2a2960977a7463531eb649cc53"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2f080d2a2960977a7463531eb649cc53">EstablishConnection</a> (std::shared_ptr&lt; <a class="el" href="classeglt_1_1base_1_1_evergreen_stream.html">base::EvergreenStream</a> &gt; &amp;&amp;stream, <a class="el" href="namespaceeglt.html#a12517e9f53e6af7c440be86d69a6147d">EvergreenConnectionHandler</a> connection_handler=nullptr) -&gt; absl::StatusOr&lt; std::shared_ptr&lt; <a class="el" href="namespaceeglt.html#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a> &gt; &gt;</td></tr>
 <tr class="separator:a2f080d2a2960977a7463531eb649cc53"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a323ce99bc5025360110075b5cb2a7eea" id="r_a323ce99bc5025360110075b5cb2a7eea"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a323ce99bc5025360110075b5cb2a7eea">JoinConnection</a> (<a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a> *connection) -&gt; absl::Status</td></tr>
+<tr class="memitem:a323ce99bc5025360110075b5cb2a7eea" id="r_a323ce99bc5025360110075b5cb2a7eea"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a323ce99bc5025360110075b5cb2a7eea">JoinConnection</a> (<a class="el" href="namespaceeglt.html#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a> *connection) -&gt; absl::Status</td></tr>
 <tr class="separator:a323ce99bc5025360110075b5cb2a7eea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51a53f2ece5c6add0b9a6d40ce87a4c7" id="r_a51a53f2ece5c6add0b9a6d40ce87a4c7"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a51a53f2ece5c6add0b9a6d40ce87a4c7">SetActionRegistry</a> (const <a class="el" href="classeglt_1_1_action_registry.html">ActionRegistry</a> &amp;action_registry) const -&gt; void</td></tr>
 <tr class="separator:a51a53f2ece5c6add0b9a6d40ce87a4c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -231,14 +232,14 @@ Public Member Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">absl::StatusOr&lt; std::shared_ptr&lt; <a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a> &gt; &gt; EstablishConnection </td>
+          <td class="memname">absl::StatusOr&lt; std::shared_ptr&lt; <a class="el" href="namespaceeglt.html#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a> &gt; &gt; EstablishConnection </td>
           <td>(</td>
           <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classeglt_1_1base_1_1_evergreen_stream.html">base::EvergreenStream</a> &gt; &amp;&amp;</td>          <td class="paramname"><span class="paramname"><em>stream</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespaceeglt.html#a12517e9f53e6af7c440be86d69a6147d">EvergreenConnectionHandler</a></td>          <td class="paramname"><span class="paramname"><em>connection_handler</em></span><span class="paramdefsep"> = </span><span class="paramdefval">nullptr</span>&#160;) -&gt; absl::StatusOr&lt;std::shared_ptr&lt;<a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a>&gt;&gt;</td>
+          <td class="paramtype"><a class="el" href="namespaceeglt.html#a12517e9f53e6af7c440be86d69a6147d">EvergreenConnectionHandler</a></td>          <td class="paramname"><span class="paramname"><em>connection_handler</em></span><span class="paramdefsep"> = </span><span class="paramdefval">nullptr</span>&#160;) -&gt; absl::StatusOr&lt;std::shared_ptr&lt;<a class="el" href="namespaceeglt.html#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a>&gt;&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -305,7 +306,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="memname">absl::Status JoinConnection </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="structeglt_1_1_stream_to_session_connection.html">StreamToSessionConnection</a> *</td>          <td class="paramname"><span class="paramname"><em>connection</em></span></td><td>)</td>
+          <td class="paramtype"><a class="el" href="namespaceeglt.html#structeglt_1_1_stream_to_session_connection">StreamToSessionConnection</a> *</td>          <td class="paramname"><span class="paramname"><em>connection</em></span></td><td>)</td>
           <td> -&gt; absl::Status</td>
         </tr>
       </table>

@@ -138,6 +138,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a357f82c71caa13a262f472841278a709"><td class="mdescLeft">&#160;</td><td class="mdescRight">Start the stream on the client side. Servers should not call this.  <br /></td></tr>
 <tr class="separator:a357f82c71caa13a262f472841278a709"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0321a41bb1e80d95ca15e7e321880c7f" id="r_a0321a41bb1e80d95ca15e7e321880c7f"><td class="memItemLeft" align="right" valign="top">virtual auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0321a41bb1e80d95ca15e7e321880c7f">HalfClose</a> () -&gt; void=0</td></tr>
+<tr class="memdesc:a0321a41bb1e80d95ca15e7e321880c7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initiates a graceful shutdown of the stream. Should be called from the client first.  <br /></td></tr>
 <tr class="separator:a0321a41bb1e80d95ca15e7e321880c7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a37945114bb1ed6c3bd9593feca3a1db1" id="r_a37945114bb1ed6c3bd9593feca3a1db1"><td class="memItemLeft" align="right" valign="top">virtual auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a37945114bb1ed6c3bd9593feca3a1db1">GetLastSendStatus</a> () const -&gt; absl::Status=0</td></tr>
 <tr class="memdesc:a37945114bb1ed6c3bd9593feca3a1db1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the status of the last send operation.  <br /></td></tr>
@@ -355,6 +356,7 @@ template&lt;typename T&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
 <p>Initiates a graceful shutdown of the stream. Should be called from the client first. </p>
 
 <p>Implemented in <a class="el" href="classeglt_1_1pybindings_1_1_py_evergreen_stream.html#a77428c6c7aebd3c4380911ba02b41f84">PyEvergreenStream</a>.</p>

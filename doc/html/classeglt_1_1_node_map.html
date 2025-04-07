@@ -110,8 +110,11 @@ $(function(){initNavTree('classeglt_1_1_node_map.html',''); initResizable(true);
   <div class="headertitle"><div class="title">NodeMap Class Reference</div></div>
 </div><!--header-->
 <div class="contents">
-
-<p><code>#include &lt;<a class="el" href="node__map_8h_source.html">node_map.h</a>&gt;</code></p>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>A thread-safe map of Evergreen nodes. </p>
+<p>This class is used to manage a collection of nodes, allowing for the retrieval and insertion of nodes by their ID. It also provides a way to use a custom <a class="el" href="classeglt_1_1_chunk_store.html">ChunkStore</a> factory for creating chunk stores. </p>
+</div>
+<p><code>#include &lt;<a class="el" href="node__map_8h_source.html">eglt/nodes/node_map.h</a>&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -133,10 +136,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae307cee43e6e72328bc75ac22a6bb59c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74f14b94853d5f8f2caa7b54202e26dc" id="r_a74f14b94853d5f8f2caa7b54202e26dc"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a74f14b94853d5f8f2caa7b54202e26dc">Get</a> (const std::vector&lt; std::string_view &gt; &amp;ids, const <a class="el" href="namespaceeglt.html#aaa54de33c9f62ee9e3b46b256abc9af3">ChunkStoreFactory</a> &amp;chunk_store_factory={}) -&gt; std::vector&lt; <a class="el" href="classeglt_1_1_async_node.html">AsyncNode</a> * &gt;</td></tr>
 <tr class="separator:a74f14b94853d5f8f2caa7b54202e26dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a14dc30a1e11cf747f4f933c8a7e33326" id="r_a14dc30a1e11cf747f4f933c8a7e33326"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a14dc30a1e11cf747f4f933c8a7e33326">insert</a> (std::string_view id, <a class="el" href="classeglt_1_1_async_node.html">AsyncNode</a> &amp;&amp;node) -&gt; <a class="el" href="classeglt_1_1_async_node.html">AsyncNode</a> &amp;</td></tr>
-<tr class="separator:a14dc30a1e11cf747f4f933c8a7e33326"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3526756a07afb2dde8d9fe9c0f31dace" id="r_a3526756a07afb2dde8d9fe9c0f31dace"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3526756a07afb2dde8d9fe9c0f31dace">contains</a> (std::string_view id)</td></tr>
-<tr class="separator:a3526756a07afb2dde8d9fe9c0f31dace"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a6e2a6c2a338abc1042521b6a5c94cdc1" name="a6e2a6c2a338abc1042521b6a5c94cdc1"></a>
@@ -240,23 +239,6 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a3526756a07afb2dde8d9fe9c0f31dace" name="a3526756a07afb2dde8d9fe9c0f31dace"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3526756a07afb2dde8d9fe9c0f31dace">&#9670;&#160;</a></span>contains()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool contains </td>
-          <td>(</td>
-          <td class="paramtype">std::string_view</td>          <td class="paramname"><span class="paramname"><em>id</em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a74f14b94853d5f8f2caa7b54202e26dc" name="a74f14b94853d5f8f2caa7b54202e26dc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a74f14b94853d5f8f2caa7b54202e26dc">&#9670;&#160;</a></span>Get() <span class="overload">[1/2]</span></h2>
 
@@ -293,27 +275,6 @@ Public Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="namespaceeglt.html#aaa54de33c9f62ee9e3b46b256abc9af3">ChunkStoreFactory</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>chunk_store_factory</em></span><span class="paramdefsep"> = </span><span class="paramdefval">{}</span>&#160;) -&gt; <a class="el" href="classeglt_1_1_async_node.html">AsyncNode</a>*</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a14dc30a1e11cf747f4f933c8a7e33326" name="a14dc30a1e11cf747f4f933c8a7e33326"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a14dc30a1e11cf747f4f933c8a7e33326">&#9670;&#160;</a></span>insert()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classeglt_1_1_async_node.html">AsyncNode</a> &amp; insert </td>
-          <td>(</td>
-          <td class="paramtype">std::string_view</td>          <td class="paramname"><span class="paramname"><em>id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classeglt_1_1_async_node.html">AsyncNode</a> &amp;&amp;</td>          <td class="paramname"><span class="paramname"><em>node</em></span>&#160;) -&gt; <a class="el" href="classeglt_1_1_async_node.html">AsyncNode</a>&amp;</td>
         </tr>
       </table>
 </div><div class="memdoc">

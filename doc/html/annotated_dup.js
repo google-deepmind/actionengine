@@ -21,13 +21,13 @@ var annotated_dup =
           [ "MutexLock", "classeglt_1_1concurrency_1_1impl_1_1_mutex_lock.html", "classeglt_1_1concurrency_1_1impl_1_1_mutex_lock" ],
           [ "PermanentEvent", "classeglt_1_1concurrency_1_1impl_1_1_permanent_event.html", "classeglt_1_1concurrency_1_1impl_1_1_permanent_event" ],
           [ "Selector", "structeglt_1_1concurrency_1_1impl_1_1_selector.html", "structeglt_1_1concurrency_1_1impl_1_1_selector" ],
-          [ "TreeOptions", "classeglt_1_1concurrency_1_1impl_1_1_tree_options.html", null ],
+          [ "TreeOptions", "namespaceeglt_1_1concurrency_1_1impl.html#classeglt_1_1concurrency_1_1impl_1_1_tree_options", null ],
           [ "work_stealing_with_properties", "classeglt_1_1concurrency_1_1impl_1_1work__stealing__with__properties.html", null ]
         ] ],
         [ "TwoMutexLock", "classeglt_1_1concurrency_1_1_two_mutex_lock.html", "classeglt_1_1concurrency_1_1_two_mutex_lock" ]
       ] ],
       [ "pybindings", "namespaceeglt_1_1pybindings.html", [
-        [ "keep_event_loop_memo", "structeglt_1_1pybindings_1_1keep__event__loop__memo.html", null ],
+        [ "keep_event_loop_memo", "namespaceeglt_1_1pybindings.html#structeglt_1_1pybindings_1_1keep__event__loop__memo", null ],
         [ "PyChunkStore", "classeglt_1_1pybindings_1_1_py_chunk_store.html", "classeglt_1_1pybindings_1_1_py_chunk_store" ],
         [ "PyEvergreenStream", "classeglt_1_1pybindings_1_1_py_evergreen_stream.html", "classeglt_1_1pybindings_1_1_py_evergreen_stream" ]
       ] ],
@@ -45,6 +45,6 @@ var annotated_dup =
       [ "Serializer", "classeglt_1_1_serializer.html", "classeglt_1_1_serializer" ],
       [ "Service", "classeglt_1_1_service.html", "classeglt_1_1_service" ],
       [ "Session", "classeglt_1_1_session.html", "classeglt_1_1_session" ],
-      [ "StreamToSessionConnection", "structeglt_1_1_stream_to_session_connection.html", "structeglt_1_1_stream_to_session_connection" ]
+      [ "StreamToSessionConnection", "namespaceeglt.html#structeglt_1_1_stream_to_session_connection", "namespaceeglt_structeglt_1_1_stream_to_session_connection_dup" ]
     ] ]
 ];

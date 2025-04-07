@@ -181,14 +181,14 @@ T MoveAs(S value) {
   return *std::move(result);
 }
 
-//! Evergreen chunk metadata.
-/*!
- This structure is used to store metadata about a chunk of data in the
- Evergreen format. It includes fields for mimetype and timestamp.
-*/
+/// Evergreen chunk metadata.
+///
+/// This structure is used to store metadata about a chunk of data in the
+/// Evergreen format. It includes fields for mimetype and timestamp.
+/// @headerfile eglt/data/eg_structs.h
 struct ChunkMetadata {
-  std::string mimetype;  //! The mimetype of the data in the chunk.
-  absl::Time timestamp;  //! The timestamp associated with the chunk.
+  std::string mimetype; /// The mimetype of the data in the chunk.
+  absl::Time timestamp; /// The timestamp associated with the chunk.
 
   /// @private
   template <typename T>
@@ -196,38 +196,24 @@ struct ChunkMetadata {
     return ConstructFrom<ChunkMetadata>(std::forward<T>(value));
   }
 
-  /**
-   * @brief
-   *   Checks if the metadata is empty.
-   *
-   * @return
-   *  true if both fields are empty, false otherwise.
-   */
+  /// Checks if the metadata is empty.
+  /// @return
+  ///   true if both fields are empty, false otherwise.
   [[nodiscard]] bool Empty() const {
     return mimetype.empty() && timestamp == absl::Time();
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const ChunkMetadata& metadata) {
-    if (!metadata.mimetype.empty()) {
-      absl::Format(&sink, "mimetype: %s\n", metadata.mimetype);
-    }
-    if (metadata.timestamp != absl::Time()) {
-      absl::Format(&sink, "timestamp: %s\n",
-                   absl::FormatTime(metadata.timestamp));
-    }
-  }
+  friend void AbslStringify(Sink& sink, const ChunkMetadata& metadata);
 };
 
-/**
- * @brief
- *   Evergreen chunk.
- *
- * This structure is used to store a chunk of data in the Evergreen format.
- * It includes fields for metadata, a reference to the data, and the actual
- * data itself. Data can be either a reference or the actual data, but not both.
- * However, this is not enforced in the structure itself at this time.
- */
+/// Evergreen chunk.
+///
+/// This structure is used to store a chunk of data in the Evergreen format.
+/// It includes fields for metadata, a reference to the data, and the actual
+/// data itself. Data can be either a reference or the actual data, but not both.
+/// However, this is not enforced in the structure itself at this time.
+/// @headerfile eglt/data/eg_structs.h
 struct Chunk {
   ChunkMetadata metadata;
 
@@ -241,40 +227,19 @@ struct Chunk {
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const Chunk& chunk) {
-    if (!chunk.metadata.Empty()) {
-      absl::Format(&sink, "metadata: \n%s",
-                   Indent(absl::StrCat(chunk.metadata), 2, true));
-    }
-    if (!chunk.ref.empty() && !chunk.data.empty()) {
-      LOG(FATAL) << "Chunk has both ref and data set.";
-    }
-    if (!chunk.ref.empty()) {
-      absl::Format(&sink, "ref: %s\n", chunk.ref);
-    }
-    if (!chunk.data.empty()) {
-      absl::Format(&sink, "data: %s\n", chunk.data);
-    }
-  }
+  friend void AbslStringify(Sink& sink, const Chunk& chunk);
 };
 
-//! Evergreen node fragment.
-/*!
- * This structure is used to store a fragment of a node in the Evergreen
- * format. It includes fields for the node ID, chunk, sequence number, and
- * whether the fragment is continued.
- */
+/// Evergreen node fragment.
+/// @headerfile eglt/data/eg_structs.h
 struct NodeFragment {
-  //! The node ID for this fragment.
+  /// The node ID for this fragment.
   std::string id;
-
-  //! The chunk of data associated with the node fragment. May be empty.
+  /// The chunk of data associated with the node fragment. May be empty.
   std::optional<Chunk> chunk = std::nullopt;
-
-  //! The chunk's order in the sequence.
+  /// The chunk's order in the sequence.
   int32_t seq = -1;
-
-  //! Whether more node fragments are expected.
+  /// Whether more node fragments are expected.
   bool continued = false;
 
   /// @private
@@ -284,23 +249,11 @@ struct NodeFragment {
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const NodeFragment& fragment) {
-    if (!fragment.id.empty()) {
-      absl::Format(&sink, "id: %s\n", fragment.id);
-    }
-    if (fragment.chunk.has_value()) {
-      absl::Format(&sink, "chunk: \n%s",
-                   Indent(absl::StrCat(*fragment.chunk), 2, true));
-    }
-    if (fragment.seq != -1) {
-      absl::Format(&sink, "seq: %d\n", fragment.seq);
-    }
-    if (!fragment.continued) {
-      sink.Append("continued: false\n");
-    }
-  }
+  friend void AbslStringify(Sink& sink, const NodeFragment& fragment);
 };
 
+/// A mapping of a parameter name to its node ID in an action.
+/// @headerfile eglt/data/eg_structs.h
 struct NamedParameter {
   std::string name;
   std::string id;
@@ -312,17 +265,17 @@ struct NamedParameter {
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const NamedParameter& parameter) {
-    if (!parameter.name.empty()) {
-      sink.Append(absl::StrCat("name: ", parameter.name, "\n"));
-    }
-    if (!parameter.id.empty()) {
-      sink.Append(absl::StrCat("id: ", parameter.id, "\n"));
-    }
-  }
+  friend void AbslStringify(Sink& sink, const NamedParameter& parameter);
 };
 
+/**
+ * @brief Evergreen action message.
+ *
+ * This structure represents an Evergreen action call, which can be sent on the
+ * wire level (in a SessionMessage).
+ */
 struct ActionMessage {
+  std::string id;
   std::string name;
   std::vector<NamedParameter> inputs;
   std::vector<NamedParameter> outputs;
@@ -334,23 +287,7 @@ struct ActionMessage {
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const ActionMessage& action) {
-    if (!action.name.empty()) {
-      absl::Format(&sink, "name: %s\n", action.name);
-    }
-    if (!action.inputs.empty()) {
-      sink.Append(absl::StrCat("inputs:\n"));
-      for (const auto& input : action.inputs) {
-        absl::Format(&sink, "%s\n", Indent(absl::StrCat(input), 2, true));
-      }
-    }
-    if (!action.outputs.empty()) {
-      sink.Append(absl::StrCat("outputs:\n"));
-      for (const auto& output : action.outputs) {
-        absl::Format(&sink, "%s\n", Indent(absl::StrCat(output), 2, true));
-      }
-    }
-  }
+  friend void AbslStringify(Sink& sink, const ActionMessage& action);
 };
 
 struct SessionMessage {
@@ -364,34 +301,20 @@ struct SessionMessage {
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const SessionMessage& message) {
-    if (!message.node_fragments.empty()) {
-      sink.Append("node_fragments: \n");
-      for (const auto& node_fragment : message.node_fragments) {
-        absl::Format(&sink, "%s\n",
-                     Indent(absl::StrCat(node_fragment), 2, true));
-      }
-    }
-    if (!message.actions.empty()) {
-      sink.Append(absl::StrCat("actions: \n"));
-      for (const auto& action : message.actions) {
-        absl::Format(&sink, "%s\n", Indent(absl::StrCat(action), 2, true));
-      }
-    }
-  }
+  friend void AbslStringify(Sink& sink, const SessionMessage& message);
 };
 
 /// @private
 bool IsNullChunk(const Chunk& chunk);
 
-}  // namespace base
+} // namespace base
 
 constexpr base::Chunk MakeNullChunk() {
   return base::Chunk{
       .metadata =
-          base::ChunkMetadata{
-              .mimetype = kMimetypeBytes,
-          },
+      base::ChunkMetadata{
+          .mimetype = kMimetypeBytes,
+      },
       .data = "",
   };
 }
@@ -400,6 +323,6 @@ constexpr base::Chunk EndOfStream() {
   return MakeNullChunk();
 }
 
-}  // namespace eglt
+} // namespace eglt
 
 #endif  // EGLT_DATA_EG_STRUCTS_H_

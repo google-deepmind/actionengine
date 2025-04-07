@@ -6,9 +6,12 @@ target_precompile_headers(
         eglt_concurrency_boost_fiber INTERFACE
         boost_fiber.h
 )
+find_package(Boost REQUIRED COMPONENTS fiber)
+message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 target_link_libraries(
         eglt_concurrency_boost_fiber INTERFACE
-        eglt_absl_headers
+        eglt::absl_headers
+        Boost::fiber
 )
 
 add_library(
@@ -31,6 +34,6 @@ target_include_directories(
 )
 target_link_libraries(
         eglt_concurrency INTERFACE
-        eglt_absl_headers
+        eglt::absl_headers
 )
 

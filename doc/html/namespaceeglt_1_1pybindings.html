@@ -113,9 +113,9 @@ $(function(){initNavTree('namespaceeglt_1_1pybindings.html',''); initResizable(t
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structeglt_1_1pybindings_1_1keep__event__loop__memo.html">keep_event_loop_memo</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Annotation for PyBind11 functions to indicate that the event loop should be tracked and saved as a global variable.  <a href="structeglt_1_1pybindings_1_1keep__event__loop__memo.html#details">More...</a><br /></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structeglt_1_1pybindings_1_1keep__event__loop__memo" id="r_structeglt_1_1pybindings_1_1keep__event__loop__memo"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#structeglt_1_1pybindings_1_1keep__event__loop__memo">keep_event_loop_memo</a></td></tr>
+<tr class="memdesc:structeglt_1_1pybindings_1_1keep__event__loop__memo"><td class="mdescLeft">&#160;</td><td class="mdescRight">Annotation for PyBind11 functions to indicate that the event loop should be tracked and saved as a global variable.  <a href="#structeglt_1_1pybindings_1_1keep__event__loop__memo">More...</a><br /></td></tr>
+<tr class="separator:structeglt_1_1pybindings_1_1keep__event__loop__memo"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1pybindings_1_1_py_chunk_store.html">PyChunkStore</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classeglt_1_1pybindings_1_1_py_evergreen_stream.html">PyEvergreenStream</a></td></tr>
@@ -141,6 +141,21 @@ Functions</h2></td></tr>
 <tr class="memdesc:a6111f3e33c8e2330f90b254b50c13c4b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a shared_ptr&lt;T&gt; that does not delete the object when it goes out of scope.  <br /></td></tr>
 <tr class="separator:a6111f3e33c8e2330f90b254b50c13c4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<hr/><h2 class="groupheader">Class Documentation</h2>
+<a name="structeglt_1_1pybindings_1_1keep__event__loop__memo" id="structeglt_1_1pybindings_1_1keep__event__loop__memo"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structeglt_1_1pybindings_1_1keep__event__loop__memo">&#9670;&#160;</a></span>eglt::pybindings::keep_event_loop_memo</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct eglt::pybindings::keep_event_loop_memo</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <h2 class="groupheader">Function Documentation</h2>
 <a id="a2410e465f41da1fa0461d5e2368ae04f" name="a2410e465f41da1fa0461d5e2368ae04f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2410e465f41da1fa0461d5e2368ae04f">&#9670;&#160;</a></span>GetGloballySavedEventLoop()</h2>
@@ -158,7 +173,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns the globally saved event loop. </p>
-<p>This function is used to retrieve the event loop that was saved by <a class="el" href="#a1e774758adfcd0aacdef0e757f02c42b" title="Saves the given event loop as a global variable further available to GetGloballySavedEventLoop().">SaveEventLoopGlobally()</a> or tracked by calls to bindings annotated with <a class="el" href="structeglt_1_1pybindings_1_1keep__event__loop__memo.html" title="Annotation for PyBind11 functions to indicate that the event loop should be tracked and saved as a gl...">keep_event_loop_memo</a>.</p>
+<p>This function is used to retrieve the event loop that was saved by <a class="el" href="#a1e774758adfcd0aacdef0e757f02c42b" title="Saves the given event loop as a global variable further available to GetGloballySavedEventLoop().">SaveEventLoopGlobally()</a> or tracked by calls to bindings annotated with <a class="el" href="#structeglt_1_1pybindings_1_1keep__event__loop__memo" title="Annotation for PyBind11 functions to indicate that the event loop should be tracked and saved as a gl...">keep_event_loop_memo</a>.</p>
 <dl class="section return"><dt>Returns</dt><dd>The globally saved event loop, or a py::none if no event loop was saved. </dd></dl>
 
 </div>
@@ -205,7 +220,7 @@ template&lt;typename T&gt; </div>
 </div><div class="memdoc">
 
 <p>Runs a coroutine in a threadsafe manner in the given event loop. </p>
-<p>Calls <code>asyncio.run_coroutine_threadsafe()</code> with the given <code class="param">function_call_result</code> by directly using the Python interpreter. If no loop is provided, the function will try to deduce the event loop from the global variable first explicitly saved by SaveFirstEncounteredEventLoop(), or tracked by the <a class="el" href="structeglt_1_1pybindings_1_1keep__event__loop__memo.html" title="Annotation for PyBind11 functions to indicate that the event loop should be tracked and saved as a gl...">keep_event_loop_memo</a> PyBind11 annotation. If <code class="param">function_call_result</code> is not a coroutine, it will be returned as is before deducing the event loop.</p>
+<p>Calls <code>asyncio.run_coroutine_threadsafe()</code> with the given <code class="param">function_call_result</code> by directly using the Python interpreter. If no loop is provided, the function will try to deduce the event loop from the global variable first explicitly saved by SaveFirstEncounteredEventLoop(), or tracked by the <a class="el" href="#structeglt_1_1pybindings_1_1keep__event__loop__memo" title="Annotation for PyBind11 functions to indicate that the event loop should be tracked and saved as a gl...">keep_event_loop_memo</a> PyBind11 annotation. If <code class="param">function_call_result</code> is not a coroutine, it will be returned as is before deducing the event loop.</p>
 <p>This function should not be called from an async context, and will return an error if the event loop resolves to the current thread's loop.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
