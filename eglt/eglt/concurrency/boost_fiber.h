@@ -63,6 +63,9 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
   void Lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() { mu_.lock(); }
   void Unlock() ABSL_UNLOCK_FUNCTION() { mu_.unlock(); }
 
+  void lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() { Lock(); }
+  void unlock() ABSL_UNLOCK_FUNCTION() { Unlock(); }
+
   friend class CondVar;
 
  private:
@@ -136,6 +139,14 @@ struct Case {
   Selector* selector = nullptr;
   int selection_index = -1;
 };
+
+//typedef absl::InlinedVector<Case, 4> CaseArray;
+typedef std::vector<Case> CaseArray;
+
+bool Cancelled();
+Case OnCancel();
+int SelectUntil(absl::Time deadline, const CaseArray& cases);
+int Select(const CaseArray& cases);
 
 /// @private
 struct CaseState;
@@ -211,9 +222,10 @@ class PermanentEvent final : public Selectable {
   bool notified_ ABSL_GUARDED_BY(mutex_) = false;
 };
 
-typedef absl::InlinedVector<Case, 4> CaseArray;
-
 class TreeOptions {};
+
+template <typename T>
+class Channel;
 
 template <typename T>
 class ChannelReader {
@@ -226,7 +238,7 @@ class ChannelReader {
   //     all values have been consumed; returns false.
   //
   // When supported, Read() will move into *item.
-  bool Read(T* item [[maybe_unused]]) { return false; }
+  bool Read(T* item) { return false; }
 
   // Returns a Case (to pass to Select()) that will finish by either
   // (a) consuming the next item into *item and storing true in *ok, or
@@ -237,9 +249,15 @@ class ChannelReader {
   // Select using this case.
   //
   // When supported, OnRead() will move into *item.
-  Case OnRead(T* item [[maybe_unused]], bool* ok [[maybe_unused]]) {
-    return {};
-  }
+  Case OnRead(T* item, bool* ok) { return {}; }
+
+  friend class Channel<T>;
+
+ private:
+  explicit ChannelReader(Channel<T>* absl_nonnull channel)
+      : channel_(channel) {}
+
+  Channel<T>* channel_;
 };
 
 template <typename T>
@@ -256,18 +274,33 @@ class ChannelWriter {
   // move-assigned into the buffer or a waiting reader.
   //
   // REQUIRES: May not be called after this->Close().
-  void Write(const T& item [[maybe_unused]]) {}
+  void Write(const T& item) { Select({OnWrite(item)}); }
+  void Write(T&& item) { Select({OnWrite(std::move(item))}); }
 
-  void Write(T&& item [[maybe_unused]]) {}
+  Case OnWrite(const T& item);
+  Case OnWrite(T&& item);
 
-  bool WriteUnlessCancelled(const T& item [[maybe_unused]]) { return false; }
-  bool WriteUnlessCancelled(T&& item [[maybe_unused]]) { return false; }
+  bool WriteUnlessCancelled(const T& item) {
+    return !Cancelled() && Select({OnCancel(), OnWrite(item)}) == 1;
+  }
+
+  bool WriteUnlessCancelled(T&& item) {
+    return !Cancelled() && Select({OnCancel(), OnWrite(std::move(item))}) == 1;
+  }
 
   // Marks the channel as closed, notifying any waiting readers. See
   // Reader::Read().
   //
   // REQUIRES: May be called at most once.
-  void Close() {}
+  void Close() const;
+
+  friend class Channel<T>;
+
+ private:
+  explicit ChannelWriter(Channel<T>* absl_nonnull channel)
+      : channel_(channel) {}
+
+  Channel<T>* channel_;
 };
 
 template <typename T>
@@ -278,12 +311,23 @@ class Channel {
   static_assert(std::is_move_assignable_v<T>,
                 "Channel<T> requires T to be MoveAssignable.");
 
-  explicit Channel(size_t buffer_size [[maybe_unused]] = 0) {}
+  explicit Channel(size_t buffer_size)
+      : channel_(buffer_size), reader_(this), writer_(this) {}
 
-  ChannelReader<T>* GetReader() { return nullptr; }
-  ChannelWriter<T>* GetWriter() { return nullptr; }
+  ChannelReader<T>* GetReader() { return &reader_; }
+  ChannelWriter<T>* GetWriter() { return &writer_; }
 
-  [[nodiscard]] size_t Size() const { return 0; }
+  [[nodiscard]] size_t Size() const {
+    return channel_.end() - channel_.begin();
+  }
+
+  friend class ChannelReader<T>;
+  friend class ChannelWriter<T>;
+
+ private:
+  boost::fibers::buffered_channel<T> channel_;
+  ChannelReader<T> reader_;
+  ChannelWriter<T> writer_;
 };
 
 class Fiber;
@@ -489,9 +533,21 @@ inline void Detach(const TreeOptions& options,
 
 // inlined only to avoid ODR violations.
 inline std::unique_ptr<Fiber> NewTree(const TreeOptions&,
-                                      absl::AnyInvocable<void()>&& fn
-                                      [[maybe_unused]]) {
+                                      absl::AnyInvocable<void()>&& fn) {
   return nullptr;
+}
+
+template <typename T>
+Case ChannelWriter<T>::OnWrite(const T& item) {
+  channel_->channel_.push(item);
+}
+
+template <typename T>
+Case ChannelWriter<T>::OnWrite(T&& item) {}
+
+template <typename T>
+void ChannelWriter<T>::Close() const {
+  channel_->channel_.close();
 }
 }  // namespace eglt::concurrency::impl
 

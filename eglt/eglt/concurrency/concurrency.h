@@ -33,6 +33,8 @@
 #include "eglt/concurrency/not_implemented.h"
 #elif defined(__EGLT_CONCURRENCY_IMPLEMENTATION_BOOST_FIBER__)
 #include "eglt/concurrency/boost_fiber.h"
+#elif defined(__EGLT_CONCURRENCY_IMPLEMENTATION_THREAD_ON_BOOST__)
+#include "thread_on_boost/concurrency.h"
 #endif
 
 namespace eglt::concurrency {

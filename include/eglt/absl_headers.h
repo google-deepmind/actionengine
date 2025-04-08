@@ -18,8 +18,13 @@
 #include <cstddef>
 
 // IWYU pragma: begin_exports
+#include "absl/base/attributes.h"
+#include "absl/base/macros.h"
+#include "absl/base/no_destructor.h"
 #include "absl/base/nullability.h"
+#include "absl/base/optimization.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/container/fixed_array.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
@@ -38,6 +43,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 // IWYU pragma: end_exports
 
 #endif  // EGLT_ABSL_HEADERS_H_

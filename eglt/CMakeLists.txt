@@ -11,6 +11,7 @@ target_link_libraries(eglt_absl_headers
         absl::flat_hash_map
         absl::log
         absl::log_initialize
+        absl::log_internal_check_op
         absl::random_random
         absl::status
         absl::statusor
