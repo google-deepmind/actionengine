@@ -169,7 +169,7 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   ~Fiber();
 
   // Return a pointer to the currently running fiber.
-  static Fiber* Current() { return GetPerThreadFiberPtr(); }
+  static Fiber* Current();
 
   // Wait until *this and all of its descendants have finished running. When a
   // fiber is created with one of the constructors above, its Join() method must
@@ -199,13 +199,13 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   explicit Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options);
 
   void Start() const;
+  void Body();
   bool MarkFinished();
   void MarkJoined();
   void InternalJoin();
 
   mutable Mutex mu_;
 
-  FiberProperties properties_;
   Invocable work_;
   boost::intrusive_ptr<boost::fibers::context> ctx_{};
 
@@ -228,7 +228,7 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   friend std::unique_ptr<Fiber> internal::CreateTree(
       Invocable f, TreeOptions&& tree_options);
 
-  friend struct CurrentFiber;
+  friend struct PerThreadDynamicFiber;
   friend bool IsFiberDetached(const Fiber* fiber);
   friend class gtl::intrusive_list<Fiber, CancellationList::Tag>;
   friend class gtl::intrusive_link<Fiber, CancellationList::Tag>;
@@ -251,25 +251,34 @@ template <typename F>
                               std::move(tree_options));
 }
 
-void Detach(std::unique_ptr<Fiber> fiber);
+inline void Detach(std::unique_ptr<Fiber> fiber) {
+  {
+    MutexLock l(&fiber->mu_);
+    DCHECK(!fiber->detached_.load(std::memory_order_relaxed))
+        << "Detach() called on already detached fiber, this should not be "
+           "possible without calling WrapUnique or similar on a Fiber* you do "
+           "not own.";
+    // If the fiber is FINISHED, we need to join it since it has passed the
+    // point where it would be self joined and deleted if detached.
+    if (fiber->state_ != Fiber::FINISHED) {
+      fiber->detached_.store(true, std::memory_order_relaxed);
+      fiber.release();  // Fiber will delete itself.
+    }
+  }
+  // This calls InternalJoin to bypass the check that the current fiber is a
+  // parent. It may be a non-parent ancestor in the case of bundle fibers.
+  if (ABSL_PREDICT_FALSE(fiber != nullptr)) {
+    fiber->InternalJoin();
+  };
+}
 
 template <typename F>
 void Detach(TreeOptions tree_options, F&& f) {
   Detach(NewTree(std::move(tree_options), std::forward<F>(f)));
 }
 
-inline Fiber* GetPerThreadFiberPtr() {
-  boost::fibers::context* context = boost::fibers::context::active();
-  const FiberProperties* props =
-      static_cast<FiberProperties*>(context->get_properties());
-  if (props == nullptr) {
-    return nullptr;
-  }
-  return props->GetFiber();
-}
-
 inline bool Cancelled() {
-  Fiber* fiber_ptr = GetPerThreadFiberPtr();
+  const Fiber* fiber_ptr = GetPerThreadFiberPtr();
   if (fiber_ptr == nullptr) {
     // Only threads which are already fibers could be cancelled.
     return false;
@@ -278,7 +287,7 @@ inline bool Cancelled() {
 }
 
 inline Case OnCancel() {
-  Fiber* current_fiber = Fiber::Current();
+  const Fiber* current_fiber = Fiber::Current();
   if (current_fiber == nullptr) {
     return NonSelectableCase();
   }

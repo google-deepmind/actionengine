@@ -10,8 +10,20 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
   Mutex() = default;
   ~Mutex() = default;
 
-  void Lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() { mu_.lock(); }
-  void Unlock() ABSL_UNLOCK_FUNCTION() { mu_.unlock(); }
+  void Lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() {
+    try {
+      mu_.lock();
+    } catch (boost::fibers::lock_error& error) {
+      LOG(FATAL) << "Mutex lock failed. " << error.what();
+    }
+  }
+  void Unlock() ABSL_UNLOCK_FUNCTION() {
+    try {
+      mu_.unlock();
+    } catch (boost::fibers::lock_error& error) {
+      LOG(FATAL) << "Mutex unlock failed. " << error.what();
+    }
+  }
 
   void lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() { Lock(); }
   void unlock() ABSL_UNLOCK_FUNCTION() { Unlock(); }
@@ -58,8 +70,6 @@ class CondVar {
   bool WaitWithDeadline(Mutex* absl_nonnull mu, const absl::Time deadline) {
     const boost::fibers::cv_status status =
         cv_.wait_until(mu->GetImpl(), absl::ToChronoTime(deadline));
-    LOG(INFO) << "WaitWithDeadline: " << deadline
-              << " status: " << (status == boost::fibers::cv_status::timeout);
 
     if (status == boost::fibers::cv_status::timeout) {
       return true;

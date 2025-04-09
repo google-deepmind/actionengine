@@ -15,11 +15,12 @@ bool IsFiberDetached(const Fiber* fiber) {
       .load(std::memory_order_relaxed);
 }
 
-struct CurrentFiber {
+struct PerThreadDynamicFiber {
   Fiber* f = nullptr;
-  ~CurrentFiber() {
+  ~PerThreadDynamicFiber() {
     // This destructor is called while destroying thread-local storage. If it is
     // null, there is no dynamic fiber for this thread.
+    DVLOG(2) << "CurrentFiber destructor called: " << f;
     if (f != nullptr) {
       f->MarkFinished();
       // TODO(b/384529493) Identify what to do if not currently joinable.
@@ -29,15 +30,16 @@ struct CurrentFiber {
   }
 };
 
+static thread_local PerThreadDynamicFiber kPerThreadDynamicFiber;
+
 Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
-    : properties_(FiberProperties(this)),
-      ctx_{
-          boost::fibers::make_worker_context_with_properties(
-              boost::fibers::launch::post, &properties_,
-              boost::fibers::default_stack(), std::move(invocable)),
-      },
-      parent_(parent),
-      work_(std::move(invocable)) {
+    : work_(std::move(invocable)), parent_(parent) {
+  // FiberProperties get destroyed when the underlying context is
+  // destroyed. We do not care about the lifetime of the raw pointer that
+  // is made here.
+  ctx_ = boost::fibers::make_worker_context_with_properties(
+      boost::fibers::launch::post, new FiberProperties(this),
+      boost::fibers::default_stack(), absl::bind_front(&Fiber::Body, this));
   // Note: We become visible to cancellation as soon as we're added to parent.
   MutexLock l(&parent_->mu_);
   CHECK_EQ(parent_->state_, RUNNING);
@@ -50,14 +52,14 @@ Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
 }
 
 Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
-    : properties_(FiberProperties(this)),
-      ctx_{
-          boost::fibers::make_worker_context_with_properties(
-              boost::fibers::launch::post, &properties_,
-              boost::fibers::default_stack(), std::move(invocable)),
-      },
-      parent_(nullptr),
-      work_(std::move(invocable)) {}
+    : work_(std::move(invocable)), parent_(nullptr) {
+  // FiberProperties get destroyed when the underlying context is
+  // destroyed. We do not care about the lifetime of the raw pointer that
+  // is made here.
+  ctx_ = boost::fibers::make_worker_context_with_properties(
+      boost::fibers::launch::post, new FiberProperties(this),
+      boost::fibers::default_stack(), absl::bind_front(&Fiber::Body, this));
+}
 
 void Fiber::Start() const {
   boost::fibers::context* ctx = boost::fibers::context::active();
@@ -74,6 +76,21 @@ void Fiber::Start() const {
   }
 }
 
+void Fiber::Body() {
+
+  std::move(work_)();
+  work_ = nullptr;
+
+  ctx_.detach();
+
+  if (MarkFinished()) {
+    // MarkFinished returns whether the fiber was detached when finished.
+    // Detached fibers are self-joining.
+    InternalJoin();
+    delete this;
+  }
+}
+
 Fiber::~Fiber() {
   CHECK_EQ(JOINED, state_) << "F " << this << " attempting to destroy an "
                            << "unjoined Fiber.  (Did you forget to Join() "
@@ -81,6 +98,43 @@ Fiber::~Fiber() {
   DCHECK(children_.empty());
 
   DVLOG(2) << "F " << this << " destroyed";
+}
+
+Fiber* GetPerThreadFiberPtr() {
+  const boost::fibers::context* ctx = boost::fibers::context::active();
+  // If we do not have an internal boost::fibers::context at all,
+  // then something is wrong. We should never be called outside a fiber context.
+  if (ctx == nullptr) {
+    LOG(FATAL) << "Current() called outside of a fiber context.";
+    return nullptr;
+  }
+
+  // If we have been created through thread_on_boost API, there will be properties
+  // associated with the context. We can use them to get the fiber.
+  if (const FiberProperties* props =
+          static_cast<FiberProperties*>(ctx->get_properties());
+      props != nullptr) {
+    return props->GetFiber();
+  }
+
+  // Otherwise, return the thread-local no-op fiber (not caring if it has been
+  // created or not).
+  return kPerThreadDynamicFiber.f;
+}
+
+Fiber* Fiber::Current() {
+  if (Fiber* current_fiber = GetPerThreadFiberPtr();
+      ABSL_PREDICT_TRUE(current_fiber != nullptr)) {
+    return current_fiber;
+  }
+
+  // We only reach here if we're 1) not under any Fiber, 2) this thread does not
+  // yet have a thread-local fiber. We can (and should) create and return it.
+  kPerThreadDynamicFiber.f = new Fiber(Unstarted{}, Invocable(), TreeOptions{});
+  DVLOG(2) << "Current() called (new static thread-local fiber created): "
+           << kPerThreadDynamicFiber.f;
+
+  return kPerThreadDynamicFiber.f;
 }
 
 void Fiber::Join() {

@@ -66,11 +66,3 @@ set(EGLT_INCLUDE_DIRS
 add_subdirectory(eglt)
 add_subdirectory(pybind11/eglt/pybind11)
 add_subdirectory(examples)
-
-add_library(eglt-oss SHARED ${EGLT_PROJECT_ROOT}/library.cpp)
-target_link_libraries(eglt-oss eglt_absl_headers eglt_actions eglt_data eglt_concurrency eglt_nodes eglt_net eglt_util)
-target_include_directories(
-        eglt-oss
-        PUBLIC
-        ${EGLT_INCLUDE_DIRS}
-)

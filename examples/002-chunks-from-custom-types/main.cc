@@ -59,7 +59,6 @@ absl::StatusOr<User> eglt::base::MoveAsAndReturnStatus(Chunk value) {
 }
 
 int main(int argc, char** argv) {
-  absl::InitializeLog();
   // create some users
   std::vector<User> users = {
       User{.name = "John Doe", .email = "johndoe@example.com"},

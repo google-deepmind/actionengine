@@ -30,6 +30,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/flags/flag.h"
 #include "absl/functional/any_invocable.h"
+#include "absl/functional/bind_front.h"
 #include "absl/log/check.h"
 #include "absl/log/initialize.h"
 #include "absl/log/log.h"
