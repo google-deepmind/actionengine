@@ -112,6 +112,8 @@ void ChunkStoreReader::RunPrefetchLoop() {
     std::optional<base::Chunk> next_chunk;
     int next_seq_id = -1;
     if (ordered_) {
+      // TODO(hpnkv): investigate why readers wait past the final seq id
+      //              (IMPORTANT)
       auto chunk = chunk_store_->Get(total_chunks_read_, timeout_);
 
       if (!chunk.ok()) {

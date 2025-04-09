@@ -38,8 +38,8 @@ class ChunkStoreReader {
   // previous call to Run(). Internally, status is updated in a background
   // thread, so it is possible for the status to change arbitrarily between
   // various calls.
-  // TODO(helenapankov): clarify the thread-compatibility contract and the
-  // behavior of GetStatus().
+  // TODO(hpnkv): clarify the thread-compatibility contract and the
+  //   behavior of GetStatus().
  public:
   constexpr static float kDefaultWaitTimeout = -1;
   constexpr static float kNoTimeout = -1;

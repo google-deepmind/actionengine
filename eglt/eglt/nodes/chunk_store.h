@@ -60,11 +60,11 @@ class ChunkStore {
 
   virtual auto GetSeqIdForArrivalOffset(int arrival_offset) -> int = 0;
   virtual auto GetFinalSeqId() -> int = 0;
-  // TODO(helenapankov): use absl::Duration instead of float
+  // TODO(hpnkv): use absl::Duration instead of float
   virtual auto WaitForSeqId(int seq_id, float timeout) -> absl::Status = 0;
   virtual auto WaitForArrivalOffset(int arrival_offset, float timeout)
       -> absl::Status = 0;
-  // TODO (helenapankov): add a method to wait for finalisation
+  // TODO (pnkv): add a method to wait for finalisation
 
  protected:
   virtual auto WriteToImmediateStore(int seq_id, base::Chunk chunk)

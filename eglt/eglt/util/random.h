@@ -21,9 +21,9 @@
 
 namespace eglt {
 
-// TODO: Check this for correctness
 /// @private
 inline std::string GenerateUUID4() {
+  // TODO(hpnkv): Check this for correctness
   absl::BitGen gen;  // Abseil random number generator
 
   // Generate 16 random bytes

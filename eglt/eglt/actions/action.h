@@ -191,7 +191,7 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   AsyncNode* GetInput(std::string_view name,
                       const std::optional<bool> bind_stream = std::nullopt) {
-    // TODO(helenapankov): just use hash maps instead of vectors
+    // TODO(hpnkv): just use hash maps instead of vectors
     const auto it = std::find_if(
         def_.inputs.begin(), def_.inputs.end(),
         [name](const ActionNode& node) { return node.name == name; });

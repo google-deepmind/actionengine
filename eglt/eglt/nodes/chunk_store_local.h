@@ -86,7 +86,7 @@ private:
   ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<int, base::Chunk> chunks_ ABSL_GUARDED_BY(mutex_);
 
-  // TODO(helenapankov): this field has to be protected, but that might require
+  // TODO(hpnkv): this field has to be protected, but that might require
   //   a reconsideration of the interface/implementation split.
   int final_seq_id_ = -1;
   int write_offset_ ABSL_GUARDED_BY(mutex_) = 0;

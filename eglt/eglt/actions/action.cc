@@ -79,8 +79,8 @@ AsyncNode* Action::GetNode(const std::string_view id) const {
 base::ActionMessage Action::GetActionMessage() const {
   auto def = GetDefinition();
 
-  // TODO(helenapankov): add action id to the action message, or figure out how
-  // to get it from the action without implicit coding into input/output names.
+  // TODO(hpnkv): add action id to the action message, or figure out how to get
+  //   it from the action without implicit coding into input/output names.
 
   std::vector<base::NamedParameter> inputs;
   inputs.reserve(def.inputs.size());

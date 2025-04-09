@@ -22,7 +22,6 @@ namespace eglt {
 
 auto ChunkStore::Get(int seq_id, float timeout) -> absl::StatusOr<base::Chunk> {
   if (auto status = this->WaitForSeqId(seq_id, timeout); !status.ok()) {
-    LOG(ERROR) << "failed to wait for seq_id: " << status;
     return status;
   }
 

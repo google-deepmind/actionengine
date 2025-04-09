@@ -210,7 +210,7 @@ absl::Status Service::JoinConnection(StreamToSessionConnection* connection) {
 
   if (fiber == nullptr) {
     // Only possible if the connection was already joined.
-    // TODO (helenapankov): actually, also if the connection was never
+    // TODO (hpnkv): actually, also if the connection was never
     //   established by this service. For now, it is considered a user error,
     //   therefore Service does not keep track of it.
     return connection->status;
