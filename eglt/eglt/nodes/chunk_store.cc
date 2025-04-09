@@ -20,7 +20,8 @@
 
 namespace eglt {
 
-auto ChunkStore::Get(int seq_id, float timeout) -> absl::StatusOr<base::Chunk> {
+auto ChunkStore::Get(int seq_id, absl::Duration timeout)
+    -> absl::StatusOr<base::Chunk> {
   if (auto status = this->WaitForSeqId(seq_id, timeout); !status.ok()) {
     return status;
   }
@@ -28,7 +29,8 @@ auto ChunkStore::Get(int seq_id, float timeout) -> absl::StatusOr<base::Chunk> {
   return this->GetImmediately(seq_id);
 }
 
-absl::StatusOr<base::Chunk> ChunkStore::Pop(int seq_id, float timeout) {
+absl::StatusOr<base::Chunk> ChunkStore::Pop(int seq_id,
+                                            absl::Duration timeout) {
   if (auto status = this->WaitForSeqId(seq_id, timeout); !status.ok()) {
     return status;
   }

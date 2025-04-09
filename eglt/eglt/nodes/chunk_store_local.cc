@@ -146,7 +146,7 @@ int LocalChunkStore::GetFinalSeqId() {
   return final_seq_id_;
 }
 
-absl::Status LocalChunkStore::WaitForSeqId(int seq_id, float timeout) {
+absl::Status LocalChunkStore::WaitForSeqId(int seq_id, absl::Duration timeout) {
   concurrency::PermanentEvent* event;
   {
     concurrency::MutexLock data_lock(&mutex_);
@@ -171,11 +171,8 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, float timeout) {
     }
   }
 
-  absl::Time deadline = timeout < 0
-                          ? absl::InfiniteFuture()
-                          : absl::Now() + absl::Seconds(timeout);
   int selected = concurrency::SelectUntil(
-      deadline, {event->OnEvent(), concurrency::OnCancel()});
+      absl::Now() + timeout, {event->OnEvent(), concurrency::OnCancel()});
   if (selected == -1) {
     return absl::DeadlineExceededError(absl::StrCat(
         "Timed out waiting for seq_id: ", seq_id, " timeout: ", timeout));
@@ -192,7 +189,7 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, float timeout) {
 }
 
 absl::StatusOr<int> LocalChunkStore::WriteToImmediateStore(int seq_id,
-  base::Chunk chunk) {
+                                                           base::Chunk chunk) {
   arrival_order_to_seq_id_[write_offset_] = seq_id;
   chunks_[seq_id] = std::move(chunk);
 
@@ -211,14 +208,14 @@ void LocalChunkStore::NotifyWaiters(int seq_id, int arrival_offset) {
 
   if (arrival_offset_readable_events_.contains(arrival_offset)) {
     if (!arrival_offset_readable_events_.at(arrival_offset)
-                                        ->HasBeenNotified()) {
+             ->HasBeenNotified()) {
       arrival_offset_readable_events_.at(arrival_offset)->Notify();
     }
   }
 }
 
 absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
-                                                   float timeout) {
+                                                   absl::Duration timeout) {
   concurrency::PermanentEvent* event;
   {
     concurrency::MutexLock data_lock(&mutex_);
@@ -243,11 +240,8 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
     }
   }
 
-  absl::Time deadline = timeout < 0
-                          ? absl::InfiniteFuture()
-                          : absl::Now() + absl::Seconds(timeout);
   int selected = concurrency::SelectUntil(
-      deadline, {event->OnEvent(), concurrency::OnCancel()});
+      absl::Now() + timeout, {event->OnEvent(), concurrency::OnCancel()});
   if (selected == -1) {
     return absl::DeadlineExceededError(
         absl::StrCat("Timed out waiting for arrival offset: ", arrival_offset,
@@ -277,4 +271,4 @@ void LocalChunkStore::SetFinalSeqId(int final_seq_id) {
   final_seq_id_ = final_seq_id;
 }
 
-} // namespace eglt
+}  // namespace eglt

@@ -41,13 +41,14 @@ class ChunkStoreReader {
   // TODO(hpnkv): clarify the thread-compatibility contract and the
   //   behavior of GetStatus().
  public:
-  constexpr static float kDefaultWaitTimeout = -1;
-  constexpr static float kNoTimeout = -1;
+  constexpr static absl::Duration kDefaultWaitTimeout =
+      absl::InfiniteDuration();
+  constexpr static absl::Duration kNoTimeout = absl::InfiniteDuration();
 
   explicit ChunkStoreReader(ChunkStore* absl_nonnull chunk_store,
                             bool ordered = false, bool remove_chunks = false,
                             int n_chunks_to_buffer = -1,
-                            float timeout = kDefaultWaitTimeout);
+                            absl::Duration timeout = kDefaultWaitTimeout);
   ~ChunkStoreReader();
 
   ChunkStoreReader(const ChunkStoreReader& other) = delete;
@@ -92,7 +93,7 @@ class ChunkStoreReader {
   const bool ordered_;
   const bool remove_chunks_;
   const int n_chunks_to_buffer_;
-  const float timeout_;
+  const absl::Duration timeout_;
 
   std::unique_ptr<concurrency::Fiber> fiber_;
   std::unique_ptr<
@@ -111,10 +112,9 @@ inline std::optional<std::pair<int, base::Chunk>> ChunkStoreReader::Next() {
   }
   std::optional<std::pair<int, base::Chunk>> seq_and_chunk;
   bool ok;
-  auto deadline = (timeout_ > 0) ? absl::Now() + absl::Seconds(timeout_)
-                                 : absl::InfiniteFuture();
   int selected = concurrency::SelectUntil(
-      deadline, {buffer_->GetReader()->OnRead(&seq_and_chunk, &ok)});
+      absl::Now() + timeout_,
+      {buffer_->GetReader()->OnRead(&seq_and_chunk, &ok)});
   if (selected == -1) {
     UpdateStatus(absl::DeadlineExceededError("Timed out waiting for chunk."));
     return std::nullopt;

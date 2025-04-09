@@ -36,7 +36,7 @@ namespace eglt {
  * @headerfile eglt/nodes/chunk_store_local.h
  */
 class LocalChunkStore final : public ChunkStore {
-public:
+ public:
   LocalChunkStore();
 
   LocalChunkStore(const LocalChunkStore& other);
@@ -61,29 +61,30 @@ public:
   auto GetFinalSeqId() -> int override;
 
   ABSL_LOCKS_EXCLUDED(mutex_, event_mutex_)
-  auto WaitForSeqId(int seq_id, float timeout) -> absl::Status override;
+  auto WaitForSeqId(int seq_id, absl::Duration timeout)
+      -> absl::Status override;
   ABSL_LOCKS_EXCLUDED(mutex_, event_mutex_)
-  auto WaitForArrivalOffset(int arrival_offset, float timeout)
-    -> absl::Status override;
+  auto WaitForArrivalOffset(int arrival_offset, absl::Duration timeout)
+      -> absl::Status override;
 
-protected:
+ protected:
   ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_)
   auto WriteToImmediateStore(int seq_id, base::Chunk chunk)
-    -> absl::StatusOr<int> override;
+      -> absl::StatusOr<int> override;
 
   void NotifyWaiters(int seq_id, int arrival_offset)
-  ABSL_LOCKS_EXCLUDED(event_mutex_) override;
+      ABSL_LOCKS_EXCLUDED(event_mutex_) override;
 
   void SetFinalSeqId(int final_seq_id) override;
 
-private:
+ private:
   absl::flat_hash_map<int, std::unique_ptr<concurrency::PermanentEvent>>
-  seq_id_readable_events_ ABSL_GUARDED_BY(event_mutex_);
+      seq_id_readable_events_ ABSL_GUARDED_BY(event_mutex_);
   absl::flat_hash_map<int, std::unique_ptr<concurrency::PermanentEvent>>
-  arrival_offset_readable_events_ ABSL_GUARDED_BY(event_mutex_);
+      arrival_offset_readable_events_ ABSL_GUARDED_BY(event_mutex_);
 
   absl::flat_hash_map<int, int> arrival_order_to_seq_id_
-  ABSL_GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<int, base::Chunk> chunks_ ABSL_GUARDED_BY(mutex_);
 
   // TODO(hpnkv): this field has to be protected, but that might require
@@ -92,6 +93,6 @@ private:
   int write_offset_ ABSL_GUARDED_BY(mutex_) = 0;
 };
 
-} // namespace eglt
+}  // namespace eglt
 
 #endif  // EGLT_NODES_CHUNK_STORE_LOCAL_H_

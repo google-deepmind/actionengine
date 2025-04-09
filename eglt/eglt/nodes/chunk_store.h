@@ -44,8 +44,10 @@ class ChunkStore {
   ChunkStore& operator=(const ChunkStore& other) = delete;
   ChunkStore& operator=(ChunkStore&& other) = delete;
 
-  virtual auto Get(int seq_id, float timeout) -> absl::StatusOr<base::Chunk>;
-  virtual auto Pop(int seq_id, float timeout) -> absl::StatusOr<base::Chunk>;
+  virtual auto Get(int seq_id, absl::Duration timeout)
+      -> absl::StatusOr<base::Chunk>;
+  virtual auto Pop(int seq_id, absl::Duration timeout)
+      -> absl::StatusOr<base::Chunk>;
   virtual auto Put(int seq_id, base::Chunk chunk, bool final) -> absl::Status;
 
   virtual auto GetImmediately(int seq_id) -> absl::StatusOr<base::Chunk> = 0;
@@ -60,9 +62,9 @@ class ChunkStore {
 
   virtual auto GetSeqIdForArrivalOffset(int arrival_offset) -> int = 0;
   virtual auto GetFinalSeqId() -> int = 0;
-  // TODO(hpnkv): use absl::Duration instead of float
-  virtual auto WaitForSeqId(int seq_id, float timeout) -> absl::Status = 0;
-  virtual auto WaitForArrivalOffset(int arrival_offset, float timeout)
+  virtual auto WaitForSeqId(int seq_id, absl::Duration timeout)
+      -> absl::Status = 0;
+  virtual auto WaitForArrivalOffset(int arrival_offset, absl::Duration timeout)
       -> absl::Status = 0;
   // TODO (pnkv): add a method to wait for finalisation
 

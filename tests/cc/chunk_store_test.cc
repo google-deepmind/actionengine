@@ -30,7 +30,8 @@ TEST(ChunkStoreTest, CanWriteChunks) {
 
     writer << "Hello" << "World" << "!" << eglt::EndOfStream();
 
-    chunk_store.WaitForArrivalOffset(3, /*timeout=*/-1).IgnoreError();
+    chunk_store.WaitForArrivalOffset(3, /*timeout=*/absl::InfiniteDuration())
+        .IgnoreError();
     EXPECT_THAT(chunk_store.Size(), Eq(4));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
   }
@@ -61,7 +62,9 @@ TEST(ChunkStoreTest, WrittenChunksAreReadable) {
   writer << words << eglt::EndOfStream();
 
   // Wait for all chunks to arrive.
-  chunk_store.WaitForArrivalOffset(words.size(), /*timeout=*/-1).IgnoreError();
+  chunk_store
+      .WaitForArrivalOffset(words.size(), /*timeout=*/absl::InfiniteDuration())
+      .IgnoreError();
 
   // Read the chunks back in order and check that they are correct.
   eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/true);
@@ -165,7 +168,8 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
                                   /*remove_chunks=*/true);
 
     writer << "Hello" << "World" << "!" << eglt::EndOfStream();
-    chunk_store.WaitForArrivalOffset(3, /*timeout=*/-1).IgnoreError();
+    chunk_store.WaitForArrivalOffset(3, /*timeout=*/absl::InfiniteDuration())
+        .IgnoreError();
     EXPECT_THAT(chunk_store.Size(), Eq(4));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
 
@@ -207,7 +211,7 @@ TEST(ChunkStoreTest, OrderedReaderBlocksUntilChunksArrive) {
                                                /*ordered=*/true,
                                                /*remove_chunks=*/false,
                                                /*n_chunks_to_buffer=*/-1,
-                                               /*timeout=*/0.01);
+                                               /*timeout=*/absl::Seconds(0.01));
 
   writer << std::pair("World", 1) << std::pair("!", 2)
          << std::pair(eglt::EndOfStream(), 3);

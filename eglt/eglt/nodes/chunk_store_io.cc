@@ -28,7 +28,7 @@ namespace eglt {
 
 ChunkStoreReader::ChunkStoreReader(ChunkStore* chunk_store, bool ordered,
                                    bool remove_chunks, int n_chunks_to_buffer,
-                                   float timeout)
+                                   absl::Duration timeout)
     : chunk_store_(chunk_store),
       ordered_(ordered),
       remove_chunks_(remove_chunks),
