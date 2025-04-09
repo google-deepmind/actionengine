@@ -96,8 +96,8 @@ std::string Indent(std::string field, int indentation = 0,
  *
  * \tparam S The type of the object to construct.
  * \tparam T The type of the value to convert.
- * \param value The value to convert.
- * \return
+ * @param value The value to convert.
+ * @return
  *   An object of type S constructed from the value.
  */
 template <typename S, typename T>

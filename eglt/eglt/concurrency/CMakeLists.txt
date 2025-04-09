@@ -15,7 +15,6 @@ target_include_directories(
 )
 target_link_libraries(
         eglt_concurrency INTERFACE
-        eglt::absl_headers
         ThreadOnBoost
 )
 

@@ -25,10 +25,6 @@
 #ifndef EGLT_CONCURRENCY_CONCURRENCY_H_
 #define EGLT_CONCURRENCY_CONCURRENCY_H_
 
-#include <memory>
-
-#include "eglt/absl_headers.h"
-
 #include "thread_on_boost/concurrency.h"
 
 namespace eglt::concurrency {

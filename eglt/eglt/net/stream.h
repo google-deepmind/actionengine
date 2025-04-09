@@ -67,7 +67,7 @@ class EvergreenStream {
    * access to the specific implementation of the stream. The default
    * implementation returns a null pointer.
    *
-   * \return A pointer to the underlying implementation of the stream.
+   * @return A pointer to the underlying implementation of the stream.
    */
   [[nodiscard]] virtual auto GetImpl() const -> void* { return nullptr; }
 
@@ -78,7 +78,7 @@ class EvergreenStream {
    * pointer returned by GetImpl() to the specified type.
    *
    * \tparam T The type of the underlying implementation.
-   * \return A pointer to the underlying implementation of type T.
+   * @return A pointer to the underlying implementation of type T.
    */
   template <typename T>
   [[nodiscard]] auto GetImpl() const -> T* {

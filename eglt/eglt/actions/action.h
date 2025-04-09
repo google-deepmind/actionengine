@@ -117,12 +117,12 @@ class Session;
  * This class provides an interface for creating and managing actions in the
  * Evergreen V2 format. It includes methods for setting up input and output nodes,
  * calling the action, and running the action handler.
- * \headerfile eglt/actions/action.h
+ * @headerfile eglt/actions/action.h
  */
 class Action : public std::enable_shared_from_this<Action> {
  public:
   /**
-   * \brief
+   * @brief
    *   Constructor. Creates an action in the context given by \p node_map,
    *   \p stream, and \p session.
    *
@@ -130,22 +130,22 @@ class Action : public std::enable_shared_from_this<Action> {
    * and session. The ID is generated if not provided, and other parameters are
    * nullable, and if not provided, restrictions apply, however, it makes the
    * Action class unified for client and server-side usage.
-   * \param def
+   * @param def
    *   The action definition. Required to resolve input and output node types,
    *   as well as to create the action message on call.
-   * \param handler
+   * @param handler
    *   The action handler. This function will be called when the action is run
    *   server-side or manually via Run().
-   * \param id
+   * @param id
    *   The action ID. If empty, a unique ID will be generated.
-   * \param node_map
+   * @param node_map
    *   Node map to use for node access/creation. If nullptr, only
    *   pure side effect actions are allowed.
-   * \param stream
+   * @param stream
    *   A stream to use for sending messages and calling the action.
    *   If nullptr, the action cannot be called, and nodes will only
    *   be written to a local store.
-   * \param session
+   * @param session
    *   A pointer to the session.
    */
   explicit Action(ActionDefinition def, ActionHandler handler,
@@ -155,7 +155,7 @@ class Action : public std::enable_shared_from_this<Action> {
 
   //! Makes an action message to be sent on an EvergreenStream.
   /**
-   * \return
+   * @return
    *   The action message.
    */
   [[nodiscard]] base::ActionMessage GetActionMessage() const;
@@ -166,26 +166,26 @@ class Action : public std::enable_shared_from_this<Action> {
       Session* session = nullptr);
 
   /**
-   * \brief Gets an AsyncNode with the given \p id from the node map.
+   * @brief Gets an AsyncNode with the given \p id from the node map.
    *
    * The node does not have to be defined as an input or output of the action.
    * If the node is not found, it will be created with the given \p id.
-   * \param id
+   * @param id
    *   The identifier of the node to get.
-   * \return
+   * @return
    *   A pointer to the AsyncNode with the given \p id.
    */
   AsyncNode* GetNode(std::string_view id) const;
 
-  /** \brief Gets an AsyncNode input with the given name from the node map.
+  /** @brief Gets an AsyncNode input with the given name from the node map.
    *         If no input with the given name is found, it will return nullptr.
    *
-   * \param name
+   * @param name
    *   The name of the input to get.
-   * \param bind_stream
+   * @param bind_stream
    *   If true, the stream will be bound to the input node. If unspecified,
    *   the stream will be bound in Call(), but not Run().
-   * \return
+   * @return
    *   A pointer to the AsyncNode of the input with the given name, or nullptr
    *   if not on ActionDefinition.
    */
@@ -208,15 +208,15 @@ class Action : public std::enable_shared_from_this<Action> {
     return node;
   }
 
-  /** \brief Gets an AsyncNode output with the given name from the node map.
+  /** @brief Gets an AsyncNode output with the given name from the node map.
    *         If no output with the given name is found, it will return nullptr.
    *
-   * \param name
+   * @param name
    *   The name of the output to get.
-   * \param bind_stream
+   * @param bind_stream
    *   Whether to bind the stream to the output. If not specified, the stream
    *   will be bound in Run() but not in Call().
-   * \return
+   * @return
    *   A pointer to the AsyncNode of the output with the given name, or nullptr
    *   if not on ActionDefinition.
    */
@@ -238,27 +238,27 @@ class Action : public std::enable_shared_from_this<Action> {
     return node;
   }
 
-  /// Set the action handler.
-  /**
-   * \param handler
+  /** @brief Sets the action handler.
+   *
+   * @param handler
    *   The action handler. This function will be called when the action is run
    *   server-side or manually via Run().
    */
   void SetHandler(ActionHandler handler) { handler_ = std::move(handler); }
 
   /**
-   * \brief
+   * @brief
    *   Makes a different action in the same session. Should be used to create
    *   nested actions.
    *
    * An action created in this way will share the same session, node map, and
    * stream as the current action.
-   * \param name
+   * @param name
    *   The name of the action to create. It must be registered in the
    *   session's action registry.
-   * \param id
+   * @param id
    *   The ID of the action to create. If empty, a unique ID will be generated.
-   * \return
+   * @return
    *   An owning pointer to the new action.
    */
   std::unique_ptr<Action> MakeActionInSameSession(
@@ -278,7 +278,7 @@ class Action : public std::enable_shared_from_this<Action> {
   [[nodiscard]] const ActionDefinition& GetDefinition() const { return def_; }
 
   /**
-   * \brief
+   * @brief
    *   Calls the action by sending an Evergreen action message to associated
    *   stream.
    *
@@ -286,7 +286,7 @@ class Action : public std::enable_shared_from_this<Action> {
    * message and sends it to the stream. The action handler is not called
    * by this method. It makes sure that input nodes are bound to the stream.
    *
-   * \return
+   * @return
    *   The status of sending the action call message.
    */
   absl::Status Call() {
@@ -297,14 +297,14 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   /**
-   * \brief
+   * @brief
    *   Run the action handler. Clients usually do not call this method directly.
    *
    * Servers may want to call this method if they implement custom Session
    * and/or Service logic. This method will call the action handler and
    * make sure output nodes are bound to the stream.
    *
-   * \return
+   * @return
    *   The status returned by the action handler.
    */
   absl::Status Run() {
