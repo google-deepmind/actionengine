@@ -66,3 +66,6 @@ set(EGLT_INCLUDE_DIRS
 add_subdirectory(eglt)
 add_subdirectory(pybind11/eglt/pybind11)
 add_subdirectory(examples)
+
+enable_testing()
+add_subdirectory(tests/cc)

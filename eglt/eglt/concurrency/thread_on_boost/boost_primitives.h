@@ -71,7 +71,8 @@ class CondVar {
     const boost::fibers::cv_status status =
         cv_.wait_until(mu->GetImpl(), absl::ToChronoTime(deadline));
 
-    if (status == boost::fibers::cv_status::timeout) {
+    if (status == boost::fibers::cv_status::timeout &&
+        deadline != absl::InfiniteFuture()) {
       return true;
     }
     return false;

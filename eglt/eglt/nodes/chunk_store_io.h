@@ -222,7 +222,7 @@ class ChunkStoreWriter {
     if (!buffer_->GetWriter()->WriteUnlessCancelled(base::NodeFragment{
             .chunk = std::move(value),
             .seq = written_seq,
-            .continued = !final,
+            .continued = !(final || base::IsNullChunk(value)),
         })) {
       return absl::CancelledError("Cancelled.");
     }
@@ -298,6 +298,22 @@ ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, std::vector<T> value) {
       break;
     }
   }
+  return writer;
+}
+
+template <typename T>
+ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
+                             std::pair<T, int> value) {
+  auto [data_value, seq] = std::move(value);
+  writer.Put(std::move(data_value), seq, /*final=*/false).IgnoreError();
+  return writer;
+}
+
+template <typename T>
+ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
+                             std::pair<T, bool> value) {
+  auto [data_value, is_final] = std::move(value);
+  writer.Put(std::move(data_value), -1, /*final=*/is_final).IgnoreError();
   return writer;
 }
 

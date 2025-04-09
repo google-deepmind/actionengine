@@ -14,6 +14,7 @@ target_link_libraries(eglt_absl_headers
         absl::log_internal_check_op
         absl::random_random
         absl::status
+        absl::status_matchers
         absl::statusor
         absl::strings
         absl::time
@@ -33,3 +34,22 @@ add_subdirectory(eglt/net)
 add_subdirectory(eglt/nodes)
 add_subdirectory(eglt/service)
 add_subdirectory(eglt/util)
+
+add_library(
+        eglt_library INTERFACE
+)
+add_library(
+        eglt ALIAS eglt_library
+)
+target_link_libraries(
+        eglt_library
+        INTERFACE
+        eglt::absl_headers
+        eglt::actions
+        eglt::concurrency
+        eglt::data
+        eglt::net
+        eglt::nodes
+        eglt::service
+        eglt::util
+)

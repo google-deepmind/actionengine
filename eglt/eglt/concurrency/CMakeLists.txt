@@ -1,19 +1,3 @@
-add_library(
-        eglt_concurrency_boost_fiber INTERFACE
-)
-add_library(eglt::concurrency::boost_fiber ALIAS eglt_concurrency_boost_fiber)
-target_precompile_headers(
-        eglt_concurrency_boost_fiber INTERFACE
-        boost_fiber.h
-)
-find_package(Boost REQUIRED COMPONENTS fiber)
-message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
-target_link_libraries(
-        eglt_concurrency_boost_fiber INTERFACE
-        eglt::absl_headers
-        Boost::fiber
-)
-
 add_library(thread_on_boost STATIC)
 target_include_directories(
         thread_on_boost PUBLIC

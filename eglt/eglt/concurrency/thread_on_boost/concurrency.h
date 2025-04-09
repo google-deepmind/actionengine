@@ -19,6 +19,13 @@ using CaseArray = thread::CaseArray;
 using TreeOptions = thread::TreeOptions;
 using Fiber = thread::Fiber;
 
+inline void SleepFor(absl::Duration duration) {
+  boost::fibers::context* active_ctx = boost::fibers::context::active();
+  active_ctx->wait_until(
+      std::chrono::steady_clock::now() +
+      absl::time_internal::ToChronoDuration<std::chrono::seconds>(duration));
+}
+
 template <typename T>
 class Channel;
 
@@ -81,7 +88,7 @@ class Channel {
 
   ChannelWriter<T>* GetWriter() { return &writer_; }
 
-  size_t Size() const { return impl_->length(); }
+  [[nodiscard]] size_t Size() const { return impl_->length(); }
 
  private:
   std::unique_ptr<thread::Channel<T>> impl_;

@@ -106,7 +106,7 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
 
     MutexLock l(&sel.mu);
     bool expired = !CvBlock(deadline, &sel);
-    // DCHECK(expirable || !expired);
+    DCHECK(expirable || !expired);
     if (expired) {
       // Deadline expiry. Ensure nothing is picked from this point.
       sel.picked = num_cases;

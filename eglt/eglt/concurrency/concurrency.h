@@ -30,7 +30,6 @@
 #include "eglt/absl_headers.h"
 
 #if !defined(__EGLT_CONCURRENCY_IMPLEMENTATION__)
-#include "eglt/concurrency/not_implemented.h"
 #elif defined(__EGLT_CONCURRENCY_IMPLEMENTATION_BOOST_FIBER__)
 #include "eglt/concurrency/boost_fiber.h"
 #elif defined(__EGLT_CONCURRENCY_IMPLEMENTATION_THREAD_ON_BOOST__)
@@ -56,6 +55,10 @@ using PermanentEvent = impl::PermanentEvent;
 
 using Mutex = impl::Mutex;
 using MutexLock = impl::MutexLock;
+
+inline void SleepFor(absl::Duration duration) {
+  impl::SleepFor(duration);
+}
 
 class ABSL_SCOPED_LOCKABLE TwoMutexLock {
  public:

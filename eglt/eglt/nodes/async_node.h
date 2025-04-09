@@ -237,22 +237,6 @@ AsyncNode& operator<<(AsyncNode& node, std::pair<T, int> value) {
   return node;
 }
 
-/// @private
-template <typename T>
-AsyncNode& operator<<(AsyncNode& node, std::pair<T, bool> value) {
-  auto [data_value, is_final] = std::move(value);
-  node.Put(std::move(data_value), -1, /*final=*/is_final).IgnoreError();
-  return node;
-}
-
-/// @private
-template <typename T>
-AsyncNode& operator<<(AsyncNode& node, std::tuple<T, int, bool> value) {
-  auto [data_value, seq, final] = std::move(value);
-  node.Put(std::move(data_value), seq, final).IgnoreError();
-  return node;
-}
-
 // Convenience operators to write to an AsyncNode pointers (such as in the case
 // of action->GetOutput("text"))
 /// @private
