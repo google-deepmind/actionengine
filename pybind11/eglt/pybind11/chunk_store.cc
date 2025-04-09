@@ -58,11 +58,26 @@ void BindChunkStore(py::handle scope, std::string_view name) {
       .def("contains", &PyChunkStore::Contains)
       .def("notify_all_waiters", &PyChunkStore::NotifyAllWaiters)
       .def("get_final_seq_id", &PyChunkStore::GetFinalSeqId)
-      .def("wait_for_seq_id", &PyChunkStore::WaitForSeqId, py::arg("seq_id"),
-           py::arg_v("timeout", -1), py::call_guard<py::gil_scoped_release>())
-      .def("wait_for_arrival_offset", &PyChunkStore::WaitForArrivalOffset,
-           py::arg("arrival_offset"), py::arg_v("timeout", -1),
-           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "wait_for_seq_id",
+          [](const std::shared_ptr<PyChunkStore>& self, int seq_id,
+             double timeout) {
+            return self->WaitForSeqId(
+                seq_id,
+                absl::Seconds(timeout));  // Convert to absl::Duration
+          },
+          py::arg("seq_id"), py::arg_v("timeout", -1),
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "wait_for_arrival_offset",
+          [](const std::shared_ptr<PyChunkStore>& self, int arrival_offset,
+             double timeout) {
+            return self->WaitForArrivalOffset(
+                arrival_offset,
+                absl::Seconds(timeout));  // Convert to absl::Duration
+          },
+          py::arg("arrival_offset"), py::arg_v("timeout", -1),
+          py::call_guard<py::gil_scoped_release>())
       .def("write_to_immediate_store", &PyChunkStore::WriteToImmediateStore,
            py::arg("seq_id"), py::arg("fragment"))
       .def("notify_waiters", &PyChunkStore::NotifyWaiters,

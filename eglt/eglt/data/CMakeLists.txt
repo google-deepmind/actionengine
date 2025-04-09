@@ -4,11 +4,14 @@ add_library(eglt::data ALIAS eglt_data)
 target_sources(eglt_data
         PRIVATE
         chunk_factories.cc
-        string_helpers.cc
         eg_structs.cc
         eg_structs.h
         mimetypes.h
         serialization.h
+)
+target_sources(eglt_data
+        PUBLIC
+        string_helpers.cc
 )
 target_include_directories(
         eglt_data PRIVATE

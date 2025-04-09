@@ -8,3 +8,5 @@ cmake-build-release/
 third_party/build_deps/*
 third_party/*
 !third_party/build_deps.sh
+
+**/*.egg-info/

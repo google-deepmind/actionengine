@@ -62,7 +62,7 @@ class PyChunkStore final : public ChunkStore {
                                 GetFinalSeqId, );
   }
 
-  absl::Status WaitForSeqId(int seq_id, float timeout) override {
+  absl::Status WaitForSeqId(int seq_id, absl::Duration timeout) override {
     PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "wait_for_seq_id",
                                 WaitForSeqId, seq_id, timeout);
   }
@@ -87,7 +87,7 @@ class PyChunkStore final : public ChunkStore {
   }
 
   absl::Status WaitForArrivalOffset(int arrival_offset,
-                                    float timeout) override {
+                                    absl::Duration timeout) override {
     PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore,
                                 "wait_for_arrival_offset", WaitForArrivalOffset,
                                 arrival_offset, timeout);

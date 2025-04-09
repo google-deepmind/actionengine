@@ -1,19 +1,19 @@
 pybind11_add_module(
-        evergreen
+        evergreen_pybind11
         evergreen.cc
 )
 add_library(
         eglt::pybind11 ALIAS
-        evergreen
+        evergreen_pybind11
 )
 
 target_precompile_headers(
-        evergreen PRIVATE
+        evergreen_pybind11 PRIVATE
         pybind11_headers.h
 )
 
 target_sources(
-        evergreen PRIVATE
+        evergreen_pybind11 PRIVATE
         actions.cc
         actions.h
         chunk_store.cc
@@ -29,19 +29,13 @@ target_sources(
 )
 
 target_link_libraries(
-        evergreen PRIVATE
-        eglt::absl_headers
-        eglt::actions
-        eglt::data
-        eglt::concurrency
-        eglt::net
-        eglt::nodes
-        eglt::service
-        eglt::util
+        evergreen_pybind11 PRIVATE
+        eglt::core
+        pybind11_abseil::status_casters
 )
 
 target_include_directories(
-        evergreen PRIVATE
+        evergreen_pybind11 PRIVATE
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil

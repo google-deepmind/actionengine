@@ -40,7 +40,6 @@ target_precompile_headers(
 )
 target_sources(
         ThreadOnBoost PUBLIC
-        #        thread_on_boost/concurrency.h
         thread_on_boost/boost_primitives.h
         thread_on_boost/fiber.h
         thread_on_boost/select.h
@@ -48,6 +47,18 @@ target_sources(
 )
 target_link_libraries(
         ThreadOnBoost PRIVATE
+        absl::base
+        absl::flags
+        absl::flat_hash_map
+        absl::log
+        absl::log_initialize
+        absl::log_internal_check_op
+        absl::random_random
+        absl::status
+        absl::status_matchers
+        absl::statusor
+        absl::strings
+        absl::time
         Boost::fiber
 )
 set(THREAD_ON_BOOST_INCLUDE_DIRS

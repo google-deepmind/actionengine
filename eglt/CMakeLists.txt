@@ -17,6 +17,7 @@ target_link_libraries(eglt_absl_headers
         absl::status_matchers
         absl::statusor
         absl::strings
+        absl::strings_internal
         absl::time
 )
 target_include_directories(
