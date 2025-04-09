@@ -1,13 +1,13 @@
 add_executable(
-        chunk_store_test
-        chunk_store_test.cc
+        test_chunk_store
+        test_chunk_store.cc
 )
 target_link_libraries(
-        chunk_store_test
-        eglt
-        thread_on_boost
+        test_chunk_store
+        eglt::core
+        GTest::gtest
         GTest::gtest_main
 )
 
 include(GoogleTest)
-gtest_discover_tests(chunk_store_test)
+gtest_discover_tests(test_chunk_store)

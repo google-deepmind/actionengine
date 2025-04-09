@@ -1,7 +1,7 @@
 // Copyright 2012 Google Inc. All Rights Reserved.
 // Author: sanjay@google.com (Sanjay Ghemawat)
 
-#include <eglt/absl_headers.h>
+#include "thread_on_boost/absl_headers.h"
 
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/channel-internal.h"

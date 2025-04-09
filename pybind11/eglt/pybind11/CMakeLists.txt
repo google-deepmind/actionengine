@@ -43,7 +43,7 @@ target_link_libraries(
 target_include_directories(
         evergreen PRIVATE
         ${EGLT_INCLUDE_DIR}
-        ${EGLT_INCLUDE_DIRS}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_PYBIND11_TOP_LEVEL}

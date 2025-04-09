@@ -89,7 +89,7 @@
 #include <initializer_list>
 #include <utility>
 
-#include <eglt/absl_headers.h>
+#include "thread_on_boost/absl_headers.h"
 
 namespace gtl {
 

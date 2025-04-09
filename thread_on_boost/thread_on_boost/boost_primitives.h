@@ -3,6 +3,8 @@
 
 #include <boost/fiber/all.hpp>
 
+#include "thread_on_boost/absl_headers.h"
+
 namespace thread {
 
 class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {

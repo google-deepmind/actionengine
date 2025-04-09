@@ -1,6 +1,8 @@
 #ifndef THREAD_ON_BOOST_CONCURRENCY_H_
 #define THREAD_ON_BOOST_CONCURRENCY_H_
 
+#include <boost/fiber/all.hpp>
+
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/channel.h"
 #include "thread_on_boost/fiber.h"

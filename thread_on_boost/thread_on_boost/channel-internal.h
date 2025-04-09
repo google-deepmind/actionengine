@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <vector>
 
-#include <eglt/absl_headers.h>
+#include "thread_on_boost/absl_headers.h"
 
 #include "thread_on_boost/select-internal.h"
 #include "thread_on_boost/select.h"

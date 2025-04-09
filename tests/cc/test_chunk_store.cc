@@ -1,4 +1,3 @@
-#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -46,7 +45,7 @@ TEST(ChunkStoreTest, CanWriteChunks) {
            << std::pair("!", true);  // true is for final chunk
 
     eglt::concurrency::SleepFor(absl::Seconds(
-        0.01));  // TODO(helenapankov): add a method to wait for finalisation
+        0.01));  // TODO(hpnkv): add a method to wait for finalisation
 
     EXPECT_THAT(chunk_store.Size(), Eq(3));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
@@ -63,7 +62,8 @@ TEST(ChunkStoreTest, WrittenChunksAreReadable) {
 
   // Wait for all chunks to arrive.
   chunk_store
-      .WaitForArrivalOffset(words.size(), /*timeout=*/absl::InfiniteDuration())
+      .WaitForArrivalOffset(static_cast<int>(words.size()),
+                            /*timeout=*/absl::InfiniteDuration())
       .IgnoreError();
 
   // Read the chunks back in order and check that they are correct.
@@ -133,8 +133,9 @@ TEST(ChunkStoreTest, UnorderedReaderReadsChunksAsTheyArrive) {
       absl::StrSplit("Hello World! This is a slightly longer sentence.", ' ');
 
   std::vector<std::pair<int, std::string>> seq_and_words;
+  seq_and_words.reserve(words.size());
   for (const auto& word : words) {
-    seq_and_words.push_back(std::pair(seq_and_words.size(), word));
+    seq_and_words.emplace_back(std::pair(seq_and_words.size(), word));
   }
 
   absl::c_shuffle(seq_and_words, absl::BitGen());

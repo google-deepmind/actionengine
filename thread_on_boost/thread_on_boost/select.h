@@ -35,7 +35,7 @@
 #ifndef THREAD_FIBER_SELECT_H_
 #define THREAD_FIBER_SELECT_H_
 
-#include <eglt/absl_headers.h>
+#include "thread_on_boost/absl_headers.h"
 
 #include "thread_on_boost/select-internal.h"
 

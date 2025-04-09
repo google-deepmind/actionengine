@@ -27,6 +27,23 @@ target_include_directories(
 )
 target_precompile_headers(eglt_absl_headers INTERFACE ${EGLT_INCLUDE_DIR}/eglt/absl_headers.h)
 
+add_library(
+        eglt_testing INTERFACE
+)
+add_library(
+        eglt::testing ALIAS eglt_testing
+)
+set_target_properties(eglt_testing PROPERTIES
+        LANGUAGE CXX
+        LINKER_LANGUAGE CXX
+)
+target_include_directories(
+        eglt_testing
+        INTERFACE
+        ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest/include
+)
+
 add_subdirectory(eglt/actions)
 add_subdirectory(eglt/concurrency)
 add_subdirectory(eglt/data)
@@ -39,7 +56,7 @@ add_library(
         eglt_library INTERFACE
 )
 add_library(
-        eglt ALIAS eglt_library
+        eglt::core ALIAS eglt_library
 )
 target_link_libraries(
         eglt_library

@@ -5,7 +5,7 @@
 
 #include <atomic>
 
-#include <eglt/absl_headers.h>
+#include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/select.h"
 

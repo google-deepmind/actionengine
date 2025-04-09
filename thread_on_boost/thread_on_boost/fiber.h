@@ -102,7 +102,7 @@
 #include <type_traits>
 #include <utility>
 
-#include <eglt/absl_headers.h>
+#include "thread_on_boost/absl_headers.h"
 
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/intrusive_list.h"
