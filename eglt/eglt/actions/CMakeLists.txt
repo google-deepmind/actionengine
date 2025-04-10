@@ -1,25 +1,33 @@
 add_library(
-        eglt_actions STATIC
+        egltActions STATIC
         action.cc
         action.h
 )
 add_library(
         eglt::actions ALIAS
-        eglt_actions
+        egltActions
 )
 target_include_directories(
-        eglt_actions
+        egltActions
         PRIVATE
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
-        eglt_actions
+        egltActions
         PUBLIC
         eglt::absl_headers
         eglt::data
         eglt::net
         eglt::nodes
         eglt::util
+)
+
+install(
+        TARGETS egltActions
+        EXPORT egltTargets
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib/eglt
+        ARCHIVE DESTINATION lib/eglt
 )

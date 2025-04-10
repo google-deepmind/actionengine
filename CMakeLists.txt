@@ -6,6 +6,7 @@ project(eglt-oss
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wthread-safety -Werror=thread-safety")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(EGLT_PROJECT_TOP_LEVEL ${CMAKE_CURRENT_SOURCE_DIR}/eglt)
 set(EGLT_PROJECT_ROOT ${EGLT_PROJECT_TOP_LEVEL}/eglt)
@@ -16,7 +17,7 @@ set(EGLT_THIRD_PARTY_INSTALL_ROOT ${EGLT_THIRD_PARTY_ROOT}/build_deps)
 
 set(EGLT_ABSL_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp)
 set(EGLT_PYBIND11_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11)
-set(EGLT_PYBIND11_ABSEIL_ROOT ${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil)
+#set(EGLT_PYBIND11_ABSEIL_ROOT ${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil)
 set(EGLT_CPPITERTOOLS_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools)
 set(EGLT_GTEST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest)
 set(EGLT_POCO_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/poco)
@@ -33,7 +34,7 @@ set(CMAKE_PREFIX_PATH
         ${CMAKE_PREFIX_PATH}
         ${EGLT_ABSL_ROOT}
         ${EGLT_PYBIND11_ROOT}
-        ${EGLT_PYBIND11_ABSEIL_ROOT}
+        #        ${EGLT_PYBIND11_ABSEIL_ROOT}
         ${EGLT_CPPITERTOOLS_ROOT}
         ${EGLT_GTEST_ROOT}
         ${EGLT_POCO_ROOT}
@@ -59,18 +60,24 @@ find_package(GTest REQUIRED)
 find_package(Poco REQUIRED COMPONENTS Foundation Net Util)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/cppack)
-add_subdirectory(${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil)
+include(FetchContent)
+FetchContent_Declare(
+        pybind11_abseil
+        GIT_REPOSITORY https://github.com/pybind/pybind11_abseil.git
+        GIT_TAG master
+)
+FetchContent_MakeAvailable(pybind11_abseil)
+#add_subdirectory(${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil)
 
 set(EGLT_THIRD_PARTY_INCLUDE_DIRS
         ${EGLT_ABSL_ROOT}/include
         ${THREAD_ON_BOOST_DIR}
         ${EGLT_PYBIND11_ROOT}/include
-        ${EGLT_PYBIND11_ABSEIL_ROOT}
+        #        ${EGLT_PYBIND11_ABSEIL_ROOT}
         ${EGLT_CPPITERTOOLS_ROOT}/include
         ${EGLT_GTEST_ROOT}/include
         ${EGLT_POCO_ROOT}/include
 )
-
 
 add_subdirectory(eglt)
 add_subdirectory(eglt/eglt/sdk)
@@ -79,3 +86,12 @@ add_subdirectory(examples)
 
 enable_testing()
 add_subdirectory(tests/cc)
+
+install(
+        TARGETS
+        eglt
+        ThreadOnBoost
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+)

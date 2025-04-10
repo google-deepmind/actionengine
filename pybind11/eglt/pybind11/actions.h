@@ -33,6 +33,6 @@ void BindAction(py::handle scope, std::string_view name = "Action");
 py::module_ MakeActionsModule(py::module_ scope,
                               std::string_view module_name = "actions");
 
-}  // namespace eglt::pybindings
+} // namespace eglt::pybindings
 
 #endif  // EGLT_PYBIND11_EGLT_ACTIONS_H_

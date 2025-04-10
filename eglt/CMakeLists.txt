@@ -54,14 +54,14 @@ add_subdirectory(eglt/service)
 add_subdirectory(eglt/util)
 
 add_library(
-        eglt_library INTERFACE
+        eglt STATIC
 )
 add_library(
-        eglt::core ALIAS eglt_library
+        eglt::core ALIAS eglt
 )
 target_link_libraries(
-        eglt_library
-        INTERFACE
+        eglt
+        PUBLIC
         eglt::absl_headers
         eglt::actions
         eglt::concurrency

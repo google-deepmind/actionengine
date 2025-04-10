@@ -30,8 +30,13 @@ target_sources(
 
 target_link_libraries(
         evergreen_pybind11 PRIVATE
+        eglt::data
         eglt::core
+        register_status_bindings
         pybind11_abseil::status_casters
+        pybind11_abseil::absl_casters
+        pybind11_abseil::import_status_module
+        pybind11_abseil::statusor_caster
 )
 
 target_include_directories(
@@ -41,4 +46,12 @@ target_include_directories(
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_PYBIND11_TOP_LEVEL}
+)
+
+install(
+        TARGETS evergreen_pybind11
+        EXPORT egltTargets
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib/eglt
+        ARCHIVE DESTINATION lib/eglt
 )

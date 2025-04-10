@@ -27,7 +27,7 @@ namespace py = ::pybind11;
 
 /// @private
 PYBIND11_MODULE(evergreen_pybind11, m) {
-  pybind11::google::ImportStatusModule();
+  // pybind11::google::ImportStatusModule();
   // pybind11_protobuf::ImportNativeProtoCasters();
 
   py::module_ types = pybindings::MakeTypesModule(m, "types");
@@ -42,4 +42,4 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
         [](const std::string& name) { py::print("Hello, " + name); });
 }
 
-}  // namespace eglt
+} // namespace eglt

@@ -28,7 +28,7 @@ namespace eglt::pybindings {
 namespace py = ::pybind11;
 
 class PyChunkStore final : public ChunkStore {
- public:
+public:
   using ChunkStore::ChunkStore;
 
   PyChunkStore() : ChunkStore() {}
@@ -44,7 +44,7 @@ class PyChunkStore final : public ChunkStore {
   }
 
   size_t Size() override {
-    PYBIND11_OVERRIDE_PURE_NAME(size_t, PyChunkStore, "size", Size, );
+    PYBIND11_OVERRIDE_PURE_NAME(size_t, PyChunkStore, "size", Size,);
   }
 
   bool Contains(int seq_id) override {
@@ -54,12 +54,12 @@ class PyChunkStore final : public ChunkStore {
 
   void NotifyAllWaiters() override {
     PYBIND11_OVERRIDE_PURE_NAME(void, PyChunkStore, "notify_all_waiters",
-                                NotifyAllWaiters, );
+                                NotifyAllWaiters,);
   }
 
   int GetFinalSeqId() override {
     PYBIND11_OVERRIDE_PURE_NAME(int, PyChunkStore, "get_final_seq_id",
-                                GetFinalSeqId, );
+                                GetFinalSeqId,);
   }
 
   absl::Status WaitForSeqId(int seq_id, absl::Duration timeout) override {
@@ -112,13 +112,13 @@ void BindLocalChunkStore(py::handle scope,
 
 py::module_ MakeChunkStoreModule(py::module_ scope,
                                  std::string_view module_name = "chunk_store");
-}  // namespace eglt::pybindings
+} // namespace eglt::pybindings
 
 namespace pybind11::detail {
 /// @private
 template <>
 class type_caster<std::unique_ptr<eglt::ChunkStore>>
     : public type_caster_base<std::unique_ptr<eglt::ChunkStore>> {};
-}  // namespace pybind11::detail
+} // namespace pybind11::detail
 
 #endif  // EGLT_PYBIND11_EGLT_CHUNK_STORE_H_

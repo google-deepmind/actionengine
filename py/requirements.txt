@@ -1,2 +1,6 @@
-pybind11>=2.13.6
-setuptools>=78.1.0
+absl-py==2.2.2
+msgpack-python==0.5.6
+pybind11==2.13.6
+setuptools==78.1.0
+umsgpack==0.1.0
+websockets==15.0.1
