@@ -34,7 +34,7 @@ rm -rf install
 
 echo "Installing and cleaning up..."
 pip install -r py/requirements.txt
-pip install -e py
+pip install --force-reinstall -e py
 
 echo "Validating installation..."
 python -c "import evergreen; print('Evergreen imports successfully!')"
