@@ -4,7 +4,8 @@ add_executable(
 )
 target_link_libraries(
         test_chunk_store
-        eglt::core
+        eglt::data
+        eglt::nodes
         GTest::gtest
         GTest::gtest_main
 )

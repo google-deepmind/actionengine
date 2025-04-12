@@ -12,5 +12,5 @@ target_include_directories(
 )
 target_link_libraries(
         eglt_sdk_serving_websockets PUBLIC
-        eglt::core
+        eglt::nodes
 )

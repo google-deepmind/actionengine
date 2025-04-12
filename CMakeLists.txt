@@ -89,7 +89,6 @@ add_subdirectory(tests/cc)
 
 install(
         TARGETS
-        eglt
         ThreadOnBoost
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib

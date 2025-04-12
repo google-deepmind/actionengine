@@ -5,5 +5,6 @@ add_executable(
 
 target_link_libraries(
         002-chunks-from-custom-types PRIVATE
-        eglt::core
+        eglt::data
+        eglt::nodes
 )

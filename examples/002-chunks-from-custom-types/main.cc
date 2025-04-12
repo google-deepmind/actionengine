@@ -56,7 +56,7 @@ absl::Status EgltAssignInto(const Chunk& chunk, User* user) {
 
 int main(int argc, char** argv) {
   // create some users
-  std::vector<User> users = {
+  const std::vector users = {
       User{.name = "John Doe", .email = "johndoe@example.com"},
       User{.name = "Alice Smith", .email = "smith@example.com"},
       User{.name = "Bob Jones", .email = "jones@example.com"},
@@ -74,9 +74,8 @@ int main(int argc, char** argv) {
   node_that_streams_users.Put(eglt::EndOfStream()).IgnoreError();
 
   int user_number = 0;
-  std::optional<User> user;
   while (true) {
-    user = node_that_streams_users.Next<User>();
+    std::optional<User> user = node_that_streams_users.Next<User>();
 
     if (!node_that_streams_users.GetReaderStatus().ok()) {
       break;

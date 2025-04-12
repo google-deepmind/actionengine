@@ -52,22 +52,3 @@ add_subdirectory(eglt/net)
 add_subdirectory(eglt/nodes)
 add_subdirectory(eglt/service)
 add_subdirectory(eglt/util)
-
-add_library(
-        eglt STATIC
-)
-add_library(
-        eglt::core ALIAS eglt
-)
-target_link_libraries(
-        eglt
-        PUBLIC
-        eglt::absl_headers
-        eglt::actions
-        eglt::concurrency
-        eglt::data
-        eglt::net
-        eglt::nodes
-        eglt::service
-        eglt::util
-)

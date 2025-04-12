@@ -82,17 +82,17 @@ ChunkStoreReader::NextInternal() const {
   }
 
   const auto seq_id = chunk_store_->GetSeqIdForArrivalOffset(next_read_offset);
-  const auto fragment = chunk_store_->GetImmediately(seq_id);
-  if (!fragment.ok()) {
-    return fragment.status();
+  const auto chunk = chunk_store_->GetImmediately(seq_id);
+  if (!chunk.ok()) {
+    return chunk.status();
   }
 
-  if (base::IsNullChunk(*fragment)) {
+  if (chunk->IsNull()) {
     chunk_store_->PopImmediately(seq_id).IgnoreError();
     return std::nullopt;
   }
 
-  return std::pair(seq_id, *fragment);
+  return std::pair(seq_id, *chunk);
 }
 
 void ChunkStoreReader::RunPrefetchLoop() {
@@ -265,7 +265,7 @@ void ChunkStoreWriter::RunWriteLoop() {
     // TODO: currently the semantics of the null chunk is not clearly
     // established: we need it both to indicate "normally" ended stream and
     // to indicate "closed in an error state"
-    // bool is_null = base::IsNullChunk(*fragment.chunk);
+    // bool is_null = fragment.chunk.IsNull();
     const auto final_seq_id = chunk_store_->GetFinalSeqId();
     ++total_chunks_written_;
     if (final_seq_id >= 0 &&

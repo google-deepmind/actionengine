@@ -62,7 +62,7 @@ class ChunkStoreReader {
     if (!chunk.has_value()) {
       return std::nullopt;
     }
-    if (base::IsNullChunk(*chunk)) {
+    if (chunk->IsNull()) {
       return std::nullopt;
     }
     return Converters<base::Chunk>::To<T>(*std::move(chunk));
@@ -115,7 +115,7 @@ inline std::optional<std::pair<int, base::Chunk>> ChunkStoreReader::Next() {
   }
   std::optional<std::pair<int, base::Chunk>> seq_and_chunk;
   bool ok;
-  int selected = concurrency::SelectUntil(
+  const int selected = concurrency::SelectUntil(
       absl::Now() + timeout_,
       {buffer_->GetReader()->OnRead(&seq_and_chunk, &ok)});
   if (selected == -1) {
@@ -126,7 +126,7 @@ inline std::optional<std::pair<int, base::Chunk>> ChunkStoreReader::Next() {
   if (!ok) {
     return std::nullopt;
   }
-  if (base::IsNullChunk(seq_and_chunk->second)) {
+  if (seq_and_chunk->second.IsNull()) {
     return std::nullopt;
   }
   return seq_and_chunk;
@@ -226,7 +226,7 @@ class ChunkStoreWriter {
     if (!buffer_->GetWriter()->WriteUnlessCancelled(base::NodeFragment{
             .chunk = std::move(value),
             .seq = written_seq,
-            .continued = !(final || base::IsNullChunk(value)),
+            .continued = !(final || value.IsNull()),
         })) {
       return absl::CancelledError("Cancelled.");
     }
@@ -284,7 +284,7 @@ template <>
 inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
                                     base::Chunk value) {
   bool continued = true;
-  if (IsNullChunk(value)) {
+  if (value.IsNull()) {
     continued = false;
   }
 

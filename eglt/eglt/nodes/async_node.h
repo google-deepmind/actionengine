@@ -62,8 +62,7 @@ class AsyncNode {
   template <>
   auto Put(base::NodeFragment value, int seq_id, bool final) -> absl::Status {
     bool explicitly_final = !value.continued && value.seq != -1;
-    bool chunk_is_null =
-        value.chunk.has_value() && base::IsNullChunk(*value.chunk);
+    bool chunk_is_null = value.chunk.has_value() && value.chunk->IsNull();
 
     // if the node fragment contains a null chunk, we make sure that it is
     // marked as final.

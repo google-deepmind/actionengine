@@ -43,16 +43,14 @@ absl::Status ChunkStore::Put(int seq_id, base::Chunk chunk, bool final) {
 
   concurrency::MutexLock lock(&mutex_);
 
-  bool can_put = final_seq_id == -1 || seq_id <= final_seq_id;
-  if (!can_put) {
+  if (const bool can_put = final_seq_id == -1 || seq_id <= final_seq_id;
+      !can_put) {
     return absl::FailedPreconditionError(
         "Cannot put chunks with seq_id > final_seq_id.");
   }
 
-  const bool is_null = base::IsNullChunk(chunk);
-
   if (final) {
-    final_seq_id = is_null ? seq_id - 1 : seq_id;
+    final_seq_id = chunk.IsNull() ? seq_id - 1 : seq_id;
     this->SetFinalSeqId(final_seq_id);
   }
 

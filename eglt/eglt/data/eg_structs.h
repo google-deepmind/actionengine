@@ -25,78 +25,44 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "eglt/absl_headers.h"
+#include "eglt/data/conversion.h"  // IWYU pragma: keep
 #include "eglt/data/mimetypes.h"
 
 namespace eglt {
 
-template <typename T>
-class Converters {
- public:
-  template <typename FromT>
-  static absl::StatusOr<T> TryConstructFrom(FromT from) {
-    T result;
-    if (auto status = EgltAssignInto(std::move(from), &result); !status.ok()) {
-      return status;
-    }
-    return result;
-  }
-
-  template <typename FromT>
-  static T From(FromT from) {
-    auto result = TryConstructFrom(std::move(from));
-    if (!result.ok()) {
-      LOG(FATAL) << "Conversion failed: " << result.status();
-    }
-    return *std::move(result);
-  }
-
-  template <typename ToT>
-  static absl::StatusOr<ToT> TryConvertTo(T from) {
-    ToT result;
-    if (auto status = EgltAssignInto(std::move(from), &result); !status.ok()) {
-      return status;
-    }
-    return result;
-  }
-
-  template <typename ToT>
-  static absl::Status TryConvertTo(T&& from, ToT* to) {
-    return EgltAssignInto(std::move(from), to);
-  }
-
-  template <typename ToT>
-  static ToT To(T from) {
-    absl::StatusOr<ToT> result = TryConvertTo<ToT>(std::move(from));
-    if (result.ok()) {
-      return *std::move(result);
-    }
-
-    LOG(FATAL) << "Conversion failed: " << result.status() << from;
-    std::terminate();
-  }
-
-  template <typename ToT>
-  static void To(T&& from, ToT* to) {
-    if (const absl::Status status = TryConvertTo(std::move(from), to);
-        !status.ok()) {
-      LOG(FATAL) << "Conversion failed: " << status;
-    }
-  }
-};
-
 namespace base {
 /// @private
-std::vector<std::string> Indent(std::vector<std::string> fields,
-                                int indentation = 0,
-                                bool indent_first_line = false);
+inline std::vector<std::string> Indent(std::vector<std::string> fields,
+                                       int indentation = 0,
+                                       bool indent_first_line = false) {
+  if (fields.empty()) {
+    return fields;
+  }
+
+  std::vector<std::string> result = std::move(fields);
+  const size_t start_index = indent_first_line ? 0 : 1;
+
+  for (size_t index = start_index; index < result.size(); ++index) {
+    result[index] = absl::StrCat(std::string(indentation, ' '), result[index]);
+  }
+
+  return result;
+}
 
 /// @private
-std::string Indent(std::string field, int indentation = 0,
-                   bool indent_first_line = false);
+inline std::string Indent(std::string field, int indentation = 0,
+                          bool indent_first_line = false) {
+  const std::vector<std::string> lines = Indent(
+      absl::StrSplit(std::move(field), '\n'), indentation, indent_first_line);
+
+  return absl::StrJoin(lines, "\n",
+                       [](std::string* out, const std::string_view line) {
+                         absl::StrAppend(out, line);
+                       });
+}
 
 /// Evergreen chunk metadata.
 ///
@@ -138,6 +104,12 @@ struct Chunk {
 
   std::string ref;
   std::string data;
+
+  bool IsEmpty() const { return data.empty() && ref.empty(); }
+
+  bool IsNull() const {
+    return metadata.mimetype == kMimetypeBytes && IsEmpty();
+  }
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const Chunk& chunk) {
@@ -258,21 +230,7 @@ struct SessionMessage {
   }
 };
 
-/// @private
-bool IsNullChunk(const Chunk& chunk);
-
-constexpr base::Chunk MakeNullChunk() {
-  return base::Chunk{
-      .metadata =
-          base::ChunkMetadata{
-              .mimetype = kMimetypeBytes,
-          },
-      .data = "",
-  };
-}
-
-inline absl::Status EgltAssignInto(eglt::base::Chunk chunk,
-                                   std::string* string) {
+inline absl::Status EgltAssignInto(Chunk chunk, std::string* string) {
   if (!MimetypeIsTextual(chunk.metadata.mimetype)) {
     return absl::InvalidArgumentError(
         absl::StrCat("Cannot move as std::string from a non-textual chunk: ",
@@ -282,9 +240,8 @@ inline absl::Status EgltAssignInto(eglt::base::Chunk chunk,
   return absl::OkStatus();
 }
 
-inline absl::Status EgltAssignInto(std::string string,
-                                   eglt::base::Chunk* chunk) {
-  chunk->metadata = eglt::base::ChunkMetadata{
+inline absl::Status EgltAssignInto(std::string string, Chunk* chunk) {
+  chunk->metadata = ChunkMetadata{
       .mimetype = kMimetypeTextPlain,
       .timestamp = absl::Now(),
   };
@@ -295,7 +252,10 @@ inline absl::Status EgltAssignInto(std::string string,
 }  // namespace base
 
 constexpr base::Chunk EndOfStream() {
-  return base::MakeNullChunk();
+  return base::Chunk{
+      .metadata = base::ChunkMetadata{.mimetype = kMimetypeBytes},
+      .data = "",
+  };
 }
 
 }  // namespace eglt

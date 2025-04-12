@@ -1,16 +1,15 @@
 add_library(
-        egltNet STATIC
+        egltNet INTERFACE
         stream.h
 )
 add_library(eglt::net ALIAS egltNet)
 target_include_directories(
-        egltNet PRIVATE
+        egltNet INTERFACE
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
-        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
-        egltNet PUBLIC
+        egltNet INTERFACE
         eglt::absl_headers
         eglt::concurrency
         eglt::data

@@ -31,7 +31,13 @@ target_sources(
 target_link_libraries(
         evergreen_pybind11 PRIVATE
         eglt::data
-        eglt::core
+        eglt::actions
+        eglt::concurrency
+        eglt::net
+        eglt::service
+        eglt::nodes
+        eglt::absl_headers
+        eglt::util
         register_status_bindings
         pybind11_abseil::status_casters
         pybind11_abseil::absl_casters
