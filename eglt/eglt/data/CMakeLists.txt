@@ -6,12 +6,14 @@ target_sources(egltData
         conversion.h
         eg_structs.h
         mimetypes.h
+        msgpack.h
         serialization.h
 )
 target_include_directories(
         egltData INTERFACE
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
         egltData INTERFACE

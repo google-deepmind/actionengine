@@ -258,6 +258,13 @@ constexpr base::Chunk EndOfStream() {
   };
 }
 
+using ChunkMetadata = base::ChunkMetadata;
+using Chunk = base::Chunk;
+using NodeFragment = base::NodeFragment;
+using NamedParameter = base::NamedParameter;
+using ActionMessage = base::ActionMessage;
+using SessionMessage = base::SessionMessage;
+
 }  // namespace eglt
 
 #endif  // EGLT_DATA_EG_STRUCTS_H_

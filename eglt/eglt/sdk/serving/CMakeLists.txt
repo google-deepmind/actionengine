@@ -14,3 +14,18 @@ target_link_libraries(
         eglt_sdk_serving_websockets PUBLIC
         eglt::nodes
 )
+
+add_executable(
+        eglt_ws_playground
+        playground.cc
+)
+target_include_directories(
+        eglt_ws_playground PRIVATE
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+)
+target_link_libraries(
+        eglt_ws_playground PUBLIC
+        eglt::sdk::serving::websockets
+)
