@@ -16,59 +16,67 @@
 #define EGLT_DATA_SERIALIZATION_H_
 
 #include <any>
-#include <cstdint>
 #include <functional>
-#include <optional>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "eglt/absl_headers.h"
+#include "eglt/data/eg_structs.h"
 
 namespace eglt {
 
-using Bytes = std::vector<uint8_t>;
-using MimeSerializer = std::function<Bytes(const std::any&)>;
-using MimeDeserializer = std::function<std::optional<std::any>(const Bytes&)>;
+using Bytes = std::string;
+using MimeSerializer = std::function<base::Chunk(std::any)>;
+using MimeDeserializer = std::function<absl::StatusOr<std::any>(base::Chunk)>;
 
-class Serializer {
+class SerializerRegistry {
  public:
-  virtual ~Serializer() = default;
-
-  [[nodiscard]] virtual Bytes Serialize(const std::any& value) const = 0;
-
-  [[nodiscard]] Bytes Serialize(const std::any& value,
-                                const std::string_view mimetype) const {
-    if (serializers_.contains(mimetype)) {
-      return serializers_.at(mimetype)(value);
+  template <typename T>
+  [[nodiscard]] absl::StatusOr<base::Chunk> Serialize(
+      T value, std::string_view mimetype) const {
+    if (mimetype.empty()) {
+      return absl::InvalidArgumentError(
+          "Serialize(value, mimetype) was called with an empty mimetype.");
     }
-    return {};
-  }
 
-  [[nodiscard]] virtual std::optional<std::any> Deserialize(
-      const Bytes& data) const = 0;
-
-  [[nodiscard]] std::optional<std::any> Deserialize(
-      const Bytes& data, const std::string_view mimetype) const {
-    if (deserializers_.contains(mimetype)) {
-      return deserializers_.at(mimetype)(data);
+    const auto it = mime_serializers_.find(mimetype);
+    if (it == mime_serializers_.end()) {
+      return absl::UnimplementedError(absl::StrFormat(
+          "No serializer is registered for mimetype %v.", mimetype));
     }
-    return std::nullopt;
+
+    return it->second({std::move(value)});
   }
 
-  void RegisterSerializer(std::string_view mimetype,
-                          MimeSerializer serializer) {
-    serializers_[mimetype] = std::move(serializer);
+  [[nodiscard]] absl::StatusOr<std::any> Deserialize(
+      base::Chunk chunk, std::string_view mimetype) const {
+    if (mimetype.empty()) {
+      return absl::InvalidArgumentError(
+          "Deserialize(chunk, mimetype) was called with an empty mimetype.");
+    }
+
+    const auto it = mime_deserializers_.find(mimetype);
+    if (it == mime_deserializers_.end()) {
+      return absl::UnimplementedError(absl::StrFormat(
+          "No deserializer is registered for mimetype %v.", mimetype));
+    }
+
+    return it->second({std::move(chunk)});
   }
 
-  void RegisterDeserializer(std::string_view mimetype,
-                            MimeDeserializer deserializer) {
-    deserializers_[mimetype] = std::move(deserializer);
+  void RegisterMimeSerializer(std::string_view mimetype,
+                              MimeSerializer serializer) {
+    mime_serializers_.insert_or_assign(mimetype, std::move(serializer));
   }
 
- private:
-  absl::flat_hash_map<std::string, MimeSerializer> serializers_;
-  absl::flat_hash_map<std::string, MimeDeserializer> deserializers_;
+  void RegisterMimeDeserializer(std::string_view mimetype,
+                                MimeDeserializer deserializer) {
+    mime_deserializers_.insert_or_assign(mimetype, std::move(deserializer));
+  }
+
+ protected:
+  absl::flat_hash_map<std::string, MimeSerializer> mime_serializers_;
+  absl::flat_hash_map<std::string, MimeDeserializer> mime_deserializers_;
 };
 
 }  // namespace eglt

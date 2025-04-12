@@ -27,35 +27,31 @@ struct User {
   std::string email;
 };
 
-// Define how to serialize a User to a Chunk.
-template <>
-Chunk eglt::base::ConstructFrom(User value) {
-  Chunk chunk;
-  // we need to assign a mimetype to the chunk that is unique to this type.
-  // This is used by the Evergreen protocol to determine how to deserialize the
-  // chunk.
-  chunk.metadata.mimetype = "application/x-eglt;User";
-  chunk.data = absl::StrCat(value.name, ":::", value.email);
-  return chunk;
+absl::Status EgltAssignInto(const User& user, Chunk* chunk) {
+  chunk->metadata = eglt::base::ChunkMetadata{
+      .mimetype = "application/x-eglt;User",
+      .timestamp = absl::Now(),
+  };
+  chunk->data = absl::StrCat(user.name, ":::", user.email);
+  return absl::OkStatus();
 }
 
-// Define how to deserialize a User from a Chunk.
-template <>
-absl::StatusOr<User> eglt::base::MoveAsAndReturnStatus(Chunk value) {
-  // this validation is application-level logic, but it is considered best
-  // practice to validate the mimetype of the chunk to ensure that it is
-  // compatible with the type we are trying to deserialize it to.
-  if (value.metadata.mimetype != "application/x-eglt;User") {
-    return absl::InvalidArgumentError("Invalid mimetype.");
+absl::Status EgltAssignInto(const Chunk& chunk, User* user) {
+  if (chunk.metadata.mimetype != "application/x-eglt;User") {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid mimetype: %v", chunk.metadata.mimetype));
   }
 
   // this validation is application-level logic
-  std::vector<std::string> parts = absl::StrSplit(value.data, ":::");
+  const std::vector<std::string> parts = absl::StrSplit(chunk.data, ":::");
   if (parts.size() != 2) {
     return absl::InvalidArgumentError("Invalid data.");
   }
 
-  return User{.name = parts[0], .email = parts[1]};
+  user->name = parts[0];
+  user->email = parts[1];
+
+  return absl::OkStatus();
 }
 
 int main(int argc, char** argv) {
@@ -65,6 +61,8 @@ int main(int argc, char** argv) {
       User{.name = "Alice Smith", .email = "smith@example.com"},
       User{.name = "Bob Jones", .email = "jones@example.com"},
   };
+
+  // LOG(INFO) << eglt::Converters<Chunk>::From(users[0]);
 
   // create a node
   auto node_that_streams_users = AsyncNode(/*id=*/"users");

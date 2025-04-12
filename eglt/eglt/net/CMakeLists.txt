@@ -1,7 +1,5 @@
 add_library(
         egltNet STATIC
-        byte_stream.cc
-        byte_stream.h
         stream.h
 )
 add_library(eglt::net ALIAS egltNet)

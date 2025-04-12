@@ -3,7 +3,6 @@ add_library(eglt::data ALIAS egltData)
 
 target_sources(egltData
         PUBLIC
-        chunk_factories.cc
         eg_structs.cc
         eg_structs.h
         mimetypes.h

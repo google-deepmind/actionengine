@@ -32,8 +32,63 @@
 #include "eglt/data/mimetypes.h"
 
 namespace eglt {
-namespace base {
 
+template <typename T>
+class Converters {
+ public:
+  template <typename FromT>
+  static absl::StatusOr<T> TryConstructFrom(FromT from) {
+    T result;
+    if (auto status = EgltAssignInto(std::move(from), &result); !status.ok()) {
+      return status;
+    }
+    return result;
+  }
+
+  template <typename FromT>
+  static T From(FromT from) {
+    auto result = TryConstructFrom(std::move(from));
+    if (!result.ok()) {
+      LOG(FATAL) << "Conversion failed: " << result.status();
+    }
+    return *std::move(result);
+  }
+
+  template <typename ToT>
+  static absl::StatusOr<ToT> TryConvertTo(T from) {
+    ToT result;
+    if (auto status = EgltAssignInto(std::move(from), &result); !status.ok()) {
+      return status;
+    }
+    return result;
+  }
+
+  template <typename ToT>
+  static absl::Status TryConvertTo(T&& from, ToT* to) {
+    return EgltAssignInto(std::move(from), to);
+  }
+
+  template <typename ToT>
+  static ToT To(T from) {
+    absl::StatusOr<ToT> result = TryConvertTo<ToT>(std::move(from));
+    if (result.ok()) {
+      return *std::move(result);
+    }
+
+    LOG(FATAL) << "Conversion failed: " << result.status() << from;
+    std::terminate();
+  }
+
+  template <typename ToT>
+  static void To(T&& from, ToT* to) {
+    if (const absl::Status status = TryConvertTo(std::move(from), to);
+        !status.ok()) {
+      LOG(FATAL) << "Conversion failed: " << status;
+    }
+  }
+};
+
+namespace base {
 /// @private
 std::vector<std::string> Indent(std::vector<std::string> fields,
                                 int indentation = 0,
@@ -43,158 +98,14 @@ std::vector<std::string> Indent(std::vector<std::string> fields,
 std::string Indent(std::string field, int indentation = 0,
                    bool indent_first_line = false);
 
-/**
- * @brief
- *   Constructs an object of type S from a value of type T.
- *
- * Library users may want to implement this function to enable library's
- * IO syntax to be used with their own types.
- *
-* ```cc
- * // A custom data type: a user with a name and an email.
- * struct User {
- *   std::string name;
- *   std::string email;
- * };
- * ```
- *
- * <details>
- *
- * <summary>Example: Reading `User` directly from AsyncNode</summary>
- *
- * ```cc
- * // Define how to serialize a User to a Chunk.
- * template <>
- * Chunk eglt::base::ConstructFrom(User value) {
- *   Chunk chunk;
- *   // we need to assign a mimetype to the chunk that is unique to this type.
- *   // This is used by the Evergreen protocol to determine how to deserialize the
- *   // chunk.
- *   chunk.metadata.mimetype = "application/x-eglt;User";
- *   chunk.data = absl::StrCat(value.name, ":::", value.email);
- *   return chunk;
- * }
- *
- * void SomeApplicationCode() {
- *   // create some users
- *   std::vector<User> users = {
- *       User{.name = "John Doe", .email = "johndoe@example.com"},
- *       User{.name = "Alice Smith", .email = "smith@example.com"},
- *       User{.name = "Bob Jones", .email = "jones@example.com"},
- *   };
- *
- *   // create a node
- *   auto node_that_streams_users = AsyncNode(/"users");
- *   for (const auto& user : users) {
- *     if (const auto status = node_that_streams_users.Put(user); !status.ok()) {
- *       LOG(FATAL) << "Error: " << status;
- *     }
- *   }
- *   node_that_streams_users.Put(eglt::EndOfStream()).IgnoreError();
- * ```
- * </details>
- *
- * \tparam S The type of the object to construct.
- * \tparam T The type of the value to convert.
- * @param value The value to convert.
- * @return
- *   An object of type S constructed from the value.
- */
-template <typename S, typename T>
-S ConstructFrom(T value);
-
-/**
- * @brief
- *   Constructs an object of type T from a value of type S,
- *   returning an error if the conversion fails.
- *
- * Library users may want to implement this function to enable library's
- * IO syntax to be used with their own types.
- *
- * ```cc
- * // A custom data type: a user with a name and an email.
- * struct User {
- *   std::string name;
- *   std::string email;
- * };
- * ```
- *
- * <details>
- *
- * <summary>Example: Reading `User` directly from AsyncNode</summary>
- * ```cc
- * // Define how to deserialize a User from a Chunk.
- * template <>
- * absl::StatusOr<User> eglt::base::MoveAsAndReturnStatus(Chunk value) {
- *   // this validation is application-level logic, but it is considered best
- *   // practice to validate the mimetype of the chunk to ensure that it is
- *   // compatible with the type we are trying to deserialize it to.
- *   if (value.metadata.mimetype != "application/x-eglt;User") {
- *     return absl::InvalidArgumentError("Invalid mimetype.");
- *   }
- *
- *   // this validation is application-level logic
- *   std::vector<std::string> parts = absl::StrSplit(value.data, ":::");
- *   if (parts.size() != 2) {
- *     return absl::InvalidArgumentError("Invalid data.");
- *   }
- *
- *   return User{.name = parts[0], .email = parts[1]};
- * }
- *
- * void SomeApplicationCode() {
- *   AsyncNode node_that_streams_users("users");
- *
- *   std::optional<User> user;
- *   while (true) {
- *     user = node_that_streams_users.Next<User>();
- *
- *     if (!node_that_streams_users.GetReaderStatus().ok()) {
- *       break;
- *     }
- *
- *     if (!user.has_value()) {
- *       break;
- *     }
- *   }
- * ```
- * </details>
- *
- * @tparam T The type of the object to construct.
- * @tparam S The type of the value to convert.
- * @param value The value to convert.
- * @return
- *  An object of type T constructed from the value, or an error if the
- *  conversion fails.
- */
-template <typename T, typename S>
-absl::StatusOr<T> MoveAsAndReturnStatus(S value);
-
-/// @private
-template <typename T, typename S>
-T MoveAs(S value) {
-  absl::StatusOr<T> result = MoveAsAndReturnStatus<T, S>(std::move(value));
-  if (!result.ok()) {
-    LOG(FATAL) << "Failed to move as " << typeid(T).name() << ": "
-               << result.status();
-  }
-  return *std::move(result);
-}
-
 /// Evergreen chunk metadata.
 ///
 /// This structure is used to store metadata about a chunk of data in the
 /// Evergreen format. It includes fields for mimetype and timestamp.
 /// @headerfile eglt/data/eg_structs.h
 struct ChunkMetadata {
-  std::string mimetype; /// The mimetype of the data in the chunk.
-  absl::Time timestamp; /// The timestamp associated with the chunk.
-
-  /// @private
-  template <typename T>
-  static ChunkMetadata From(T&& value) {
-    return ConstructFrom<ChunkMetadata>(std::forward<T>(value));
-  }
+  std::string mimetype;  /// The mimetype of the data in the chunk.
+  absl::Time timestamp;  /// The timestamp associated with the chunk.
 
   /// Checks if the metadata is empty.
   /// @return
@@ -228,12 +139,6 @@ struct Chunk {
   std::string ref;
   std::string data;
 
-  /// @private
-  template <typename T>
-  static Chunk From(T&& value) {
-    return ConstructFrom<Chunk>(std::forward<T>(value));
-  }
-
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const Chunk& chunk) {
     if (!chunk.metadata.Empty()) {
@@ -264,12 +169,6 @@ struct NodeFragment {
   /// Whether more node fragments are expected.
   bool continued = false;
 
-  /// @private
-  template <typename T>
-  static NodeFragment From(T&& value) {
-    return ConstructFrom<NodeFragment>(std::forward<T>(value));
-  }
-
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const NodeFragment& fragment) {
     if (!fragment.id.empty()) {
@@ -294,12 +193,6 @@ struct NamedParameter {
   std::string name;
   std::string id;
 
-  /// @private
-  template <typename T>
-  static NamedParameter From(T&& value) {
-    return ConstructFrom<NamedParameter>(std::forward<T>(value));
-  }
-
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const NamedParameter& parameter) {
     if (!parameter.name.empty()) {
@@ -322,12 +215,6 @@ struct ActionMessage {
   std::string name;
   std::vector<NamedParameter> inputs;
   std::vector<NamedParameter> outputs;
-
-  /// @private
-  template <typename T>
-  static ActionMessage From(T&& value) {
-    return ConstructFrom<ActionMessage>(std::forward<T>(value));
-  }
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const ActionMessage& action) {
@@ -353,12 +240,6 @@ struct SessionMessage {
   std::vector<NodeFragment> node_fragments;
   std::vector<ActionMessage> actions;
 
-  /// @private
-  template <typename T>
-  static SessionMessage From(T&& value) {
-    return ConstructFrom<SessionMessage>(std::forward<T>(value));
-  }
-
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const SessionMessage& message) {
     if (!message.node_fragments.empty()) {
@@ -380,22 +261,43 @@ struct SessionMessage {
 /// @private
 bool IsNullChunk(const Chunk& chunk);
 
-} // namespace base
-
 constexpr base::Chunk MakeNullChunk() {
   return base::Chunk{
       .metadata =
-      base::ChunkMetadata{
-          .mimetype = kMimetypeBytes,
-      },
+          base::ChunkMetadata{
+              .mimetype = kMimetypeBytes,
+          },
       .data = "",
   };
 }
 
-constexpr base::Chunk EndOfStream() {
-  return MakeNullChunk();
+inline absl::Status EgltAssignInto(eglt::base::Chunk chunk,
+                                   std::string* string) {
+  if (!MimetypeIsTextual(chunk.metadata.mimetype)) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Cannot move as std::string from a non-textual chunk: ",
+                     chunk.metadata.mimetype));
+  }
+  *string = std::move(chunk.data);
+  return absl::OkStatus();
 }
 
-} // namespace eglt
+inline absl::Status EgltAssignInto(std::string string,
+                                   eglt::base::Chunk* chunk) {
+  chunk->metadata = eglt::base::ChunkMetadata{
+      .mimetype = kMimetypeTextPlain,
+      .timestamp = absl::Now(),
+  };
+  chunk->data = std::move(string);
+  return absl::OkStatus();
+}
+
+}  // namespace base
+
+constexpr base::Chunk EndOfStream() {
+  return base::MakeNullChunk();
+}
+
+}  // namespace eglt
 
 #endif  // EGLT_DATA_EG_STRUCTS_H_

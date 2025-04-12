@@ -49,8 +49,6 @@ rm -rf "${abseil_install_dir}"
 cmake --build . --parallel "${nproc}" --target install
 cd "${third_party_root}"
 
-
-
 # Boost
 mkdir -p build_deps/boost
 cd boost
@@ -108,5 +106,28 @@ cmake \
   -G "Ninja" \
   ..
 rm -rf "${cppitertools_install_dir}"
+cmake --build . --parallel "${nproc}" --target install
+cd "${third_party_root}"
+
+# ZMQ
+mkdir -p build_deps/libzmq && cd libzmq
+mkdir -p build && cd build
+cmake \
+  -DCMAKE_CXX_STANDARD="${cc_standard}" \
+  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/libzmq" \
+  -G "Ninja" \
+  ..
+cmake --build . --parallel "${nproc}" --target install
+cd "${third_party_root}"
+
+mkdir -p build_deps/cppzmq && cd cppzmq
+mkdir -p build && cd build
+cmake \
+  -DCMAKE_CXX_STANDARD="${cc_standard}" \
+  -DCMAKE_PREFIX_PATH="${third_party_root}/build_deps/libzmq" \
+  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/cppzmq" \
+  -DCPPZMQ_BUILD_TESTS=OFF \
+  -G "Ninja" \
+  ..
 cmake --build . --parallel "${nproc}" --target install
 cd "${third_party_root}"
