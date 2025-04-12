@@ -62,8 +62,6 @@ int main(int argc, char** argv) {
       User{.name = "Bob Jones", .email = "jones@example.com"},
   };
 
-  // LOG(INFO) << eglt::Converters<Chunk>::From(users[0]);
-
   // create a node
   auto node_that_streams_users = AsyncNode(/*id=*/"users");
   for (const auto& user : users) {

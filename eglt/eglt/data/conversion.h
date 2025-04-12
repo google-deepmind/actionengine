@@ -23,63 +23,43 @@
 #define EGLT_DATA_CONVERSION_H_
 
 #include "eglt/absl_headers.h"
-#include "eglt/data/eg_structs.h"
 
 namespace eglt {
-template <typename T>
-class Converters {
- public:
-  template <typename FromT>
-  static absl::StatusOr<T> TryConstructFrom(FromT from) {
-    T result;
-    if (auto status = EgltAssignInto(std::move(from), &result); !status.ok()) {
-      return status;
-    }
-    return result;
+
+template <typename Dst, typename Src>
+absl::Status StatusOrAssign(Src&& from, Dst* to) {
+  return EgltAssignInto(std::forward<Src>(from), to);
+}
+
+template <typename Dst, typename Src>
+void Assign(Src&& from, Dst* to) {
+  if (const absl::Status status = StatusOrAssign(std::forward<Src>(from), to);
+      !status.ok()) {
+    LOG(FATAL) << "Conversion failed: " << status;
   }
+}
 
-  template <typename FromT>
-  static T From(FromT from) {
-    auto result = TryConstructFrom(std::move(from));
-    if (!result.ok()) {
-      LOG(FATAL) << "Conversion failed: " << result.status();
-    }
-    return *std::move(result);
+template <typename Dst, typename Src>
+absl::StatusOr<Dst> StatusOrConvertTo(Src&& from) {
+  Dst result;
+  if (auto status = StatusOrAssign(std::forward<Src>(from), &result);
+      !status.ok()) {
+    return status;
   }
+  return result;
+}
 
-  template <typename ToT>
-  static absl::StatusOr<ToT> TryConvertTo(T from) {
-    ToT result;
-    if (auto status = EgltAssignInto(std::move(from), &result); !status.ok()) {
-      return status;
-    }
-    return result;
-  }
-
-  template <typename ToT>
-  static absl::Status TryConvertTo(T&& from, ToT* to) {
-    return EgltAssignInto(std::move(from), to);
-  }
-
-  template <typename ToT>
-  static ToT To(T from) {
-    absl::StatusOr<ToT> result = TryConvertTo<ToT>(std::move(from));
-    if (result.ok()) {
-      return *std::move(result);
-    }
-
-    LOG(FATAL) << "Conversion failed: " << result.status() << from;
+template <typename Dst, typename Src>
+Dst ConvertTo(Src&& from) {
+  if (auto result = StatusOrConvertTo<Dst>(std::forward<Src>(from));
+      !result.ok()) {
+    LOG(FATAL) << "Conversion failed: " << result.status();
     std::terminate();
+  } else {
+    return *result;
   }
+}
 
-  template <typename ToT>
-  static void To(T&& from, ToT* to) {
-    if (const absl::Status status = TryConvertTo(std::move(from), to);
-        !status.ok()) {
-      LOG(FATAL) << "Conversion failed: " << status;
-    }
-  }
-};
 }  // namespace eglt
 
 #endif  // EGLT_DATA_CONVERSION_H_

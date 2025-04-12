@@ -65,7 +65,7 @@ class ChunkStoreReader {
     if (chunk->IsNull()) {
       return std::nullopt;
     }
-    return Converters<base::Chunk>::To<T>(*std::move(chunk));
+    return ConvertTo<T>(*std::move(chunk));
   }
 
   // definitions follow in the header for some well-known types.
@@ -200,8 +200,7 @@ class ChunkStoreWriter {
   template <typename T>
   absl::StatusOr<int> Put(T value, int seq = -1, bool final = false)
       ABSL_LOCKS_EXCLUDED(mutex_) {
-    return Put(std::move(Converters<base::Chunk>::From(std::move(value))), seq,
-               final);
+    return Put(ConvertTo<base::Chunk>(std::move(value)), seq, final);
   }
 
   // putting a chunk is considered a base case, therefore the definition is
@@ -243,7 +242,7 @@ class ChunkStoreWriter {
 
   template <typename T>
   friend ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, T value) {
-    writer.Put(Converters<base::Chunk>::From(std::move(value))).IgnoreError();
+    writer.Put(ConvertTo<base::Chunk>(std::move(value))).IgnoreError();
     return writer;
   }
 

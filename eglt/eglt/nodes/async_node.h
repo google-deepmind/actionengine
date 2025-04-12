@@ -51,7 +51,7 @@ class AsyncNode {
 
   template <typename T>
   auto Put(T value, int seq_id = -1, bool final = false) -> absl::Status {
-    return Put(Converters<base::Chunk>::From(std::move(value)), seq_id, final);
+    return Put(ConvertTo<base::Chunk>(std::move(value)), seq_id, final);
   }
 
   // .Put methods for Chunk and NodeFragment are considered base cases for the
@@ -147,7 +147,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
     value = std::nullopt;
     return node;
   }
-  value = Converters<T>::From(*std::move(chunk));
+  value = ConvertTo<T>(*std::move(chunk));
   return node;
 }
 
@@ -155,7 +155,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, T value) {
   node.EnsureWriter();
-  return node << Converters<base::Chunk>::From(std::move(value));
+  return node << ConvertTo<T>(std::move(value));
 }
 
 // -----------------------------------------------------------------------------
