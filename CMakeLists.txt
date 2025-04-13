@@ -17,10 +17,8 @@ set(EGLT_THIRD_PARTY_INSTALL_ROOT ${EGLT_THIRD_PARTY_ROOT}/build_deps)
 
 set(EGLT_ABSL_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp)
 set(EGLT_PYBIND11_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11)
-#set(EGLT_PYBIND11_ABSEIL_ROOT ${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil)
 set(EGLT_CPPITERTOOLS_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools)
 set(EGLT_GTEST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest)
-set(EGLT_POCO_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/poco)
 
 set(THREAD_ON_BOOST_BOOST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost)
 set(THREAD_ON_BOOST_ABSL_ROOT ${EGLT_ABSL_ROOT})
@@ -34,10 +32,8 @@ set(CMAKE_PREFIX_PATH
         ${CMAKE_PREFIX_PATH}
         ${EGLT_ABSL_ROOT}
         ${EGLT_PYBIND11_ROOT}
-        #        ${EGLT_PYBIND11_ABSEIL_ROOT}
         ${EGLT_CPPITERTOOLS_ROOT}
         ${EGLT_GTEST_ROOT}
-        ${EGLT_POCO_ROOT}
 )
 
 execute_process(
@@ -57,7 +53,6 @@ find_package(GTest REQUIRED)
 find_package(absl REQUIRED)
 find_package(cppitertools REQUIRED)
 find_package(GTest REQUIRED)
-find_package(Poco REQUIRED COMPONENTS Foundation Net Util)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/cppack)
 include(FetchContent)
@@ -67,16 +62,13 @@ FetchContent_Declare(
         GIT_TAG master
 )
 FetchContent_MakeAvailable(pybind11_abseil)
-#add_subdirectory(${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil)
 
 set(EGLT_THIRD_PARTY_INCLUDE_DIRS
         ${EGLT_ABSL_ROOT}/include
         ${THREAD_ON_BOOST_DIR}
         ${EGLT_PYBIND11_ROOT}/include
-        #        ${EGLT_PYBIND11_ABSEIL_ROOT}
         ${EGLT_CPPITERTOOLS_ROOT}/include
         ${EGLT_GTEST_ROOT}/include
-        ${EGLT_POCO_ROOT}/include
 )
 
 add_subdirectory(eglt)

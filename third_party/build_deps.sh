@@ -12,7 +12,6 @@ abseil_install_dir="${third_party_root}/build_deps/abseil-cpp"
 boost_install_dir="${third_party_root}/build_deps/boost"
 cppitertools_install_dir="${third_party_root}/build_deps/cppitertools"
 googletest_install_dir="${third_party_root}/build_deps/googletest"
-poco_install_dir="${third_party_root}/build_deps/poco"
 pybind11_install_dir="${third_party_root}/build_deps/pybind11"
 pybind11_abseil_install_dir="${third_party_root}/build_deps/pybind11_abseil"
 
@@ -57,25 +56,11 @@ cd build
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${boost_install_dir}" \
-  -DBOOST_INCLUDE_LIBRARIES="fiber;intrusive" \
+  -DBOOST_INCLUDE_LIBRARIES="fiber;intrusive;beast" \
   -DBOOST_ENABLE_CMAKE=ON \
   -G "Ninja" \
   ..
 rm -rf "${boost_install_dir}"
-cmake --build . --parallel "${nproc}" --target install
-cd "${third_party_root}"
-
-# Poco
-mkdir -p build_deps/poco
-cd poco
-mkdir -p build
-cd build
-cmake \
-  -DCMAKE_CXX_STANDARD="${cc_standard}" \
-  -DCMAKE_INSTALL_PREFIX="${poco_install_dir}" \
-  -G "Ninja" \
-  ..
-rm -rf "${poco_install_dir}"
 cmake --build . --parallel "${nproc}" --target install
 cd "${third_party_root}"
 
