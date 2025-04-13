@@ -41,6 +41,9 @@
 #include <utility>
 #include <vector>
 
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+
 namespace cppack {
 enum class UnpackerError { OutOfRange = 1 };
 
@@ -1130,12 +1133,19 @@ std::vector<uint8_t> Pack(PackableType&& obj) {
 }
 
 template <typename PackableType>
-PackableType Unpack(const std::vector<uint8_t>& data) {
+absl::StatusOr<PackableType> Unpack(const std::vector<uint8_t>& data) {
   PackableType obj;
+
   Unpacker unpacker;
   unpacker.set_data(data.data(), data.size());
   unpacker.process(obj);
-  return obj;
+
+  const std::error_code ec = unpacker.GetErrorCode();
+  if (!ec) {
+    return obj;
+  }
+
+  return absl::InternalError(ec.message());
 }
 
 }  // namespace cppack
