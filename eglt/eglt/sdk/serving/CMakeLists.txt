@@ -27,5 +27,7 @@ target_include_directories(
 )
 target_link_libraries(
         eglt_ws_playground PUBLIC
+        eglt::actions
         eglt::sdk::serving::websockets
+        eglt::service
 )

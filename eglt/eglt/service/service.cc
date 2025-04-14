@@ -29,8 +29,8 @@
 
 namespace eglt {
 
-absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
-                                       Session* session) {
+absl::Status RunSimpleEvergreenSession(
+    base::EvergreenStream* absl_nonnull stream, Session* absl_nonnull session) {
   if (stream == nullptr) {
     return absl::InvalidArgumentError("Stream is null.");
   }

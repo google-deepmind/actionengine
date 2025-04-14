@@ -155,7 +155,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, T value) {
   node.EnsureWriter();
-  return node << ConvertTo<T>(std::move(value));
+  return node << ConvertTo<Chunk>(std::move(value));
 }
 
 // -----------------------------------------------------------------------------

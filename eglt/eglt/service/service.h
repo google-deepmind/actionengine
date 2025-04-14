@@ -62,8 +62,8 @@ using EvergreenConnectionHandler =
     std::function<absl::Status(base::EvergreenStream*, Session*)>;
 
 /// @callgraph
-absl::Status RunSimpleEvergreenSession(base::EvergreenStream* stream,
-                                       Session* session);
+absl::Status RunSimpleEvergreenSession(
+    base::EvergreenStream* absl_nonnull stream, Session* absl_nonnull session);
 
 /**
  * @brief
