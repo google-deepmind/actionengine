@@ -102,8 +102,10 @@
 #include <type_traits>
 #include <utility>
 
-#include "thread_on_boost/absl_headers.h"
+#include <boost/asio/io_context.hpp>
 
+#include "thread_on_boost/absl_headers.h"
+#include "thread_on_boost/asio_round_robin.h"
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/intrusive_list.h"
 #include "thread_on_boost/selectables.h"
@@ -292,6 +294,19 @@ inline Case OnCancel() {
     return NonSelectableCase();
   }
   return current_fiber->OnCancel();
+}
+
+inline static thread_local boost::asio::io_context* thread_io_context = nullptr;
+inline static thread_local boost::asio::executor_work_guard<
+    boost::asio::io_context::executor_type>* thread_asio_work_guard;
+
+inline boost::asio::io_context& GetThreadLocalIOContext() {
+  if (ABSL_PREDICT_FALSE(thread_io_context == nullptr)) {
+    thread_io_context = new boost::asio::io_context();
+    thread_asio_work_guard = new boost::asio::executor_work_guard(
+        boost::asio::make_work_guard(*thread_io_context));
+  }
+  return *thread_io_context;
 }
 
 }  // namespace thread

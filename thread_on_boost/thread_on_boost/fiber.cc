@@ -3,8 +3,8 @@
 #include <boost/fiber/all.hpp>
 #include <boost/fiber/context.hpp>
 #include <boost/intrusive_ptr.hpp>
-#include "thread_on_boost/absl_headers.h"
 
+#include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/select.h"
 
 namespace thread {
@@ -17,10 +17,11 @@ bool IsFiberDetached(const Fiber* fiber) {
 
 struct PerThreadDynamicFiber {
   Fiber* f = nullptr;
+
   ~PerThreadDynamicFiber() {
     // This destructor is called while destroying thread-local storage. If it is
     // null, there is no dynamic fiber for this thread.
-    DVLOG(2) << "CurrentFiber destructor called: " << f;
+    DVLOG(2) << "PerThreadDynamicFiber destructor called: " << f;
     if (f != nullptr) {
       f->MarkFinished();
       // TODO(b/384529493) Identify what to do if not currently joinable.
@@ -122,6 +123,15 @@ Fiber* GetPerThreadFiberPtr() {
   return kPerThreadDynamicFiber.f;
 }
 
+// static absl::InlinedVector<std::thread, 8> worker_threads;
+// static absl::once_flag init_worker_threads_once;
+//
+// static void InitWorkerThreads(size_t num_threads) {
+//   for (size_t i = 0; i < num_threads + 1; ++i) {
+//     worker_threads.emplace_back([]() {});
+//   }
+// }
+
 Fiber* Fiber::Current() {
   if (Fiber* current_fiber = GetPerThreadFiberPtr();
       ABSL_PREDICT_TRUE(current_fiber != nullptr)) {
@@ -130,6 +140,12 @@ Fiber* Fiber::Current() {
 
   // We only reach here if we're 1) not under any Fiber, 2) this thread does not
   // yet have a thread-local fiber. We can (and should) create and return it.
+  // boost::asio::io_context& io_context = GetThreadLocalIOContext();
+  // std::shared_ptr<boost::asio::io_context> io_context_ptr =
+  //     std::shared_ptr<boost::asio::io_context>(&io_context,
+  //                                              [](boost::asio::io_context*) {});
+  // boost::fibers::use_scheduling_algorithm<boost::fibers::asio::round_robin>(
+  //     io_context_ptr);
   kPerThreadDynamicFiber.f = new Fiber(Unstarted{}, Invocable(), TreeOptions{});
   DVLOG(2) << "Current() called (new static thread-local fiber created): "
            << kPerThreadDynamicFiber.f;

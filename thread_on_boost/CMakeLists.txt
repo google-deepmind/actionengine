@@ -24,6 +24,7 @@ target_include_directories(
 target_sources(
         ThreadOnBoost PRIVATE
         thread_on_boost/absl_headers.h
+        thread_on_boost/asio_round_robin.h
         thread_on_boost/channel.cc
         thread_on_boost/channel.h
         thread_on_boost/channel-internal.h
@@ -33,6 +34,8 @@ target_sources(
         thread_on_boost/select-internal.cc
         thread_on_boost/select-internal.h
         thread_on_boost/selectables.cc
+        thread_on_boost/yield.h
+        thread_on_boost/yield-detail.h
 )
 target_precompile_headers(
         ThreadOnBoost PUBLIC

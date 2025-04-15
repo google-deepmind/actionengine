@@ -131,6 +131,22 @@ inline std::unique_ptr<Fiber> NewTree(const TreeOptions& options,
                                       absl::AnyInvocable<void()>&& fn) {
   return impl::NewTree(options, std::move(fn));
 }
+
+// If fn() is void, result holder cannot be created
+template <typename Invocable, typename = std::enable_if_t<!std::is_void_v<
+                                  std::invoke_result_t<Invocable>>>>
+auto RunInFiber(Invocable&& fn) {
+  decltype(fn()) result;
+  auto fiber = Fiber(
+      [&result, fn = std::forward<Invocable>(fn)]() mutable { result = fn(); });
+  fiber.Join();
+  return result;
+}
+
+inline auto RunInFiber(absl::AnyInvocable<void()>&& fn) {
+  auto fiber = Fiber(std::move(fn));
+  fiber.Join();
+}
 }  // namespace eglt::concurrency
 
 #endif  // EGLT_CONCURRENCY_CONCURRENCY_H_

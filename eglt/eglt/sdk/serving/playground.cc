@@ -1,32 +1,36 @@
-#include <iostream>
+#include <thread>
 
-#include <eglt/data/eg_structs.h>
-#include <eglt/data/msgpack.h>
+#include <eglt/actions/action.h>
+#include <eglt/sdk/serving/websockets.h>
+#include <eglt/service/service.h>
 
-namespace cppack {}  // namespace cppack
+void ServerThread() {
+  eglt::ActionRegistry registry;
+  eglt::Service service(&registry);
+  eglt::sdk::WebsocketEvergreenServer server(&service);
+  server.Run();
+  LOG(INFO) << "server running";
+  LOG(INFO) << server.Join();
+}
 
 int main() {
-  eglt::ChunkMetadata meta{
-      .mimetype = "text/plain",
-      .timestamp = absl::Now(),
-  };
-  eglt::Chunk chunk{
-      .metadata = meta,
-      .data = "Hello, World!",
-  };
+  std::thread server(ServerThread);
+  eglt::ActionRegistry registry;
 
-  eglt::NodeFragment node_fragment{
-      .chunk = chunk,
-      .continued = false,
-      .id = "node1",
-      .seq = 1,
-  };
-  eglt::SessionMessage msg{
-      .node_fragments = {node_fragment},
-  };
+  const auto client_stream =
+      eglt::sdk::MakeWebsocketClientEvergreenStream("0.0.0.0", 20000);
 
-  auto vec = cppack::Pack(msg);
-  std::cout << "Packed size: " << vec.size() << std::endl;
-  auto unpacked = cppack::Unpack<eglt::SessionMessage>(vec);
-  LOG(INFO) << "unpacked: " << unpacked << std::endl;
+  eglt::NodeMap node_map;
+  eglt::AsyncNode* node = node_map.Get("prompts");
+  node->BindWriterStream(client_stream.get());
+
+  while (true) {
+    *node << "hello!";
+    eglt::concurrency::SleepFor(absl::Seconds(5));
+  }
+
+  *node << "hello!" << eglt::EndOfStream();
+
+  // eglt::concurrency::SleepFor(absl::Seconds(5));
+  server.join();
 }

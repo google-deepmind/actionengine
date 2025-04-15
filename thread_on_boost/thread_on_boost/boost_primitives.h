@@ -1,6 +1,8 @@
 #ifndef THREAD_ON_BOOST_BOOST_PRIMITIVES_H_
 #define THREAD_ON_BOOST_BOOST_PRIMITIVES_H_
 
+#define BOOST_ASIO_NO_DEPRECATED
+
 #include <boost/fiber/all.hpp>
 
 #include "thread_on_boost/absl_headers.h"
@@ -69,7 +71,7 @@ class CondVar {
     return WaitWithDeadline(mu, deadline);
   }
 
-  bool WaitWithDeadline(Mutex* absl_nonnull mu, const absl::Time deadline) {
+  bool WaitWithDeadline(Mutex* absl_nonnull mu, const absl::Time& deadline) {
     const boost::fibers::cv_status status =
         cv_.wait_until(mu->GetImpl(), absl::ToChronoTime(deadline));
 

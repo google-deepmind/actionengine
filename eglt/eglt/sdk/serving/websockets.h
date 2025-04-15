@@ -4,6 +4,8 @@
 #include <memory>
 #include <optional>
 
+#include <thread_on_boost/boost_primitives.h>
+
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
@@ -20,30 +22,28 @@ namespace asio = boost::asio;
 namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
 
-inline asio::io_context& GetGlobalIOContext() {
-  static auto* io_context = new asio::io_context(1);
-  return *io_context;
-}
-
 class WebsocketEvergreenStream final : public base::EvergreenStream {
  public:
   static constexpr size_t kSwapBufferOnCapacity = 4 * 1024 * 1024;  // 4MB
 
   explicit WebsocketEvergreenStream(
       beast::websocket::stream<tcp::socket> stream, std::string_view id = "")
-      : stream_(std::move(stream)), id_(id.empty() ? GenerateUUID4() : id) {}
+      : stream_(std::move(stream)), id_(id.empty() ? GenerateUUID4() : id) {
+    DLOG(INFO) << absl::StrFormat("WES %s created", id_);
+  }
 
   absl::Status Send(SessionMessage message) override {
     if (!status_.ok()) {
       return status_;
     }
 
-    auto buffer = cppack::Pack(std::move(message));
+    DLOG(INFO) << absl::StrFormat("WES %s sending message: \n%v", id_, message);
 
-    boost::system::error_code ec;
-    stream_.write(boost::asio::buffer(buffer), ec);
-    if (ec) {
-      last_send_status_ = absl::InternalError(ec.message());
+    boost::system::error_code error_code;
+    auto message_bytes = cppack::Pack(std::move(message));
+    stream_.write(asio::buffer(message_bytes), error_code);
+    if (error_code) {
+      last_send_status_ = absl::InternalError(error_code.message());
       return last_send_status_;
     }
 
@@ -51,21 +51,36 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
   }
 
   std::optional<SessionMessage> Receive() override {
+    DLOG(INFO) << absl::StrFormat("WES %s Receive called", id_);
     if (!status_.ok()) {
+      DLOG(INFO) << absl::StrFormat("WES %s Receive failed: %v", id_, status_);
       return std::nullopt;
     }
 
-    boost::system::error_code ec;
-    stream_.read(buffer_, ec);
-    if (ec) {
+    boost::system::error_code error_code;
+    concurrency::PermanentEvent read;
+    concurrency::RunInFiber([&error_code, this, &read]() {
+      auto dynamic_buffer = asio::dynamic_buffer(buffer_);
+      LOG(INFO) << "reading";
+      stream_.read(dynamic_buffer, error_code);
+      read.Notify();
+    });
+    concurrency::SelectUntil(absl::Now() + absl::Seconds(2), {read.OnEvent()});
+    LOG(INFO) << "selected";
+
+    if (error_code) {
       return std::nullopt;
     }
 
-    std::optional<SessionMessage> msg = std::nullopt;
+    std::optional<SessionMessage> message;
+
     if (auto unpacked = cppack::Unpack<SessionMessage>(buffer_);
         unpacked.ok()) {
-      msg = std::move(*unpacked);
+      message = std::move(unpacked).value();
     }
+
+    DLOG(INFO) << absl::StrFormat("WES %s received message:\n%v", id_,
+                                  *message);
 
     if (buffer_.capacity() > kSwapBufferOnCapacity) {
       std::vector<uint8_t>().swap(buffer_);
@@ -73,7 +88,7 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
       buffer_.clear();
     }
 
-    return msg;
+    return message;
   }
 
   void Start() override {
@@ -81,18 +96,21 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
   }
 
   void Accept() override {
+    DLOG(INFO) << absl::StrFormat("WES %s Accept()", id_);
     stream_.set_option(beast::websocket::stream_base::decorator(
         [](beast::websocket::response_type& res) {
-          res.set(beast::http::field::server,
-                  std::string(BOOST_BEAST_VERSION_STRING) +
-                      " WebsocketEvergreenServer");
+          res.set(
+              beast::http::field::server,
+              "Action Engine / Evergreen Light 0.1.0 WebsocketEvergreenServer");
         }));
 
-    boost::system::error_code ec;
-    stream_.accept(ec);
-    if (ec) {
-      status_ = absl::InternalError(ec.message());
+    boost::system::error_code error_code;
+    concurrency::RunInFiber(
+        [&error_code, this]() { stream_.accept(error_code); });
+    if (error_code) {
+      status_ = absl::InternalError(error_code.message());
     }
+    DLOG(INFO) << absl::StrFormat("WES %s Accept(): %v.", id_, status_);
   }
 
   void HalfClose() override {
@@ -100,10 +118,10 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
       return;
     }
 
-    boost::system::error_code ec;
-    stream_.close(beast::websocket::close_code::normal, ec);
-    if (ec) {
-      last_send_status_ = absl::InternalError(ec.message());
+    boost::system::error_code error_code;
+    stream_.close(beast::websocket::close_code::normal, error_code);
+    if (error_code) {
+      last_send_status_ = absl::InternalError(error_code.message());
     }
   }
 
@@ -128,38 +146,50 @@ class WebsocketEvergreenServer {
                                     uint16_t port = 20000,
                                     asio::io_context* io_context = nullptr)
       : service_(service),
-        io_context_(io_context != nullptr ? io_context : &GetGlobalIOContext()),
+        io_context_(io_context != nullptr ? io_context
+                                          : &thread::GetThreadLocalIOContext()),
         acceptor_(std::make_unique<tcp::acceptor>(
             *io_context_,
-            tcp::endpoint{asio::ip::make_address(address), port})) {}
+            tcp::endpoint{asio::ip::make_address(address), port})) {
+    LOG(INFO) << "WebsocketEvergreenServer created at " << address << ":"
+              << port;
+  }
 
   ~WebsocketEvergreenServer() {
     if (main_loop_ != nullptr) {
       Cancel().IgnoreError();
       Join().IgnoreError();
     }
+    DLOG(INFO) << "WebsocketEvergreenServer destroyed";
   }
 
   void Run() {
-    main_loop_ = concurrency::NewTree({}, [this]() {
+    main_loop_ = std::make_unique<std::thread>([this]() {
       while (!concurrency::Cancelled()) {
         tcp::socket socket{*io_context_};
 
-        if (boost::system::error_code ec = acceptor_->accept(socket, ec); !ec) {
-          beast::websocket::stream<tcp::socket> stream(socket);
+        DLOG(INFO) << "WebsocketEvergreenServer waiting for connection.";
+        boost::system::error_code error_code;
+        acceptor_->accept(socket, error_code);
+        if (!error_code) {
+          beast::websocket::stream<tcp::socket> stream(std::move(socket));
           auto connection = service_->EstablishConnection(
               std::make_shared<WebsocketEvergreenStream>(std::move(stream)));
           if (!connection.ok()) {
             status_ = connection.status();
+            DLOG(ERROR)
+                << "WebsocketEvergreenServer EstablishConnection failed: "
+                << status_;
             break;
           }
         } else {
-          switch (ec.value()) {
+          switch (error_code.value()) {
             case boost::system::errc::operation_canceled:
               status_ = absl::OkStatus();
               break;
             default:
-              status_ = absl::InternalError(ec.message());
+              DLOG(ERROR) << "WebsocketEvergreenServer accept() failed.";
+              status_ = absl::InternalError(error_code.message());
               break;
           }
           // Any code reaching here means the service is shutting down.
@@ -170,10 +200,14 @@ class WebsocketEvergreenServer {
   }
 
   absl::Status Cancel() {
-    main_loop_->Cancel();
+    // main_loop_->Cancel();
 
-    if (boost::system::error_code ec = acceptor_->close(ec); ec) {
-      status_ = absl::InternalError(ec.message());
+    boost::system::error_code error_code;
+    concurrency::RunInFiber(
+        [&error_code, this]() { acceptor_->cancel(error_code); });
+
+    if (error_code) {
+      status_ = absl::InternalError(error_code.message());
       return status_;
     }
 
@@ -181,7 +215,8 @@ class WebsocketEvergreenServer {
   }
 
   absl::Status Join() {
-    main_loop_->Join();
+    main_loop_->join();
+    DLOG(INFO) << "WebsocketEvergreenServer joined";
     return status_;
   }
 
@@ -191,26 +226,30 @@ class WebsocketEvergreenServer {
   asio::io_context* io_context_;
   std::unique_ptr<tcp::acceptor> acceptor_;
 
-  std::unique_ptr<concurrency::Fiber> main_loop_;
+  std::unique_ptr<std::thread> main_loop_;
   absl::Status status_;
 };
 
-inline std::unique_ptr<WebsocketEvergreenStream> MakeWebsocketEvergreenStream(
-    std::string_view address = "0.0.0.0", uint16_t port = 20000,
-    std::string_view target = "/", asio::io_context* io_context = nullptr) {
+inline std::unique_ptr<WebsocketEvergreenStream>
+MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
+                                   uint16_t port = 20000,
+                                   std::string_view target = "/",
+                                   asio::io_context* io_context = nullptr) {
+
   if (io_context == nullptr) {
-    io_context = &GetGlobalIOContext();
+    io_context = &thread::GetThreadLocalIOContext();
   }
+  beast::websocket::stream<tcp::socket> ws_stream(*io_context);
 
   tcp::resolver resolver(*io_context);
   const auto endpoints = resolver.resolve(address, std::to_string(port));
 
-  beast::websocket::stream<tcp::socket> ws_stream(*io_context);
+  boost::system::error_code error_code;
 
-  boost::system::error_code ec;
-  const auto endpoint =
-      boost::asio::connect(beast::get_lowest_layer(ws_stream), endpoints, ec);
-  if (ec) {
+  const auto endpoint = asio::connect(
+      beast::get_lowest_layer(ws_stream),
+      resolver.resolve(address, std::to_string(port)), error_code);
+  if (error_code) {
     return nullptr;
   }
 
@@ -218,13 +257,14 @@ inline std::unique_ptr<WebsocketEvergreenStream> MakeWebsocketEvergreenStream(
   ws_stream.set_option(beast::websocket::stream_base::decorator(
       [](beast::websocket::request_type& req) {
         req.set(beast::http::field::user_agent,
-                std::string(BOOST_BEAST_VERSION_STRING) +
-                    " WebsocketEvergreenClient");
+                "Action Engine / Evergreen Light 0.1.0 "
+                "WebsocketEvergreenStream client");
       }));
 
   ws_stream.handshake(absl::StrFormat("%s:%d", address, endpoint.port()),
-                      target, ec);
-  if (ec) {
+                      target, error_code);
+
+  if (error_code) {
     return nullptr;
   }
 
