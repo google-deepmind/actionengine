@@ -56,7 +56,7 @@ cd build
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${boost_install_dir}" \
-  -DBOOST_INCLUDE_LIBRARIES="fiber;intrusive;beast" \
+  -DBOOST_INCLUDE_LIBRARIES="fiber;intrusive;beast;thread" \
   -DBOOST_ENABLE_CMAKE=ON \
   -G "Ninja" \
   ..

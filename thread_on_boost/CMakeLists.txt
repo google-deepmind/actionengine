@@ -9,7 +9,7 @@ message(STATUS THREAD_ON_BOOST_BOOST_ROOT: ${THREAD_ON_BOOST_BOOST_ROOT})
 
 find_package(GTest REQUIRED)
 find_package(absl REQUIRED)
-find_package(Boost REQUIRED COMPONENTS fiber)
+find_package(Boost REQUIRED COMPONENTS fiber thread)
 
 message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 
@@ -63,6 +63,7 @@ target_link_libraries(
         absl::strings
         absl::time
         Boost::fiber
+        Boost::thread
 )
 set(THREAD_ON_BOOST_INCLUDE_DIRS
         ${CMAKE_CURRENT_LIST_DIR}

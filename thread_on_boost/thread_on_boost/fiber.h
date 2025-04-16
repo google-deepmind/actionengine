@@ -141,7 +141,7 @@ class FiberProperties final : public boost::fibers::fiber_properties {
   explicit FiberProperties(Fiber* fiber)
       : boost::fibers::fiber_properties(nullptr), fiber_(fiber) {}
 
-  Fiber* GetFiber() const { return fiber_; }
+  [[nodiscard]] Fiber* GetFiber() const { return fiber_; }
 
  private:
   Fiber* fiber_ = nullptr;
@@ -187,8 +187,6 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   Case OnCancel() const { return cancellation_.OnEvent(); }
 
   Case OnJoinable() const { return joinable_.OnEvent(); }
-
-  Fiber* parent() const { return parent_; }
 
  private:
   // No internal constructor starts the fiber. It is the caller's responsibility

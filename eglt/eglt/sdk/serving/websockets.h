@@ -47,6 +47,7 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
       return last_send_status_;
     }
 
+    last_send_status_ = absl::OkStatus();
     return absl::OkStatus();
   }
 
