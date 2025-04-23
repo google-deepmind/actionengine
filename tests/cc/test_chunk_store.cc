@@ -45,7 +45,7 @@ TEST(ChunkStoreTest, CanWriteChunks) {
            << std::pair("!", true);  // true is for final chunk
 
     eglt::concurrency::SleepFor(absl::Seconds(
-        0.01));  // TODO(hpnkv): add a method to wait for finalisation
+        0.05));  // TODO(hpnkv): add a method to wait for finalisation
 
     EXPECT_THAT(chunk_store.Size(), Eq(3));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
@@ -205,6 +205,8 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
 
 TEST(ChunkStoreTest, OrderedReaderBlocksUntilChunksArrive) {
   eglt::LocalChunkStore chunk_store;
+
+  eglt::concurrency::Fiber::Current();
 
   auto writer = std::make_unique<eglt::ChunkStoreWriter>(&chunk_store);
   auto reader =

@@ -18,6 +18,19 @@
 
 namespace eglt::sdk {
 
+inline static thread_local boost::asio::io_context* thread_io_context = nullptr;
+inline static thread_local boost::asio::executor_work_guard<
+    boost::asio::io_context::executor_type>* thread_asio_work_guard;
+
+inline boost::asio::io_context& GetThreadLocalIOContext() {
+  if (ABSL_PREDICT_FALSE(thread_io_context == nullptr)) {
+    thread_io_context = new boost::asio::io_context();
+    thread_asio_work_guard = new boost::asio::executor_work_guard(
+        boost::asio::make_work_guard(*thread_io_context));
+  }
+  return *thread_io_context;
+}
+
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
@@ -148,7 +161,7 @@ class WebsocketEvergreenServer {
                                     asio::io_context* io_context = nullptr)
       : service_(service),
         io_context_(io_context != nullptr ? io_context
-                                          : &thread::GetThreadLocalIOContext()),
+                                          : &GetThreadLocalIOContext()),
         acceptor_(std::make_unique<tcp::acceptor>(
             *io_context_,
             tcp::endpoint{asio::ip::make_address(address), port})) {
@@ -169,7 +182,7 @@ class WebsocketEvergreenServer {
       while (!concurrency::Cancelled()) {
         tcp::socket socket{*io_context_};
 
-        DLOG(INFO) << "WebsocketEvergreenServer waiting for connection.";
+        DLOG(INFO) << "WES waiting for connection.";
         boost::system::error_code error_code;
         acceptor_->accept(socket, error_code);
         if (!error_code) {
@@ -238,7 +251,7 @@ MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
                                    asio::io_context* io_context = nullptr) {
 
   if (io_context == nullptr) {
-    io_context = &thread::GetThreadLocalIOContext();
+    io_context = &GetThreadLocalIOContext();
   }
   beast::websocket::stream<tcp::socket> ws_stream(*io_context);
 

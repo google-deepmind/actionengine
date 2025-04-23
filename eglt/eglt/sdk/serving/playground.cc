@@ -18,7 +18,7 @@ int main() {
   eglt::ActionRegistry registry;
 
   const auto client_stream =
-      eglt::sdk::MakeWebsocketClientEvergreenStream("0.0.0.0", 20000);
+      eglt::sdk::MakeWebsocketClientEvergreenStream("localhost", 20000);
 
   eglt::NodeMap node_map;
   eglt::AsyncNode* node = node_map.Get("prompts");

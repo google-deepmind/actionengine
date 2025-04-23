@@ -78,11 +78,8 @@ void Fiber::Start() const {
 }
 
 void Fiber::Body() {
-
   std::move(work_)();
   work_ = nullptr;
-
-  ctx_.detach();
 
   if (MarkFinished()) {
     // MarkFinished returns whether the fiber was detached when finished.
@@ -114,7 +111,7 @@ Fiber* GetPerThreadFiberPtr() {
   // associated with the context. We can use them to get the fiber.
   if (const FiberProperties* props =
           static_cast<FiberProperties*>(ctx->get_properties());
-      props != nullptr) {
+      ABSL_PREDICT_TRUE(props != nullptr)) {
     return props->GetFiber();
   }
 
@@ -122,15 +119,6 @@ Fiber* GetPerThreadFiberPtr() {
   // created or not).
   return kPerThreadDynamicFiber.f;
 }
-
-// static absl::InlinedVector<std::thread, 8> worker_threads;
-// static absl::once_flag init_worker_threads_once;
-//
-// static void InitWorkerThreads(size_t num_threads) {
-//   for (size_t i = 0; i < num_threads + 1; ++i) {
-//     worker_threads.emplace_back([]() {});
-//   }
-// }
 
 Fiber* Fiber::Current() {
   if (Fiber* current_fiber = GetPerThreadFiberPtr();
@@ -140,12 +128,6 @@ Fiber* Fiber::Current() {
 
   // We only reach here if we're 1) not under any Fiber, 2) this thread does not
   // yet have a thread-local fiber. We can (and should) create and return it.
-  // boost::asio::io_context& io_context = GetThreadLocalIOContext();
-  // std::shared_ptr<boost::asio::io_context> io_context_ptr =
-  //     std::shared_ptr<boost::asio::io_context>(&io_context,
-  //                                              [](boost::asio::io_context*) {});
-  // boost::fibers::use_scheduling_algorithm<boost::fibers::asio::round_robin>(
-  //     io_context_ptr);
   kPerThreadDynamicFiber.f = new Fiber(Unstarted{}, Invocable(), TreeOptions{});
   DVLOG(2) << "Current() called (new static thread-local fiber created): "
            << kPerThreadDynamicFiber.f;
