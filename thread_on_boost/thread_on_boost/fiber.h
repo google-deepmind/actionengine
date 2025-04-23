@@ -198,7 +198,7 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   // Internal c'tor for root fibers.
   explicit Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options);
 
-  void Start() const;
+  void Start();
   void Body();
   bool MarkFinished();
   void MarkJoined();
@@ -207,7 +207,6 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   mutable Mutex mu_;
 
   Invocable work_;
-  boost::intrusive_ptr<boost::fibers::context> ctx_{};
 
   // Whether this Fiber is self-joining. This is always set under lock, but is
   // an atomic to allow for reads during stats collection which cannot acquire

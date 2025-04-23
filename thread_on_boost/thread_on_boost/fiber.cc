@@ -35,12 +35,6 @@ static thread_local PerThreadDynamicFiber kPerThreadDynamicFiber;
 
 Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
     : work_(std::move(invocable)), parent_(parent) {
-  // FiberProperties get destroyed when the underlying context is
-  // destroyed. We do not care about the lifetime of the raw pointer that
-  // is made here.
-  ctx_ = boost::fibers::make_worker_context_with_properties(
-      boost::fibers::launch::post, new FiberProperties(this),
-      boost::fibers::default_stack(), absl::bind_front(&Fiber::Body, this));
   // Note: We become visible to cancellation as soon as we're added to parent.
   MutexLock l(&parent_->mu_);
   CHECK_EQ(parent_->state_, RUNNING);
@@ -53,28 +47,19 @@ Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
 }
 
 Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
-    : work_(std::move(invocable)), parent_(nullptr) {
+    : work_(std::move(invocable)), parent_(nullptr) {}
+
+void Fiber::Start() {
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.
-  ctx_ = boost::fibers::make_worker_context_with_properties(
+  auto ctx = boost::fibers::make_worker_context_with_properties(
       boost::fibers::launch::post, new FiberProperties(this),
       boost::fibers::default_stack(), absl::bind_front(&Fiber::Body, this));
-}
 
-void Fiber::Start() const {
-  boost::fibers::context* ctx = boost::fibers::context::active();
-  ctx->attach(ctx_.get());
-  switch (ctx_->get_policy()) {
-    case boost::fibers::launch::post:
-      ctx->get_scheduler()->schedule(ctx_.get());
-      break;
-    case boost::fibers::launch::dispatch:
-      ctx_->resume(ctx);
-      break;
-    default:
-      LOG(FATAL) << "Unknown launch policy";
-  }
+  boost::fibers::context* active_ctx = boost::fibers::context::active();
+  active_ctx->attach(ctx.get());
+  active_ctx->get_scheduler()->schedule(ctx.get());
 }
 
 void Fiber::Body() {
