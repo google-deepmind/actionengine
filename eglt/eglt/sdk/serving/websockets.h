@@ -69,6 +69,8 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
   }
 
   std::optional<SessionMessage> Receive() override {
+    DLOG(INFO) << absl::StrFormat("WESt %s receiving message.", id_);
+
     if (!status_.ok()) {
       DLOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
                                      status_);
@@ -77,7 +79,6 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
 
     boost::system::error_code error_code;
     auto dynamic_buffer = asio::dynamic_buffer(buffer_);
-    stream_.binary(true);
     stream_.read(dynamic_buffer, error_code);
 
     if (error_code) {
@@ -283,6 +284,78 @@ MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
   return std::make_unique<WebsocketEvergreenStream>(std::move(ws_stream),
                                                     session_id);
 }
+
+class WebsocketEvergreenClient {
+ public:
+  explicit WebsocketEvergreenClient(
+      EvergreenConnectionHandler connection_handler = RunSimpleEvergreenSession,
+      const ActionRegistry& action_registry = {},
+      ChunkStoreFactory chunk_store_factory = {})
+      : connection_handler_(std::move(connection_handler)),
+        action_registry_(action_registry),
+        node_map_(std::make_unique<NodeMap>(chunk_store_factory)) {}
+
+  ~WebsocketEvergreenClient() { Cancel(); }
+
+  std::shared_ptr<StreamToSessionConnection> Connect(std::string_view address,
+                                                     int32_t port) {
+    eg_stream_ = eglt::sdk::MakeWebsocketClientEvergreenStream(address, port);
+    session_ = std::make_unique<Session>(node_map_.get(), &action_registry_);
+
+    eg_stream_->Start();
+
+    fiber_ = concurrency::NewTree(concurrency::TreeOptions(), [this]() {
+      auto handler_fiber = std::make_unique<concurrency::Fiber>([this]() {
+        status_ = connection_handler_(eg_stream_.get(), session_.get());
+      });
+
+      auto selected = concurrency::Select(
+          {handler_fiber->OnJoinable(), concurrency::OnCancel()});
+
+      if (selected == 1) {
+        eg_stream_->HalfClose();
+        eg_stream_.reset();
+      }
+
+      handler_fiber->Join();
+    });
+
+    return std::make_shared<StreamToSessionConnection>(
+        StreamToSessionConnection{
+            .stream = eg_stream_.get(),
+            .session = session_.get(),
+            .session_id = eg_stream_->GetId(),
+            .stream_id = eg_stream_->GetId(),
+        });
+  }
+
+  void Cancel() const {
+    if (fiber_ != nullptr) {
+      fiber_->Cancel();
+    }
+  }
+
+  absl::Status GetStatus() { return status_; }
+  absl::Status Join() {
+    concurrency::Select({fiber_->OnJoinable(), concurrency::OnCancel()});
+    fiber_->Join();
+    return GetStatus();
+  }
+
+ private:
+  std::unique_ptr<concurrency::Fiber> fiber_;
+
+  EvergreenConnectionHandler connection_handler_;
+  ActionRegistry action_registry_;
+
+  absl::Status status_;
+
+  std::unique_ptr<WebsocketEvergreenStream> eg_stream_;
+  std::unique_ptr<NodeMap> node_map_;
+  std::unique_ptr<Session> session_;
+
+  StreamToSessionConnection connection_;
+};
 
 }  // namespace eglt::sdk
 

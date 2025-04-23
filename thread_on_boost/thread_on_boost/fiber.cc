@@ -55,7 +55,7 @@ class WorkerThreadPool {
     std::latch latch(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
       Worker worker{
-          .thread = std::thread([this, i, &latch] {
+          .thread = std::thread([this, &latch] {
             EnsureThreadHasScheduler();
             boost::fibers::context* active_ctx =
                 boost::fibers::context::active();
@@ -88,6 +88,7 @@ class WorkerThreadPool {
   struct Worker {
     std::thread thread;
   };
+
   absl::InlinedVector<Worker, 4> workers_;
 };
 
@@ -108,8 +109,9 @@ Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
     : work_(std::move(invocable)), parent_(nullptr) {}
 
 void Fiber::Start() {
-  EnsureThreadHasScheduler();
+
   WorkerThreadPool::Instance();
+  EnsureThreadHasScheduler();
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.

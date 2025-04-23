@@ -1,0 +1,256 @@
+// ------------------------------------------------------------------------------
+// This example will run an echo server and an echo client in separate threads.
+// The client will connect to the server and send a message. The server will
+// echo the message back to the client. Subsequently, you will be able to type
+// messages into the client and see them echoed back.
+// ------------------------------------------------------------------------------
+
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <optional>
+#include <ostream>
+#include <sstream>
+#include <string>
+#include <string_view>
+
+#include <eglt/absl_headers.h>
+#include <eglt/actions/action.h>
+#include <eglt/data/eg_structs.h>
+#include <eglt/nodes/async_node.h>
+#include <eglt/sdk/serving/websockets.h>
+#include <eglt/service/service.h>
+
+ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");
+
+// Simply some type aliases to make the code more readable.
+using Action = eglt::Action;
+using ActionRegistry = eglt::ActionRegistry;
+using Chunk = eglt::base::Chunk;
+using Service = eglt::Service;
+
+// Server side implementation of the echo action. This is a simple example of
+// how to implement an action handler. Every handler must take a shared_ptr to
+// the Action object as an argument. This object provides accessors to input and
+// output nodes (as streams), as well as to underlying Session and
+// transport-level Evergreen stream.
+absl::Status RunEcho(std::shared_ptr<Action> action) {
+  // ----------------------------------------------------------------------------
+  // Evergreen actions are asynchronous, so to read inputs, we need a streaming
+  // reader. Conversely, to write outputs, we need a streaming writer. The
+  // .GetInput() and .GetOutput() methods return an instance of the
+  // AsyncNode class, which combines a reader and a writer into a single object.
+  // ----------------------------------------------------------------------------
+  // The call to .SetReaderOptions() is optional. It allows to control how the
+  // reader behaves:
+  // - if ordered is set to true, the reader will sort chunks by sequence number
+  //   in their respective NodeFragment. Default is false.
+  // - if remove_chunks is set to true, chunks will be removed from the
+  //   underlying store as they are read. Default is true.
+  // ----------------------------------------------------------------------------
+  auto input_text = action->GetInput("text");
+  input_text->SetReaderOptions(/*ordered=*/true,
+                               /*remove_chunks=*/true);
+
+  auto response = action->GetOutput("response");
+  response->SetReaderOptions(/*ordered=*/true,
+                             /*remove_chunks=*/true);
+
+  // ----------------------------------------------------------------------------
+  // The while loop below reads all chunks from the input stream and writes
+  // them to the output stream.
+  // ----------------------------------------------------------------------------
+  std::optional<Chunk> chunk;
+  while (true) {
+    // Read the next chunk from the input stream. If we reach the end of the
+    // stream, the chunk will be nullopt. If we did not need to control the
+    // order of chunks, we could have used the >> operator directly like this :
+    // *action->GetInput("text") >> chunk;
+    // Equivalent operations are supported as AsyncNode methods, in this case:
+    // std::optional<Chunk> chunk = action->GetInput("text")->Next<Chunk>();
+    *input_text >> chunk;
+
+    // End of stream (everything was read successfully)
+    if (!chunk.has_value()) {
+      break;
+    }
+
+    // Check if there was an error reading the input stream. If so, we can
+    // terminate the action and return the error status. This status is updated
+    // after every read.
+    if (auto status = input_text->GetReaderStatus(); !status.ok()) {
+      LOG(ERROR) << "Failed to read input: " << status;
+      return status;
+    }
+
+    // Write the chunk to the output stream. In this case, we are writing
+    // directly into the temporary variable for convenience.
+    action->GetOutput("response") << *chunk;
+  }
+
+  // This is necessary and indicates the end of stream.
+  action->GetOutput("response") << eglt::EndOfStream();
+
+  return absl::OkStatus();
+}
+
+// ----------------------------------------------------------------------------
+// The Evergreen service takes care of the dispatching of nodes and actions.
+// Specifically how it does this is customizable and is shown in other examples.
+// The default implementation only manages nodes in the lifetime of a single
+// connection, and runs actions from the action registry. Therefore, we need to
+// create an action registry for the server.
+// ----------------------------------------------------------------------------
+ActionRegistry MakeActionRegistry() {
+  ActionRegistry registry;
+
+  // This is hopefully self-explanatory. The name of the action is arbitrary,
+  // but it must be unique within the registry. The definition of the action
+  // consists of the name, input and output nodes. The handler is a function
+  // that takes a shared_ptr to the Action object as an argument and implements
+  // the action logic. There must be no two nodes with the same name within the
+  // same action, even if they are an input and an output.
+  registry.Register(/*name=*/"echo",
+                    /*def=*/
+                    {
+                        .name = "echo",
+                        .inputs = {{"text", "text/plain"}},
+                        .outputs = {{"response", "text/plain"}},
+                    },
+                    /*handler=*/RunEcho);
+  return registry;
+}
+
+// ----------------------------------------------------------------------------
+// This is the client side implementation of the echo action. It can be viewed
+// as a wrapper, because it invokes the asynchronous action handler and
+// implements the synchronous client logic which waits for the response and
+// just gives it back as a string, not a stream.
+// ----------------------------------------------------------------------------
+std::string CallEcho(
+    std::string_view text, const ActionRegistry& registry,
+    const std::shared_ptr<eglt::StreamToSessionConnection>& connection) {
+  // ----------------------------------------------------------------------------
+  // Actions need these objects to function. All of them are shared_ptrs, so
+  // they can be copied around. All of them are also exposed by methods on the
+  // Action class, so we can access them from within the action handler on the
+  // server side. However, in the default implementation of the Evergreen
+  // service, the client and the server will generally NOT have syncronized
+  // node maps. However, any node fragments sent through the stream will be
+  // ingested by the other side.
+  // - Important: by default, nodes returned by .GetInput() and .GetOutput()
+  //   will have their respective streams bound to them. This means that any
+  //   data written to the stream will be made available to the other side.
+  //   This is done for convenience, but can be disabled by calling the getters
+  //   with an additional argument: .GetInput("text", /*bind_stream=*/false)
+  // ----------------------------------------------------------------------------
+  auto stream = connection->stream;
+  auto session = connection->session;
+  auto node_map = session->GetNodeMap();
+
+  // We create an action by supplying the name of the action, an empty id (it
+  // will use a random id), the node map, the stream, and the session.
+  auto echo = registry.MakeAction("echo", "", node_map, stream, session);
+
+  // Evergreen actions are asynchronous, so we can call the action even before
+  // supplying all the inputs. The server will run the action handler in a
+  // separate fiber, which will just block on reading an input which is still
+  // not available or being streamed. This _does_ mean that if part of the
+  // action's logic does not depend on the input, it will be executed before
+  // the input is available, no additional effort is needed, and this applies
+  // per input, not all at once.
+  auto status = echo->Call();
+
+  // This is NOT the way to check if the action finished successfully. This
+  // status just indicates that the action was called (action message was sent).
+  if (!status.ok()) {
+    LOG(ERROR) << "Failed to call action: " << status;
+    return "";
+  }
+
+  // Send the input to the action. These are not necessarily blocking calls.
+  // Chunks will be buffered (to an extent) and sent in the background.
+  // This makes it possible to start streaming multiple inputs at the same time
+  // (though this is not the case here).
+  // echo->GetInput("text")
+  //     ->PutChunk(Chunk{.metadata = {.mimetype = "text/plain"},
+  //                      .data = std::string(text)},
+  //                /*seq_id=*/0,
+  //                /*final=*/true)
+  //     .IgnoreError();
+  echo->GetInput("text") << Chunk{.metadata = {.mimetype = "text/plain"},
+                                  .data = std::string(text)}
+                         << eglt::EndOfStream();
+
+  // We will read the output to a string stream.
+  std::ostringstream response;
+
+  // The action handler will write to the output stream asynchronously, so all
+  // we need to do is to read the output(s) until the end of stream(s).
+  // Each of the reads below will block until the next chunk is available.
+  std::optional<Chunk> response_chunk;
+  while (true) {
+    *echo->GetOutput("response") >> response_chunk;
+    if (!response_chunk.has_value()) {
+      break;
+    }
+    if (response_chunk->metadata.mimetype == "text/plain") {
+      response << response_chunk->data;
+    }
+    // We are not checking the status here, but in general, we should.
+    // This is done automatically by the AsyncNode methods, but not by the >>
+    // operator.
+  }
+
+  return response.str();
+}
+
+void ServerThread() {
+  ActionRegistry action_registry = MakeActionRegistry();
+
+  // This is enough to run the server. Notice how Service is decoupled from
+  // the server implementation. We could have used any other implementation,
+  // such as gRPC or WebSockets, if they provide an implementation of
+  // EvergreenStream and (de)serialization of base types (eg_structs.h) from
+  // and into their transport-level messages. There is an example of using
+  // zmq streams and msgpack messages in one of the showcases.
+  eglt::Service service(&action_registry);
+  eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0",
+                                             absl::GetFlag(FLAGS_port));
+  server.Run();
+  server.Join().IgnoreError();
+}
+
+int main(int argc, char** argv) {
+  // We will use the same action registry for the server and the client.
+  ActionRegistry action_registry = MakeActionRegistry();
+  std::thread server_thread(ServerThread);
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+  eglt::sdk::WebsocketEvergreenClient client;
+  auto connection = client.Connect("localhost", absl::GetFlag(FLAGS_port));
+  eglt::concurrency::SleepFor(absl::Seconds(0.1));
+
+  std::string text = "test text to skip the long startup logs";
+  std::cout << "Sending: " << text << std::endl;
+  auto response = CallEcho(text, action_registry, connection);
+  std::cout << "Received: " << response << std::endl;
+
+  std::cout << "This is an example with an Evergreen server and a client "
+               "performing an echo action. You can type some text and it will "
+               "be echoed back. Type /quit to exit.\n"
+            << std::endl;
+
+  while (text != "/quit") {
+    std::cout << "Enter text: ";
+    std::getline(std::cin, text);
+    auto response = CallEcho(text, action_registry, connection);
+    std::cout << "Received: " << response << "\n" << std::endl;
+  }
+
+  client.Cancel();
+  client.Join().IgnoreError();
+  server_thread.join();
+
+  return 0;
+}
