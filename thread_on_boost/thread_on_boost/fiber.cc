@@ -1,5 +1,7 @@
 #include "thread_on_boost/fiber.h"
 
+#include <latch>
+
 #include <boost/fiber/all.hpp>
 #include <boost/fiber/context.hpp>
 #include <boost/intrusive_ptr.hpp>
@@ -33,6 +35,65 @@ struct PerThreadDynamicFiber {
 
 static thread_local PerThreadDynamicFiber kPerThreadDynamicFiber;
 
+static thread_local bool kThreadHasScheduler = false;
+
+static void EnsureThreadHasScheduler() {
+  if (kThreadHasScheduler) {
+    return;
+  }
+
+  boost::fibers::use_scheduling_algorithm<boost::fibers::algo::shared_work>(
+      /*suspend=*/true);
+  kThreadHasScheduler = true;
+}
+
+class WorkerThreadPool {
+ public:
+  explicit WorkerThreadPool() = default;
+
+  ~WorkerThreadPool() {
+    // for (auto& worker : workers_) {
+    //   worker.thread.join();
+    // }
+  }
+
+  void Start(size_t num_threads = std::thread::hardware_concurrency()) {
+    std::latch latch(num_threads);
+    for (size_t i = 0; i < num_threads; ++i) {
+      Worker worker{
+          .thread = std::thread([this, i, &latch] {
+            EnsureThreadHasScheduler();
+            boost::fibers::context* active_ctx =
+                boost::fibers::context::active();
+            active_ctx->wait_until(std::chrono::steady_clock::now());
+            latch.arrive_and_wait();
+            // TODO: cancellation
+            while (!Cancelled()) {
+              boost::fibers::context::active()->yield();
+            }
+          }),
+      };
+      workers_.push_back(std::move(worker));
+    }
+    latch.wait();
+  }
+
+  static WorkerThreadPool& Instance() {
+    static WorkerThreadPool instance;
+    if (instance.workers_.empty()) {
+      instance.Start();
+    }
+    return instance;
+  }
+
+ private:
+  struct Worker {
+    std::thread thread;
+    Fiber* root_fiber;
+  };
+  absl::InlinedVector<Worker, 4> workers_;
+};
+
 Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
     : work_(std::move(invocable)), parent_(parent) {
   // Note: We become visible to cancellation as soon as we're added to parent.
@@ -50,6 +111,8 @@ Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
     : work_(std::move(invocable)), parent_(nullptr) {}
 
 void Fiber::Start() {
+  EnsureThreadHasScheduler();
+  WorkerThreadPool::Instance();
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.

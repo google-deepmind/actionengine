@@ -42,7 +42,7 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
   explicit WebsocketEvergreenStream(
       beast::websocket::stream<tcp::socket> stream, std::string_view id = "")
       : stream_(std::move(stream)), id_(id.empty() ? GenerateUUID4() : id) {
-    DLOG(INFO) << absl::StrFormat("WES %s created", id_);
+    DLOG(INFO) << absl::StrFormat("WESt %s created", id_);
   }
 
   absl::Status Send(SessionMessage message) override {
@@ -50,13 +50,17 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
       return status_;
     }
 
-    DLOG(INFO) << absl::StrFormat("WES %s sending message: \n%v", id_, message);
+    DLOG(INFO) << absl::StrFormat("WESt %s sending message: \n%v", id_,
+                                  message);
 
     boost::system::error_code error_code;
     auto message_bytes = cppack::Pack(std::move(message));
+    stream_.binary(true);
     stream_.write(asio::buffer(message_bytes), error_code);
     if (error_code) {
       last_send_status_ = absl::InternalError(error_code.message());
+      DLOG(INFO) << absl::StrFormat("WESt %s Send failed: %v", id_,
+                                    last_send_status_);
       return last_send_status_;
     }
 
@@ -65,22 +69,16 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
   }
 
   std::optional<SessionMessage> Receive() override {
-    DLOG(INFO) << absl::StrFormat("WES %s Receive called", id_);
+    DLOG(INFO) << absl::StrFormat("WESt %s Receive called", id_);
     if (!status_.ok()) {
-      DLOG(INFO) << absl::StrFormat("WES %s Receive failed: %v", id_, status_);
+      DLOG(INFO) << absl::StrFormat("WESt %s Receive failed: %v", id_, status_);
       return std::nullopt;
     }
 
     boost::system::error_code error_code;
-    concurrency::PermanentEvent read;
-    concurrency::RunInFiber([&error_code, this, &read]() {
-      auto dynamic_buffer = asio::dynamic_buffer(buffer_);
-      LOG(INFO) << "reading";
-      stream_.read(dynamic_buffer, error_code);
-      read.Notify();
-    });
-    concurrency::SelectUntil(absl::Now() + absl::Seconds(2), {read.OnEvent()});
-    LOG(INFO) << "selected";
+    auto dynamic_buffer = asio::dynamic_buffer(buffer_);
+    stream_.binary(true);
+    stream_.read(dynamic_buffer, error_code);
 
     if (error_code) {
       return std::nullopt;
@@ -93,7 +91,7 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
       message = std::move(unpacked).value();
     }
 
-    DLOG(INFO) << absl::StrFormat("WES %s received message:\n%v", id_,
+    DLOG(INFO) << absl::StrFormat("WESt %s received message:\n%v", id_,
                                   *message);
 
     if (buffer_.capacity() > kSwapBufferOnCapacity) {
@@ -110,7 +108,7 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
   }
 
   void Accept() override {
-    DLOG(INFO) << absl::StrFormat("WES %s Accept()", id_);
+    DLOG(INFO) << absl::StrFormat("WESt %s Accept()", id_);
     stream_.set_option(beast::websocket::stream_base::decorator(
         [](beast::websocket::response_type& res) {
           res.set(
@@ -119,12 +117,11 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
         }));
 
     boost::system::error_code error_code;
-    concurrency::RunInFiber(
-        [&error_code, this]() { stream_.accept(error_code); });
+    stream_.accept(error_code);
     if (error_code) {
       status_ = absl::InternalError(error_code.message());
     }
-    DLOG(INFO) << absl::StrFormat("WES %s Accept(): %v.", id_, status_);
+    DLOG(INFO) << absl::StrFormat("WESt %s Accept(): %v.", id_, status_);
   }
 
   void HalfClose() override {
