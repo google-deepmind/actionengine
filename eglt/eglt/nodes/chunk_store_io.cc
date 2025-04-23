@@ -178,17 +178,6 @@ ChunkStoreWriter::~ChunkStoreWriter() {
   TerminateSafely();
 }
 
-void ChunkStoreWriter::FinishWrites() {
-  concurrency::MutexLock lock(&mutex_);
-  accepts_puts_ = false;
-  if (status_.ok()) {
-    if (!buffer_->GetWriter()->WriteUnlessCancelled(std::nullopt)) {
-      status_ = absl::CancelledError("Cancelled.");
-    }
-  }
-  SafelyCloseBuffer();
-}
-
 void ChunkStoreWriter::EnsureWriteLoop() {
   if (fiber_ == nullptr && accepts_puts_) {
     fiber_ = concurrency::NewTree({}, [this] { RunWriteLoop(); });
@@ -270,7 +259,12 @@ void ChunkStoreWriter::RunWriteLoop() {
     ++total_chunks_written_;
     if (final_seq_id >= 0 &&
         total_chunks_written_ > chunk_store_->GetFinalSeqId()) {
-      buffer_->GetWriter()->Write(std::nullopt);
+      {
+        concurrency::MutexLock lock(&mutex_);
+        if (!buffer_writer_closed_) {
+          buffer_->GetWriter()->WriteUnlessCancelled(std::nullopt);
+        }
+      }
     }
 
     if (!GetStatus().ok()) {

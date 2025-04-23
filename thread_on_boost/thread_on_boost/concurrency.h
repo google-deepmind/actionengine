@@ -23,7 +23,8 @@ inline void SleepFor(absl::Duration duration) {
   boost::fibers::context* active_ctx = boost::fibers::context::active();
   active_ctx->wait_until(
       std::chrono::steady_clock::now() +
-      absl::time_internal::ToChronoDuration<std::chrono::seconds>(duration));
+      absl::time_internal::ToChronoDuration<std::chrono::nanoseconds>(
+          duration));
 }
 
 template <typename T>

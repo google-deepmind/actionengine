@@ -69,9 +69,9 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
   }
 
   std::optional<SessionMessage> Receive() override {
-    DLOG(INFO) << absl::StrFormat("WESt %s Receive called", id_);
     if (!status_.ok()) {
-      DLOG(INFO) << absl::StrFormat("WESt %s Receive failed: %v", id_, status_);
+      DLOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
+                                     status_);
       return std::nullopt;
     }
 

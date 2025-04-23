@@ -233,8 +233,6 @@ class ChunkStoreWriter {
     return written_seq;
   }
 
-  void FinishWrites() ABSL_LOCKS_EXCLUDED(mutex_);
-
   absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     return status_;

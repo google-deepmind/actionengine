@@ -45,7 +45,7 @@ TEST(ChunkStoreTest, CanWriteChunks) {
            << std::pair("!", true);  // true is for final chunk
 
     eglt::concurrency::SleepFor(absl::Seconds(
-        0.05));  // TODO(hpnkv): add a method to wait for finalisation
+        0.001));  // TODO(hpnkv): add a method to wait for finalisation
 
     EXPECT_THAT(chunk_store.Size(), Eq(3));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
@@ -92,6 +92,8 @@ TEST(ChunkStoreTest, CanReadChunksAsynchronously) {
     std::vector<std::string> read_words;
     reader >> read_words;
 
+    EXPECT_EQ(reader.GetStatus(),
+              absl::OkStatus());  // Check that the reader is still OK.
     EXPECT_EQ(read_words, words);
   }
 }
@@ -188,7 +190,7 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
     writer << "Hello" << "World"
            << std::pair("!", true);  // true is for final chunk
 
-    eglt::concurrency::SleepFor(absl::Seconds(0.05));
+    eglt::concurrency::SleepFor(absl::Seconds(0.001));
 
     EXPECT_THAT(chunk_store.Size(), Eq(3));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
@@ -209,12 +211,12 @@ TEST(ChunkStoreTest, OrderedReaderBlocksUntilChunksArrive) {
   eglt::concurrency::Fiber::Current();
 
   auto writer = std::make_unique<eglt::ChunkStoreWriter>(&chunk_store);
-  auto reader =
-      std::make_unique<eglt::ChunkStoreReader>(&chunk_store,
-                                               /*ordered=*/true,
-                                               /*remove_chunks=*/false,
-                                               /*n_chunks_to_buffer=*/-1,
-                                               /*timeout=*/absl::Seconds(0.01));
+  auto reader = std::make_unique<eglt::ChunkStoreReader>(
+      &chunk_store,
+      /*ordered=*/true,
+      /*remove_chunks=*/false,
+      /*n_chunks_to_buffer=*/-1,
+      /*timeout=*/absl::Seconds(0.001));
 
   writer << std::pair("World", 1) << std::pair("!", 2)
          << std::pair(eglt::EndOfStream(), 3);

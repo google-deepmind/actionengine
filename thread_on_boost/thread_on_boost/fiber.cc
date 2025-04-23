@@ -51,12 +51,6 @@ class WorkerThreadPool {
  public:
   explicit WorkerThreadPool() = default;
 
-  ~WorkerThreadPool() {
-    // for (auto& worker : workers_) {
-    //   worker.thread.join();
-    // }
-  }
-
   void Start(size_t num_threads = std::thread::hardware_concurrency()) {
     std::latch latch(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
@@ -76,6 +70,10 @@ class WorkerThreadPool {
       workers_.push_back(std::move(worker));
     }
     latch.wait();
+
+    for (auto& [thread] : workers_) {
+      thread.detach();
+    }
   }
 
   static WorkerThreadPool& Instance() {
@@ -89,7 +87,6 @@ class WorkerThreadPool {
  private:
   struct Worker {
     std::thread thread;
-    Fiber* root_fiber;
   };
   absl::InlinedVector<Worker, 4> workers_;
 };
