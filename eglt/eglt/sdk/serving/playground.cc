@@ -9,8 +9,8 @@ void ServerThread() {
   eglt::Service service(&registry);
   eglt::sdk::WebsocketEvergreenServer server(&service);
   server.Run();
-  LOG(INFO) << "server running";
-  LOG(INFO) << server.Join();
+  DLOG(INFO) << "server running";
+  DLOG(INFO) << server.Join();
 }
 
 int main() {

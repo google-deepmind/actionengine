@@ -36,7 +36,7 @@ void SaveFirstEncounteredEventLoop() {
     try {
       global_event_loop_object =
           py::module_::import("asyncio").attr("get_running_loop")();
-      LOG(INFO) << "Saved event loop: ";
+      DLOG(INFO) << "Saved event loop: ";
     } catch (py::error_already_set&) {
       // No event loop was found.
     }

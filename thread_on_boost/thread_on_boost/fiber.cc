@@ -53,9 +53,9 @@ class WorkerThreadPool {
 
   void Start(size_t num_threads = std::thread::hardware_concurrency()) {
     std::latch latch(num_threads);
-    for (size_t i = 0; i < num_threads; ++i) {
+    for (size_t idx = 0; idx < num_threads; ++idx) {
       Worker worker{
-          .thread = std::thread([this, &latch] {
+          .thread = std::thread([this, idx, &latch] {
             EnsureThreadHasScheduler();
             boost::fibers::context* active_ctx =
                 boost::fibers::context::active();
@@ -65,6 +65,7 @@ class WorkerThreadPool {
             while (!Cancelled()) {
               boost::fibers::context::active()->yield();
             }
+            DLOG(INFO) << absl::StrFormat("Worker %zu exiting.", idx);
           }),
       };
       workers_.push_back(std::move(worker));

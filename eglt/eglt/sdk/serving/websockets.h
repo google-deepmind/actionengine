@@ -50,9 +50,6 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
       return status_;
     }
 
-    DLOG(INFO) << absl::StrFormat("WESt %s sending message: \n%v", id_,
-                                  message);
-
     boost::system::error_code error_code;
     auto message_bytes = cppack::Pack(std::move(message));
     stream_.binary(true);
@@ -163,8 +160,8 @@ class WebsocketEvergreenServer {
         acceptor_(std::make_unique<tcp::acceptor>(
             *io_context_,
             tcp::endpoint{asio::ip::make_address(address), port})) {
-    LOG(INFO) << "WebsocketEvergreenServer created at " << address << ":"
-              << port;
+    DLOG(INFO) << "WebsocketEvergreenServer created at " << address << ":"
+               << port;
   }
 
   ~WebsocketEvergreenServer() {

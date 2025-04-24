@@ -177,8 +177,8 @@ Service::EstablishConnection(std::shared_ptr<base::EvergreenStream>&& stream,
         if (streams_per_session_.contains(connection->session_id)) {
           streams_per_session_.at(connection->session_id).erase(stream_id);
           if (streams_per_session_.at(connection->session_id).empty()) {
-            LOG(INFO) << "session " << connection->session_id
-                      << " has no more stable connections, deleting.";
+            DLOG(INFO) << "session " << connection->session_id
+                       << " has no more stable connections, deleting.";
             sessions_.erase(connection->session_id);
             node_maps_.erase(connection->session_id);
           }
