@@ -1,36 +1,6 @@
 // Copyright 2012 Google Inc. All Rights Reserved.
 // Author: sanjay@google.com (Sanjay Ghemawat)
 // Author: pjt@google.com (Paul Turner)
-//
-// Select() provides a mechanism for a fiber to wait on a set of communication
-// events, such as a read from a Channel or a Fiber's cancellation.  For
-// example, a fiber that is mixing together values read from multiple channels
-// can use Select() to wait for the next channel that becomes readable.
-//
-//   void Merge(thread::Reader<Value>* r1, thread::Reader<Value>* r2,
-//              thread::Writer<Value>* out) {
-//     while (true) {
-//       Value v;
-//       bool ok = false;
-//       int i = thread::Select({r1->OnRead(&v, &ok), r2->OnRead(&v, &ok)});
-//       if (ok) {
-//         out->Write(v);
-//       } else {
-//         // Copy everything from non-finished reader
-//         thread::Reader<Value>* other = (i == 0) ? r2 : r1;
-//         while (other->Read(&v)) {
-//           out->Write(v);
-//         }
-//         break;
-//       }
-//     }
-//     out->Close();
-//  }
-//
-// It is not shown in the example above, but Writer<T> also contains an OnWrite
-// method returning a Case that may be passed to Select(). This may be used to
-// conditionally proceed depending on whether there is capacity available on a
-// Channel (as opposed to Write(), which always blocks).
 
 #ifndef THREAD_FIBER_SELECT_H_
 #define THREAD_FIBER_SELECT_H_
@@ -119,36 +89,6 @@ inline int SelectUntil(absl::Time deadline, const CaseArray& cases)
   return TrySelect(cases);
 }
 #endif  // ABSL_HAVE_ATTRIBUTE(enable_if)
-
-// THREAD SAFETY (expanded):
-// Individual Case tokens have equivalent thread safety to the least permissive
-// argument passed in their construction. They are guaranteed to be re-usable.
-// Cases whose construction requires no arguments may be assumed thread-safe.
-//
-// -----------------------------------------------------------------------------
-//
-// Example 1:
-//  It is safe to share the following CaseArray between simultaneous threads and
-//  calls to Select():
-//
-//   thread::CaseArray set = {chan1.writer()->Write(1), event.OnEvent()};
-//
-// -----------------------------------------------------------------------------
-//
-// Example 2:
-//  The set in this second example may not be shared as neither val nor status
-//  are thread-safe:
-//
-//   int val;
-//   bool status;
-//   ...
-//   thread::CaseArray set = {chan.reader()->OnRead(&val, &status)};
-//
-// -----------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------
-// Public interface ends here.
-//------------------------------------------------------------------------------
 
 inline int Select(const CaseArray& cases) {
   CHECK_GT(cases.size(), 0U) << "No cases provided";

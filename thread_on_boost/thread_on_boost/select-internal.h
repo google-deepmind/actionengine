@@ -1,10 +1,6 @@
 // Copyright 2012 Google Inc. All Rights Reserved.
 // Author: sanjay@google.com (Sanjay Ghemawat)
 //
-// Some internal implementation details that clients should ignore.
-// These are only in a header file for the benefit of templates
-// and other things exported by this library.
-//
 // IWYU pragma: private, include "thread/fiber/select.h"
 // IWYU pragma: friend thread/fiber/select*
 

@@ -44,9 +44,9 @@ void ChannelWaiterState::CloseAndReleaseReaders() {
   }
 }
 
-// Attempt to start a direct transfer between "reader" and "writer".  Returns
+// Attempt to start a direct transfer between "reader" and "writer". Returns
 // true with both selectors held if both cases are eligible for selection and
-// belong to different Select statements.  Returns false with no locks held
+// belong to different Select statements. Returns false with no locks held
 // otherwise.
 static bool StartTransfer(CaseState* reader, CaseState* writer)
     ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->sel->mu, writer->sel->mu) {
