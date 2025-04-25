@@ -39,14 +39,21 @@ absl::Status RunSimpleEvergreenSession(
     return absl::InvalidArgumentError("Session is null.");
   }
 
+  // TODO: use fibers instead of threads
   absl::Status status;
-  while (true) {
-    std::optional<base::SessionMessage> message = stream->Receive();
-    if (!message.has_value()) {
-      break;
+  concurrency::PermanentEvent done;
+  std::thread session_thread([&status, &stream, &session, &done]() {
+    while (true) {
+      std::optional<base::SessionMessage> message = stream->Receive();
+      if (!message.has_value()) {
+        break;
+      }
+      status = session->DispatchMessage(message.value(), stream);
     }
-    status = session->DispatchMessage(message.value(), stream);
-  }
+    done.Notify();
+  });
+  session_thread.detach();
+  concurrency::Select({done.OnEvent(), concurrency::OnCancel()});
 
   return status;
 }
