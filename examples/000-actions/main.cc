@@ -205,9 +205,9 @@ std::string CallEcho(
   return response.str();
 }
 
-void ServerThread() {
+int main(int argc, char** argv) {
+  // We will use the same action registry for the server and the client.
   ActionRegistry action_registry = MakeActionRegistry();
-
   // This is enough to run the server. Notice how Service is decoupled from
   // the server implementation. We could have used any other implementation,
   // such as gRPC or WebSockets, if they provide an implementation of
@@ -218,13 +218,6 @@ void ServerThread() {
   eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0",
                                              absl::GetFlag(FLAGS_port));
   server.Run();
-  server.Join().IgnoreError();
-}
-
-int main(int argc, char** argv) {
-  // We will use the same action registry for the server and the client.
-  ActionRegistry action_registry = MakeActionRegistry();
-  std::thread server_thread(ServerThread);
 
   eglt::sdk::WebsocketEvergreenClient client;
   auto connection = client.Connect("localhost", absl::GetFlag(FLAGS_port));
@@ -247,8 +240,9 @@ int main(int argc, char** argv) {
   }
 
   client.Cancel();
+  server.Cancel().IgnoreError();
   client.Join().IgnoreError();
-  server_thread.join();
+  server.Join().IgnoreError();
 
   return 0;
 }
