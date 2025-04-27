@@ -9,7 +9,6 @@ message(STATUS THREAD_ON_BOOST_BOOST_ROOT: ${THREAD_ON_BOOST_BOOST_ROOT})
 
 find_package(GTest REQUIRED)
 find_package(absl REQUIRED)
-find_package(Boost REQUIRED COMPONENTS fiber thread)
 
 message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 
@@ -18,7 +17,7 @@ target_include_directories(
         ThreadOnBoost PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}
         ${THREAD_ON_BOOST_ABSL_ROOT}/include
-        ${THREAD_ON_BOOST_BOOST_ROOT}/include
+        ${Boost_INCLUDE_DIRS}
         ${THREAD_ON_BOOST_GTEST_ROOT}/include
 )
 target_sources(
@@ -59,13 +58,14 @@ target_link_libraries(
         absl::statusor
         absl::strings
         absl::time
-        Boost::fiber
-        Boost::thread
+        boost_fiber
+        boost_thread
 )
+message(${THREAD_ON_BOOST_BOOST_ROOT}/../../boost/include)
 set(THREAD_ON_BOOST_INCLUDE_DIRS
         ${CMAKE_CURRENT_LIST_DIR}
         ${THREAD_ON_BOOST_ABSL_ROOT}/include
-        ${THREAD_ON_BOOST_BOOST_ROOT}/include
+        ${Boost_INCLUDE_DIRS}
         ${THREAD_ON_BOOST_GTEST_ROOT}/include
         PARENT_SCOPE
 )

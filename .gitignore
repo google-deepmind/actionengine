@@ -3,12 +3,12 @@ build/
 install/
 cmake-build-debug/
 cmake-build-release/
+cmake-build-relwithdebinfo/
 
 **/.DS_Store/
 .idea/
 
 third_party/build_deps/*
-third_party/*
 !third_party/build_deps.sh
 
 **/*.egg-info/

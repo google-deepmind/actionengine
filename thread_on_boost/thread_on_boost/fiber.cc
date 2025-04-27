@@ -35,35 +35,24 @@ struct PerThreadDynamicFiber {
 
 static thread_local PerThreadDynamicFiber kPerThreadDynamicFiber;
 
-static thread_local bool kThreadHasScheduler = false;
-
-static void EnsureThreadHasScheduler() {
-  if (kThreadHasScheduler) {
-    return;
-  }
-
-  boost::fibers::use_scheduling_algorithm<boost::fibers::algo::shared_work>(
-      /*suspend=*/true);
-  kThreadHasScheduler = true;
-}
-
 class WorkerThreadPool {
  public:
   explicit WorkerThreadPool() = default;
 
   void Start(size_t num_threads = std::thread::hardware_concurrency()) {
+    schedulers_.resize(num_threads);
     std::latch latch(num_threads);
     for (size_t idx = 0; idx < num_threads; ++idx) {
       Worker worker{
           .thread = std::thread([this, idx, &latch] {
-            EnsureThreadHasScheduler();
-            boost::fibers::context* active_ctx =
-                boost::fibers::context::active();
-            active_ctx->wait_until(std::chrono::steady_clock::now());
-            latch.arrive_and_wait();
+            EnsureThreadHasScheduler<boost::fibers::algo::shared_work>(
+                /*suspend=*/true);
+            schedulers_[idx] =
+                boost::fibers::context::active()->get_scheduler();
+            latch.count_down();
             // TODO: cancellation
             while (!Cancelled()) {
-              boost::fibers::context::active()->yield();
+              boost::fibers::context::active()->suspend();
             }
             DLOG(INFO) << absl::StrFormat("Worker %zu exiting.", idx);
           }),
@@ -74,6 +63,19 @@ class WorkerThreadPool {
 
     for (auto& [thread] : workers_) {
       thread.detach();
+    }
+  }
+
+  void Schedule(boost::fibers::context* ctx) {
+    const size_t worker_idx =
+        worker_idx_.fetch_add(1, std::memory_order_relaxed) % workers_.size();
+    schedulers_[worker_idx]->attach_worker_context(ctx);
+
+    if (schedulers_[worker_idx] ==
+        boost::fibers::context::active()->get_scheduler()) {
+      schedulers_[worker_idx]->schedule(ctx);
+    } else {
+      schedulers_[worker_idx]->schedule_from_remote(ctx);
     }
   }
 
@@ -90,8 +92,15 @@ class WorkerThreadPool {
     std::thread thread;
   };
 
-  absl::InlinedVector<Worker, 4> workers_;
+  std::atomic<size_t> worker_idx_{0};
+  absl::InlinedVector<Worker, 16> workers_;
+  absl::InlinedVector<boost::fibers::scheduler*, 16> schedulers_;
 };
+
+static absl::once_flag kInitWorkerThreadPoolFlag;
+static void InitWorkerThreadPool() {
+  WorkerThreadPool::Instance();
+}
 
 Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
     : work_(std::move(invocable)), parent_(parent) {
@@ -110,19 +119,17 @@ Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
     : work_(std::move(invocable)), parent_(nullptr) {}
 
 void Fiber::Start() {
-
-  WorkerThreadPool::Instance();
-  EnsureThreadHasScheduler();
+  absl::call_once(kInitWorkerThreadPoolFlag, InitWorkerThreadPool);
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.
-  auto ctx = boost::fibers::make_worker_context_with_properties(
+  context_ = boost::fibers::make_worker_context_with_properties(
       boost::fibers::launch::post, new FiberProperties(this),
-      boost::fibers::default_stack(), absl::bind_front(&Fiber::Body, this));
+      boost::fibers::make_stack_allocator_wrapper<
+          boost::fibers::default_stack>(),
+      absl::bind_front(&Fiber::Body, this));
 
-  boost::fibers::context* active_ctx = boost::fibers::context::active();
-  active_ctx->attach(ctx.get());
-  active_ctx->get_scheduler()->schedule(ctx.get());
+  WorkerThreadPool::Instance().Schedule(context_.get());
 }
 
 void Fiber::Body() {
@@ -141,6 +148,8 @@ Fiber::~Fiber() {
   CHECK_EQ(JOINED, state_) << "F " << this << " attempting to destroy an "
                            << "unjoined Fiber.  (Did you forget to Join() "
                            << "on a child?)";
+  CHECK(context_ == nullptr)
+      << "Fiber::Join() must be called before destroying a fiber.";
   DCHECK(children_.empty());
 
   DVLOG(2) << "F " << this << " destroyed";
@@ -257,6 +266,8 @@ void Fiber::MarkJoined() {
 
 void Fiber::InternalJoin() {
   Select({joinable_.OnEvent()});
+  context_->join();
+  context_.reset();
   MarkJoined();
 }
 

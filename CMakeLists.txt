@@ -20,6 +20,37 @@ set(EGLT_PYBIND11_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11)
 set(EGLT_CPPITERTOOLS_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools)
 set(EGLT_GTEST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest)
 
+add_compile_definitions(
+        BOOST_FIBERS_SPINLOCK_TTAS_FUTEX
+)
+add_subdirectory(${EGLT_THIRD_PARTY_ROOT}/boost)
+set(
+        Boost_INCLUDE_DIRS
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/atomic/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/align/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/asio/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/assert/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/beast/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/config/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/context/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/core/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/integer/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/intrusive/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/fiber/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/move/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/mp11/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/optional/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/pool/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/predef/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/preprocessor/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/smart_ptr/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/static_assert/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/system/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/thread/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/throw_exception/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/type_traits/include
+)
+
 set(THREAD_ON_BOOST_BOOST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost)
 set(THREAD_ON_BOOST_ABSL_ROOT ${EGLT_ABSL_ROOT})
 set(THREAD_ON_BOOST_GTEST_ROOT ${EGLT_GTEST_ROOT})

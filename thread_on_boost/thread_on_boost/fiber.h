@@ -14,7 +14,6 @@
 #include <boost/asio/io_context.hpp>
 
 #include "thread_on_boost/absl_headers.h"
-#include "thread_on_boost/asio_round_robin.h"
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/intrusive_list.h"
 #include "thread_on_boost/selectables.h"
@@ -41,6 +40,20 @@ class CancellationList {
   friend class Fiber;
 };
 
+template <typename Algo, typename... Args>
+static void EnsureThreadHasScheduler(Args&&... args) {
+  thread_local bool kThreadHasScheduler = false;
+  // DLOG(INFO) << "EnsureThreadHasScheduler, thread_id="
+  //            << std::this_thread::get_id()
+  //            << ", kThreadHasScheduler=" << kThreadHasScheduler;
+  if (kThreadHasScheduler) {
+    return;
+  }
+
+  boost::fibers::use_scheduling_algorithm<Algo>(std::forward<Args>(args)...);
+  kThreadHasScheduler = true;
+}
+
 class Fiber;
 
 class FiberProperties final : public boost::fibers::fiber_properties {
@@ -57,8 +70,7 @@ class FiberProperties final : public boost::fibers::fiber_properties {
 };
 
 namespace internal {
-inline std::unique_ptr<Fiber> CreateTree(Invocable f,
-                                         TreeOptions&& tree_options);
+std::unique_ptr<Fiber> CreateTree(Invocable f, TreeOptions&& tree_options);
 }
 
 Fiber* GetPerThreadFiberPtr();
@@ -116,6 +128,7 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   mutable Mutex mu_;
 
   Invocable work_;
+  boost::intrusive_ptr<boost::fibers::context> context_;
 
   // Whether this Fiber is self-joining. This is always set under lock, but is
   // an atomic to allow for reads during stats collection which cannot acquire

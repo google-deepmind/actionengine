@@ -66,8 +66,6 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
   }
 
   std::optional<SessionMessage> Receive() override {
-    DLOG(INFO) << absl::StrFormat("WESt %s receiving message.", id_);
-
     if (!status_.ok()) {
       DLOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
                                      status_);
@@ -88,9 +86,6 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
         unpacked.ok()) {
       message = std::move(unpacked).value();
     }
-
-    DLOG(INFO) << absl::StrFormat("WESt %s received message:\n%v", id_,
-                                  *message);
 
     if (buffer_.capacity() > kSwapBufferOnCapacity) {
       std::vector<uint8_t>().swap(buffer_);

@@ -8,11 +8,13 @@ target_include_directories(
         eglt_sdk_serving_websockets PRIVATE
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
+        ${Boost_INCLUDE_DIRS}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
         eglt_sdk_serving_websockets PUBLIC
         eglt::nodes
+        Boost::beast
 )
 
 add_executable(
