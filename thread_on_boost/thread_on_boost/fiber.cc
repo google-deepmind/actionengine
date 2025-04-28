@@ -266,7 +266,9 @@ void Fiber::MarkJoined() {
 
 void Fiber::InternalJoin() {
   Select({joinable_.OnEvent()});
-  context_->join();
+  // if (context_ != nullptr) {
+  //   context_->detach();
+  // }
   context_.reset();
   MarkJoined();
 }

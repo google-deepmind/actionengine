@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.30)
+
+if (APPLE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "14.4" CACHE STRING "Minimum OS X deployment version")
+endif ()
+
 project(eglt-oss
         VERSION 0.1
         LANGUAGES CXX

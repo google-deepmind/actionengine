@@ -2,7 +2,6 @@
 #define THREAD_ON_BOOST_BOOST_PRIMITIVES_H_
 
 #define BOOST_ASIO_NO_DEPRECATED
-#define BOOST_FIBERS_SPINLOCK_TTAS_FUTEX
 
 #include <boost/fiber/all.hpp>
 
