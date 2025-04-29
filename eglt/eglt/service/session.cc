@@ -94,10 +94,8 @@ absl::Status Session::DispatchMessage(base::SessionMessage message,
     // for later: error handling
     concurrency::Detach(
         {}, [action_message = std::move(action_message), stream, this] {
-          LOG(INFO) << "action fiber";
           const auto action = std::shared_ptr(Action::FromActionMessage(
               action_message, action_registry_, node_map_, stream, this));
-          LOG(INFO) << "action created";
           if (const auto run_status = action->Run(); !run_status.ok()) {
             LOG(ERROR) << "Failed to run action: " << run_status;
           }
