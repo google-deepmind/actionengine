@@ -108,13 +108,13 @@ ActionRegistry MakeActionRegistry() {
   return registry;
 }
 
-int main(int, char**) {
-  const auto port = absl::GetFlag(FLAGS_port);
+int main(int argc, char** argv) {
+  absl::ParseCommandLine(argc, argv);
+  const uint16_t port = absl::GetFlag(FLAGS_port);
   auto action_registry = MakeActionRegistry();
 
   eglt::Service service(&action_registry);
-  eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0",
-                                             absl::GetFlag(FLAGS_port));
+  eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
   eglt::sdk::WebsocketEvergreenClient client(eglt::RunSimpleEvergreenSession,

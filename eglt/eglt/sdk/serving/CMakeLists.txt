@@ -13,6 +13,7 @@ target_include_directories(
 )
 target_link_libraries(
         eglt_sdk_serving_websockets PUBLIC
+        eglt::absl_headers
         eglt::nodes
         Boost::beast
 )

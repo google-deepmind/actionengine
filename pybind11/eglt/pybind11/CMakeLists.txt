@@ -7,11 +7,6 @@ add_library(
         evergreen_pybind11
 )
 
-target_precompile_headers(
-        evergreen_pybind11 PRIVATE
-        pybind11_headers.h
-)
-
 target_sources(
         evergreen_pybind11 PRIVATE
         actions.cc
@@ -22,10 +17,13 @@ target_sources(
         nodes.h
         service.cc
         service.h
+        pybind11_headers.h
         types.cc
         types.h
         utils.cc
         utils.h
+        websockets.cc
+        websockets.h
 )
 
 target_link_libraries(
@@ -37,6 +35,7 @@ target_link_libraries(
         eglt::service
         eglt::nodes
         eglt::absl_headers
+        eglt::sdk::serving::websockets
         eglt::util
         register_status_bindings
         pybind11_abseil::status_casters

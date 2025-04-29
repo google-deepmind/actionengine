@@ -33,13 +33,10 @@ target_sources(
         thread_on_boost/select-internal.h
         thread_on_boost/selectables.cc
 )
-target_precompile_headers(
-        ThreadOnBoost PUBLIC
-        thread_on_boost/concurrency.h
-)
 target_sources(
         ThreadOnBoost PUBLIC
         thread_on_boost/boost_primitives.h
+        thread_on_boost/concurrency.h
         thread_on_boost/fiber.h
         thread_on_boost/select.h
         thread_on_boost/selectables.h

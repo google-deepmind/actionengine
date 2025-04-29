@@ -1,13 +1,10 @@
-add_library(eglt_absl_headers INTERFACE)
+add_library(eglt_absl_headers STATIC)
 add_library(eglt::absl_headers ALIAS eglt_absl_headers)
-set_target_properties(eglt_absl_headers PROPERTIES
-        LANGUAGE CXX
-        LINKER_LANGUAGE CXX
-)
 target_link_libraries(eglt_absl_headers
-        INTERFACE
+        PUBLIC
         absl::base
         absl::flags
+        absl::flags_parse
         absl::flat_hash_map
         absl::log
         absl::log_initialize
@@ -26,7 +23,11 @@ target_include_directories(
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp/include
 )
-target_precompile_headers(eglt_absl_headers INTERFACE ${EGLT_INCLUDE_DIR}/eglt/absl_headers.h)
+target_sources(eglt_absl_headers PUBLIC
+        ${EGLT_INCLUDE_DIR}/eglt/absl_headers.h
+        ${EGLT_INCLUDE_DIR}/eglt/absl_headers.cc
+)
+#target_precompile_headers(eglt_absl_headers PUBLIC ${EGLT_INCLUDE_DIR}/eglt/absl_headers.h)
 
 add_library(
         eglt_testing INTERFACE

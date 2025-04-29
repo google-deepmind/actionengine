@@ -47,7 +47,9 @@ class GuardedIoContext {
   }
 
   ~GuardedIoContext() {
+    DLOG(INFO) << "Stopping IO context";
     work_guard_.reset();
+    context_.stop();
     for (auto& thread : threads_) {
       thread.join();
     }
@@ -76,8 +78,16 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
 
   explicit WebsocketEvergreenStream(
       beast::websocket::stream<tcp::socket> stream, std::string_view id = "")
-      : stream_(std::move(stream)), id_(id.empty() ? GenerateUUID4() : id) {
+      : stream_(std::move(stream)),
+        id_(id.empty() ? GenerateUUID4() : std::string(id)) {
     DLOG(INFO) << absl::StrFormat("WESt %s created", id_);
+  }
+
+  ~WebsocketEvergreenStream() override {
+    if (stream_.is_open()) {
+      HalfClose();
+    }
+    DLOG(INFO) << absl::StrFormat("WESt %s destroyed", id_);
   }
 
   absl::Status Send(SessionMessage message) override {
@@ -171,12 +181,24 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
 
   void HalfClose() override {
     if (!status_.ok()) {
+      LOG(ERROR) << absl::StrFormat("WESt %s HalfClose failed: %v", id_,
+                                    status_);
       return;
     }
 
     boost::system::error_code error;
-    stream_.close(beast::websocket::close_code::normal, error);
+    concurrency::PermanentEvent close_done;
+    stream_.async_close(
+        beast::websocket::close_code::normal,
+        [&error, &close_done](const boost::system::error_code& async_error) {
+          error = async_error;
+          close_done.Notify();
+        });
+    concurrency::Select({close_done.OnEvent()});
+
     if (error) {
+      LOG(ERROR) << absl::StrFormat("WESt %s HalfClose failed: %v", id_,
+                                    error.message());
       last_send_status_ = absl::InternalError(error.message());
     }
   }
@@ -185,8 +207,18 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
 
   [[nodiscard]] std::string GetId() const override { return id_; }
 
+  const void* GetImpl() const override { return &stream_; }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink,
+                            const WebsocketEvergreenStream& stream) {
+    const auto endpoint = stream.stream_.next_layer().remote_endpoint();
+    sink.Append(absl::StrFormat("WebsocketEvergreenStream %s %s:%d", stream.id_,
+                                endpoint.address().to_string(),
+                                endpoint.port()));
+  }
+
  private:
-  std::shared_ptr<asio::io_context> io_context_;
   beast::websocket::stream<tcp::socket> stream_;
   std::string id_;
 
@@ -287,6 +319,7 @@ class WebsocketEvergreenServer {
           break;
         }
       }
+      acceptor_->close();
     });
   }
 
@@ -318,12 +351,43 @@ class WebsocketEvergreenServer {
   absl::Status status_;
 };
 
-inline std::unique_ptr<WebsocketEvergreenStream>
-MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
-                                   uint16_t port = 20000,
-                                   std::string_view target = "/",
-                                   asio::io_context* io_context = nullptr) {
+using PrepareStreamFn =
+    absl::AnyInvocable<absl::Status(beast::websocket::stream<tcp::socket>*) &&>;
 
+inline void SetClientStreamOptions(
+    beast::websocket::stream<tcp::socket>* ws_stream) {
+  ws_stream->set_option(beast::websocket::stream_base::decorator(
+      [](beast::websocket::request_type& req) {
+        req.set(beast::http::field::user_agent,
+                "Action Engine / Evergreen Light 0.1.0 "
+                "WebsocketEvergreenStream client");
+      }));
+}
+
+inline absl::Status PerformHandshake(
+    beast::websocket::stream<tcp::socket>* ws_stream, std::string_view address,
+    uint16_t port, std::string_view target) {
+  boost::system::error_code error;
+  concurrency::PermanentEvent handshake_done;
+  ws_stream->async_handshake(
+      absl::StrFormat("%s:%d", address, port), target,
+      [&error, &handshake_done](const boost::system::error_code& async_error) {
+        error = async_error;
+        handshake_done.Notify();
+      });
+  concurrency::Select({handshake_done.OnEvent()});
+  if (error) {
+    return absl::InternalError(error.message());
+  }
+
+  return absl::OkStatus();
+}
+
+inline std::unique_ptr<WebsocketEvergreenStream> MakeWebsocketEvergreenStream(
+    std::string_view address = "127.0.0.1", uint16_t port = 20000,
+    std::string_view target = "/", std::string_view id = "",
+    asio::io_context* io_context = nullptr,
+    PrepareStreamFn prepare_stream = {}) {
   if (io_context == nullptr) {
     io_context = &GetGlobalIOContext();
   }
@@ -334,6 +398,7 @@ MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
   concurrency::PermanentEvent resolved;
   tcp::resolver::results_type endpoints;
   resolver.async_resolve(address, std::to_string(port),
+                         boost::asio::ip::resolver_query_base::flags(),
                          [&error, &endpoints, &resolved](
                              const boost::system::error_code& async_error,
                              tcp::resolver::results_type async_endpoints) {
@@ -363,30 +428,36 @@ MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
     return nullptr;
   }
 
-  // Set a decorator to change the User-Agent of the handshake
-  ws_stream.set_option(beast::websocket::stream_base::decorator(
-      [](beast::websocket::request_type& req) {
-        req.set(beast::http::field::user_agent,
-                "Action Engine / Evergreen Light 0.1.0 "
-                "WebsocketEvergreenStream client");
-      }));
-
-  concurrency::PermanentEvent handshake_done;
-  ws_stream.async_handshake(
-      absl::StrFormat("%s:%d", address, endpoint.port()), target,
-      [&error, &handshake_done](const boost::system::error_code& async_error) {
-        error = async_error;
-        handshake_done.Notify();
-      });
-  concurrency::Select({handshake_done.OnEvent()});
-
-  if (error) {
+  absl::Status status = absl::OkStatus();
+  if (prepare_stream) {
+    status = std::move(prepare_stream)(&ws_stream);
+  } else {
+    SetClientStreamOptions(&ws_stream);
+    status = PerformHandshake(&ws_stream, address, endpoint.port(), target);
+  }
+  if (!status.ok()) {
     return nullptr;
   }
 
-  std::string session_id = GenerateUUID4();
+  std::string session_id = id.empty() ? GenerateUUID4() : std::string(id);
   return std::make_unique<WebsocketEvergreenStream>(std::move(ws_stream),
                                                     session_id);
+}
+
+inline std::unique_ptr<WebsocketEvergreenStream>
+MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
+                                   uint16_t port = 20000,
+                                   std::string_view target = "/",
+                                   asio::io_context* io_context = nullptr) {
+
+  return MakeWebsocketEvergreenStream(
+      address, port, target, /*id=*/GenerateUUID4(), io_context,
+      /*prepare_stream=*/
+      [address, port,
+       target](beast::websocket::stream<tcp::socket>* ws_stream) {
+        SetClientStreamOptions(ws_stream);
+        return PerformHandshake(ws_stream, address, port, target);
+      });
 }
 
 class WebsocketEvergreenClient {

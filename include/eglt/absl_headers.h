@@ -29,6 +29,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/flags/flag.h"
+#include "absl/flags/parse.h"
 #include "absl/functional/any_invocable.h"
 #include "absl/functional/bind_front.h"
 #include "absl/log/check.h"
@@ -46,5 +47,9 @@
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 // IWYU pragma: end_exports
+
+namespace eglt {
+inline void DummyAbseilSymbol();
+}  // namespace eglt
 
 #endif  // EGLT_ABSL_HEADERS_H_

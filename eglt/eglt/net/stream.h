@@ -68,7 +68,7 @@ class EvergreenStream {
    *
    * @return A pointer to the underlying implementation of the stream.
    */
-  [[nodiscard]] virtual auto GetImpl() const -> void* { return nullptr; }
+  [[nodiscard]] virtual auto GetImpl() const -> const void* { return nullptr; }
 
   //! Returns the underlying implementation of the stream.
   /*!

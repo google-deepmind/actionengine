@@ -9,6 +9,7 @@ from evergreen.evergreen import types
 from evergreen.evergreen import umsgpack_extensions
 from evergreen.evergreen import utils
 from evergreen.evergreen import websockets
+from evergreen.evergreen import websockets_old
 
 Action = actions.Action
 ActionDefinition = actions.ActionDefinition

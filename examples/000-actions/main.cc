@@ -34,7 +34,7 @@ using Service = eglt::Service;
 // the Action object as an argument. This object provides accessors to input and
 // output nodes (as streams), as well as to underlying Session and
 // transport-level Evergreen stream.
-absl::Status RunEcho(std::shared_ptr<Action> action) {
+absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   // ----------------------------------------------------------------------------
   // Evergreen actions are asynchronous, so to read inputs, we need a streaming
   // reader. Conversely, to write outputs, we need a streaming writer. The
@@ -206,6 +206,9 @@ std::string CallEcho(
 }
 
 int main(int argc, char** argv) {
+  absl::ParseCommandLine(argc, argv);
+
+  const uint16_t port = absl::GetFlag(FLAGS_port);
   // We will use the same action registry for the server and the client.
   ActionRegistry action_registry = MakeActionRegistry();
   // This is enough to run the server. Notice how Service is decoupled from
@@ -215,12 +218,11 @@ int main(int argc, char** argv) {
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   eglt::Service service(&action_registry);
-  eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0",
-                                             absl::GetFlag(FLAGS_port));
+  eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
   eglt::sdk::WebsocketEvergreenClient client;
-  auto connection = client.Connect("localhost", absl::GetFlag(FLAGS_port));
+  auto connection = client.Connect("localhost", port);
 
   std::string text = "test text to skip the long startup logs";
   std::cout << "Sending: " << text << std::endl;
@@ -235,7 +237,7 @@ int main(int argc, char** argv) {
   while (text != "/quit") {
     std::cout << "Enter text: ";
     std::getline(std::cin, text);
-    auto response = CallEcho(text, action_registry, connection);
+    response = CallEcho(text, action_registry, connection);
     std::cout << "Received: " << response << "\n" << std::endl;
   }
 

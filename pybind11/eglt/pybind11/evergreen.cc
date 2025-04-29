@@ -20,6 +20,7 @@
 #include "eglt/pybind11/pybind11_headers.h"
 #include "eglt/pybind11/service.h"
 #include "eglt/pybind11/types.h"
+#include "eglt/pybind11/websockets.h"
 
 namespace eglt {
 
@@ -37,9 +38,10 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
 
   py::module_ actions = pybindings::MakeActionsModule(m, "actions");
   py::module_ service = pybindings::MakeServiceModule(m, "service");
+  py::module_ websockets = pybindings::MakeWebsocketsModule(m, "websockets");
 
   m.def("say_hello",
         [](const std::string& name) { py::print("Hello, " + name); });
 }
 
-} // namespace eglt
+}  // namespace eglt

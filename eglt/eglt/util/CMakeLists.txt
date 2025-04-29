@@ -1,22 +1,22 @@
-add_library(egltUtil INTERFACE)
+add_library(egltUtil STATIC)
 add_library(eglt::util ALIAS egltUtil)
 set_target_properties(egltUtil PROPERTIES
         LANGUAGE CXX
         LINKER_LANGUAGE CXX
 )
-target_precompile_headers(
-        egltUtil INTERFACE map_util.h random.h
+target_sources(
+        egltUtil PUBLIC map_util.h random.h
 )
 target_include_directories(
         egltUtil
-        INTERFACE
+        PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
         egltUtil
-        INTERFACE
+        PUBLIC
         eglt::absl_headers
 )
 
