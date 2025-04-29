@@ -14,7 +14,7 @@ pip install git+https://github.com/KoljaB/RealtimeSTT
 Run the server with the following command:
 
 ```bash
-python stt_server.py
+python run_server.py
 ```
 
 ## Client
@@ -22,7 +22,7 @@ python stt_server.py
 Run the client with the following command:
 
 ```bash
-python stt_client.py
+python run_client.py
 ```
 
 The client will open a WebSocket connection to the server, call the

@@ -6,38 +6,44 @@ from .serialisation import BYTEARRAY_MIMETYPE
 from .server import STTServer
 
 
-def make_output_callback(node: evergreen.AsyncNode):
-  def callback(text: str):
-    node.put_text(text)
+def has_stop_command(text: str) -> bool:
+  return (
+      len(text) <= 5
+      and (
+          text.lower().startswith("stop")
+          or text.lower().startswith("exit")
+      )
+  )
 
-  return callback
 
+def stream_text_output_to_node(node: evergreen.AsyncNode):
+  server = STTServer.instance()
 
-def fill_text_output(server, text_output):
-  callback = make_output_callback(text_output)
-  while True:
-    server.get_text(callback)
+  try:
+    while True:
+      text = server.get_text()
+      node.put(text)
+
+      if has_stop_command(text):
+        print("Stop command received, stopping output stream.", flush=True)
+        break
+
+  finally:
+    node.finalize()
 
 
 async def run_speech_to_text(action: evergreen.Action):
   print("Running speech_to_text action", flush=True)
   server = STTServer.instance()
 
-  text_output = action.get_output("text")
-  output_task = asyncio.create_task(
-      asyncio.to_thread(fill_text_output, server, text_output)
+  stream_output_task = asyncio.create_task(
+      asyncio.to_thread(stream_text_output_to_node, action.get_output("text"))
   )
 
-  speech_input = action.get_input("speech")
+  async for audio_chunk in action.get_input("speech"):
+    server.feed_chunk(audio_chunk)
 
-  try:
-    async for audio_chunk in speech_input:
-      server.feed_chunk(audio_chunk)
-  finally:
-    await text_output.finalize()
-
-  output_task.cancel()
-  await output_task
+  await stream_output_task
 
 
 def make_action_registry():

@@ -3,6 +3,7 @@ import asyncio
 import evergreen
 from RealtimeSTT import AudioToTextRecorder
 
+from stt.actions import has_stop_command
 from stt.actions import make_action_registry
 from stt.serialisation import register_stt_serialisers
 
@@ -46,9 +47,8 @@ async def main():
   try:
     async for text in action.get_output("text"):
       print(text)
-      if len(text) <= 5 and text.lower().startswith(
-          "stop") or text.lower().startswith("exit"):
-        print("Stopping speech_to_text action.")
+      if has_stop_command(text):
+        print("Stop command received, stopping recording.")
         break
   finally:
     recorder.shutdown()

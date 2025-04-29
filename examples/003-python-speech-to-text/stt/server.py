@@ -22,5 +22,5 @@ class STTServer:
   def feed_chunk(self, chunk: np.ndarray):
     self._recorder.feed_audio(chunk)
 
-  def get_text(self, callback):
+  def get_text(self, callback=None):
     return self._recorder.text(callback)
