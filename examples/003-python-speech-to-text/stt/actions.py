@@ -36,16 +36,6 @@ async def run_speech_to_text(action: evergreen.Action):
   finally:
     await text_output.finalize()
 
-  try:
-    chunk = speech_input.next_chunk_sync()
-    if chunk is None:
-      print("No input received, exiting", flush=True)
-      return
-
-    server.feed_chunk(chunk)
-  finally:
-    await text_output.finalize()
-
   output_task.cancel()
   await output_task
 
