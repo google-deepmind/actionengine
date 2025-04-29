@@ -45,9 +45,8 @@ absl::Status RunPrint(const std::shared_ptr<Action>& action) {
   text->SetReaderOptions(/*ordered=*/true,
                          /*remove_chunks=*/true);
 
-  std::optional<std::string> word;
   while (true) {
-    word = text->Next<std::string>();
+    std::optional<std::string> word = text->Next<std::string>();
     if (!word.has_value()) {
       break;
     }
@@ -58,29 +57,27 @@ absl::Status RunPrint(const std::shared_ptr<Action>& action) {
 }
 
 absl::Status RunBidiEcho(const std::shared_ptr<Action>& action) {
-  auto print_action = action->MakeActionInSameSession("print_text");
-  auto status = print_action->Call();
-  if (!status.ok()) {
+  const auto print_action = action->MakeActionInSameSession("print_text");
+  if (auto status = print_action->Call(); !status.ok()) {
     return status;
   }
 
-  auto echo_input = action->GetInput("text");
+  const auto echo_input = action->GetInput("text");
   echo_input->SetReaderOptions(/*ordered=*/true,
                                /*remove_chunks=*/true);
 
-  auto print_input = print_action->GetInput("text");
+  const auto print_input = print_action->GetInput("text");
 
   absl::BitGen generator;
-  std::optional<std::string> word;
   while (true) {
-    word = echo_input->Next<std::string>();
+    std::optional<std::string> word = echo_input->Next<std::string>();
     if (!word.has_value()) {
       break;
     }
     print_input->Put(*word).IgnoreError();
 
-    float jitter = absl::Uniform(generator, -kDelayBetweenWords / 2,
-                                 kDelayBetweenWords / 2);
+    double jitter = absl::Uniform(generator, -kDelayBetweenWords / 2,
+                                  kDelayBetweenWords / 2);
     absl::SleepFor(absl::Seconds(kDelayBetweenWords + jitter));
   }
   print_input->Put(eglt::EndOfStream()).IgnoreError();
@@ -111,8 +108,8 @@ ActionRegistry MakeActionRegistry() {
   return registry;
 }
 
-int main(int argc, char** argv) {
-  auto port = absl::GetFlag(FLAGS_port);
+int main(int, char**) {
+  const auto port = absl::GetFlag(FLAGS_port);
   auto action_registry = MakeActionRegistry();
 
   eglt::Service service(&action_registry);
@@ -122,7 +119,7 @@ int main(int argc, char** argv) {
 
   eglt::sdk::WebsocketEvergreenClient client(eglt::RunSimpleEvergreenSession,
                                              action_registry);
-  auto connection = client.Connect("localhost", port);
+  const auto connection = client.Connect("localhost", port);
 
   std::cout << absl::StrFormat(
       "Bidi actions. Enter a prompt, and the server will print it back with a "
@@ -130,9 +127,8 @@ int main(int argc, char** argv) {
       "copying and pasting a long text.\n",
       kDelayBetweenWords);
 
-  std::string prompt;
-
   while (true) {
+    std::string prompt;
     std::cout << "Enter a prompt: ";
     std::getline(std::cin, prompt);
 
@@ -140,16 +136,18 @@ int main(int argc, char** argv) {
       break;
     }
 
-    auto action = eglt::MakeActionInConnection(*connection,
-                                               /*action_name=*/"bidi_echo");
-    auto status = action->Call();
-    if (!status.ok()) {
+    const auto action =
+        eglt::MakeActionInConnection(*connection,
+                                     /*action_name=*/"bidi_echo");
+
+    if (const auto status = action->Call(); !status.ok()) {
       LOG(ERROR) << "Error: " << status << "\n";
       continue;
     }
 
-    auto text_input = action->GetInput("text");
-    for (auto word : absl::StrSplit(prompt, ' ')) {
+    const auto text_input = action->GetInput("text");
+    std::vector<std::string> words = absl::StrSplit(prompt, ' ');
+    for (auto word : words) {
       if (const auto status = text_input->Put(absl::StrCat(word, " "));
           !status.ok()) {
         LOG(FATAL) << "Error: " << status;
@@ -157,7 +155,7 @@ int main(int argc, char** argv) {
     }
     text_input->Put(eglt::EndOfStream()).IgnoreError();
 
-    absl::SleepFor(absl::Seconds(kDelayBetweenWords * (prompt.size() + 2)));
+    absl::SleepFor(absl::Seconds(kDelayBetweenWords * (words.size() + 2)));
     std::cout << std::endl;
   }
 
