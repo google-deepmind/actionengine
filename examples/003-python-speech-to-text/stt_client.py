@@ -46,7 +46,8 @@ async def main():
   try:
     async for text in action.get_output("text"):
       print(text)
-      if len(text) <= 5 and text.lower().startswith("stop"):
+      if len(text) <= 5 and text.lower().startswith(
+          "stop") or text.lower().startswith("exit"):
         print("Stopping speech_to_text action.")
         break
   finally:
