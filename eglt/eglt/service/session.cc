@@ -37,7 +37,7 @@ Session::Session(NodeMap* node_map, ActionRegistry* action_registry,
       chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 Session::~Session() {
-  JoinDispatchers(/*cancel=*/false);
+  JoinDispatchers(/*cancel=*/true);
 }
 
 AsyncNode* Session::GetNode(
@@ -90,11 +90,14 @@ absl::Status Session::DispatchMessage(base::SessionMessage message,
     }
   }
   for (auto& action_message : message.actions) {
+    DLOG(INFO) << "Dispatching action message: " << action_message;
     // for later: error handling
     concurrency::Detach(
         {}, [action_message = std::move(action_message), stream, this] {
+          LOG(INFO) << "action fiber";
           const auto action = std::shared_ptr(Action::FromActionMessage(
               action_message, action_registry_, node_map_, stream, this));
+          LOG(INFO) << "action created";
           if (const auto run_status = action->Run(); !run_status.ok()) {
             LOG(ERROR) << "Failed to run action: " << run_status;
           }

@@ -1,6 +1,6 @@
 """A Pythonic wrapper for the raw pybind11 NodeMap bindings."""
 
-from evergreen import evergreen_pybind11
+import evergreen.evergreen_pybind11 as evergreen_pybind11
 from evergreen.evergreen import async_node
 from evergreen.evergreen import types
 from evergreen.evergreen import utils

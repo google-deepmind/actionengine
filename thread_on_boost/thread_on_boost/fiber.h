@@ -186,11 +186,6 @@ inline void Detach(std::unique_ptr<Fiber> fiber) {
       fiber.release();  // Fiber will delete itself.
     }
   }
-  // This calls InternalJoin to bypass the check that the current fiber is a
-  // parent. It may be a non-parent ancestor in the case of bundle fibers.
-  if (ABSL_PREDICT_FALSE(fiber != nullptr)) {
-    fiber->InternalJoin();
-  };
 }
 
 template <typename F>

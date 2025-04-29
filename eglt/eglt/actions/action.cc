@@ -27,7 +27,7 @@
 #include "eglt/util/random.h"
 
 namespace eglt {
-void ActionRegistry::Register(const std::string_view name,
+void ActionRegistry::Register(std::string_view name,
                               const ActionDefinition& def,
                               const ActionHandler& handler) {
   definitions_[name] = def;
@@ -107,11 +107,11 @@ Action::Action(ActionDefinition def, ActionHandler handler,
                const std::string_view id, NodeMap* node_map,
                base::EvergreenStream* stream, Session* session)
     : def_(std::move(def)),
-      handler_(std::move(handler)),
       id_(id),
       node_map_(node_map),
       stream_(stream),
       session_(session) {
+  handler_ = std::move(handler);
   id_ = id.empty() ? GenerateUUID4() : std::string(id);
 }
 
@@ -136,6 +136,7 @@ std::unique_ptr<Action> Action::FromActionMessage(
     auto parts = std::vector<std::string>(absl::StrSplit(input.id, '#'));
     input_names.push_back(parts.back());
   }
+
   std::vector<std::string> output_names;
   for (const auto& output : outputs) {
     auto parts = std::vector<std::string>(absl::StrSplit(output.id, '#'));

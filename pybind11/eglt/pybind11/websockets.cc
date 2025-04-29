@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "eglt/pybind11/websockets.h"
+#include "eglt/pybind11/utils.h"
 
 #include "eglt/sdk/serving/websockets.h"
 #include "eglt/service/service.h"
@@ -32,7 +33,8 @@ void BindWebsocketEvergreenStream(py::handle scope, std::string_view name) {
            py::call_guard<py::gil_scoped_release>())
       .def("accept", &sdk::WebsocketEvergreenStream::Accept)
       .def("start", &sdk::WebsocketEvergreenStream::Start)
-      .def("close", &sdk::WebsocketEvergreenStream::HalfClose)
+      .def("close", &sdk::WebsocketEvergreenStream::HalfClose,
+           py::call_guard<py::gil_scoped_release>())
       .def("get_last_send_status",
            &sdk::WebsocketEvergreenStream::GetLastSendStatus)
       .def("get_id", &sdk::WebsocketEvergreenStream::GetId)
@@ -53,20 +55,25 @@ void BindWebsocketEvergreenServer(py::handle scope, std::string_view name) {
                  service, address, port);
            }),
            py::arg("service"), py::arg_v("address", "0.0.0.0"),
-           py::arg_v("port", 20000))
-      .def("run", &sdk::WebsocketEvergreenServer::Run)
-      .def("cancel",
-           [](const std::shared_ptr<sdk::WebsocketEvergreenServer>& self) {
-             if (const absl::Status status = self->Cancel(); !status.ok()) {
-               throw std::runtime_error(status.ToString());
-             }
-           })
-      .def("join",
-           [](const std::shared_ptr<sdk::WebsocketEvergreenServer>& self) {
-             if (const absl::Status status = self->Join(); !status.ok()) {
-               throw std::runtime_error(status.ToString());
-             }
-           })
+           py::arg_v("port", 20000), pybindings::keep_event_loop_memo())
+      .def("run", &sdk::WebsocketEvergreenServer::Run,
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "cancel",
+          [](const std::shared_ptr<sdk::WebsocketEvergreenServer>& self) {
+            if (const absl::Status status = self->Cancel(); !status.ok()) {
+              throw std::runtime_error(status.ToString());
+            }
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "join",
+          [](const std::shared_ptr<sdk::WebsocketEvergreenServer>& self) {
+            if (const absl::Status status = self->Join(); !status.ok()) {
+              throw std::runtime_error(status.ToString());
+            }
+          },
+          py::call_guard<py::gil_scoped_release>())
       .doc() = "A WebsocketEvergreenServer interface.";
 }
 

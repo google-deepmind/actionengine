@@ -109,7 +109,12 @@ void BindAction(py::handle scope, std::string_view name) {
           "run",
           [](const std::shared_ptr<Action>& action) { return action->Run(); },
           py::call_guard<py::gil_scoped_release>())
-      .def("call", &Action::Call)
+      .def("call",
+           [](const std::shared_ptr<Action>& action) {
+             if (const absl::Status status = action->Call(); !status.ok()) {
+               throw py::value_error(status.ToString());
+             }
+           })
       .def("get_registry",
            [](const std::shared_ptr<Action>& action) {
              return ShareWithNoDeleter(action->GetRegistry());

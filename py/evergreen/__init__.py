@@ -2,6 +2,7 @@ from evergreen.evergreen import actions
 from evergreen.evergreen import async_node
 from evergreen.evergreen import global_settings
 from evergreen.evergreen import node_map
+from evergreen.evergreen import serialisation
 from evergreen.evergreen import service as eg_service
 from evergreen.evergreen import session as eg_session
 from evergreen.evergreen import stream as eg_stream

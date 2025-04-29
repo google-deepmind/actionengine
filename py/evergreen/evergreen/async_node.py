@@ -6,7 +6,7 @@ import functools
 from collections.abc import Awaitable
 from typing import Any
 
-from evergreen import evergreen_pybind11
+import evergreen.evergreen_pybind11 as evergreen_pybind11
 from evergreen.evergreen import global_settings
 from evergreen.evergreen import serialisation
 from evergreen.evergreen import types

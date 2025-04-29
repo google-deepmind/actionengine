@@ -85,6 +85,11 @@ void BindSession(py::handle scope, std::string_view name) {
       .def("dispatch_from",
            [](const std::shared_ptr<Session>& self,
               base::EvergreenStream* stream) { self->DispatchFrom(stream); })
+      .def("stop_dispatching_from",
+           [](const std::shared_ptr<Session>& self,
+              base::EvergreenStream* stream) {
+             self->StopDispatchingFrom(stream);
+           })
       .def("dispatch_message", &Session::DispatchMessage,
            py::call_guard<py::gil_scoped_release>())
       .def("get_node_map",
@@ -126,11 +131,13 @@ void BindService(py::handle scope, std::string_view name) {
            })
       .def("get_session_keys", &Service::GetSessionKeys,
            py::call_guard<py::gil_scoped_release>())
-      .def("establish_connection",
-           [](const std::shared_ptr<Service>& self,
-              const std::shared_ptr<PyEvergreenStream>& stream) {
-             return self->EstablishConnection(stream);
-           })
+      .def(
+          "establish_connection",
+          [](const std::shared_ptr<Service>& self,
+             const std::shared_ptr<PyEvergreenStream>& stream) {
+            return self->EstablishConnection(stream);
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def("join_connection", &Service::JoinConnection,
            py::call_guard<py::gil_scoped_release>())
       .def("set_action_registry", &Service::SetActionRegistry,
@@ -142,6 +149,11 @@ void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
   py::class_<StreamToSessionConnection,
              std::shared_ptr<StreamToSessionConnection>>(
       scope, std::string(name).c_str())
+      .def(py::init([](base::EvergreenStream* stream, Session* session) {
+             return std::make_shared<StreamToSessionConnection>(stream,
+                                                                session);
+           }),
+           py::arg("stream"), py::arg("session"))
       .def(MakeSameObjectRefConstructor<StreamToSessionConnection>())
       .def("get_stream",
            [](const StreamToSessionConnection& self) {
