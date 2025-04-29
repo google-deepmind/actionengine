@@ -3,8 +3,8 @@ import asyncio
 import evergreen
 
 from stt.actions import make_action_registry
+from stt.model_server import STTModelServer
 from stt.serialisation import register_stt_serialisers
-from stt.server import STTServer
 
 
 def setup_action_engine():
@@ -20,7 +20,7 @@ async def main():
   setup_action_engine()
 
   print("Starting speech-to-text API backend.")
-  STTServer.instance()
+  STTModelServer.instance()
 
   action_registry = make_action_registry()
   service = evergreen.Service(action_registry)

@@ -2,7 +2,7 @@ import numpy as np
 from RealtimeSTT import AudioToTextRecorder
 
 
-class STTServer:
+class STTModelServer:
   def __init__(self):
     self._recorder = AudioToTextRecorder(
         post_speech_silence_duration=0.4,
@@ -14,13 +14,13 @@ class STTServer:
 
   @staticmethod
   def instance():
-    if not hasattr(STTServer, "_instance"):
-      STTServer._instance = STTServer()
+    if not hasattr(STTModelServer, "_instance"):
+      STTModelServer._instance = STTModelServer()
 
-    return STTServer._instance
+    return STTModelServer._instance
 
-  def feed_chunk(self, chunk: np.ndarray):
+  def feed_audio_chunk(self, chunk: np.ndarray):
     self._recorder.feed_audio(chunk)
 
-  def get_text(self, callback=None):
+  def wait_for_transcription_piece(self, callback=None):
     return self._recorder.text(callback)

@@ -19,27 +19,24 @@ def bytes_to_str(data: bytes) -> str:
   return data.decode("utf-8")
 
 
+_SERIALIZERS = {
+    (bytearray, BYTEARRAY_MIMETYPE): bytearray_to_bytes,
+    (str, "text/plain"): str_to_bytes,
+}
+
+_DESERIALIZERS = {
+    (bytes, BYTEARRAY_MIMETYPE): bytes_to_bytearray,
+    (str, "text/plain"): bytes_to_str,
+}
+
+
 def register_stt_serialisers(
     registry: serialisation.SerialiserRegistry | None = None,
 ):
   registry = registry or serialisation.get_global_serialiser_registry()
-  registry.register_serialiser(
-      bytearray_to_bytes,
-      mimetype=BYTEARRAY_MIMETYPE,
-      obj_type=bytearray,
-  )
-  registry.register_deserialiser(
-      bytes_to_bytearray,
-      mimetype=BYTEARRAY_MIMETYPE,
-      obj_type=bytearray,
-  )
-  registry.register_serialiser(
-      str_to_bytes,
-      mimetype="text/plain",
-      obj_type=str,
-  )
-  registry.register_deserialiser(
-      bytes_to_str,
-      mimetype="text/plain",
-      obj_type=str,
-  )
+
+  for (python_type, mimetype), serialiser in _SERIALIZERS.items():
+    registry.register_serialiser(serialiser, mimetype, python_type)
+
+  for (python_type, mimetype), deserialiser in _DESERIALIZERS.items():
+    registry.register_deserialiser(deserialiser, mimetype, python_type)
