@@ -35,14 +35,13 @@
 namespace eglt {
 
 absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream* stream,
-                                          base::NodeFragment&& fragment) {
+                                          NodeFragment&& fragment) {
   // if stream is null, we don't send anything and it is ok.
   if (stream == nullptr) {
     return absl::OkStatus();
   }
 
-  return stream->Send(
-      base::SessionMessage{.node_fragments = {std::move(fragment)}});
+  return stream->Send(SessionMessage{.node_fragments = {std::move(fragment)}});
 }
 
 AsyncNode::AsyncNode(std::string_view id, NodeMap* node_map,
@@ -87,17 +86,16 @@ void AsyncNode::BindWriterStream(base::EvergreenStream* stream) {
 }
 
 template <>
-auto AsyncNode::Put<base::Chunk>(base::Chunk value, int seq_id,
-                                 const bool final) -> absl::Status {
-  return PutFragment(base::NodeFragment{
+auto AsyncNode::Put<Chunk>(Chunk value, int seq_id, const bool final)
+    -> absl::Status {
+  return PutFragment(NodeFragment{
       .id = chunk_store_->GetNodeId(),
       .chunk = std::move(value),
       .continued = !final,
   });
 }
 
-absl::Status AsyncNode::PutFragment(base::NodeFragment fragment,
-                                    const int seq_id) {
+absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
   if (chunk_store_ == nullptr) {
     return absl::FailedPreconditionError("Chunk storage is not initialized.");
   }
@@ -121,7 +119,7 @@ absl::Status AsyncNode::PutFragment(base::NodeFragment fragment,
                   /*final=*/!fragment.continued);
 }
 
-absl::Status AsyncNode::PutChunk(base::Chunk chunk, int seq_id, bool final) {
+absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
   if (chunk_store_ == nullptr) {
     return absl::FailedPreconditionError("Chunk storage is not initialized.");
   }
@@ -130,7 +128,7 @@ absl::Status AsyncNode::PutChunk(base::Chunk chunk, int seq_id, bool final) {
 
   // I want to be able to move the chunk to writer, but I might also need to
   // send it to the stream.
-  base::Chunk copy_to_stream = chunk;
+  Chunk copy_to_stream = chunk;
 
   auto status_or_seq = default_writer_->Put(std::move(chunk), seq_id, final);
   if (!status_or_seq.ok()) {
@@ -139,7 +137,7 @@ absl::Status AsyncNode::PutChunk(base::Chunk chunk, int seq_id, bool final) {
   }
 
   auto stream_sending_status = SendToStreamIfNotNullAndOpen(
-      writer_stream_, base::NodeFragment{
+      writer_stream_, NodeFragment{
                           .id = std::string(chunk_store_->GetNodeId()),
                           .chunk = std::move(copy_to_stream),
                           .seq = status_or_seq.value(),
@@ -166,11 +164,11 @@ absl::Status AsyncNode::GetWriterStatus() const {
   return default_writer_->GetStatus();
 }
 
-absl::StatusOr<std::vector<base::Chunk>> AsyncNode::WaitForCompletion() {
+absl::StatusOr<std::vector<Chunk>> AsyncNode::WaitForCompletion() {
   SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
-  std::vector<base::Chunk> chunks;
+  std::vector<Chunk> chunks;
   while (true) {
-    std::optional<base::Chunk> next_chunk;
+    std::optional<Chunk> next_chunk;
     *this >> next_chunk;
     if (!default_reader_->GetStatus().ok()) {
       return default_reader_->GetStatus();

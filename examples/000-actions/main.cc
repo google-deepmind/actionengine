@@ -26,7 +26,7 @@ ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");
 // Simply some type aliases to make the code more readable.
 using Action = eglt::Action;
 using ActionRegistry = eglt::ActionRegistry;
-using Chunk = eglt::base::Chunk;
+using Chunk = eglt::Chunk;
 using Service = eglt::Service;
 
 // Server side implementation of the echo action. This is a simple example of

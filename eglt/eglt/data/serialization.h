@@ -26,13 +26,13 @@
 namespace eglt {
 
 using Bytes = std::string;
-using MimeSerializer = std::function<base::Chunk(std::any)>;
-using MimeDeserializer = std::function<absl::StatusOr<std::any>(base::Chunk)>;
+using MimeSerializer = std::function<Chunk(std::any)>;
+using MimeDeserializer = std::function<absl::StatusOr<std::any>(Chunk)>;
 
 class SerializerRegistry {
  public:
   template <typename T>
-  [[nodiscard]] absl::StatusOr<base::Chunk> Serialize(
+  [[nodiscard]] absl::StatusOr<Chunk> Serialize(
       T value, std::string_view mimetype) const {
     if (mimetype.empty()) {
       return absl::InvalidArgumentError(
@@ -49,7 +49,7 @@ class SerializerRegistry {
   }
 
   [[nodiscard]] absl::StatusOr<std::any> Deserialize(
-      base::Chunk chunk, std::string_view mimetype) const {
+      Chunk chunk, std::string_view mimetype) const {
     if (mimetype.empty()) {
       return absl::InvalidArgumentError(
           "Deserialize(chunk, mimetype) was called with an empty mimetype.");

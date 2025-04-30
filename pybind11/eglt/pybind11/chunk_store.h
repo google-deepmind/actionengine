@@ -28,23 +28,23 @@ namespace eglt::pybindings {
 namespace py = ::pybind11;
 
 class PyChunkStore final : public ChunkStore {
-public:
+ public:
   using ChunkStore::ChunkStore;
 
   PyChunkStore() : ChunkStore() {}
 
-  absl::StatusOr<base::Chunk> GetImmediately(int seq_id) override {
-    PYBIND11_OVERRIDE_PURE_NAME(base::Chunk, PyChunkStore, "get_immediately",
+  absl::StatusOr<Chunk> GetImmediately(int seq_id) override {
+    PYBIND11_OVERRIDE_PURE_NAME(Chunk, PyChunkStore, "get_immediately",
                                 TryGetImmediately, seq_id);
   }
 
-  absl::StatusOr<base::Chunk> PopImmediately(int seq_id) override {
-    PYBIND11_OVERRIDE_PURE_NAME(base::Chunk, PyChunkStore, "pop_immediately",
+  absl::StatusOr<Chunk> PopImmediately(int seq_id) override {
+    PYBIND11_OVERRIDE_PURE_NAME(Chunk, PyChunkStore, "pop_immediately",
                                 PopImmediately, seq_id);
   }
 
   size_t Size() override {
-    PYBIND11_OVERRIDE_PURE_NAME(size_t, PyChunkStore, "size", Size,);
+    PYBIND11_OVERRIDE_PURE_NAME(size_t, PyChunkStore, "size", Size, );
   }
 
   bool Contains(int seq_id) override {
@@ -54,12 +54,12 @@ public:
 
   void NotifyAllWaiters() override {
     PYBIND11_OVERRIDE_PURE_NAME(void, PyChunkStore, "notify_all_waiters",
-                                NotifyAllWaiters,);
+                                NotifyAllWaiters, );
   }
 
   int GetFinalSeqId() override {
     PYBIND11_OVERRIDE_PURE_NAME(int, PyChunkStore, "get_final_seq_id",
-                                GetFinalSeqId,);
+                                GetFinalSeqId, );
   }
 
   absl::Status WaitForSeqId(int seq_id, absl::Duration timeout) override {
@@ -67,8 +67,7 @@ public:
                                 WaitForSeqId, seq_id, timeout);
   }
 
-  absl::StatusOr<int> WriteToImmediateStore(int seq_id,
-                                            base::Chunk chunk) override {
+  absl::StatusOr<int> WriteToImmediateStore(int seq_id, Chunk chunk) override {
     py::gil_scoped_acquire gil;
     const py::function function =
         py::get_override(this, "write_to_immediate_store");
@@ -112,13 +111,13 @@ void BindLocalChunkStore(py::handle scope,
 
 py::module_ MakeChunkStoreModule(py::module_ scope,
                                  std::string_view module_name = "chunk_store");
-} // namespace eglt::pybindings
+}  // namespace eglt::pybindings
 
 namespace pybind11::detail {
 /// @private
 template <>
 class type_caster<std::unique_ptr<eglt::ChunkStore>>
     : public type_caster_base<std::unique_ptr<eglt::ChunkStore>> {};
-} // namespace pybind11::detail
+}  // namespace pybind11::detail
 
 #endif  // EGLT_PYBIND11_EGLT_CHUNK_STORE_H_

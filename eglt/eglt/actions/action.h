@@ -85,8 +85,8 @@ class ActionRegistry {
   void Register(std::string_view name, const ActionDefinition& def,
                 const ActionHandler& handler);
 
-  [[nodiscard]] base::ActionMessage MakeActionMessage(
-      std::string_view name, std::string_view id) const;
+  [[nodiscard]] ActionMessage MakeActionMessage(std::string_view name,
+                                                std::string_view id) const;
 
   std::unique_ptr<Action> MakeAction(std::string_view name, std::string_view id,
                                      NodeMap* node_map,
@@ -158,12 +158,11 @@ class Action : public std::enable_shared_from_this<Action> {
    * @return
    *   The action message.
    */
-  [[nodiscard]] base::ActionMessage GetActionMessage() const;
+  [[nodiscard]] ActionMessage GetActionMessage() const;
 
   static std::unique_ptr<Action> FromActionMessage(
-      const base::ActionMessage& action, ActionRegistry* registry,
-      NodeMap* node_map, base::EvergreenStream* stream,
-      Session* session = nullptr);
+      const ActionMessage& action, ActionRegistry* registry, NodeMap* node_map,
+      base::EvergreenStream* stream, Session* session = nullptr);
 
   /**
    * @brief Gets an AsyncNode with the given \p id from the node map.
@@ -293,7 +292,7 @@ class Action : public std::enable_shared_from_this<Action> {
     bind_streams_on_inputs_default_ = true;
     bind_streams_on_outputs_default_ = false;
 
-    return stream_->Send(base::SessionMessage{.actions = {GetActionMessage()}});
+    return stream_->Send(SessionMessage{.actions = {GetActionMessage()}});
   }
 
   /**

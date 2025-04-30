@@ -41,7 +41,7 @@ class PyEvergreenStream final : public base::EvergreenStream {
 
   PyEvergreenStream() : EvergreenStream() {}
 
-  absl::Status Send(base::SessionMessage message) override {
+  absl::Status Send(SessionMessage message) override {
     py::gil_scoped_acquire gil;
     const py::function function = py::get_override(this, "send");
 
@@ -59,7 +59,7 @@ class PyEvergreenStream final : public base::EvergreenStream {
     return absl::OkStatus();
   }
 
-  std::optional<base::SessionMessage> Receive() override {
+  std::optional<SessionMessage> Receive() override {
     py::gil_scoped_acquire gil;
     const py::function function = py::get_override(this, "receive");
 
@@ -74,7 +74,7 @@ class PyEvergreenStream final : public base::EvergreenStream {
     if (!result.ok() || result->is_none()) {
       return std::nullopt;
     }
-    return std::move(result)->cast<base::SessionMessage>();
+    return std::move(result)->cast<SessionMessage>();
   }
 
   void Accept() override {

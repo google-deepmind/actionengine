@@ -30,7 +30,7 @@ namespace eglt {
 class ActionRegistry;
 
 using DebugHandler =
-    std::function<void(const base::SessionMessage&, base::EvergreenStream*)>;
+    std::function<void(const SessionMessage&, base::EvergreenStream*)>;
 
 /**
  * @brief
@@ -55,7 +55,7 @@ class Session {
       const ChunkStoreFactory& chunk_store_factory = {}) const;
 
   void DispatchFrom(base::EvergreenStream* stream);
-  absl::Status DispatchMessage(base::SessionMessage message,
+  absl::Status DispatchMessage(SessionMessage message,
                                base::EvergreenStream* stream = nullptr);
 
   void StopDispatchingFrom(base::EvergreenStream* stream);

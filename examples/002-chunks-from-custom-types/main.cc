@@ -18,7 +18,7 @@
 // Simply some type aliases to make the code more readable. These declarations
 // are not included anywhere, so it is okay to use such shorthands to make the
 // example easier to read.
-using Chunk = eglt::base::Chunk;
+using Chunk = eglt::Chunk;
 using AsyncNode = eglt::AsyncNode;
 
 // A custom data type: a user with a name and an email.
@@ -28,7 +28,7 @@ struct User {
 };
 
 absl::Status EgltAssignInto(const User& user, Chunk* chunk) {
-  chunk->metadata = eglt::base::ChunkMetadata{
+  chunk->metadata = eglt::ChunkMetadata{
       .mimetype = "application/x-eglt;User",
       .timestamp = absl::Now(),
   };

@@ -35,7 +35,7 @@ double kDelayBetweenWords = 0.1;
 // Simply some type aliases to make the code more readable.
 using Action = eglt::Action;
 using ActionRegistry = eglt::ActionRegistry;
-using Chunk = eglt::base::Chunk;
+using Chunk = eglt::Chunk;
 using Service = eglt::Service;
 
 std::string ToLower(std::string_view text);

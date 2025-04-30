@@ -251,19 +251,19 @@ inline absl::Status EgltAssignInto(std::string string, Chunk* chunk) {
 
 }  // namespace base
 
-constexpr base::Chunk EndOfStream() {
-  return base::Chunk{
-      .metadata = base::ChunkMetadata{.mimetype = kMimetypeBytes},
-      .data = "",
-  };
-}
-
 using ChunkMetadata = base::ChunkMetadata;
 using Chunk = base::Chunk;
 using NodeFragment = base::NodeFragment;
 using NamedParameter = base::NamedParameter;
 using ActionMessage = base::ActionMessage;
 using SessionMessage = base::SessionMessage;
+
+constexpr Chunk EndOfStream() {
+  return Chunk{
+      .metadata = ChunkMetadata{.mimetype = kMimetypeBytes},
+      .data = "",
+  };
+}
 
 }  // namespace eglt
 

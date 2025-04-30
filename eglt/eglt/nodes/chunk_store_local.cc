@@ -96,7 +96,7 @@ LocalChunkStore& LocalChunkStore::operator=(LocalChunkStore&& other) noexcept {
   return *this;
 }
 
-absl::StatusOr<base::Chunk> LocalChunkStore::GetImmediately(int seq_id) {
+absl::StatusOr<Chunk> LocalChunkStore::GetImmediately(int seq_id) {
   concurrency::MutexLock lock(&mutex_);
   if (!chunks_.contains(seq_id)) {
     return absl::NotFoundError(absl::StrCat("Chunk not found: ", seq_id));
@@ -104,7 +104,7 @@ absl::StatusOr<base::Chunk> LocalChunkStore::GetImmediately(int seq_id) {
   return chunks_.at(seq_id);
 }
 
-absl::StatusOr<base::Chunk> LocalChunkStore::PopImmediately(int seq_id) {
+absl::StatusOr<Chunk> LocalChunkStore::PopImmediately(int seq_id) {
   concurrency::MutexLock lock(&mutex_);
   if (!chunks_.contains(seq_id)) {
     return absl::NotFoundError(absl::StrCat("Chunk not found: ", seq_id));
@@ -189,7 +189,7 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, absl::Duration timeout) {
 }
 
 absl::StatusOr<int> LocalChunkStore::WriteToImmediateStore(int seq_id,
-                                                           base::Chunk chunk) {
+                                                           Chunk chunk) {
   arrival_order_to_seq_id_[write_offset_] = seq_id;
   chunks_[seq_id] = std::move(chunk);
 

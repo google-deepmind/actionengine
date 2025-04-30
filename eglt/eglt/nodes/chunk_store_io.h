@@ -58,7 +58,7 @@ class ChunkStoreReader {
 
   template <typename T>
   std::optional<T> Next() {
-    auto chunk = Next<base::Chunk>();
+    auto chunk = Next<Chunk>();
     if (!chunk.has_value()) {
       return std::nullopt;
     }
@@ -78,8 +78,7 @@ class ChunkStoreReader {
   }
 
  private:
-  absl::StatusOr<std::optional<std::pair<int, base::Chunk>>> NextInternal()
-      const;
+  absl::StatusOr<std::optional<std::pair<int, Chunk>>> NextInternal() const;
 
   void RunPrefetchLoop();
 
@@ -99,8 +98,7 @@ class ChunkStoreReader {
   const absl::Duration timeout_;
 
   std::unique_ptr<concurrency::Fiber> fiber_;
-  std::unique_ptr<
-      concurrency::Channel<std::optional<std::pair<int, base::Chunk>>>>
+  std::unique_ptr<concurrency::Channel<std::optional<std::pair<int, Chunk>>>>
       buffer_;
   int total_chunks_read_ = 0;
 
@@ -109,11 +107,11 @@ class ChunkStoreReader {
 };
 
 template <>
-inline std::optional<std::pair<int, base::Chunk>> ChunkStoreReader::Next() {
+inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next() {
   if (fiber_ == nullptr) {
     Run().IgnoreError();
   }
-  std::optional<std::pair<int, base::Chunk>> seq_and_chunk;
+  std::optional<std::pair<int, Chunk>> seq_and_chunk;
   bool ok;
   const int selected = concurrency::SelectUntil(
       absl::Now() + timeout_,
@@ -133,8 +131,8 @@ inline std::optional<std::pair<int, base::Chunk>> ChunkStoreReader::Next() {
 }
 
 template <>
-inline std::optional<base::Chunk> ChunkStoreReader::Next() {
-  auto seq_and_chunk = Next<std::pair<int, base::Chunk>>();
+inline std::optional<Chunk> ChunkStoreReader::Next() {
+  auto seq_and_chunk = Next<std::pair<int, Chunk>>();
   if (!seq_and_chunk.has_value()) {
     return std::nullopt;
   }
@@ -200,13 +198,13 @@ class ChunkStoreWriter {
   template <typename T>
   absl::StatusOr<int> Put(T value, int seq = -1, bool final = false)
       ABSL_LOCKS_EXCLUDED(mutex_) {
-    return Put(ConvertTo<base::Chunk>(std::move(value)), seq, final);
+    return Put(ConvertTo<Chunk>(std::move(value)), seq, final);
   }
 
   // putting a chunk is considered a base case, therefore the definition is
   // inside the class body.
   template <>
-  absl::StatusOr<int> Put(base::Chunk value, int seq, bool final)
+  absl::StatusOr<int> Put(Chunk value, int seq, bool final)
       ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     if (!accepts_puts_) {
@@ -222,7 +220,7 @@ class ChunkStoreWriter {
 
     EnsureWriteLoop();
     max_seq_put_ = std::max(max_seq_put_, written_seq);
-    if (!buffer_->GetWriter()->WriteUnlessCancelled(base::NodeFragment{
+    if (!buffer_->GetWriter()->WriteUnlessCancelled(NodeFragment{
             .chunk = std::move(value),
             .seq = written_seq,
             .continued = !(final || value.IsNull()),
@@ -240,7 +238,7 @@ class ChunkStoreWriter {
 
   template <typename T>
   friend ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, T value) {
-    writer.Put(ConvertTo<base::Chunk>(std::move(value))).IgnoreError();
+    writer.Put(ConvertTo<Chunk>(std::move(value))).IgnoreError();
     return writer;
   }
 
@@ -270,16 +268,14 @@ class ChunkStoreWriter {
   int total_chunks_written_ = 0;
 
   std::unique_ptr<concurrency::Fiber> fiber_ ABSL_GUARDED_BY(mutex_);
-  std::unique_ptr<concurrency::Channel<std::optional<base::NodeFragment>>>
-      buffer_;
+  std::unique_ptr<concurrency::Channel<std::optional<NodeFragment>>> buffer_;
   absl::Status status_ ABSL_GUARDED_BY(mutex_);
 
   mutable concurrency::Mutex mutex_;
 };
 
 template <>
-inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
-                                    base::Chunk value) {
+inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, Chunk value) {
   bool continued = true;
   if (value.IsNull()) {
     continued = false;

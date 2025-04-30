@@ -34,7 +34,7 @@ namespace eglt {
 class NodeMap;
 
 absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream* stream,
-                                          base::NodeFragment&& fragment);
+                                          NodeFragment&& fragment);
 
 class AsyncNode {
  public:
@@ -51,16 +51,16 @@ class AsyncNode {
 
   template <typename T>
   auto Put(T value, int seq_id = -1, bool final = false) -> absl::Status {
-    return Put(ConvertTo<base::Chunk>(std::move(value)), seq_id, final);
+    return Put(ConvertTo<Chunk>(std::move(value)), seq_id, final);
   }
 
   // .Put methods for Chunk and NodeFragment are considered base cases for the
   // template method, therefore are defined here in the class body.
   template <>
-  auto Put(base::Chunk value, int seq_id, bool final) -> absl::Status;
+  auto Put(Chunk value, int seq_id, bool final) -> absl::Status;
 
   template <>
-  auto Put(base::NodeFragment value, int seq_id, bool final) -> absl::Status {
+  auto Put(NodeFragment value, int seq_id, bool final) -> absl::Status {
     bool explicitly_final = !value.continued && value.seq != -1;
     bool chunk_is_null = value.chunk.has_value() && value.chunk->IsNull();
 
@@ -96,7 +96,7 @@ class AsyncNode {
     return default_reader_->Next<T>();
   }
 
-  auto WaitForCompletion() -> absl::StatusOr<std::vector<base::Chunk>>;
+  auto WaitForCompletion() -> absl::StatusOr<std::vector<Chunk>>;
   auto GetReader() -> ChunkStoreReader&;
   auto GetReaderStatus() const -> absl::Status;
   [[nodiscard]] auto MakeReader(bool ordered = false,
@@ -119,9 +119,8 @@ class AsyncNode {
 
   auto EnsureWriter(int n_chunks_to_buffer = -1) -> void;
 
-  auto PutFragment(base::NodeFragment fragment, int seq_id = -1)
-      -> absl::Status;
-  auto PutChunk(base::Chunk chunk, int seq_id = -1, bool final = false)
+  auto PutFragment(NodeFragment fragment, int seq_id = -1) -> absl::Status;
+  auto PutChunk(Chunk chunk, int seq_id = -1, bool final = false)
       -> absl::Status;
 
   NodeMap* node_map_ = nullptr;
@@ -140,7 +139,7 @@ class AsyncNode {
 // -----------------------------------------------------------------------------
 template <typename T>
 AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
-  std::optional<base::Chunk> chunk;
+  std::optional<Chunk> chunk;
   node >> chunk;
 
   if (!chunk.has_value()) {
@@ -162,9 +161,8 @@ AsyncNode& operator<<(AsyncNode& node, T value) {
 
 // Concrete instantiation for the operator>> for Chunk.
 template <>
-inline AsyncNode& operator>>(AsyncNode& node,
-                             std::optional<base::Chunk>& value) {
-  auto next_chunk_or_status = node.StatusOrNext<base::Chunk>();
+inline AsyncNode& operator>>(AsyncNode& node, std::optional<Chunk>& value) {
+  auto next_chunk_or_status = node.StatusOrNext<Chunk>();
   if (!next_chunk_or_status.ok()) {
     LOG(ERROR) << "Failed to get next chunk: " << next_chunk_or_status.status();
     return node;
@@ -201,14 +199,14 @@ std::shared_ptr<AsyncNode>& operator>>(std::shared_ptr<AsyncNode>& node,
 // -----------------------------------------------------------------------------
 /// @private
 template <>
-inline AsyncNode& operator<<(AsyncNode& node, base::NodeFragment value) {
+inline AsyncNode& operator<<(AsyncNode& node, NodeFragment value) {
   node.Put(std::move(value)).IgnoreError();
   return node;
 }
 
 /// @private
 template <>
-inline AsyncNode& operator<<(AsyncNode& node, base::Chunk value) {
+inline AsyncNode& operator<<(AsyncNode& node, Chunk value) {
   node.Put(std::move(value), /*seq_id=*/-1, /*final=*/false).IgnoreError();
   return node;
 }

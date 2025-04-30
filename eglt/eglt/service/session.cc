@@ -77,7 +77,7 @@ void Session::DispatchFrom(base::EvergreenStream* stream) {
   dispatch_tasks_.emplace(stream, std::move(task));
 }
 
-absl::Status Session::DispatchMessage(base::SessionMessage message,
+absl::Status Session::DispatchMessage(SessionMessage message,
                                       base::EvergreenStream* stream) {
   absl::Status status;
   for (auto& node_fragment : message.node_fragments) {

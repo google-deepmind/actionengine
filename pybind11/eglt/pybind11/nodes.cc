@@ -67,19 +67,19 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
            py::arg_v("chunk_store_factory", py::none()))
       .def(
           "put_fragment",
-          [](const std::shared_ptr<AsyncNode>& self,
-             base::NodeFragment fragment, int seq_id = -1) {
+          [](const std::shared_ptr<AsyncNode>& self, NodeFragment fragment,
+             int seq_id = -1) {
             if (const absl::Status status =
                     self->Put(std::move(fragment), seq_id);
                 !status.ok()) {
               throw py::value_error(status.ToString());
             }
           },
-          py::arg_v("fragment", base::NodeFragment()), py::arg_v("seq_id", -1),
+          py::arg_v("fragment", NodeFragment()), py::arg_v("seq_id", -1),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "put_chunk",
-          [](const std::shared_ptr<AsyncNode>& self, base::Chunk chunk,
+          [](const std::shared_ptr<AsyncNode>& self, Chunk chunk,
              int seq_id = -1, bool final = false) {
             if (const absl::Status status =
                     self->Put(std::move(chunk), seq_id, final);
@@ -87,9 +87,9 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
               throw py::value_error(status.ToString());
             }
           },
-          py::arg_v("chunk", base::Chunk()), py::arg_v("seq_id", -1),
+          py::arg_v("chunk", Chunk()), py::arg_v("seq_id", -1),
           py::arg_v("final", false), py::call_guard<py::gil_scoped_release>())
-      .def("next_chunk", &AsyncNode::Next<base::Chunk>,
+      .def("next_chunk", &AsyncNode::Next<Chunk>,
            py::call_guard<py::gil_scoped_release>())
       .def("get_id",
            [](const std::shared_ptr<AsyncNode>& self) { return self->GetId(); })

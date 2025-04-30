@@ -21,7 +21,7 @@
 namespace eglt {
 
 auto ChunkStore::Get(int seq_id, absl::Duration timeout)
-    -> absl::StatusOr<base::Chunk> {
+    -> absl::StatusOr<Chunk> {
   if (auto status = this->WaitForSeqId(seq_id, timeout); !status.ok()) {
     return status;
   }
@@ -29,8 +29,7 @@ auto ChunkStore::Get(int seq_id, absl::Duration timeout)
   return this->GetImmediately(seq_id);
 }
 
-absl::StatusOr<base::Chunk> ChunkStore::Pop(int seq_id,
-                                            absl::Duration timeout) {
+absl::StatusOr<Chunk> ChunkStore::Pop(int seq_id, absl::Duration timeout) {
   if (auto status = this->WaitForSeqId(seq_id, timeout); !status.ok()) {
     return status;
   }
@@ -38,7 +37,7 @@ absl::StatusOr<base::Chunk> ChunkStore::Pop(int seq_id,
   return this->PopImmediately(seq_id);
 }
 
-absl::Status ChunkStore::Put(int seq_id, base::Chunk chunk, bool final) {
+absl::Status ChunkStore::Put(int seq_id, Chunk chunk, bool final) {
   int final_seq_id = this->GetFinalSeqId();
 
   concurrency::MutexLock lock(&mutex_);

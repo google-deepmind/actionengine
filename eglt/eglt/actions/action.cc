@@ -34,25 +34,25 @@ void ActionRegistry::Register(std::string_view name,
   handlers_[name] = handler;
 }
 
-base::ActionMessage ActionRegistry::MakeActionMessage(
+ActionMessage ActionRegistry::MakeActionMessage(
     const std::string_view name, const std::string_view id) const {
   const ActionDefinition& def = eglt::FindOrDie(definitions_, name);
 
-  std::vector<base::NamedParameter> inputs;
+  std::vector<NamedParameter> inputs;
   inputs.reserve(def.inputs.size());
   for (auto& input : def.inputs) {
-    inputs.push_back(base::NamedParameter{
-        .name = input.name, .id = absl::StrCat(id, "#", input.name)});
+    inputs.push_back(NamedParameter{.name = input.name,
+                                    .id = absl::StrCat(id, "#", input.name)});
   }
 
-  std::vector<base::NamedParameter> outputs;
+  std::vector<NamedParameter> outputs;
   outputs.reserve(def.outputs.size());
   for (auto& output : def.outputs) {
-    outputs.push_back(base::NamedParameter{
-        .name = output.name, .id = absl::StrCat(id, "#", output.name)});
+    outputs.push_back(NamedParameter{.name = output.name,
+                                     .id = absl::StrCat(id, "#", output.name)});
   }
 
-  return base::ActionMessage{
+  return ActionMessage{
       .name = def.name,
       .inputs = inputs,
       .outputs = outputs,
@@ -76,27 +76,27 @@ AsyncNode* Action::GetNode(const std::string_view id) const {
   return node_map_->Get(id);
 }
 
-base::ActionMessage Action::GetActionMessage() const {
+ActionMessage Action::GetActionMessage() const {
   auto def = GetDefinition();
 
   // TODO(hpnkv): add action id to the action message, or figure out how to get
   //   it from the action without implicit coding into input/output names.
 
-  std::vector<base::NamedParameter> inputs;
+  std::vector<NamedParameter> inputs;
   inputs.reserve(def.inputs.size());
   for (auto& [name, _] : def.inputs) {
     inputs.push_back(
-        base::NamedParameter{.name = name, .id = absl::StrCat(id_, "#", name)});
+        NamedParameter{.name = name, .id = absl::StrCat(id_, "#", name)});
   }
 
-  std::vector<base::NamedParameter> outputs;
+  std::vector<NamedParameter> outputs;
   outputs.reserve(def.outputs.size());
   for (auto& [name, _] : def.outputs) {
     outputs.push_back(
-        base::NamedParameter{.name = name, .id = absl::StrCat(id_, "#", name)});
+        NamedParameter{.name = name, .id = absl::StrCat(id_, "#", name)});
   }
 
-  return base::ActionMessage{
+  return {
       .name = def.name,
       .inputs = inputs,
       .outputs = outputs,
@@ -115,9 +115,11 @@ Action::Action(ActionDefinition def, ActionHandler handler,
   id_ = id.empty() ? GenerateUUID4() : std::string(id);
 }
 
-std::unique_ptr<Action> Action::FromActionMessage(
-    const base::ActionMessage& action, ActionRegistry* registry,
-    NodeMap* node_map, base::EvergreenStream* stream, Session* session) {
+std::unique_ptr<Action> Action::FromActionMessage(const ActionMessage& action,
+                                                  ActionRegistry* registry,
+                                                  NodeMap* node_map,
+                                                  base::EvergreenStream* stream,
+                                                  Session* session) {
   const auto inputs = action.inputs;
   const auto outputs = action.outputs;
 

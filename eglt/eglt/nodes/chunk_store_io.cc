@@ -35,7 +35,7 @@ ChunkStoreReader::ChunkStoreReader(ChunkStore* chunk_store, bool ordered,
       n_chunks_to_buffer_(n_chunks_to_buffer),
       timeout_(timeout),
       buffer_(std::make_unique<
-              concurrency::Channel<std::optional<std::pair<int, base::Chunk>>>>(
+              concurrency::Channel<std::optional<std::pair<int, Chunk>>>>(
           n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {}
 
 ChunkStoreReader::~ChunkStoreReader() {
@@ -61,7 +61,7 @@ absl::Status ChunkStoreReader::Run() {
   return status_;
 }
 
-absl::StatusOr<std::optional<std::pair<int, base::Chunk>>>
+absl::StatusOr<std::optional<std::pair<int, Chunk>>>
 ChunkStoreReader::NextInternal() const {
   if (chunk_store_ == nullptr) {
     return absl::FailedPreconditionError(
@@ -109,7 +109,7 @@ void ChunkStoreReader::RunPrefetchLoop() {
       break;
     }
 
-    std::optional<base::Chunk> next_chunk;
+    std::optional<Chunk> next_chunk;
     int next_seq_id = -1;
     if (ordered_) {
       // TODO(hpnkv): investigate why readers wait past the final seq id
@@ -170,9 +170,9 @@ ChunkStoreWriter::ChunkStoreWriter(ChunkStore* chunk_store,
                                    int n_chunks_to_buffer)
     : chunk_store_(chunk_store),
       n_chunks_to_buffer_(n_chunks_to_buffer),
-      buffer_(std::make_unique<
-              concurrency::Channel<std::optional<base::NodeFragment>>>(
-          n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {}
+      buffer_(
+          std::make_unique<concurrency::Channel<std::optional<NodeFragment>>>(
+              n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {}
 
 ChunkStoreWriter::~ChunkStoreWriter() {
   TerminateSafely();
@@ -200,7 +200,7 @@ void ChunkStoreWriter::RunWriteLoop() {
       break;
     }
 
-    std::optional<base::NodeFragment> next_fragment;
+    std::optional<NodeFragment> next_fragment;
     bool ok;
 
     if (concurrency::Select({buffer_->GetReader()->OnRead(&next_fragment, &ok),

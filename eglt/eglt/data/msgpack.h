@@ -17,33 +17,31 @@ inline void CppackFromBytes(absl::Time& obj, cppack::Unpacker& unpacker) {
   obj = absl::FromUnixMicros(time);
 }
 
-inline void CppackToBytes(const eglt::base::ChunkMetadata& obj,
+inline void CppackToBytes(const eglt::ChunkMetadata& obj,
                           cppack::Packer& packer) {
   packer(obj.mimetype);
   packer(obj.timestamp);
 }
 
-inline void CppackFromBytes(eglt::base::ChunkMetadata& obj,
+inline void CppackFromBytes(eglt::ChunkMetadata& obj,
                             cppack::Unpacker& unpacker) {
   unpacker(obj.mimetype);
   unpacker(obj.timestamp);
 }
 
-inline void CppackToBytes(const eglt::base::Chunk& obj,
-                          cppack::Packer& packer) {
+inline void CppackToBytes(const eglt::Chunk& obj, cppack::Packer& packer) {
   packer(obj.metadata);
   packer(obj.ref);
   packer(obj.data);
 }
 
-inline void CppackFromBytes(eglt::base::Chunk& obj,
-                            cppack::Unpacker& unpacker) {
+inline void CppackFromBytes(eglt::Chunk& obj, cppack::Unpacker& unpacker) {
   unpacker(obj.metadata);
   unpacker(obj.ref);
   unpacker(obj.data);
 }
 
-inline void CppackToBytes(const eglt::base::NodeFragment& obj,
+inline void CppackToBytes(const eglt::NodeFragment& obj,
                           cppack::Packer& packer) {
   packer(obj.chunk);
   packer(obj.continued);
@@ -51,7 +49,7 @@ inline void CppackToBytes(const eglt::base::NodeFragment& obj,
   packer(obj.seq);
 }
 
-inline void CppackFromBytes(eglt::base::NodeFragment& obj,
+inline void CppackFromBytes(eglt::NodeFragment& obj,
                             cppack::Unpacker& unpacker) {
   unpacker(obj.chunk);
   unpacker(obj.continued);
@@ -59,19 +57,19 @@ inline void CppackFromBytes(eglt::base::NodeFragment& obj,
   unpacker(obj.seq);
 }
 
-inline void CppackToBytes(const eglt::base::NamedParameter& obj,
+inline void CppackToBytes(const eglt::NamedParameter& obj,
                           cppack::Packer& packer) {
   packer(obj.name);
   packer(obj.id);
 }
 
-inline void CppackFromBytes(eglt::base::NamedParameter& obj,
+inline void CppackFromBytes(eglt::NamedParameter& obj,
                             cppack::Unpacker& unpacker) {
   unpacker(obj.name);
   unpacker(obj.id);
 }
 
-inline void CppackToBytes(const eglt::base::ActionMessage& obj,
+inline void CppackToBytes(const eglt::ActionMessage& obj,
                           cppack::Packer& packer) {
   packer(obj.id);
   packer(obj.name);
@@ -79,7 +77,7 @@ inline void CppackToBytes(const eglt::base::ActionMessage& obj,
   packer(obj.inputs);
 }
 
-inline void CppackFromBytes(eglt::base::ActionMessage& obj,
+inline void CppackFromBytes(eglt::ActionMessage& obj,
                             cppack::Unpacker& unpacker) {
   unpacker(obj.id);
   unpacker(obj.name);
@@ -87,13 +85,13 @@ inline void CppackFromBytes(eglt::base::ActionMessage& obj,
   unpacker(obj.inputs);
 }
 
-inline void CppackToBytes(const eglt::base::SessionMessage& obj,
+inline void CppackToBytes(const eglt::SessionMessage& obj,
                           cppack::Packer& packer) {
   packer(obj.node_fragments);
   packer(obj.actions);
 }
 
-inline void CppackFromBytes(eglt::base::SessionMessage& obj,
+inline void CppackFromBytes(eglt::SessionMessage& obj,
                             cppack::Unpacker& unpacker) {
   unpacker(obj.node_fragments);
   unpacker(obj.actions);

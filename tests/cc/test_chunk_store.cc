@@ -20,7 +20,7 @@ using ::absl_testing::StatusIs;
 using ::testing::ElementsAre;
 using ::testing::Eq;
 
-using eglt::base::Chunk;
+using eglt::Chunk;
 
 TEST(ChunkStoreTest, CanWriteChunks) {
   {

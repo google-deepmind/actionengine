@@ -41,7 +41,7 @@ absl::Status RunSimpleEvergreenSession(
 
   absl::Status status;
   while (true) {
-    std::optional<base::SessionMessage> message = stream->Receive();
+    std::optional<SessionMessage> message = stream->Receive();
     if (!message.has_value()) {
       break;
     }

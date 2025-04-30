@@ -46,9 +46,9 @@ class LocalChunkStore final : public ChunkStore {
   LocalChunkStore& operator=(LocalChunkStore&& other) noexcept;
 
   ABSL_LOCKS_EXCLUDED(mutex_)
-  auto GetImmediately(int seq_id) -> absl::StatusOr<base::Chunk> override;
+  auto GetImmediately(int seq_id) -> absl::StatusOr<Chunk> override;
   ABSL_LOCKS_EXCLUDED(mutex_)
-  auto PopImmediately(int seq_id) -> absl::StatusOr<base::Chunk> override;
+  auto PopImmediately(int seq_id) -> absl::StatusOr<Chunk> override;
 
   ABSL_LOCKS_EXCLUDED(mutex_)
   auto Size() -> size_t override;
@@ -69,7 +69,7 @@ class LocalChunkStore final : public ChunkStore {
 
  protected:
   ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_)
-  auto WriteToImmediateStore(int seq_id, base::Chunk chunk)
+  auto WriteToImmediateStore(int seq_id, Chunk chunk)
       -> absl::StatusOr<int> override;
 
   void NotifyWaiters(int seq_id, int arrival_offset)
@@ -85,7 +85,7 @@ class LocalChunkStore final : public ChunkStore {
 
   absl::flat_hash_map<int, int> arrival_order_to_seq_id_
       ABSL_GUARDED_BY(mutex_);
-  absl::flat_hash_map<int, base::Chunk> chunks_ ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<int, Chunk> chunks_ ABSL_GUARDED_BY(mutex_);
 
   // TODO(hpnkv): this field has to be protected, but that might require
   //   a reconsideration of the interface/implementation split.
