@@ -13,9 +13,8 @@ from evergreen.evergreen import websockets
 from evergreen.evergreen import websockets_old
 
 Action = actions.Action
-ActionDefinition = actions.ActionDefinition
+ActionSchema = actions.ActionSchema
 ActionMessage = types.ActionMessage
-ActionNode = actions.ActionNode
 ActionRegistry = actions.ActionRegistry
 
 AsyncNode = async_node.AsyncNode

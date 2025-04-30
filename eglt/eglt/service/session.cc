@@ -94,8 +94,12 @@ absl::Status Session::DispatchMessage(SessionMessage message,
     // for later: error handling
     concurrency::Detach(
         {}, [action_message = std::move(action_message), stream, this] {
-          const auto action = std::shared_ptr(Action::FromActionMessage(
-              action_message, action_registry_, node_map_, stream, this));
+          const auto action = std::shared_ptr(action_registry_->MakeAction(
+              action_message.name, action_message.id, action_message.inputs,
+              action_message.outputs));
+          action->BindNodeMap(node_map_);
+          action->BindStream(stream);
+          action->BindSession(this);
           if (const auto run_status = action->Run(); !run_status.ok()) {
             LOG(ERROR) << "Failed to run action: " << run_status;
           }

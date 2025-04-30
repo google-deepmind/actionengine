@@ -15,8 +15,6 @@
 #ifndef EGLT_UTIL_MAP_UTIL_H_
 #define EGLT_UTIL_MAP_UTIL_H_
 
-#include <utility>
-
 #include "eglt/absl_headers.h"
 
 namespace eglt {
@@ -33,7 +31,7 @@ Value& FindOrDie(absl::flat_hash_map<RecordKey, Value>& map,
 template <typename RecordKey, typename Value, typename QueryKey>
 const Value& FindOrDie(const absl::flat_hash_map<RecordKey, Value>& map,
                        const QueryKey& key) {
-  auto it = map.find(key);
+  const auto it = map.find(key);
   CHECK(it != map.end());
   return it->second;
 }

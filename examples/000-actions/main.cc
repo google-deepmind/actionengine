@@ -128,29 +128,12 @@ ActionRegistry MakeActionRegistry() {
 // just gives it back as a string, not a stream.
 // ----------------------------------------------------------------------------
 std::string CallEcho(
-    std::string_view text, const ActionRegistry& registry,
+    std::string_view text,
     const std::shared_ptr<eglt::StreamToSessionConnection>& connection) {
-  // ----------------------------------------------------------------------------
-  // Actions need these objects to function. All of them are shared_ptrs, so
-  // they can be copied around. All of them are also exposed by methods on the
-  // Action class, so we can access them from within the action handler on the
-  // server side. However, in the default implementation of the Evergreen
-  // service, the client and the server will generally NOT have syncronized
-  // node maps. However, any node fragments sent through the stream will be
-  // ingested by the other side.
-  // - Important: by default, nodes returned by .GetInput() and .GetOutput()
-  //   will have their respective streams bound to them. This means that any
-  //   data written to the stream will be made available to the other side.
-  //   This is done for convenience, but can be disabled by calling the getters
-  //   with an additional argument: .GetInput("text", /*bind_stream=*/false)
-  // ----------------------------------------------------------------------------
-  auto stream = connection->stream;
-  auto session = connection->session;
-  auto node_map = session->GetNodeMap();
 
-  // We create an action by supplying the name of the action, an empty id (it
-  // will use a random id), the node map, the stream, and the session.
-  auto echo = registry.MakeAction("echo", "", node_map, stream, session);
+  auto echo = eglt::MakeActionInConnection(*connection,
+                                           /*action_name=*/"echo",
+                                           /*action_id=*/"");
 
   // Evergreen actions are asynchronous, so we can call the action even before
   // supplying all the inputs. The server will run the action handler in a
@@ -221,12 +204,13 @@ int main(int argc, char** argv) {
   eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::sdk::WebsocketEvergreenClient client;
+  eglt::sdk::WebsocketEvergreenClient client(eglt::RunSimpleEvergreenSession,
+                                             action_registry);
   auto connection = client.Connect("localhost", port);
 
   std::string text = "test text to skip the long startup logs";
   std::cout << "Sending: " << text << std::endl;
-  auto response = CallEcho(text, action_registry, connection);
+  auto response = CallEcho(text, connection);
   std::cout << "Received: " << response << std::endl;
 
   std::cout << "This is an example with an Evergreen server and a client "
@@ -237,7 +221,7 @@ int main(int argc, char** argv) {
   while (text != "/quit") {
     std::cout << "Enter text: ";
     std::getline(std::cin, text);
-    response = CallEcho(text, action_registry, connection);
+    response = CallEcho(text, connection);
     std::cout << "Received: " << response << "\n" << std::endl;
   }
 

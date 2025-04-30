@@ -33,43 +33,28 @@ namespace eglt::pybindings {
 namespace py = ::pybind11;
 
 /// @private
-void BindActionNode(py::handle scope, std::string_view name) {
-  py::class_<ActionNode, std::shared_ptr<ActionNode>>(scope,
-                                                      std::string(name).c_str())
-      .def(py::init<>())
-      .def(MakeSameObjectRefConstructor<ActionNode>())
-      .def(py::init([](const std::string& node_name, const std::string& type) {
-             return ActionNode{.name = node_name, .type = type};
-           }),
-           py::kw_only(), py::arg("name"), py::arg("type"))
-      .def_readwrite("name", &ActionNode::name)
-      .def_readwrite("type", &ActionNode::type)
-      .def("__repr__",
-           [](const ActionNode& node) { return absl::StrCat(node); })
-      .doc() = "An Evergreen ActionNode.";
-}
-
-/// @private
-void BindActionDefinition(py::handle scope, std::string_view name) {
-  py::class_<ActionDefinition, std::shared_ptr<ActionDefinition>>(
+void BindActionSchema(py::handle scope, std::string_view name) {
+  py::class_<ActionSchema, std::shared_ptr<ActionSchema>>(
       scope, std::string(name).c_str())
       .def(py::init<>())
-      .def(MakeSameObjectRefConstructor<ActionDefinition>())
+      .def(MakeSameObjectRefConstructor<ActionSchema>())
       .def(py::init([](const std::string& action_name,
-                       const std::vector<ActionNode>& inputs,
-                       const std::vector<ActionNode>& outputs) {
-             return std::make_shared<ActionDefinition>(action_name, inputs,
-                                                       outputs);
+                       const std::vector<NameAndMimetype>& inputs,
+                       const std::vector<NameAndMimetype>& outputs) {
+             NameToMimetype input_map(inputs.begin(), inputs.end());
+             NameToMimetype output_map(outputs.begin(), outputs.end());
+             return std::make_shared<ActionSchema>(action_name, input_map,
+                                                   output_map);
            }),
            py::kw_only(), py::arg("name"),
-           py::arg_v("inputs", std::vector<ActionNode>()),
-           py::arg_v("outputs", std::vector<ActionNode>()))
-      .def_readwrite("name", &ActionDefinition::name)
-      .def_readwrite("inputs", &ActionDefinition::inputs)
-      .def_readwrite("outputs", &ActionDefinition::outputs)
+           py::arg_v("inputs", std::vector<NameAndMimetype>()),
+           py::arg_v("outputs", std::vector<NameAndMimetype>()))
+      .def_readwrite("name", &ActionSchema::name)
+      .def_readwrite("inputs", &ActionSchema::inputs)
+      .def_readwrite("outputs", &ActionSchema::outputs)
       .def("__repr__",
-           [](const ActionDefinition& def) { return absl::StrCat(def); })
-      .doc() = "An Evergreen ActionDefinition.";
+           [](const ActionSchema& def) { return absl::StrCat(def); })
+      .doc() = "An Evergreen ActionSchema.";
 }
 
 /// @private
@@ -87,8 +72,11 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<ActionRegistry>& self,
              const std::string& name, const std::string& id, NodeMap* node_map,
              base::EvergreenStream* stream, Session* session) {
-            auto action = self->MakeAction(name, id, node_map, stream, session);
-            return std::shared_ptr<Action>(std::move(action));
+            auto action = self->MakeAction(name, id);
+            action->BindNodeMap(node_map);
+            action->BindStream(stream);
+            action->BindSession(session);
+            return std::shared_ptr(std::move(action));
           },
           py::arg("name"), py::arg_v("id", ""), py::arg_v("node_map", nullptr),
           py::arg_v("stream", nullptr), py::arg_v("session", nullptr));
@@ -98,12 +86,8 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
 void BindAction(py::handle scope, std::string_view name) {
   py::class_<Action, std::shared_ptr<Action>>(scope, std::string(name).c_str())
       .def(MakeSameObjectRefConstructor<Action>())
-      .def(py::init([](ActionDefinition def, ActionHandler handler,
-                       const std::string& id = "", NodeMap* node_map = nullptr,
-                       base::EvergreenStream* stream = nullptr,
-                       Session* session = nullptr) {
-        return std::make_shared<Action>(std::move(def), std::move(handler), id,
-                                        node_map, stream, session);
+      .def(py::init([](ActionSchema schema, const std::string& id = "") {
+        return std::make_shared<Action>(std::move(schema), id);
       }))
       .def(
           "run",
@@ -124,8 +108,7 @@ void BindAction(py::handle scope, std::string_view name) {
              return ShareWithNoDeleter(action->GetStream());
            })
       .def("get_id", &Action::GetId)
-      .def("get_definition", &Action::GetDefinition,
-           py::return_value_policy::reference)
+      .def("get_schema", &Action::GetSchema, py::return_value_policy::reference)
       .def(
           "get_node",
           [](const std::shared_ptr<Action>& action, const std::string& id) {
@@ -150,11 +133,10 @@ void BindAction(py::handle scope, std::string_view name) {
           "make_action_in_same_session",
           [](const std::shared_ptr<Action>& action, const std::string& name,
              const std::string& id) {
-            auto new_action = action->MakeActionInSameSession(name, id);
-            return std::shared_ptr<Action>(std::move(new_action));
+            return std::shared_ptr(action->MakeActionInSameSession(name, id));
           },
           py::arg("name"), py::arg_v("id", ""))
-      .def("set_handler", &Action::SetHandler, py::arg("handler"));
+      .def("bind_handler", &Action::BindHandler, py::arg("handler"));
 }
 
 /// @private
@@ -162,8 +144,7 @@ py::module_ MakeActionsModule(py::module_ scope, std::string_view module_name) {
   py::module_ actions = scope.def_submodule(std::string(module_name).c_str(),
                                             "Evergreen Actions interface.");
 
-  BindActionNode(actions, "ActionNode");
-  BindActionDefinition(actions, "ActionDefinition");
+  BindActionSchema(actions, "ActionSchema");
   BindActionRegistry(actions, "ActionRegistry");
   BindAction(actions, "Action");
 

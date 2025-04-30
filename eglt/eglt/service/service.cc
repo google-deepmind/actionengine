@@ -62,9 +62,12 @@ std::unique_ptr<Action> MakeActionInConnection(
     return nullptr;
   }
 
-  return connection.session->GetActionRegistry()->MakeAction(
-      action_name, action_id, connection.session->GetNodeMap(),
-      connection.stream, connection.session);
+  auto action = connection.session->GetActionRegistry()->MakeAction(action_name,
+                                                                    action_id);
+  action->BindNodeMap(connection.session->GetNodeMap());
+  action->BindStream(connection.stream);
+  action->BindSession(connection.session);
+  return action;
 }
 
 Service::Service(ActionRegistry* action_registry,

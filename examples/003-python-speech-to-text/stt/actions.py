@@ -50,12 +50,10 @@ def make_action_registry():
   registry = evergreen.ActionRegistry()
   registry.register(
       "speech_to_text",
-      evergreen.ActionDefinition(
+      evergreen.ActionSchema(
           name="speech_to_text",
-          inputs=[
-              evergreen.ActionNode(name="speech", mimetype=BYTEARRAY_MIMETYPE)
-          ],
-          outputs=[evergreen.ActionNode(name="text", mimetype="text/plain")],
+          inputs=[("speech", BYTEARRAY_MIMETYPE)],
+          outputs=[("text", "text/plain")],
       ),
       run_speech_to_text,
   )

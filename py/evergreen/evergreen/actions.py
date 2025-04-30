@@ -48,30 +48,18 @@ def wrap_handler(handler: ActionHandler) -> ActionHandler:
     return wrap_sync_handler(handler)
 
 
-class ActionNode(actions_pybind11.ActionNode):
-
-  def __init__(self, *, name: str, mimetype: str):
-    """Constructor for ActionNode.
-
-    Args:
-      name: The name of the action node.
-      mimetype: The mimetype of the action node.
-    """
-    super().__init__(name=name, type=mimetype)
-
-
-class ActionDefinition(actions_pybind11.ActionDefinition):
-  """A definition of an Evergreen Action."""
+class ActionSchema(actions_pybind11.ActionSchema):
+  """A schema of an Evergreen Action."""
 
   # pylint: disable-next=[useless-parent-delegation]
   def __init__(
       self,
       *,
       name: str = "",
-      inputs: list[ActionNode],
-      outputs: list[ActionNode],
+      inputs: list[tuple[str, str]],
+      outputs: list[tuple[str, str]],
   ):
-    """Constructor for ActionDefinition.
+    """Constructor for ActionSchema.
 
     Args:
       name: The name of the action definition.
@@ -87,14 +75,14 @@ class ActionRegistry(actions_pybind11.ActionRegistry):
   def register(
       self,
       name: str,
-      definition: actions_pybind11.ActionDefinition,
+      schema: actions_pybind11.ActionSchema,
       handler: Any,
   ) -> None:
-    """Registers an action definition and handler."""
+    """Registers an action schema and handler."""
 
-    if not definition.name:
-      definition.name = name
-    super().register(name, definition,
+    if not schema.name:
+      schema.name = name
+    super().register(name, schema,
                      wrap_handler(handler))  # pytype: disable=attribute-error
 
   # pylint: disable-next=[useless-parent-delegation]
@@ -144,7 +132,7 @@ class Action(actions_pybind11.Action):
   # pytype: disable=name-error
   def __init__(
       self,
-      definition: ActionDefinition,
+      schema: ActionSchema,
       handler: Any,
       action_id: str = "",
       *,
@@ -155,10 +143,10 @@ class Action(actions_pybind11.Action):
     # pytype: enable=name-error
     """Constructor for Action."""
 
-    self._definition = definition
+    self._schema = schema
 
     super().__init__(
-        definition,
+        schema,
         wrap_handler(handler),
         action_id,
         node_map,
@@ -168,7 +156,7 @@ class Action(actions_pybind11.Action):
 
   def _add_python_specific_attributes(self):
     """Adds Python-specific attributes to the action."""
-    self._definition = self.get_definition()
+    self._schema = self.get_schema()
 
   async def call(self) -> None:
     """Calls the action by sending the action message to the stream."""
@@ -228,12 +216,12 @@ class Action(actions_pybind11.Action):
     """Returns the node with the given name."""
     node = None
 
-    definition = self.get_definition()
-    for param in definition.inputs:
+    schema = self.get_schema()
+    for param in schema.inputs:
       if param.name.endswith(name):
         node = self.get_input(name)
         break
-    for param in definition.outputs:
+    for param in schema.outputs:
       if param.name.endswith(name):
         node = self.get_output(name)
         break

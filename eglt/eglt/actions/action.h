@@ -29,6 +29,7 @@
 #include "eglt/nodes/async_node.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/util/map_util.h"
+#include "eglt/util/random.h"
 
 /**
  * @file
@@ -48,69 +49,94 @@ class Action;
 using ActionHandler =
     std::function<absl::Status(const std::shared_ptr<Action>&)>;
 
-struct ActionNode {
+using NameAndMimetype = std::pair<std::string, std::string>;
+using NameToMimetype = absl::flat_hash_map<std::string, std::string>;
+
+struct ActionSchema {
 
   /// @private
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const ActionNode& node) {
-    absl::Format(&sink, "ActionNode{name: %s, type: %s}", node.name, node.type);
+  friend void AbslStringify(Sink& sink, const ActionSchema& schema) {
+    std::vector<std::string> input_reprs;
+    input_reprs.reserve(schema.inputs.size());
+    for (const auto& [name, type] : schema.inputs) {
+      input_reprs.push_back(absl::StrCat(name, ":", type));
+    }
+
+    std::vector<std::string> output_reprs;
+    output_reprs.reserve(schema.outputs.size());
+    for (const auto& [name, type] : schema.outputs) {
+      output_reprs.push_back(absl::StrCat(name, ":", type));
+    }
+
+    absl::Format(&sink, "ActionSchema{name: %s, inputs: %s, outputs: %s}",
+                 schema.name, absl::StrJoin(input_reprs, ", "),
+                 absl::StrJoin(output_reprs, ", "));
   }
 
-  //! The name of the node.
-  /**
-   * By default, it takes the form of "action_id#input/output-name".
-   */
-  std::string name;
-  //! A MIME type associated with the node.
-  std::string type;
-};
+  ActionMessage GetActionMessage(std::string_view action_id) const {
+    CHECK(!action_id.empty())
+        << "Action ID cannot be empty to create a message";
 
-struct ActionDefinition {
+    std::vector<NamedParameter> input_parameters;
+    input_parameters.reserve(inputs.size());
+    for (const auto& [name, _] : inputs) {
+      input_parameters.push_back(NamedParameter{
+          .name = name,
+          .id = absl::StrCat(action_id, "#", name),
+      });
+    }
 
-  /// @private
-  template <typename Sink>
-  friend void AbslStringify(Sink& sink, const ActionDefinition& def) {
-    absl::Format(&sink, "ActionDefinition{name: %s, inputs: %s, outputs: %s}",
-                 def.name, absl::StrJoin(def.inputs, ", "),
-                 absl::StrJoin(def.outputs, ", "));
+    std::vector<NamedParameter> output_parameters;
+    output_parameters.reserve(outputs.size());
+    for (const auto& [name, _] : outputs) {
+      output_parameters.push_back(NamedParameter{
+          .name = name,
+          .id = absl::StrCat(action_id, "#", name),
+      });
+    }
+
+    return {
+        .id = std::string(action_id),
+        .name = name,
+        .inputs = input_parameters,
+        .outputs = output_parameters,
+    };
   }
 
   std::string name;
-  std::vector<ActionNode> inputs;
-  std::vector<ActionNode> outputs;
+  NameToMimetype inputs;
+  NameToMimetype outputs;
 };
 
 class ActionRegistry {
  public:
-  void Register(std::string_view name, const ActionDefinition& def,
+  void Register(std::string_view name, const ActionSchema& schema,
                 const ActionHandler& handler);
 
-  [[nodiscard]] ActionMessage MakeActionMessage(std::string_view name,
+  [[nodiscard]] ActionMessage MakeActionMessage(std::string_view action_key,
                                                 std::string_view id) const;
 
-  std::unique_ptr<Action> MakeAction(std::string_view name, std::string_view id,
-                                     NodeMap* node_map,
-                                     base::EvergreenStream* stream,
-                                     Session* session = nullptr) const;
+  std::unique_ptr<Action> MakeAction(
+      std::string_view action_key, std::string_view action_id = "",
+      std::vector<NamedParameter> inputs = {},
+      std::vector<NamedParameter> outputs = {}) const;
 
-  ActionDefinition& GetDefinition(const std::string_view name) {
-    return eglt::FindOrDie(definitions_, name);
+  [[nodiscard]] bool IsRegistered(const std::string_view name) const {
+    return schemas_.contains(name) && handlers_.contains(name);
+  }
+
+  ActionSchema& GetSchema(const std::string_view name) {
+    return eglt::FindOrDie(schemas_, name);
   }
 
   ActionHandler& GetHandler(const std::string_view name) {
     return eglt::FindOrDie(handlers_, name);
   }
 
-  absl::flat_hash_map<std::string, ActionDefinition> definitions_;
+  absl::flat_hash_map<std::string, ActionSchema> schemas_;
   absl::flat_hash_map<std::string, ActionHandler> handlers_;
-
- private:
-  [[nodiscard]] bool IsRegistered(const std::string_view name) const {
-    return definitions_.contains(name) && handlers_.contains(name);
-  }
 };
-
-class Session;
 
 //! An accessor class for an Evergreen action.
 /*!
@@ -126,43 +152,87 @@ class Action : public std::enable_shared_from_this<Action> {
    *   Constructor. Creates an action in the context given by \p node_map,
    *   \p stream, and \p session.
    *
-   * Creates an action with the given definition, handler, ID, node map, stream,
+   * Creates an action with the given schema, handler, ID, node map, stream,
    * and session. The ID is generated if not provided, and other parameters are
    * nullable, and if not provided, restrictions apply, however, it makes the
    * Action class unified for client and server-side usage.
-   * @param def
-   *   The action definition. Required to resolve input and output node types,
+   * @param schema
+   *   The action schema. Required to resolve input and output node types,
    *   as well as to create the action message on call.
-   * @param handler
-   *   The action handler. This function will be called when the action is run
-   *   server-side or manually via Run().
    * @param id
    *   The action ID. If empty, a unique ID will be generated.
-   * @param node_map
-   *   Node map to use for node access/creation. If nullptr, only
-   *   pure side effect actions are allowed.
-   * @param stream
-   *   A stream to use for sending messages and calling the action.
-   *   If nullptr, the action cannot be called, and nodes will only
-   *   be written to a local store.
-   * @param session
-   *   A pointer to the session.
+   * @param inputs
+   *   A mapping of input names to node IDs. If empty, the IDs will be generated
+   *   based on the schema.
+   * @param outputs
+   *   A mapping of output names to node IDs. If empty, the IDs will be
+   *   generated based on the schema.
    */
-  explicit Action(ActionDefinition def, ActionHandler handler,
-                  std::string_view id = "", NodeMap* node_map = nullptr,
-                  base::EvergreenStream* stream = nullptr,
-                  Session* session = nullptr);
+  explicit Action(ActionSchema schema, std::string_view id = "",
+                  std::vector<NamedParameter> inputs = {},
+                  std::vector<NamedParameter> outputs = {})
+      : schema_(std::move(schema)),
+        id_(id.empty() ? GenerateUUID4() : std::string(id)) {
+    ActionMessage message = schema_.GetActionMessage(id_);
+
+    std::vector<NamedParameter>& input_parameters =
+        inputs.empty() ? message.inputs : inputs;
+    for (const auto& [input_name, input_id] : std::move(input_parameters)) {
+      input_name_to_id_[std::move(input_name)] = std::move(input_id);
+    }
+
+    std::vector<NamedParameter>& output_parameters =
+        outputs.empty() ? message.outputs : outputs;
+    for (const auto& [output_name, output_id] : std::move(output_parameters)) {
+      output_name_to_id_[std::move(output_name)] = std::move(output_id);
+    }
+  }
+
+  explicit Action(std::string_view name, std::string_view id = "",
+                  std::vector<NamedParameter> inputs = {},
+                  std::vector<NamedParameter> outputs = {}) {
+    ActionSchema schema;
+    schema.name = name;
+    for (const auto& [input_name, _] : inputs) {
+      schema.inputs[input_name] = "*";
+    }
+    for (const auto& [output_name, _] : outputs) {
+      schema.outputs[output_name] = "*";
+    }
+    Action(std::move(schema), id, inputs, outputs);
+  }
 
   //! Makes an action message to be sent on an EvergreenStream.
   /**
    * @return
    *   The action message.
    */
-  [[nodiscard]] ActionMessage GetActionMessage() const;
+  [[nodiscard]] ActionMessage GetActionMessage() const {
+    std::vector<NamedParameter> input_parameters;
+    input_parameters.reserve(input_name_to_id_.size());
+    for (const auto& [name, id] : input_name_to_id_) {
+      input_parameters.push_back({
+          .name = name,
+          .id = id,
+      });
+    }
 
-  static std::unique_ptr<Action> FromActionMessage(
-      const ActionMessage& action, ActionRegistry* registry, NodeMap* node_map,
-      base::EvergreenStream* stream, Session* session = nullptr);
+    std::vector<NamedParameter> output_parameters;
+    output_parameters.reserve(output_name_to_id_.size());
+    for (const auto& [name, id] : output_name_to_id_) {
+      output_parameters.push_back({
+          .name = name,
+          .id = id,
+      });
+    }
+
+    return {
+        .id = id_,
+        .name = schema_.name,
+        .inputs = input_parameters,
+        .outputs = output_parameters,
+    };
+  }
 
   /**
    * @brief Gets an AsyncNode with the given \p id from the node map.
@@ -186,15 +256,11 @@ class Action : public std::enable_shared_from_this<Action> {
    *   the stream will be bound in Call(), but not Run().
    * @return
    *   A pointer to the AsyncNode of the input with the given name, or nullptr
-   *   if not on ActionDefinition.
+   *   if not on ActionSchema.
    */
   AsyncNode* GetInput(std::string_view name,
                       const std::optional<bool> bind_stream = std::nullopt) {
-    // TODO(hpnkv): just use hash maps instead of vectors
-    const auto it = std::find_if(
-        def_.inputs.begin(), def_.inputs.end(),
-        [name](const ActionNode& node) { return node.name == name; });
-    if (it == def_.inputs.end()) {
+    if (!input_name_to_id_.contains(name)) {
       return nullptr;
     }
 
@@ -217,14 +283,11 @@ class Action : public std::enable_shared_from_this<Action> {
    *   will be bound in Run() but not in Call().
    * @return
    *   A pointer to the AsyncNode of the output with the given name, or nullptr
-   *   if not on ActionDefinition.
+   *   if not on ActionSchema.
    */
   AsyncNode* GetOutput(std::string_view name,
                        const std::optional<bool> bind_stream = std::nullopt) {
-    const auto it = std::find_if(
-        def_.outputs.begin(), def_.outputs.end(),
-        [name](const ActionNode& node) { return node.name == name; });
-    if (it == def_.outputs.end()) {
+    if (!output_name_to_id_.contains(name)) {
       return nullptr;
     }
 
@@ -243,7 +306,13 @@ class Action : public std::enable_shared_from_this<Action> {
    *   The action handler. This function will be called when the action is run
    *   server-side or manually via Run().
    */
-  void SetHandler(ActionHandler handler) { handler_ = std::move(handler); }
+  void BindHandler(ActionHandler handler) { handler_ = std::move(handler); }
+
+  void BindNodeMap(NodeMap* node_map) { node_map_ = node_map; }
+
+  void BindStream(base::EvergreenStream* stream) { stream_ = stream; }
+
+  void BindSession(Session* session) { session_ = session; }
 
   /**
    * @brief
@@ -255,14 +324,19 @@ class Action : public std::enable_shared_from_this<Action> {
    * @param name
    *   The name of the action to create. It must be registered in the
    *   session's action registry.
-   * @param id
+   * @param action_id
    *   The ID of the action to create. If empty, a unique ID will be generated.
    * @return
    *   An owning pointer to the new action.
    */
   std::unique_ptr<Action> MakeActionInSameSession(
-      const std::string_view name, const std::string_view id = "") const {
-    return GetRegistry()->MakeAction(name, id, node_map_, stream_, session_);
+      const std::string_view name,
+      const std::string_view action_id = "") const {
+    auto action = GetRegistry()->MakeAction(name, action_id);
+    action->BindNodeMap(node_map_);
+    action->BindStream(stream_);
+    action->BindSession(session_);
+    return action;
   }
 
   /// Returns the action registry from the session.
@@ -273,8 +347,7 @@ class Action : public std::enable_shared_from_this<Action> {
   /// Returns the action's identifier.
   [[nodiscard]] std::string GetId() const { return id_; }
 
-  /// Returns the action's fully qualified (inputs/outputs with IDs) definition.
-  [[nodiscard]] const ActionDefinition& GetDefinition() const { return def_; }
+  [[nodiscard]] const ActionSchema& GetSchema() const { return schema_; }
 
   /**
    * @brief
@@ -336,7 +409,10 @@ class Action : public std::enable_shared_from_this<Action> {
     nodes_with_bound_streams_.clear();
   }
 
-  ActionDefinition def_;
+  ActionSchema schema_;
+  absl::flat_hash_map<std::string, std::string> input_name_to_id_;
+  absl::flat_hash_map<std::string, std::string> output_name_to_id_;
+
   ActionHandler handler_;
   std::string id_;
 
