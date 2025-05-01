@@ -59,10 +59,7 @@ class ChunkStoreReader {
   template <typename T>
   std::optional<T> Next() {
     auto chunk = Next<Chunk>();
-    if (!chunk.has_value()) {
-      return std::nullopt;
-    }
-    if (chunk->IsNull()) {
+    if (!chunk.has_value() || chunk->IsNull()) {
       return std::nullopt;
     }
     return ConvertTo<T>(*std::move(chunk));

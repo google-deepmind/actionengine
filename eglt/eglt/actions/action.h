@@ -74,7 +74,8 @@ struct ActionSchema {
                  absl::StrJoin(output_reprs, ", "));
   }
 
-  ActionMessage GetActionMessage(std::string_view action_id) const {
+  [[nodiscard]] ActionMessage GetActionMessage(
+      std::string_view action_id) const {
     CHECK(!action_id.empty())
         << "Action ID cannot be empty to create a message";
 
@@ -117,7 +118,7 @@ class ActionRegistry {
   [[nodiscard]] ActionMessage MakeActionMessage(std::string_view action_key,
                                                 std::string_view id) const;
 
-  std::unique_ptr<Action> MakeAction(
+  [[nodiscard]] std::unique_ptr<Action> MakeAction(
       std::string_view action_key, std::string_view action_id = "",
       std::vector<NamedParameter> inputs = {},
       std::vector<NamedParameter> outputs = {}) const;
@@ -126,11 +127,13 @@ class ActionRegistry {
     return schemas_.contains(name) && handlers_.contains(name);
   }
 
-  ActionSchema& GetSchema(const std::string_view name) {
+  [[nodiscard]] const ActionSchema& GetSchema(
+      const std::string_view name) const {
     return eglt::FindOrDie(schemas_, name);
   }
 
-  ActionHandler& GetHandler(const std::string_view name) {
+  [[nodiscard]] const ActionHandler& GetHandler(
+      const std::string_view name) const {
     return eglt::FindOrDie(handlers_, name);
   }
 
@@ -177,13 +180,13 @@ class Action : public std::enable_shared_from_this<Action> {
 
     std::vector<NamedParameter>& input_parameters =
         inputs.empty() ? message.inputs : inputs;
-    for (const auto& [input_name, input_id] : std::move(input_parameters)) {
+    for (auto& [input_name, input_id] : std::move(input_parameters)) {
       input_name_to_id_[std::move(input_name)] = std::move(input_id);
     }
 
     std::vector<NamedParameter>& output_parameters =
         outputs.empty() ? message.outputs : outputs;
-    for (const auto& [output_name, output_id] : std::move(output_parameters)) {
+    for (auto& [output_name, output_id] : std::move(output_parameters)) {
       output_name_to_id_[std::move(output_name)] = std::move(output_id);
     }
   }
@@ -199,7 +202,20 @@ class Action : public std::enable_shared_from_this<Action> {
     for (const auto& [output_name, _] : outputs) {
       schema.outputs[output_name] = "*";
     }
-    Action(std::move(schema), id, inputs, outputs);
+    *this =
+        Action(std::move(schema), id, std::move(inputs), std::move(outputs));
+  }
+
+  ~Action() {
+    if (node_map_ == nullptr) {
+      return;
+    }
+    for (const auto& [input_name, input_id] : input_name_to_id_) {
+      node_map_->Extract(input_id).reset();
+    }
+    for (const auto& [output_name, output_id] : output_name_to_id_) {
+      node_map_->Extract(output_id).reset();
+    }
   }
 
   //! Makes an action message to be sent on an EvergreenStream.
@@ -287,7 +303,7 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   AsyncNode* GetOutput(std::string_view name,
                        const std::optional<bool> bind_stream = std::nullopt) {
-    if (!output_name_to_id_.contains(name)) {
+    if (!output_name_to_id_.contains(name) && name != "__status__") {
       return nullptr;
     }
 

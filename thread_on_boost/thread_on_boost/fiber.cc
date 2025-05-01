@@ -67,16 +67,16 @@ class WorkerThreadPool {
   }
 
   void Schedule(boost::fibers::context* ctx) {
-    const size_t worker_idx =
+    MutexLock lock(&mutex_);
+    size_t worker_idx =
         worker_idx_.fetch_add(1, std::memory_order_relaxed) % workers_.size();
-    schedulers_[worker_idx]->attach_worker_context(ctx);
 
-    if (schedulers_[worker_idx] ==
-        boost::fibers::context::active()->get_scheduler()) {
-      schedulers_[worker_idx]->schedule(ctx);
-    } else {
-      schedulers_[worker_idx]->schedule_from_remote(ctx);
+    while (schedulers_[worker_idx] ==
+           boost::fibers::context::active()->get_scheduler()) {
+      worker_idx = Rand32() % workers_.size();
     }
+    schedulers_[worker_idx]->attach_worker_context(ctx);
+    schedulers_[worker_idx]->schedule_from_remote(ctx);
   }
 
   static WorkerThreadPool& Instance() {
@@ -92,13 +92,17 @@ class WorkerThreadPool {
     std::thread thread;
   };
 
+  Mutex mutex_;
   std::atomic<size_t> worker_idx_{0};
   absl::InlinedVector<Worker, 16> workers_;
   absl::InlinedVector<boost::fibers::scheduler*, 16> schedulers_;
 };
 
 static absl::once_flag kInitWorkerThreadPoolFlag;
+
 static void InitWorkerThreadPool() {
+  boost::fibers::use_scheduling_algorithm<boost::fibers::algo::shared_work>(
+      false);
   WorkerThreadPool::Instance();
 }
 
@@ -123,13 +127,13 @@ void Fiber::Start() {
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.
-  context_ = boost::fibers::make_worker_context_with_properties(
+  const auto context = boost::fibers::make_worker_context_with_properties(
       boost::fibers::launch::post, new FiberProperties(this),
       boost::fibers::make_stack_allocator_wrapper<
           boost::fibers::default_stack>(),
       absl::bind_front(&Fiber::Body, this));
 
-  WorkerThreadPool::Instance().Schedule(context_.get());
+  WorkerThreadPool::Instance().Schedule(context.get());
 }
 
 void Fiber::Body() {
@@ -148,8 +152,8 @@ Fiber::~Fiber() {
   CHECK_EQ(JOINED, state_) << "F " << this << " attempting to destroy an "
                            << "unjoined Fiber.  (Did you forget to Join() "
                            << "on a child?)";
-  CHECK(context_ == nullptr)
-      << "Fiber::Join() must be called before destroying a fiber.";
+  // CHECK(context_ == nullptr)
+  //     << "Fiber::Join() must be called before destroying a fiber.";
   DCHECK(children_.empty());
 
   DVLOG(2) << "F " << this << " destroyed";
@@ -266,10 +270,6 @@ void Fiber::MarkJoined() {
 
 void Fiber::InternalJoin() {
   Select({joinable_.OnEvent()});
-  // if (context_ != nullptr) {
-  //   context_->detach();
-  // }
-  context_.reset();
   MarkJoined();
 }
 

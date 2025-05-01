@@ -95,12 +95,6 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
       return status_;
     }
 
-    if (!message.node_fragments.empty() &&
-        message.node_fragments[0].chunk->metadata.mimetype == "text/plain") {
-      DLOG(INFO) << absl::StrFormat("WESt %s Sending message: %v", id_,
-                                    message);
-    }
-
     auto message_bytes = cppack::Pack(std::move(message));
 
     boost::system::error_code error;

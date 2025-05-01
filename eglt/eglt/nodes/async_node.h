@@ -70,7 +70,7 @@ class AsyncNode {
     return PutFragment(std::move(value), seq_id);
   }
 
-  auto GetWriter() -> ChunkStoreWriter&;
+  ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mutex_);
   auto GetWriterStatus() const -> absl::Status;
 
   [[nodiscard]] auto GetId() const -> std::string {
@@ -79,10 +79,10 @@ class AsyncNode {
 
   template <typename T>
   auto StatusOrNext() -> absl::StatusOr<std::optional<T>> {
-    EnsureReader();
-    auto next = default_reader_->Next<T>();
-    if (!default_reader_->GetStatus().ok()) {
-      return default_reader_->GetStatus();
+    ChunkStoreReader& reader = GetReader();
+    auto next = reader.Next<T>();
+    if (absl::Status status = reader.GetStatus(); !status.ok()) {
+      return status;
     }
     if (!next.has_value()) {
       return std::nullopt;
@@ -97,7 +97,7 @@ class AsyncNode {
   }
 
   auto WaitForCompletion() -> absl::StatusOr<std::vector<Chunk>>;
-  auto GetReader() -> ChunkStoreReader&;
+  ChunkStoreReader& GetReader() ABSL_LOCKS_EXCLUDED(mutex_);
   auto GetReaderStatus() const -> absl::Status;
   [[nodiscard]] auto MakeReader(bool ordered = false,
                                 bool remove_chunks = false,
@@ -115,9 +115,9 @@ class AsyncNode {
 
  private:
   auto EnsureReader(bool ordered = false, bool remove_chunks = false,
-                    int n_chunks_to_buffer = -1) -> void;
+                    int n_chunks_to_buffer = -1) -> ChunkStoreReader*;
 
-  auto EnsureWriter(int n_chunks_to_buffer = -1) -> void;
+  auto EnsureWriter(int n_chunks_to_buffer = -1) -> ChunkStoreWriter*;
 
   auto PutFragment(NodeFragment fragment, int seq_id = -1) -> absl::Status;
   auto PutChunk(Chunk chunk, int seq_id = -1, bool final = false)
@@ -126,8 +126,9 @@ class AsyncNode {
   NodeMap* node_map_ = nullptr;
   std::unique_ptr<ChunkStore> chunk_store_;
 
-  std::unique_ptr<ChunkStoreReader> default_reader_;
-  std::unique_ptr<ChunkStoreWriter> default_writer_;
+  mutable concurrency::Mutex mutex_;
+  std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mutex_);
+  std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mutex_);
   base::EvergreenStream* writer_stream_ = nullptr;
 };
 

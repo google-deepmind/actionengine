@@ -38,6 +38,7 @@ namespace eglt {
 class LocalChunkStore final : public ChunkStore {
  public:
   LocalChunkStore();
+  ~LocalChunkStore() override;
 
   LocalChunkStore(const LocalChunkStore& other);
   LocalChunkStore& operator=(const LocalChunkStore& other);
@@ -91,6 +92,8 @@ class LocalChunkStore final : public ChunkStore {
   //   a reconsideration of the interface/implementation split.
   int final_seq_id_ = -1;
   int write_offset_ ABSL_GUARDED_BY(mutex_) = 0;
+
+  bool joined_ ABSL_GUARDED_BY(mutex_) = false;
 };
 
 }  // namespace eglt

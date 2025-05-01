@@ -11,33 +11,6 @@
 
 namespace thread {
 
-// TODO(pjt): if we ever see contention on last_rand32 we'll want to make this
-// per-thread or per-cpu.
-static std::atomic<int32_t> last_rand32;
-static absl::once_flag init_rand32_once;
-
-static void InitRand32() {
-  // GoogleOnceInit is an acquire barrier on remote-cpus.
-  uint32_t seed = absl::Uniform<uint32_t>(absl::BitGen());
-  // Avoid 0 which generates a sequence of 0s.
-  if (seed == 0)
-    seed = 1;
-  last_rand32.store(seed, std::memory_order_release);
-}
-
-// Pseudo-random number generator using Linear Shift Feedback Register (LSFB)
-static uint32_t Rand32() {
-  // Primitive polynomial: x^32+x^22+x^2+x^1+1
-  static const uint32_t poly = (1 << 22) | (1 << 2) | (1 << 1) | (1 << 0);
-
-  absl::call_once(init_rand32_once, InitRand32);
-  uint32_t r = last_rand32.load(std::memory_order_relaxed);
-  r = (r << 1) ^
-      ((static_cast<int32_t>(r) >> 31) & poly);  // shift sign-extends
-  last_rand32.store(r, std::memory_order_relaxed);
-  return r;
-}
-
 // Block until a case has been picked or the deadline passes. If deadline is
 // a nullptr, block until a case has been picked. Returns whether a case
 // was picked before the deadline passed.

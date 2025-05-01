@@ -249,6 +249,34 @@ inline absl::Status EgltAssignInto(std::string string, Chunk* chunk) {
   return absl::OkStatus();
 }
 
+inline absl::Status EgltAssignInto(const Chunk& chunk, absl::Status* status) {
+  if (chunk.metadata.mimetype != "__status__") {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Invalid mimetype: ", chunk.metadata.mimetype));
+  }
+  if (chunk.data.empty()) {
+    return absl::InvalidArgumentError(absl::StrCat("Empty data: ", chunk.data));
+  }
+  std::string message;
+  int raw_code = static_cast<uint8_t>(chunk.data[0]);
+  if (chunk.data.size() > 1) {
+    message = chunk.data.substr(1);
+  }
+
+  *status = absl::Status(static_cast<absl::StatusCode>(raw_code), message);
+  return absl::OkStatus();
+}
+
+inline absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk) {
+  chunk->metadata = ChunkMetadata{
+      .mimetype = "__status__",
+      .timestamp = absl::Now(),
+  };
+  chunk->data =
+      absl::StrCat(static_cast<uint8_t>(status.raw_code()), status.message());
+  return absl::OkStatus();
+}
+
 }  // namespace base
 
 using ChunkMetadata = base::ChunkMetadata;

@@ -53,7 +53,7 @@ class ChunkStore {
 
   virtual auto Size() -> size_t = 0;
   virtual bool Contains(int seq_id) = 0;
-  virtual void NotifyAllWaiters() = 0;
+  virtual void NotifyAllWaiters() ABSL_LOCKS_EXCLUDED(event_mutex_) = 0;
 
   void SetNodeId(std::string_view id) { node_id_ = id; }
   std::string GetNodeId() const { return node_id_; }
@@ -64,13 +64,14 @@ class ChunkStore {
       -> absl::Status = 0;
   virtual auto WaitForArrivalOffset(int arrival_offset, absl::Duration timeout)
       -> absl::Status = 0;
-  // TODO (pnkv): add a method to wait for finalisation
+  // TODO (hpnkv): add a method to wait for finalisation
 
  protected:
   virtual auto WriteToImmediateStore(int seq_id, Chunk chunk)
       -> absl::StatusOr<int> = 0;
 
-  virtual void NotifyWaiters(int seq_id, int arrival_offset) = 0;
+  virtual void NotifyWaiters(int seq_id, int arrival_offset)
+      ABSL_LOCKS_EXCLUDED(event_mutex_) = 0;
 
   virtual void SetFinalSeqId(int final_seq_id) = 0;
 

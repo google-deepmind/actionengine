@@ -274,17 +274,18 @@ void ChunkStoreWriter::RunWriteLoop() {
 }
 
 void ChunkStoreWriter::TerminateSafely() {
-  std::unique_ptr<concurrency::Fiber> fiber;
+  concurrency::Fiber* fiber = nullptr;
   {
     concurrency::MutexLock lock(&mutex_);
-    SafelyCloseBuffer();
-    fiber = std::move(fiber_);
-    fiber_ = nullptr;
+    if (fiber_ == nullptr) {
+      return;
+    }
+    fiber = fiber_.get();
   }
-  if (fiber != nullptr) {
-    fiber->Cancel();
-    concurrency::JoinOptimally(fiber.get());
-  }
+  fiber->Cancel();
+  fiber->Join();
+  concurrency::MutexLock lock(&mutex_);
+  fiber_ = nullptr;
 }
 
 }  // namespace eglt

@@ -72,10 +72,13 @@ class Session {
   }
 
  private:
-  void JoinDispatchers(bool cancel = false);
+  void JoinDispatchers(bool cancel = false) ABSL_LOCKS_EXCLUDED(mutex_);
+
+  concurrency::Mutex mutex_{};
+  bool joined_ ABSL_GUARDED_BY(mutex_) = false;
   absl::flat_hash_map<base::EvergreenStream*,
                       std::unique_ptr<concurrency::Fiber>>
-      dispatch_tasks_;
+      dispatch_tasks_ ABSL_GUARDED_BY(mutex_){};
 
   NodeMap* node_map_ = nullptr;
   ActionRegistry* action_registry_ = nullptr;

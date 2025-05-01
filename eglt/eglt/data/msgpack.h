@@ -6,6 +6,19 @@
 
 namespace cppack {
 
+inline void CppackToBytes(const absl::Status& status, cppack::Packer& packer) {
+  packer(status.raw_code());
+  packer(std::string(status.message()));
+}
+
+inline void CppackFromBytes(absl::Status& status, cppack::Unpacker& unpacker) {
+  int code;
+  std::string message;
+  unpacker(code);
+  unpacker(message);
+  status = absl::Status(static_cast<absl::StatusCode>(code), message);
+}
+
 inline void CppackToBytes(const absl::Time& obj, cppack::Packer& packer) {
   const int64_t time = absl::ToUnixMicros(obj);
   packer(time);

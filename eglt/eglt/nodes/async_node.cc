@@ -53,15 +53,18 @@ AsyncNode::AsyncNode(std::string_view id, NodeMap* node_map,
   chunk_store_->SetNodeId(id);
 }
 
-AsyncNode::AsyncNode(AsyncNode&& other) noexcept
-    : node_map_(other.node_map_),
-      chunk_store_(std::move(other.chunk_store_)),
-      default_reader_(std::move(other.default_reader_)),
-      default_writer_(std::move(other.default_writer_)),
-      writer_stream_(other.writer_stream_) {
-  other.writer_stream_ = nullptr;
+AsyncNode::AsyncNode(AsyncNode&& other) noexcept {
+  concurrency::MutexLock lock(&other.mutex_);
+  node_map_ = other.node_map_;
+  chunk_store_ = std::move(other.chunk_store_);
+  default_reader_ = std::move(other.default_reader_);
+  default_writer_ = std::move(other.default_writer_);
+  writer_stream_ = other.writer_stream_;
   other.node_map_ = nullptr;
   other.chunk_store_ = nullptr;
+  other.default_reader_ = nullptr;
+  other.default_writer_ = nullptr;
+  other.writer_stream_ = nullptr;
 }
 
 AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
@@ -69,14 +72,19 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
     return *this;
   }
 
+  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+
   node_map_ = other.node_map_;
   chunk_store_ = std::move(other.chunk_store_);
   default_reader_ = std::move(other.default_reader_);
   default_writer_ = std::move(other.default_writer_);
   writer_stream_ = other.writer_stream_;
-  other.writer_stream_ = nullptr;
+
   other.node_map_ = nullptr;
   other.chunk_store_ = nullptr;
+  other.default_reader_ = nullptr;
+  other.default_writer_ = nullptr;
+  other.writer_stream_ = nullptr;
 
   return *this;
 }
@@ -130,7 +138,7 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
   // send it to the stream.
   Chunk copy_to_stream = chunk;
 
-  auto status_or_seq = default_writer_->Put(std::move(chunk), seq_id, final);
+  auto status_or_seq = GetWriter().Put(std::move(chunk), seq_id, final);
   if (!status_or_seq.ok()) {
     LOG(ERROR) << "Failed to put chunk: " << status_or_seq.status();
     return status_or_seq.status();
@@ -152,14 +160,14 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
   return absl::OkStatus();
 }
 
-ChunkStoreWriter& AsyncNode::GetWriter() {
-  EnsureWriter();
-  return *default_writer_;
+ChunkStoreWriter& AsyncNode::GetWriter() ABSL_LOCKS_EXCLUDED(mutex_) {
+  return *EnsureWriter();
 }
 
 absl::Status AsyncNode::GetWriterStatus() const {
+  concurrency::MutexLock lock(&mutex_);
   if (default_writer_ == nullptr) {
-    return absl::FailedPreconditionError("Writer is not initialized.");
+    return absl::OkStatus();
   }
   return default_writer_->GetStatus();
 }
@@ -167,11 +175,12 @@ absl::Status AsyncNode::GetWriterStatus() const {
 absl::StatusOr<std::vector<Chunk>> AsyncNode::WaitForCompletion() {
   SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
   std::vector<Chunk> chunks;
+  ChunkStoreReader& reader = GetReader();
   while (true) {
     std::optional<Chunk> next_chunk;
     *this >> next_chunk;
-    if (!default_reader_->GetStatus().ok()) {
-      return default_reader_->GetStatus();
+    if (absl::Status status = reader.GetStatus(); !status.ok()) {
+      return status;
     }
     if (!next_chunk.has_value()) {
       break;
@@ -179,17 +188,18 @@ absl::StatusOr<std::vector<Chunk>> AsyncNode::WaitForCompletion() {
     chunks.push_back(std::move(next_chunk.value()));
   }
 
+  concurrency::MutexLock lock(&mutex_);
   default_reader_ = nullptr;
 
   return chunks;
 }
 
-ChunkStoreReader& AsyncNode::GetReader() {
-  EnsureReader();
-  return *default_reader_;
+ChunkStoreReader& AsyncNode::GetReader() ABSL_LOCKS_EXCLUDED(mutex_) {
+  return *EnsureReader();
 }
 
 absl::Status AsyncNode::GetReaderStatus() const {
+  concurrency::MutexLock lock(&mutex_);
   if (default_reader_ == nullptr) {
     return absl::FailedPreconditionError("Reader is not initialized.");
   }
@@ -204,33 +214,41 @@ std::unique_ptr<ChunkStoreReader> AsyncNode::MakeReader(
 
 AsyncNode& AsyncNode::SetReaderOptions(bool ordered, bool remove_chunks,
                                        int n_chunks_to_buffer) {
-  if (default_reader_ != nullptr) {
-    LOG(WARNING)
-        << "Reader already exists on the node, changes to reader "
-           "options will be ignored. You may want to reset the reader.";
+  {
+    concurrency::MutexLock lock(&mutex_);
+    if (default_reader_ != nullptr) {
+      LOG(WARNING)
+          << "Reader already exists on the node, changes to reader "
+             "options will be ignored. You may want to reset the reader.";
+    }
   }
   EnsureReader(ordered, remove_chunks, n_chunks_to_buffer);
   return *this;
 }
 
 AsyncNode& AsyncNode::ResetReader() {
+  concurrency::MutexLock lock(&mutex_);
   default_reader_ = nullptr;
   return *this;
 }
 
-void AsyncNode::EnsureReader(bool ordered, bool remove_chunks,
-                             int n_chunks_to_buffer) {
+ChunkStoreReader* AsyncNode::EnsureReader(bool ordered, bool remove_chunks,
+                                          int n_chunks_to_buffer) {
+  concurrency::MutexLock lock(&mutex_);
   if (default_reader_ == nullptr) {
     default_reader_ = std::make_unique<ChunkStoreReader>(
         chunk_store_.get(), ordered, remove_chunks, n_chunks_to_buffer);
   }
+  return default_reader_.get();
 }
 
-void AsyncNode::EnsureWriter(int n_chunks_to_buffer) {
+ChunkStoreWriter* AsyncNode::EnsureWriter(int n_chunks_to_buffer) {
+  concurrency::MutexLock lock(&mutex_);
   if (default_writer_ == nullptr) {
     default_writer_ = std::make_unique<ChunkStoreWriter>(chunk_store_.get(),
                                                          n_chunks_to_buffer);
   }
+  return default_writer_.get();
 }
 
 }  // namespace eglt

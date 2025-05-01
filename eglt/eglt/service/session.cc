@@ -51,38 +51,52 @@ AsyncNode* Session::GetNode(
 }
 
 void Session::DispatchFrom(base::EvergreenStream* stream) {
-  if (dispatch_tasks_.contains(stream)) {
+  concurrency::MutexLock dispatch_from_lock(&mutex_);
+
+  if (stream == nullptr || dispatch_tasks_.contains(stream)) {
     return;
   }
 
-  if (stream == nullptr) {
-    return;
-  }
+  auto task = concurrency::NewTree({}, [this, stream]() {
+    while (stream != nullptr) {
+      if (auto message = stream->Receive(); message.has_value()) {
+        DispatchMessage(message.value(), stream).IgnoreError();
+      } else {
+        break;
+      }
+    }
 
-  auto task =
-      concurrency::NewTree(concurrency::TreeOptions(), [this, stream]() {
-        while (true) {
-          if (stream == nullptr) {
-            break;
-          }
+    std::unique_ptr<concurrency::Fiber> dispatcher_fiber;
+    {
+      concurrency::MutexLock lock(&mutex_);
+      if (const auto node = dispatch_tasks_.extract(stream); !node.empty()) {
+        dispatcher_fiber = std::move(node.mapped());
+      }
+      CHECK(dispatcher_fiber != nullptr)
+          << "Dispatched stream not found in session.";
+    }
 
-          auto message = stream->Receive();
-          if (!message) {
-            break;
-          }
-          DispatchMessage(message.value(), stream).IgnoreError();
-        }
-      });
+    concurrency::Detach(std::move(dispatcher_fiber));
+  });
 
   dispatch_tasks_.emplace(stream, std::move(task));
 }
 
 absl::Status Session::DispatchMessage(SessionMessage message,
                                       base::EvergreenStream* stream) {
+  concurrency::MutexLock lock(&mutex_);
+  if (joined_) {
+    return absl::FailedPreconditionError(
+        "Session has been joined, cannot dispatch messages.");
+  }
   absl::Status status;
   for (auto& node_fragment : message.node_fragments) {
     AsyncNode* node = GetNode(node_fragment.id);
-    node << std::move(node_fragment);
+    status.Update(node->Put(std::move(node_fragment)));
+    if (!status.ok()) {
+      LOG(ERROR) << "Failed to dispatch node fragment: " << status;
+      return status;
+    }
     status.Update(node->GetWriterStatus());
     if (!status.ok()) {
       LOG(ERROR) << "Failed to dispatch node fragment: " << status;
@@ -90,7 +104,6 @@ absl::Status Session::DispatchMessage(SessionMessage message,
     }
   }
   for (auto& action_message : message.actions) {
-    DLOG(INFO) << "Dispatching action message: " << action_message;
     // for later: error handling
     concurrency::Detach(
         {}, [action_message = std::move(action_message), stream, this] {
@@ -110,15 +123,18 @@ absl::Status Session::DispatchMessage(SessionMessage message,
 
 void Session::StopDispatchingFrom(base::EvergreenStream* stream) {
   std::unique_ptr<concurrency::Fiber> task;
-  if (const auto node = dispatch_tasks_.extract(stream); !node.empty()) {
-    task = std::move(node.mapped());
+  {
+    concurrency::MutexLock lock(&mutex_);
+    if (const auto node = dispatch_tasks_.extract(stream); !node.empty()) {
+      task = std::move(node.mapped());
+    }
+
+    if (task == nullptr) {
+      return;
+    }
+    task->Cancel();
   }
 
-  if (task == nullptr) {
-    return;
-  }
-
-  task->Cancel();
   task->Join();
 }
 
@@ -127,15 +143,21 @@ void Session::StopDispatchingFromAll() {
 }
 
 void Session::JoinDispatchers(bool cancel) {
+  mutex_.Lock();
+  joined_ = true;
+
   if (cancel) {
     for (auto& [_, task] : dispatch_tasks_) {
       task->Cancel();
     }
   }
   for (const auto& [_, task] : dispatch_tasks_) {
+    mutex_.Unlock();
     task->Join();
+    mutex_.Lock();
   }
-  dispatch_tasks_.clear();
+
+  mutex_.Unlock();
 }
 
 ActionRegistry* Action::GetRegistry() const {

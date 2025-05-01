@@ -122,6 +122,10 @@ inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
   return impl::SelectUntil(deadline, cases);
 }
 
+inline void Detach(std::unique_ptr<Fiber> fiber) {
+  impl::Detach(std::move(fiber));
+}
+
 inline void Detach(const TreeOptions& options,
                    absl::AnyInvocable<void()>&& fn) {
   impl::Detach(options, std::move(fn));

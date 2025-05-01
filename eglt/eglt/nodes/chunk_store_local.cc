@@ -36,6 +36,13 @@ LocalChunkStore::LocalChunkStore(const LocalChunkStore& other) {
   write_offset_ = other.write_offset_;
 }
 
+LocalChunkStore::~LocalChunkStore() {
+  // we're about to be replaced, so we should notify all waiters immediately.
+  concurrency::MutexLock lock(&mutex_);
+  joined_ = true;
+  NotifyAllWaiters();
+}
+
 LocalChunkStore& LocalChunkStore::operator=(const LocalChunkStore& other) {
   if (this == &other) {
     return *this;
@@ -44,6 +51,7 @@ LocalChunkStore& LocalChunkStore::operator=(const LocalChunkStore& other) {
   {
     // we're about to be replaced, so we should notify all waiters immediately.
     concurrency::MutexLock lock(&mutex_);
+    joined_ = true;
     NotifyAllWaiters();
   }
 
@@ -62,6 +70,7 @@ LocalChunkStore::LocalChunkStore(LocalChunkStore&& other) noexcept {
   concurrency::MutexLock lock(&other.mutex_);
   concurrency::MutexLock event_lock(&other.event_mutex_);
 
+  other.joined_ = true;
   seq_id_readable_events_ = std::move(other.seq_id_readable_events_);
   arrival_offset_readable_events_ =
       std::move(other.arrival_offset_readable_events_);
@@ -79,6 +88,7 @@ LocalChunkStore& LocalChunkStore::operator=(LocalChunkStore&& other) noexcept {
   {
     // we're about to be replaced, so we should notify all waiters immediately.
     concurrency::MutexLock lock(&mutex_);
+    joined_ = true;
     NotifyAllWaiters();
   }
 
@@ -156,6 +166,11 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, absl::Duration timeout) {
       return absl::OkStatus();
     }
 
+    if (joined_) {
+      return absl::FailedPreconditionError(absl::StrCat(
+          "Cannot wait for seq_id: ", seq_id, " on a closed chunk store."));
+    }
+
     std::unique_ptr<concurrency::PermanentEvent>& event_ptr =
         seq_id_readable_events_[seq_id];
     if (!event_ptr) {
@@ -173,6 +188,10 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, absl::Duration timeout) {
 
   int selected = concurrency::SelectUntil(
       absl::Now() + timeout, {event->OnEvent(), concurrency::OnCancel()});
+  {
+    concurrency::MutexLock event_lock(&event_mutex_);
+    seq_id_readable_events_.erase(seq_id);
+  }
   if (selected == -1) {
     return absl::DeadlineExceededError(absl::StrCat(
         "Timed out waiting for seq_id: ", seq_id, " timeout: ", timeout));
@@ -182,14 +201,21 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, absl::Duration timeout) {
         "Cancelled waiting for seq_id: ", seq_id, " timeout: ", timeout));
   }
 
-  concurrency::MutexLock event_lock(&event_mutex_);
-  seq_id_readable_events_.erase(seq_id);
+  {
+    concurrency::MutexLock data_lock(&mutex_);
+    // ReSharper disable once CppDFAConstantConditions
+    if (joined_) {
+      return absl::FailedPreconditionError(absl::StrCat(
+          "Chunk store was closed while waiting for seq_id: ", seq_id));
+    }
+  }
 
   return absl::OkStatus();
 }
 
 absl::StatusOr<int> LocalChunkStore::WriteToImmediateStore(int seq_id,
                                                            Chunk chunk) {
+  CHECK(!joined_) << "Cannot write to a closed chunk store.";
   arrival_order_to_seq_id_[write_offset_] = seq_id;
   chunks_[seq_id] = std::move(chunk);
 
@@ -225,6 +251,12 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
       return absl::OkStatus();
     }
 
+    if (joined_) {
+      return absl::FailedPreconditionError(
+          absl::StrCat("Cannot wait for arrival offset: ", arrival_offset,
+                       " on a closed chunk store."));
+    }
+
     std::unique_ptr<concurrency::PermanentEvent>& event_ptr =
         arrival_offset_readable_events_[arrival_offset];
     if (!event_ptr) {
@@ -242,6 +274,11 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
 
   int selected = concurrency::SelectUntil(
       absl::Now() + timeout, {event->OnEvent(), concurrency::OnCancel()});
+  {
+    concurrency::MutexLock event_lock(&event_mutex_);
+    arrival_offset_readable_events_.erase(arrival_offset);
+  }
+
   if (selected == -1) {
     return absl::DeadlineExceededError(
         absl::StrCat("Timed out waiting for arrival offset: ", arrival_offset,
@@ -253,8 +290,15 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
                      " timeout: ", timeout));
   }
 
-  concurrency::MutexLock event_lock(&event_mutex_);
-  arrival_offset_readable_events_.erase(arrival_offset);
+  {
+    concurrency::MutexLock data_lock(&mutex_);
+    // ReSharper disable once CppDFAConstantConditions
+    if (joined_) {
+      return absl::FailedPreconditionError(absl::StrCat(
+          "Chunk store was closed while waiting for arrival offset: ",
+          arrival_offset));
+    }
+  }
 
   return absl::OkStatus();
 }

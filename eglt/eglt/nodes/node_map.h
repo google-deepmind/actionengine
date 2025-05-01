@@ -57,6 +57,17 @@ class NodeMap {
            const ChunkStoreFactory& chunk_store_factory = {})
       -> std::vector<AsyncNode*>;
 
+  std::unique_ptr<AsyncNode> Extract(std::string_view id) {
+    std::unique_ptr<AsyncNode> node;
+    {
+      concurrency::MutexLock lock(&mutex_);
+      if (const auto map_node = nodes_.extract(id); !map_node.empty()) {
+        node = std::move(map_node.mapped());
+      }
+    }
+    return node;
+  }
+
   /// @private
   auto insert(std::string_view id, AsyncNode&& node) -> AsyncNode&;
   /// @private

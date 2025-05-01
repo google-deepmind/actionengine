@@ -58,7 +58,6 @@ async def main():
     await asyncio.sleep(0.1)
     print("Finalised speech stream.")
 
-    session.stop_dispatching_from(stream)
     stream.close()
     print("Closed the client-server stream.")
 
