@@ -43,7 +43,7 @@ class ABSL_SCOPED_LOCKABLE MutexLock {
  public:
   explicit MutexLock(Mutex* absl_nonnull mu) ABSL_EXCLUSIVE_LOCK_FUNCTION(mu)
       : mu_(mu) {
-    this->mu_->Lock();
+    mu_->Lock();
   }
 
   MutexLock(const MutexLock&) = delete;  // NOLINT(runtime/mutex)
@@ -51,7 +51,7 @@ class ABSL_SCOPED_LOCKABLE MutexLock {
   MutexLock& operator=(const MutexLock&) = delete;
   MutexLock& operator=(MutexLock&&) = delete;
 
-  ~MutexLock() ABSL_UNLOCK_FUNCTION() { this->mu_->Unlock(); }
+  ~MutexLock() ABSL_UNLOCK_FUNCTION() { mu_->Unlock(); }
 
  private:
   Mutex* absl_nonnull const mu_;

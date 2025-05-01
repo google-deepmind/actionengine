@@ -57,7 +57,7 @@ class NodeMap {
            const ChunkStoreFactory& chunk_store_factory = {})
       -> std::vector<AsyncNode*>;
 
-  std::unique_ptr<AsyncNode> Extract(std::string_view id) {
+  [[nodiscard]] std::unique_ptr<AsyncNode> Extract(std::string_view id) {
     std::unique_ptr<AsyncNode> node;
     {
       concurrency::MutexLock lock(&mutex_);

@@ -94,6 +94,9 @@ class LocalChunkStore final : public ChunkStore {
   int write_offset_ ABSL_GUARDED_BY(mutex_) = 0;
 
   bool joined_ ABSL_GUARDED_BY(mutex_) = false;
+
+  int num_waiters_ ABSL_GUARDED_BY(event_mutex_) = 0;
+  concurrency::CondVar cv_;
 };
 
 }  // namespace eglt

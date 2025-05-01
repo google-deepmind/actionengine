@@ -44,6 +44,7 @@ using Channel = impl::Channel<T>;
 using Fiber = impl::Fiber;
 using PermanentEvent = impl::PermanentEvent;
 
+using CondVar = impl::CondVar;
 using Mutex = impl::Mutex;
 using MutexLock = impl::MutexLock;
 

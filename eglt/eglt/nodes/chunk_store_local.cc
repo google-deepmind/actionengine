@@ -37,10 +37,25 @@ LocalChunkStore::LocalChunkStore(const LocalChunkStore& other) {
 }
 
 LocalChunkStore::~LocalChunkStore() {
-  // we're about to be replaced, so we should notify all waiters immediately.
+  {
+    // Ensure no new waiters are added to the chunk store.
+    concurrency::MutexLock lock(&mutex_);
+    joined_ = true;
+
+    // Notify existing waiters
+    NotifyAllWaiters();
+  }
+
+  // Wait for all waiters to finish (which they should immediately on receiving
+  // the notification).
+  event_mutex_.Lock();
+  while (num_waiters_ > 0) {
+    cv_.Wait(&event_mutex_);
+  }
+
+  // Cautiously ensure we are the only fiber that wants data access, too.
   concurrency::MutexLock lock(&mutex_);
-  joined_ = true;
-  NotifyAllWaiters();
+  event_mutex_.Unlock();
 }
 
 LocalChunkStore& LocalChunkStore::operator=(const LocalChunkStore& other) {
@@ -55,9 +70,10 @@ LocalChunkStore& LocalChunkStore::operator=(const LocalChunkStore& other) {
     NotifyAllWaiters();
   }
 
+  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+  concurrency::TwoMutexLock event_lock(&event_mutex_, &other.event_mutex_);
   // we only copy the data, not the events because it makes no sense to
   // replicate waiter state on a new object.
-  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
   arrival_order_to_seq_id_ = other.arrival_order_to_seq_id_;
   chunks_ = other.chunks_;
   final_seq_id_ = other.final_seq_id_;
@@ -70,6 +86,7 @@ LocalChunkStore::LocalChunkStore(LocalChunkStore&& other) noexcept {
   concurrency::MutexLock lock(&other.mutex_);
   concurrency::MutexLock event_lock(&other.event_mutex_);
 
+  joined_ = other.joined_;
   other.joined_ = true;
   seq_id_readable_events_ = std::move(other.seq_id_readable_events_);
   arrival_offset_readable_events_ =
@@ -173,7 +190,7 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, absl::Duration timeout) {
 
     std::unique_ptr<concurrency::PermanentEvent>& event_ptr =
         seq_id_readable_events_[seq_id];
-    if (!event_ptr) {
+    if (event_ptr == nullptr) {
       event_ptr = std::make_unique<concurrency::PermanentEvent>();
     }
     event = event_ptr.get();
@@ -184,33 +201,33 @@ absl::Status LocalChunkStore::WaitForSeqId(int seq_id, absl::Duration timeout) {
     if (event->HasBeenNotified()) {
       return absl::OkStatus();
     }
+
+    ++num_waiters_;
   }
 
   int selected = concurrency::SelectUntil(
       absl::Now() + timeout, {event->OnEvent(), concurrency::OnCancel()});
-  {
-    concurrency::MutexLock event_lock(&event_mutex_);
-    seq_id_readable_events_.erase(seq_id);
-  }
-  if (selected == -1) {
-    return absl::DeadlineExceededError(absl::StrCat(
+  absl::Status status = absl::OkStatus();
+
+  concurrency::MutexLock data_lock(&mutex_);
+  concurrency::MutexLock event_lock(&event_mutex_);
+  seq_id_readable_events_.erase(seq_id);
+
+  if (joined_) {
+    status = absl::FailedPreconditionError(absl::StrCat(
+        "Chunk store was closed while waiting for seq_id: ", seq_id));
+  } else if (selected == -1) {
+    status = absl::DeadlineExceededError(absl::StrCat(
         "Timed out waiting for seq_id: ", seq_id, " timeout: ", timeout));
-  }
-  if (selected == 1) {
-    return absl::CancelledError(absl::StrCat(
+  } else if (selected == 1) {
+    status = absl::CancelledError(absl::StrCat(
         "Cancelled waiting for seq_id: ", seq_id, " timeout: ", timeout));
   }
 
-  {
-    concurrency::MutexLock data_lock(&mutex_);
-    // ReSharper disable once CppDFAConstantConditions
-    if (joined_) {
-      return absl::FailedPreconditionError(absl::StrCat(
-          "Chunk store was closed while waiting for seq_id: ", seq_id));
-    }
-  }
+  --num_waiters_;
+  cv_.Signal();
 
-  return absl::OkStatus();
+  return status;
 }
 
 absl::StatusOr<int> LocalChunkStore::WriteToImmediateStore(int seq_id,
@@ -259,7 +276,7 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
 
     std::unique_ptr<concurrency::PermanentEvent>& event_ptr =
         arrival_offset_readable_events_[arrival_offset];
-    if (!event_ptr) {
+    if (event_ptr == nullptr) {
       event_ptr = std::make_unique<concurrency::PermanentEvent>();
     }
     event = event_ptr.get();
@@ -270,37 +287,36 @@ absl::Status LocalChunkStore::WaitForArrivalOffset(int arrival_offset,
     if (event->HasBeenNotified()) {
       return absl::OkStatus();
     }
+
+    ++num_waiters_;
   }
 
   int selected = concurrency::SelectUntil(
       absl::Now() + timeout, {event->OnEvent(), concurrency::OnCancel()});
-  {
-    concurrency::MutexLock event_lock(&event_mutex_);
-    arrival_offset_readable_events_.erase(arrival_offset);
-  }
+  absl::Status status = absl::OkStatus();
 
-  if (selected == -1) {
-    return absl::DeadlineExceededError(
+  concurrency::MutexLock data_lock(&mutex_);
+  concurrency::MutexLock event_lock(&event_mutex_);
+  arrival_offset_readable_events_.erase(arrival_offset);
+
+  if (joined_) {
+    status = absl::FailedPreconditionError(absl::StrCat(
+        "Chunk store was closed while waiting for arrival offset: ",
+        arrival_offset));
+  } else if (selected == -1) {
+    status = absl::DeadlineExceededError(
         absl::StrCat("Timed out waiting for arrival offset: ", arrival_offset,
                      " timeout: ", timeout));
-  }
-  if (selected == 1) {
-    return absl::CancelledError(
+  } else if (selected == 1) {
+    status = absl::CancelledError(
         absl::StrCat("Cancelled waiting for arrival offset: ", arrival_offset,
                      " timeout: ", timeout));
   }
 
-  {
-    concurrency::MutexLock data_lock(&mutex_);
-    // ReSharper disable once CppDFAConstantConditions
-    if (joined_) {
-      return absl::FailedPreconditionError(absl::StrCat(
-          "Chunk store was closed while waiting for arrival offset: ",
-          arrival_offset));
-    }
-  }
+  --num_waiters_;
+  cv_.Signal();
 
-  return absl::OkStatus();
+  return status;
 }
 
 int LocalChunkStore::GetSeqIdForArrivalOffset(int arrival_offset) {

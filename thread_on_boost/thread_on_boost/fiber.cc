@@ -40,6 +40,7 @@ class WorkerThreadPool {
   explicit WorkerThreadPool() = default;
 
   void Start(size_t num_threads = std::thread::hardware_concurrency()) {
+    MutexLock lock(&mutex_);
     schedulers_.resize(num_threads);
     std::latch latch(num_threads);
     for (size_t idx = 0; idx < num_threads; ++idx) {
@@ -67,16 +68,27 @@ class WorkerThreadPool {
   }
 
   void Schedule(boost::fibers::context* ctx) {
-    MutexLock lock(&mutex_);
     size_t worker_idx =
         worker_idx_.fetch_add(1, std::memory_order_relaxed) % workers_.size();
 
-    while (schedulers_[worker_idx] ==
-           boost::fibers::context::active()->get_scheduler()) {
-      worker_idx = Rand32() % workers_.size();
+    const auto active_ctx = boost::fibers::context::active();
+
+    if (!schedule_on_self_) {
+      while (schedulers_[worker_idx] == active_ctx->get_scheduler()) {
+        worker_idx = Rand32() % workers_.size();
+      }
     }
-    schedulers_[worker_idx]->attach_worker_context(ctx);
-    schedulers_[worker_idx]->schedule_from_remote(ctx);
+
+    if (schedulers_[worker_idx] == active_ctx->get_scheduler()) {
+      active_ctx->attach(ctx);
+      schedulers_[worker_idx]->schedule(ctx);
+    } else {
+      {
+        MutexLock lock(&mutex_);
+        schedulers_[worker_idx]->attach_worker_context(ctx);
+        schedulers_[worker_idx]->schedule_from_remote(ctx);
+      }
+    }
   }
 
   static WorkerThreadPool& Instance() {
@@ -91,6 +103,8 @@ class WorkerThreadPool {
   struct Worker {
     std::thread thread;
   };
+
+  bool schedule_on_self_ = true;
 
   Mutex mutex_;
   std::atomic<size_t> worker_idx_{0};
@@ -130,7 +144,7 @@ void Fiber::Start() {
   const auto context = boost::fibers::make_worker_context_with_properties(
       boost::fibers::launch::post, new FiberProperties(this),
       boost::fibers::make_stack_allocator_wrapper<
-          boost::fibers::default_stack>(),
+          boost::fibers::pooled_fixedsize_stack>(),
       absl::bind_front(&Fiber::Body, this));
 
   WorkerThreadPool::Instance().Schedule(context.get());
