@@ -92,8 +92,8 @@ class AsyncNode {
 
   template <typename T>
   auto Next() -> std::optional<T> {
-    EnsureReader();
-    return default_reader_->Next<T>();
+    ChunkStoreReader& reader = GetReader();
+    return reader.Next<T>();
   }
 
   auto WaitForCompletion() -> absl::StatusOr<std::vector<Chunk>>;
