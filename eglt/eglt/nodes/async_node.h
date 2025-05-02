@@ -54,27 +54,11 @@ class AsyncNode {
     return Put(ConvertTo<Chunk>(std::move(value)), seq_id, final);
   }
 
-  // .Put methods for Chunk and NodeFragment are considered base cases for the
-  // template method, therefore are defined here in the class body.
-  template <>
-  auto Put(Chunk value, int seq_id, bool final) -> absl::Status;
-
-  template <>
-  auto Put(NodeFragment value, int seq_id, bool final) -> absl::Status {
-    bool explicitly_final = !value.continued && value.seq != -1;
-    bool chunk_is_null = value.chunk.has_value() && value.chunk->IsNull();
-
-    // if the node fragment contains a null chunk, we make sure that it is
-    // marked as final.
-    value.continued = !explicitly_final && !chunk_is_null;
-    return PutFragment(std::move(value), seq_id);
-  }
-
   ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mutex_);
   auto GetWriterStatus() const -> absl::Status;
 
   [[nodiscard]] auto GetId() const -> std::string {
-    return chunk_store_->GetNodeId();
+    return std::string(chunk_store_->GetId());
   }
 
   template <typename T>
@@ -131,6 +115,23 @@ class AsyncNode {
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mutex_);
   base::EvergreenStream* writer_stream_ = nullptr;
 };
+
+template <>
+inline auto AsyncNode::Put<Chunk>(Chunk value, int seq_id, bool final)
+    -> absl::Status {
+  bool continued = !final && !value.IsNull();
+  return PutFragment(NodeFragment{
+      .id = std::string(chunk_store_->GetId()),
+      .chunk = std::move(value),
+      .continued = continued,
+  });
+}
+
+template <>
+inline auto AsyncNode::Put(NodeFragment value, int seq_id, bool final)
+    -> absl::Status {
+  return PutFragment(std::move(value), seq_id);
+}
 
 // -----------------------------------------------------------------------------
 // IO operators for AsyncNode. These templates have concrete instantiations for
@@ -208,7 +209,8 @@ inline AsyncNode& operator<<(AsyncNode& node, NodeFragment value) {
 /// @private
 template <>
 inline AsyncNode& operator<<(AsyncNode& node, Chunk value) {
-  node.Put(std::move(value), /*seq_id=*/-1, /*final=*/false).IgnoreError();
+  const bool final = value.IsNull();
+  node.Put(std::move(value), /*seq_id=*/-1, /*final=*/final).IgnoreError();
   return node;
 }
 
@@ -232,6 +234,15 @@ template <typename T>
 AsyncNode& operator<<(AsyncNode& node, std::pair<T, int> value) {
   auto [data_value, seq] = std::move(value);
   node.Put(std::move(data_value), seq, /*final=*/false).IgnoreError();
+  return node;
+}
+
+/// @private
+template <>
+inline AsyncNode& operator<<(AsyncNode& node, std::pair<Chunk, int> value) {
+  auto [data_value, seq] = std::move(value);
+  bool final = data_value.IsNull();
+  node.Put(std::move(data_value), seq, /*final=*/final).IgnoreError();
   return node;
 }
 

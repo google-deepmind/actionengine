@@ -29,10 +29,10 @@ TEST(ChunkStoreTest, CanWriteChunks) {
 
     writer << "Hello" << "World" << "!" << eglt::EndOfStream();
 
-    chunk_store.WaitForArrivalOffset(3, /*timeout=*/absl::InfiniteDuration())
+    chunk_store.GetByArrivalOrder(3, /*timeout=*/absl::InfiniteDuration())
         .IgnoreError();
     EXPECT_THAT(chunk_store.Size(), Eq(4));
-    EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
+    EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(3));
   }
 
   // if no explicit end of stream is written, the store should contain exactly
@@ -62,8 +62,8 @@ TEST(ChunkStoreTest, WrittenChunksAreReadable) {
 
   // Wait for all chunks to arrive.
   chunk_store
-      .WaitForArrivalOffset(static_cast<int>(words.size()),
-                            /*timeout=*/absl::InfiniteDuration())
+      .GetByArrivalOrder(static_cast<int>(words.size()),
+                         /*timeout=*/absl::InfiniteDuration())
       .IgnoreError();
 
   // Read the chunks back in order and check that they are correct.
@@ -171,16 +171,15 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
                                   /*remove_chunks=*/true);
 
     writer << "Hello" << "World" << "!" << eglt::EndOfStream();
-    chunk_store.WaitForArrivalOffset(3, /*timeout=*/absl::InfiniteDuration())
+    chunk_store.GetByArrivalOrder(3, /*timeout=*/absl::InfiniteDuration())
         .IgnoreError();
     EXPECT_THAT(chunk_store.Size(), Eq(4));
-    EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
+    EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(3));
 
     std::vector<std::string> read_words;
     reader >> read_words;
     EXPECT_OK(reader.GetStatus());
-    EXPECT_THAT(chunk_store.Size(),
-                Eq(1));  // Only the null chunk remains, and it is allowed.
+    EXPECT_THAT(chunk_store.Size(), Eq(0));
   }
 
   {

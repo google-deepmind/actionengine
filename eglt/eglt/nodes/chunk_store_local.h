@@ -22,6 +22,7 @@
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/nodes/chunk_store.h"
+#include "eglt/util/map_util.h"
 
 namespace eglt {
 
@@ -37,8 +38,13 @@ namespace eglt {
  */
 class LocalChunkStore final : public ChunkStore {
  public:
-  LocalChunkStore();
-  ~LocalChunkStore() override;
+  LocalChunkStore() : ChunkStore() {}
+
+  explicit LocalChunkStore(std::string_view id) : LocalChunkStore() {
+    SetId(id);
+  }
+
+  ~LocalChunkStore() override { ClosePutsAndAwaitPendingOperations(); }
 
   LocalChunkStore(const LocalChunkStore& other);
   LocalChunkStore& operator=(const LocalChunkStore& other);
@@ -46,57 +52,222 @@ class LocalChunkStore final : public ChunkStore {
   LocalChunkStore(LocalChunkStore&& other) noexcept;
   LocalChunkStore& operator=(LocalChunkStore&& other) noexcept;
 
-  ABSL_LOCKS_EXCLUDED(mutex_)
-  auto GetImmediately(int seq_id) -> absl::StatusOr<Chunk> override;
-  ABSL_LOCKS_EXCLUDED(mutex_)
-  auto PopImmediately(int seq_id) -> absl::StatusOr<Chunk> override;
+  absl::StatusOr<std::reference_wrapper<const Chunk>> Get(
+      int seq_id, absl::Duration timeout) const override {
+    mutex_.Lock();
+    if (chunks_.contains(seq_id)) {
+      const auto& chunk = chunks_.at(seq_id);
+      mutex_.Unlock();
+      return chunk;
+    }
 
-  ABSL_LOCKS_EXCLUDED(mutex_)
-  auto Size() -> size_t override;
-  ABSL_LOCKS_EXCLUDED(mutex_)
-  bool Contains(int seq_id) override;
+    if (no_further_puts_) {
+      mutex_.Unlock();
+      return absl::FailedPreconditionError(
+          "Cannot get chunks after the store has been closed.");
+    }
 
-  void NotifyAllWaiters() ABSL_LOCKS_EXCLUDED(event_mutex_) override;
+    absl::Status status;
+    auto wait_for_chunk = [this, seq_id, timeout, &status]() {
+      concurrency::MutexLock lock(&mutex_);
+      while (!chunks_.contains(seq_id) && !no_further_puts_ &&
+             !concurrency::Cancelled()) {
+        if (cv_.WaitWithTimeout(&mutex_, timeout)) {
+          status = absl::DeadlineExceededError(
+              absl::StrCat("Timed out waiting for seq_id: ", seq_id));
+          break;
+        }
+        if (concurrency::Cancelled()) {
+          status = absl::CancelledError(
+              absl::StrCat("Cancelled waiting for seq_id: ", seq_id));
+          break;
+        }
+        if (no_further_puts_ && !chunks_.contains(seq_id)) {
+          status = absl::FailedPreconditionError(
+              "Cannot get chunks after the store has been closed.");
+          break;
+        }
+      }
+    };
 
-  auto GetSeqIdForArrivalOffset(int arrival_offset) -> int override;
-  auto GetFinalSeqId() -> int override;
+    ++num_waiters_;
+    concurrency::Fiber fiber(std::move(wait_for_chunk));
+    mutex_.Unlock();
+    if (concurrency::Select({concurrency::OnCancel(), fiber.OnJoinable()}) ==
+        0) {
+      cv_.SignalAll();
+    }
+    fiber.Join();
 
-  ABSL_LOCKS_EXCLUDED(mutex_, event_mutex_)
-  auto WaitForSeqId(int seq_id, absl::Duration timeout)
-      -> absl::Status override;
-  ABSL_LOCKS_EXCLUDED(mutex_, event_mutex_)
-  auto WaitForArrivalOffset(int arrival_offset, absl::Duration timeout)
-      -> absl::Status override;
+    concurrency::MutexLock lock(&mutex_);
+    --num_waiters_;
+    cv_.SignalAll();
+    if (!status.ok()) {
+      return status;
+    }
+    return eglt::FindOrDie(chunks_, seq_id);
+  }
 
- protected:
-  ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_)
-  auto WriteToImmediateStore(int seq_id, Chunk chunk)
-      -> absl::StatusOr<int> override;
+  absl::StatusOr<std::reference_wrapper<const Chunk>> GetByArrivalOrder(
+      int arrival_offset, absl::Duration timeout) const override {
+    mutex_.Lock();
+    if (arrival_order_to_seq_id_.contains(arrival_offset)) {
+      const int seq_id = arrival_order_to_seq_id_.at(arrival_offset);
+      const Chunk& chunk = eglt::FindOrDie(chunks_, seq_id);
+      mutex_.Unlock();
+      return chunk;
+    }
 
-  void NotifyWaiters(int seq_id, int arrival_offset)
-      ABSL_LOCKS_EXCLUDED(event_mutex_) override;
+    if (no_further_puts_) {
+      mutex_.Unlock();
+      return absl::FailedPreconditionError(
+          "Cannot get chunks after the store has been closed.");
+    }
 
-  void SetFinalSeqId(int final_seq_id) override;
+    absl::Status status;
+    auto wait_for_chunk = [this, arrival_offset, timeout, &status]() {
+      concurrency::MutexLock lock(&mutex_);
+      while (!arrival_order_to_seq_id_.contains(arrival_offset) &&
+             !no_further_puts_ && !concurrency::Cancelled()) {
+        if (cv_.WaitWithTimeout(&mutex_, timeout)) {
+          status = absl::DeadlineExceededError(absl::StrCat(
+              "Timed out waiting for arrival offset: ", arrival_offset));
+          break;
+        }
+        if (concurrency::Cancelled()) {
+          status = absl::CancelledError(absl::StrCat(
+              "Cancelled waiting for arrival offset: ", arrival_offset));
+          break;
+        }
+        if (no_further_puts_ &&
+            !arrival_order_to_seq_id_.contains(arrival_offset)) {
+          status = absl::FailedPreconditionError(
+              "Cannot get chunks after the store has been closed.");
+          break;
+        }
+      }
+    };
+
+    ++num_waiters_;
+    concurrency::Fiber fiber(std::move(wait_for_chunk));
+    mutex_.Unlock();
+    if (concurrency::Select({concurrency::OnCancel(), fiber.OnJoinable()}) ==
+        0) {
+      cv_.SignalAll();
+    }
+    fiber.Join();
+
+    concurrency::MutexLock lock(&mutex_);
+    --num_waiters_;
+    cv_.SignalAll();
+    if (!status.ok()) {
+      return status;
+    }
+    return eglt::FindOrDie(
+        chunks_, eglt::FindOrDie(arrival_order_to_seq_id_, arrival_offset));
+  }
+
+  std::optional<Chunk> Pop(int seq_id) override {
+    concurrency::MutexLock lock(&mutex_);
+    if (const auto map_node = chunks_.extract(seq_id); map_node) {
+      const int arrival_order = seq_id_to_arrival_order_[seq_id];
+      seq_id_to_arrival_order_.erase(seq_id);
+      arrival_order_to_seq_id_.erase(arrival_order);
+      return std::move(map_node.mapped());
+    }
+
+    return std::nullopt;
+  }
+
+  absl::Status Put(int seq_id, Chunk chunk, bool final) override {
+    concurrency::MutexLock lock(&mutex_);
+
+    if (no_further_puts_) {
+      return absl::FailedPreconditionError(
+          "Cannot put chunks after the store has been closed.");
+    }
+
+    max_seq_id_ = std::max(max_seq_id_, seq_id);
+    final_seq_id_ = final ? seq_id : final_seq_id_;
+
+    arrival_order_to_seq_id_[total_chunks_put_] = seq_id;
+    seq_id_to_arrival_order_[seq_id] = total_chunks_put_;
+    chunks_[seq_id] = std::move(chunk);
+    ++total_chunks_put_;
+
+    cv_.SignalAll();
+    return absl::OkStatus();
+  }
+
+  void NoFurtherPuts() override {
+    concurrency::MutexLock lock(&mutex_);
+
+    no_further_puts_ = true;
+    if (max_seq_id_ != -1) {
+      final_seq_id_ = std::min(final_seq_id_, max_seq_id_);
+    }
+    // Notify all waiters because they will not be able to get any more chunks.
+    cv_.SignalAll();
+  }
+
+  size_t Size() override ABSL_LOCKS_EXCLUDED(mutex_) {
+    concurrency::MutexLock lock(&mutex_);
+    return chunks_.size();
+  }
+
+  bool Contains(int seq_id) override ABSL_LOCKS_EXCLUDED(mutex_) {
+    concurrency::MutexLock lock(&mutex_);
+    return chunks_.contains(seq_id);
+  }
+
+  void SetId(std::string_view id) override { id_ = id; }
+  std::string_view GetId() const override { return id_; }
+
+  int GetSeqIdForArrivalOffset(int arrival_offset) override {
+    concurrency::MutexLock lock(&mutex_);
+    if (!arrival_order_to_seq_id_.contains(arrival_offset)) {
+      return -1;
+    }
+    return arrival_order_to_seq_id_.at(arrival_offset);
+  }
+
+  int GetFinalSeqId() override {
+    concurrency::MutexLock lock(&mutex_);
+    return final_seq_id_;
+  }
 
  private:
-  absl::flat_hash_map<int, std::unique_ptr<concurrency::PermanentEvent>>
-      seq_id_readable_events_ ABSL_GUARDED_BY(event_mutex_);
-  absl::flat_hash_map<int, std::unique_ptr<concurrency::PermanentEvent>>
-      arrival_offset_readable_events_ ABSL_GUARDED_BY(event_mutex_);
+  void ClosePutsAndAwaitPendingOperations() {
+    mutex_.Lock();
 
+    no_further_puts_ = true;
+    // Notify all waiters because they will not be able to get any more chunks.
+    cv_.SignalAll();
+
+    while (num_waiters_ > 0) {
+      cv_.Wait(&mutex_);
+    }
+
+    mutex_.Unlock();
+  }
+
+  mutable concurrency::Mutex mutex_;
+
+  std::string id_;
+
+  absl::flat_hash_map<int, int> seq_id_to_arrival_order_
+      ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<int, int> arrival_order_to_seq_id_
       ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<int, Chunk> chunks_ ABSL_GUARDED_BY(mutex_);
 
-  // TODO(hpnkv): this field has to be protected, but that might require
-  //   a reconsideration of the interface/implementation split.
   int final_seq_id_ = -1;
-  int write_offset_ ABSL_GUARDED_BY(mutex_) = 0;
+  int max_seq_id_ = -1;
+  int total_chunks_put_ ABSL_GUARDED_BY(mutex_) = 0;
 
-  bool joined_ ABSL_GUARDED_BY(mutex_) = false;
-
-  int num_waiters_ ABSL_GUARDED_BY(event_mutex_) = 0;
-  concurrency::CondVar cv_;
+  mutable int num_waiters_ ABSL_GUARDED_BY(mutex_) = 0;
+  bool no_further_puts_ ABSL_GUARDED_BY(mutex_) = false;
+  mutable concurrency::CondVar cv_;
 };
 
 }  // namespace eglt

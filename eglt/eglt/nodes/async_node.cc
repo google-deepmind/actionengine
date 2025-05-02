@@ -50,7 +50,7 @@ AsyncNode::AsyncNode(std::string_view id, NodeMap* node_map,
   if (chunk_store_ == nullptr) {
     chunk_store_ = std::make_unique<LocalChunkStore>();
   }
-  chunk_store_->SetNodeId(id);
+  chunk_store_->SetId(id);
 }
 
 AsyncNode::AsyncNode(AsyncNode&& other) noexcept {
@@ -93,29 +93,20 @@ void AsyncNode::BindWriterStream(base::EvergreenStream* stream) {
   writer_stream_ = stream;
 }
 
-template <>
-auto AsyncNode::Put<Chunk>(Chunk value, int seq_id, const bool final)
-    -> absl::Status {
-  return PutFragment(NodeFragment{
-      .id = chunk_store_->GetNodeId(),
-      .chunk = std::move(value),
-      .continued = !final,
-  });
-}
-
 absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
   if (chunk_store_ == nullptr) {
     return absl::FailedPreconditionError("Chunk storage is not initialized.");
   }
 
-  const std::string node_id = chunk_store_->GetNodeId();
+  const std::string node_id(chunk_store_->GetId());
   if (!fragment.id.empty()) {
     if (fragment.id != node_id) {
-      return absl::FailedPreconditionError(absl::StrCat(
-          "Fragment id: ", fragment.id,
-          " does not match the node id: ", chunk_store_->GetNodeId()));
-    } else if (node_id.empty()) {
-      chunk_store_->SetNodeId(fragment.id);
+      return absl::FailedPreconditionError(
+          absl::StrCat("Fragment id: ", fragment.id,
+                       " does not match the node id: ", chunk_store_->GetId()));
+    }
+    if (node_id.empty()) {
+      chunk_store_->SetId(fragment.id);
     }
   }
 
@@ -146,7 +137,7 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
 
   auto stream_sending_status = SendToStreamIfNotNullAndOpen(
       writer_stream_, NodeFragment{
-                          .id = std::string(chunk_store_->GetNodeId()),
+                          .id = std::string(chunk_store_->GetId()),
                           .chunk = std::move(copy_to_stream),
                           .seq = status_or_seq.value(),
                           .continued = !final,

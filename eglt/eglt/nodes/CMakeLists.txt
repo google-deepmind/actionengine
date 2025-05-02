@@ -2,11 +2,10 @@ add_library(
         egltNodes STATIC
         async_node.cc
         async_node.h
-        chunk_store.cc
         chunk_store.h
-        chunk_store_io.cc
         chunk_store_io.h
-        chunk_store_local.cc
+        chunk_store_reader.h
+        chunk_store_writer.h
         chunk_store_local.h
         node_map.cc
         node_map.h

@@ -2,6 +2,7 @@
 
 ## Development log / to do list
 
+- [ ] (Important) Refine ChunkStoreReader status handling
 - [ ] Make final alignment of this repo with ai-action-engine-ts
 - [x] Make `thread_on_boost` work (achieve runnable ChunkStoreTest)
 - [x] Achieve multithreaded fibers (worker pool for `boost::fibers::context`s)

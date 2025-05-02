@@ -42,8 +42,7 @@ std::string ToLower(std::string_view text);
 
 absl::Status RunPrint(const std::shared_ptr<Action>& action) {
   auto text = action->GetInput("text");
-  text->SetReaderOptions(/*ordered=*/true,
-                         /*remove_chunks=*/true);
+  text->SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
 
   while (true) {
     std::optional<std::string> word = text->Next<std::string>();
@@ -63,8 +62,7 @@ absl::Status RunBidiEcho(const std::shared_ptr<Action>& action) {
   }
 
   const auto echo_input = action->GetInput("text");
-  echo_input->SetReaderOptions(/*ordered=*/true,
-                               /*remove_chunks=*/true);
+  echo_input->SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
 
   const auto print_input = print_action->GetInput("text");
 
@@ -89,7 +87,7 @@ ActionRegistry MakeActionRegistry() {
   ActionRegistry registry;
 
   registry.Register(/*name=*/"bidi_echo",
-                    /*def=*/
+                    /*schema=*/
                     {
                         .name = "bidi_echo",
                         .inputs = {{"text", "text/plain"}},
@@ -98,7 +96,7 @@ ActionRegistry MakeActionRegistry() {
                     /*handler=*/RunBidiEcho);
 
   registry.Register(/*name=*/"print_text",
-                    /*def=*/
+                    /*schema=*/
                     {
                         .name = "print_text",
                         .inputs = {{"text", "text/plain"}},
@@ -147,7 +145,7 @@ int main(int argc, char** argv) {
 
     const auto text_input = action->GetInput("text");
     std::vector<std::string> words = absl::StrSplit(prompt, ' ');
-    for (auto word : words) {
+    for (auto& word : words) {
       if (const auto status = text_input->Put(absl::StrCat(word, " "));
           !status.ok()) {
         LOG(FATAL) << "Error: " << status;

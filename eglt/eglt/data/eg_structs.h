@@ -70,7 +70,8 @@ inline std::string Indent(std::string field, int indentation = 0,
 /// Evergreen format. It includes fields for mimetype and timestamp.
 /// @headerfile eglt/data/eg_structs.h
 struct ChunkMetadata {
-  std::string mimetype;  /// The mimetype of the data in the chunk.
+  std::string mimetype =
+      kMimetypeBytes;    /// The mimetype of the data in the chunk.
   absl::Time timestamp;  /// The timestamp associated with the chunk.
 
   /// Checks if the metadata is empty.
