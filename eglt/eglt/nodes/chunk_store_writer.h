@@ -45,12 +45,15 @@ class ChunkStoreWriter {
     accepts_puts_ = true;
   }
   ~ChunkStoreWriter() {
-    concurrency::MutexLock lock(&mutex_);
-    accepts_puts_ = false;
-    if (fiber_ == nullptr) {
-      return;
+    {
+      concurrency::MutexLock lock(&mutex_);
+      accepts_puts_ = false;
+      if (fiber_ == nullptr) {
+        return;
+      }
+      fiber_->Cancel();
     }
-    fiber_->Cancel();
+
     fiber_->Join();
     fiber_ = nullptr;
   }

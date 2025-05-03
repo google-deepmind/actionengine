@@ -116,7 +116,7 @@ static absl::once_flag kInitWorkerThreadPoolFlag;
 
 static void InitWorkerThreadPool() {
   boost::fibers::use_scheduling_algorithm<boost::fibers::algo::shared_work>(
-      false);
+      true);
   WorkerThreadPool::Instance();
 }
 
@@ -131,28 +131,38 @@ Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
     DVLOG(2) << "F " << this << " joining cancelled sub-tree.";
     Cancel();
   }
-}
 
-Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
-    : work_(std::move(invocable)), parent_(nullptr) {}
-
-void Fiber::Start() {
-  absl::call_once(kInitWorkerThreadPoolFlag, InitWorkerThreadPool);
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.
-  const auto context = boost::fibers::make_worker_context_with_properties(
+  context_ = boost::fibers::make_worker_context_with_properties(
       boost::fibers::launch::post, new FiberProperties(this),
       boost::fibers::make_stack_allocator_wrapper<
           boost::fibers::pooled_fixedsize_stack>(),
       absl::bind_front(&Fiber::Body, this));
+}
 
-  WorkerThreadPool::Instance().Schedule(context.get());
+Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
+    : work_(std::move(invocable)), parent_(nullptr) {
+  // FiberProperties get destroyed when the underlying context is
+  // destroyed. We do not care about the lifetime of the raw pointer that
+  // is made here.
+  context_ = boost::fibers::make_worker_context_with_properties(
+      boost::fibers::launch::post, new FiberProperties(this),
+      boost::fibers::make_stack_allocator_wrapper<
+          boost::fibers::pooled_fixedsize_stack>(),
+      absl::bind_front(&Fiber::Body, this));
+}
+
+void Fiber::Start() {
+  absl::call_once(kInitWorkerThreadPoolFlag, InitWorkerThreadPool);
+  WorkerThreadPool::Instance().Schedule(context_.get());
 }
 
 void Fiber::Body() {
   std::move(work_)();
   work_ = nullptr;
+  auto ctx = std::move(context_);
 
   if (MarkFinished()) {
     // MarkFinished returns whether the fiber was detached when finished.

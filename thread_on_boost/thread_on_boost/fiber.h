@@ -128,6 +128,7 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   mutable Mutex mu_;
 
   Invocable work_;
+  boost::intrusive_ptr<boost::fibers::context> context_;
 
   // Whether this Fiber is self-joining. This is always set under lock, but is
   // an atomic to allow for reads during stats collection which cannot acquire

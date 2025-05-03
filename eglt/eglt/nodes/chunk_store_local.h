@@ -88,6 +88,8 @@ class LocalChunkStore final : public ChunkStore {
           break;
         }
       }
+      --num_waiters_;
+      cv_.SignalAll();
     };
 
     ++num_waiters_;
@@ -95,16 +97,16 @@ class LocalChunkStore final : public ChunkStore {
     mutex_.Unlock();
     if (concurrency::Select({concurrency::OnCancel(), fiber.OnJoinable()}) ==
         0) {
-      cv_.SignalAll();
+      {
+        concurrency::MutexLock lock(&mutex_);
+        cv_.SignalAll();
+      }
     }
     fiber.Join();
-
-    concurrency::MutexLock lock(&mutex_);
-    --num_waiters_;
-    cv_.SignalAll();
     if (!status.ok()) {
       return status;
     }
+    concurrency::MutexLock lock(&mutex_);
     return eglt::FindOrDie(chunks_, seq_id);
   }
 
@@ -146,6 +148,8 @@ class LocalChunkStore final : public ChunkStore {
           break;
         }
       }
+      --num_waiters_;
+      cv_.SignalAll();
     };
 
     ++num_waiters_;
@@ -153,16 +157,16 @@ class LocalChunkStore final : public ChunkStore {
     mutex_.Unlock();
     if (concurrency::Select({concurrency::OnCancel(), fiber.OnJoinable()}) ==
         0) {
-      cv_.SignalAll();
+      {
+        concurrency::MutexLock lock(&mutex_);
+        cv_.SignalAll();
+      }
     }
     fiber.Join();
-
-    concurrency::MutexLock lock(&mutex_);
-    --num_waiters_;
-    cv_.SignalAll();
     if (!status.ok()) {
       return status;
     }
+    concurrency::MutexLock lock(&mutex_);
     return eglt::FindOrDie(
         chunks_, eglt::FindOrDie(arrival_order_to_seq_id_, arrival_offset));
   }
@@ -238,7 +242,7 @@ class LocalChunkStore final : public ChunkStore {
 
  private:
   void ClosePutsAndAwaitPendingOperations() {
-    mutex_.Lock();
+    concurrency::MutexLock lock(&mutex_);
 
     no_further_puts_ = true;
     // Notify all waiters because they will not be able to get any more chunks.
@@ -247,8 +251,6 @@ class LocalChunkStore final : public ChunkStore {
     while (num_waiters_ > 0) {
       cv_.Wait(&mutex_);
     }
-
-    mutex_.Unlock();
   }
 
   mutable concurrency::Mutex mutex_;
@@ -267,7 +269,7 @@ class LocalChunkStore final : public ChunkStore {
 
   mutable int num_waiters_ ABSL_GUARDED_BY(mutex_) = 0;
   bool no_further_puts_ ABSL_GUARDED_BY(mutex_) = false;
-  mutable concurrency::CondVar cv_;
+  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
 };
 
 }  // namespace eglt

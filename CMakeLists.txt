@@ -25,9 +25,9 @@ set(EGLT_PYBIND11_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11)
 set(EGLT_CPPITERTOOLS_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools)
 set(EGLT_GTEST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest)
 
-add_compile_definitions(
-        BOOST_FIBERS_SPINLOCK_TTAS_FUTEX
-)
+#add_compile_definitions(
+#        BOOST_FIBERS_SPINLOCK_TTAS_FUTEX
+#)
 add_subdirectory(${EGLT_THIRD_PARTY_ROOT}/boost)
 set(
         Boost_INCLUDE_DIRS
