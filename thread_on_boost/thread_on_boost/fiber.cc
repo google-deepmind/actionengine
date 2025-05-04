@@ -136,7 +136,7 @@ Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
 
 void Fiber::Start() {
   absl::call_once(kInitWorkerThreadPoolFlag, InitWorkerThreadPool);
-  EnsureThreadHasScheduler<boost::fibers::algo::shared_work>(true);
+  EnsureThreadHasScheduler<boost::fibers::algo::round_robin>();
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.

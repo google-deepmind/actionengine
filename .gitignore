@@ -6,6 +6,7 @@ cmake-build-release/
 cmake-build-relwithdebinfo/
 
 **/.DS_Store/
+**/.DS_Store
 .idea/
 
 third_party/build_deps/*
