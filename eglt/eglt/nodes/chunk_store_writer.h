@@ -45,17 +45,18 @@ class ChunkStoreWriter {
     accepts_puts_ = true;
   }
   ~ChunkStoreWriter() {
+    std::unique_ptr<concurrency::Fiber> fiber;
     {
       concurrency::MutexLock lock(&mutex_);
       accepts_puts_ = false;
       if (fiber_ == nullptr) {
         return;
       }
-      fiber_->Cancel();
+      fiber = std::move(fiber_);
+      fiber_ = nullptr;
     }
-
-    fiber_->Join();
-    fiber_ = nullptr;
+    fiber->Cancel();
+    fiber->Join();
   }
 
   ChunkStoreWriter(const ChunkStoreWriter& other) = delete;
@@ -145,7 +146,6 @@ class ChunkStoreWriter {
           concurrency::MutexLock lock(&mutex_);
           status_ = status;
         }
-        UpdateStatus(status);
         break;
       }
 

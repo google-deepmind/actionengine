@@ -56,13 +56,17 @@ class ChunkStoreReader {
             n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {}
 
   ~ChunkStoreReader() {
-    concurrency::MutexLock lock(&mutex_);
-    if (fiber_ == nullptr) {
-      return;
+    std::unique_ptr<concurrency::Fiber> fiber;
+    {
+      concurrency::MutexLock lock(&mutex_);
+      if (fiber_ == nullptr) {
+        return;
+      }
+      fiber = std::move(fiber_);
+      fiber_ = nullptr;
     }
-    fiber_->Cancel();
-    fiber_->Join();
-    fiber_ = nullptr;
+    fiber->Cancel();
+    fiber->Join();
   }
 
   // This class is not copyable or movable.
@@ -117,21 +121,21 @@ class ChunkStoreReader {
       return chunk_or_status.status();
     }
 
-    auto chunk = *std::move(chunk_or_status);
+    auto chunk = *chunk_or_status;
     const int seq_id = chunk_store_->GetSeqIdForArrivalOffset(next_read_offset);
     if (chunk.get().IsNull()) {
       chunk_store_->Pop(seq_id);
       return std::nullopt;
     }
 
-    return std::pair(seq_id, std::move(chunk));
+    return std::pair(seq_id, chunk.get());
   }
 
   void RunPrefetchLoop() {
     while (!concurrency::Cancelled()) {
       const auto final_seq_id = chunk_store_->GetFinalSeqId();
       if (final_seq_id >= 0 && total_chunks_read_ > final_seq_id) {
-        status_ = absl::OkStatus();
+        UpdateStatus(absl::OkStatus());
         break;
       }
 
@@ -140,7 +144,7 @@ class ChunkStoreReader {
       if (ordered_) {
         auto chunk = chunk_store_->Get(total_chunks_read_, timeout_);
         if (!chunk.ok()) {
-          status_ = chunk.status();
+          UpdateStatus(chunk.status());
           return;
         }
         next_chunk = chunk.value();
@@ -148,7 +152,7 @@ class ChunkStoreReader {
       } else {
         auto next_chunk_or_status = NextInternal();
         if (!next_chunk_or_status.ok()) {
-          status_ = next_chunk_or_status.status();
+          UpdateStatus(next_chunk_or_status.status());
           return;
         }
         auto next_seq_and_chunk = next_chunk_or_status.value();
@@ -168,7 +172,7 @@ class ChunkStoreReader {
 
       // on an std::nullopt, we are done and can close the buffer.
       if (!next_chunk.has_value()) {
-        status_ = absl::OkStatus();
+        UpdateStatus(absl::OkStatus());
         break;
       }
 
@@ -184,18 +188,6 @@ class ChunkStoreReader {
   void UpdateStatus(const absl::Status& status) ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     status_ = status;
-  }
-
-  void Join(bool cancel = false) {
-    if (fiber_ == nullptr) {
-      return;
-    }
-
-    if (cancel) {
-      fiber_->Cancel();
-    }
-    concurrency::JoinOptimally(fiber_.get());
-    fiber_ = nullptr;
   }
 
   ChunkStore* const absl_nonnull chunk_store_;

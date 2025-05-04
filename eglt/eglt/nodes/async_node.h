@@ -76,8 +76,12 @@ class AsyncNode {
 
   template <typename T>
   auto Next() -> std::optional<T> {
-    ChunkStoreReader& reader = GetReader();
-    return reader.Next<T>();
+    auto status_or_next = StatusOrNext<T>();
+    if (!status_or_next.ok()) {
+      LOG(FATAL) << "Failed to get next chunk: " << status_or_next.status();
+      return std::nullopt;
+    }
+    return status_or_next.value();
   }
 
   auto WaitForCompletion() -> absl::StatusOr<std::vector<Chunk>>;

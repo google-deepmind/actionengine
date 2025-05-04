@@ -89,13 +89,25 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           },
           py::arg_v("chunk", Chunk()), py::arg_v("seq_id", -1),
           py::arg_v("final", false), py::call_guard<py::gil_scoped_release>())
-      .def("next_chunk", &AsyncNode::Next<Chunk>,
-           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "next_chunk",
+          [](const std::shared_ptr<AsyncNode>& self) {
+            return self->Next<Chunk>();
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def("get_id",
            [](const std::shared_ptr<AsyncNode>& self) { return self->GetId(); })
       .def("wait_for_completion", &AsyncNode::WaitForCompletion,
            py::call_guard<py::gil_scoped_release>())
-      .def("get_reader_status", &AsyncNode::GetReaderStatus)
+      .def(
+          "raise_reader_error_if_any",
+          [](const std::shared_ptr<AsyncNode>& self) {
+            if (const absl::Status status = self->GetReaderStatus();
+                !status.ok()) {
+              throw std::runtime_error(status.ToString());
+            }
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "set_reader_options",
           [](const std::shared_ptr<AsyncNode>& self, bool ordered = false,
@@ -104,7 +116,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
             return self;
           },
           py::arg_v("ordered", false), py::arg_v("remove_chunks", false),
-          py::arg_v("n_chunks_to_buffer", -1));
+          py::arg_v("n_chunks_to_buffer", -1),
+          py::call_guard<py::gil_scoped_release>());
 }
 
 }  // namespace eglt::pybindings

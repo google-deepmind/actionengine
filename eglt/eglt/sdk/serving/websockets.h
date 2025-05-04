@@ -140,7 +140,7 @@ class WebsocketEvergreenStream final : public base::EvergreenStream {
         }));
 
     boost::system::error_code error;
-    stream_.accept(error);
+    RunInAsioContext([this, &error]() { stream_.accept(error); });
     if (error) {
       status_ = absl::InternalError(error.message());
     }
@@ -194,8 +194,7 @@ class WebsocketEvergreenServer {
  public:
   explicit WebsocketEvergreenServer(eglt::Service* absl_nonnull service,
                                     std::string_view address = "0.0.0.0",
-                                    uint16_t port = 20000,
-                                    asio::io_context* io_context = nullptr)
+                                    uint16_t port = 20000)
       : service_(service),
         acceptor_(std::make_unique<tcp::acceptor>(GetSystemContext())) {
     boost::system::error_code error;

@@ -115,8 +115,6 @@ class WorkerThreadPool {
 static absl::once_flag kInitWorkerThreadPoolFlag;
 
 static void InitWorkerThreadPool() {
-  boost::fibers::use_scheduling_algorithm<boost::fibers::algo::shared_work>(
-      true);
   WorkerThreadPool::Instance();
 }
 
@@ -131,19 +129,14 @@ Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
     DVLOG(2) << "F " << this << " joining cancelled sub-tree.";
     Cancel();
   }
-
-  // FiberProperties get destroyed when the underlying context is
-  // destroyed. We do not care about the lifetime of the raw pointer that
-  // is made here.
-  context_ = boost::fibers::make_worker_context_with_properties(
-      boost::fibers::launch::post, new FiberProperties(this),
-      boost::fibers::make_stack_allocator_wrapper<
-          boost::fibers::pooled_fixedsize_stack>(),
-      absl::bind_front(&Fiber::Body, this));
 }
 
 Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
-    : work_(std::move(invocable)), parent_(nullptr) {
+    : work_(std::move(invocable)), parent_(nullptr) {}
+
+void Fiber::Start() {
+  absl::call_once(kInitWorkerThreadPoolFlag, InitWorkerThreadPool);
+  EnsureThreadHasScheduler<boost::fibers::algo::shared_work>(true);
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.
@@ -152,17 +145,12 @@ Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
       boost::fibers::make_stack_allocator_wrapper<
           boost::fibers::pooled_fixedsize_stack>(),
       absl::bind_front(&Fiber::Body, this));
-}
-
-void Fiber::Start() {
-  absl::call_once(kInitWorkerThreadPoolFlag, InitWorkerThreadPool);
   WorkerThreadPool::Instance().Schedule(context_.get());
 }
 
 void Fiber::Body() {
   std::move(work_)();
   work_ = nullptr;
-  auto ctx = std::move(context_);
 
   if (MarkFinished()) {
     // MarkFinished returns whether the fiber was detached when finished.
@@ -176,8 +164,6 @@ Fiber::~Fiber() {
   CHECK_EQ(JOINED, state_) << "F " << this << " attempting to destroy an "
                            << "unjoined Fiber.  (Did you forget to Join() "
                            << "on a child?)";
-  // CHECK(context_ == nullptr)
-  //     << "Fiber::Join() must be called before destroying a fiber.";
   DCHECK(children_.empty());
 
   DVLOG(2) << "F " << this << " destroyed";
@@ -195,7 +181,7 @@ Fiber* GetPerThreadFiberPtr() {
   // If we have been created through thread_on_boost API, there will be properties
   // associated with the context. We can use them to get the fiber.
   if (const FiberProperties* props =
-          static_cast<FiberProperties*>(ctx->get_properties());
+          dynamic_cast<FiberProperties*>(ctx->get_properties());
       ABSL_PREDICT_TRUE(props != nullptr)) {
     return props->GetFiber();
   }
@@ -231,6 +217,8 @@ void Fiber::Join() {
   if (parent_ != nullptr) {
     CHECK(parent_ == current_fiber) << "Join() called from non-parent fiber";
   }
+
+  context_ = nullptr;
 
   InternalJoin();
 }

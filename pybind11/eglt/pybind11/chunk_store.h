@@ -33,14 +33,33 @@ class PyChunkStore final : public ChunkStore {
 
   PyChunkStore() : ChunkStore() {}
 
-  absl::StatusOr<Chunk> GetImmediately(int seq_id) override {
-    PYBIND11_OVERRIDE_PURE_NAME(Chunk, PyChunkStore, "get_immediately",
-                                TryGetImmediately, seq_id);
+  absl::StatusOr<std::reference_wrapper<const Chunk>> Get(
+      int seq_id, absl::Duration timeout) const override {
+    PYBIND11_OVERRIDE_PURE_NAME(
+        absl::StatusOr<std::reference_wrapper<const Chunk>>, PyChunkStore,
+        "get", Get, seq_id);
   }
 
-  absl::StatusOr<Chunk> PopImmediately(int seq_id) override {
-    PYBIND11_OVERRIDE_PURE_NAME(Chunk, PyChunkStore, "pop_immediately",
-                                PopImmediately, seq_id);
+  absl::StatusOr<std::reference_wrapper<const Chunk>> GetByArrivalOrder(
+      int seq_id, absl::Duration timeout) const override {
+    PYBIND11_OVERRIDE_PURE_NAME(
+        absl::StatusOr<std::reference_wrapper<const Chunk>>, PyChunkStore,
+        "get_by_arrival_order", GetByArrivalOrder, seq_id);
+  }
+
+  std::optional<Chunk> Pop(int seq_id) override {
+    PYBIND11_OVERRIDE_PURE_NAME(std::optional<Chunk>, PyChunkStore, "pop", Pop,
+                                seq_id);
+  }
+
+  absl::Status Put(int seq_id, Chunk chunk, bool final) override {
+    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "put", Put, seq_id,
+                                chunk, final);
+  }
+
+  void NoFurtherPuts() override {
+    PYBIND11_OVERRIDE_PURE_NAME(void, PyChunkStore, "no_further_puts",
+                                NoFurtherPuts, );
   }
 
   size_t Size() override {
@@ -52,44 +71,13 @@ class PyChunkStore final : public ChunkStore {
                                 seq_id);
   }
 
-  void NotifyAllWaiters() override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyChunkStore, "notify_all_waiters",
-                                NotifyAllWaiters, );
+  void SetId(std::string_view id) override {
+    PYBIND11_OVERRIDE_PURE_NAME(void, PyChunkStore, "set_id", SetId, id);
   }
 
-  int GetFinalSeqId() override {
-    PYBIND11_OVERRIDE_PURE_NAME(int, PyChunkStore, "get_final_seq_id",
-                                GetFinalSeqId, );
-  }
-
-  absl::Status WaitForSeqId(int seq_id, absl::Duration timeout) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "wait_for_seq_id",
-                                WaitForSeqId, seq_id, timeout);
-  }
-
-  absl::StatusOr<int> WriteToImmediateStore(int seq_id, Chunk chunk) override {
-    py::gil_scoped_acquire gil;
-    const py::function function =
-        py::get_override(this, "write_to_immediate_store");
-    if (!function) {
-      PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int>, PyChunkStore,
-                                  "write_to_immediate_store",
-                                  WriteToImmediateStore, seq_id, chunk);
-    }
-    const py::object result = function(seq_id, chunk);
-    return result.cast<int>();
-  }
-
-  void NotifyWaiters(int seq_id, int arrival_offset) override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyChunkStore, "notify_waiters",
-                                NotifyWaiters, seq_id, arrival_offset);
-  }
-
-  absl::Status WaitForArrivalOffset(int arrival_offset,
-                                    absl::Duration timeout) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore,
-                                "wait_for_arrival_offset", WaitForArrivalOffset,
-                                arrival_offset, timeout);
+  [[nodiscard]] std::string_view GetId() const override {
+    PYBIND11_OVERRIDE_PURE_NAME(std::string_view, PyChunkStore, "get_id",
+                                GetId, );
   }
 
   int GetSeqIdForArrivalOffset(int arrival_offset) override {
@@ -98,9 +86,9 @@ class PyChunkStore final : public ChunkStore {
                                 GetSeqIdForArrivalOffset, arrival_offset);
   }
 
-  void SetFinalSeqId(int final_seq_id) override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyChunkStore, "set_final_seq_id",
-                                SetFinalSeqId, final_seq_id);
+  int GetFinalSeqId() override {
+    PYBIND11_OVERRIDE_PURE_NAME(int, PyChunkStore, "get_final_seq_id",
+                                GetFinalSeqId, );
   }
 };
 

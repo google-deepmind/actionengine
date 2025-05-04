@@ -66,7 +66,7 @@ class CondVar {
 
   void Wait(Mutex* absl_nonnull mu) { cv_.wait(mu->GetImpl()); }
 
-  bool WaitWithTimeout(Mutex* absl_nonnull mu, const absl::Duration timeout) {
+  bool WaitWithTimeout(Mutex* absl_nonnull mu, absl::Duration timeout) {
     return WaitWithDeadline(mu, absl::Now() + timeout);
   }
 

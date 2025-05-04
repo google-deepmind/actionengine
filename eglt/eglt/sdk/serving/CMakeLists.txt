@@ -1,6 +1,5 @@
 add_library(
         eglt_sdk_serving_websockets STATIC
-        websockets.cc
         websockets.h
 )
 add_library(eglt::sdk::serving::websockets ALIAS eglt_sdk_serving_websockets)

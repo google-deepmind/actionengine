@@ -51,35 +51,40 @@ AsyncNode* Session::GetNode(
 }
 
 void Session::DispatchFrom(base::EvergreenStream* stream) {
-  concurrency::MutexLock dispatch_from_lock(&mutex_);
+  concurrency::MutexLock lock(&mutex_);
 
-  if (stream == nullptr || dispatch_tasks_.contains(stream)) {
+  if (stream == nullptr) {
+    LOG(FATAL) << "Stream is null";
     return;
   }
 
-  auto task = concurrency::NewTree({}, [this, stream]() {
-    while (stream != nullptr) {
-      if (auto message = stream->Receive(); message.has_value()) {
-        DispatchMessage(message.value(), stream).IgnoreError();
-      } else {
-        break;
-      }
-    }
+  if (dispatch_tasks_.contains(stream)) {
+    return;
+  }
 
-    std::unique_ptr<concurrency::Fiber> dispatcher_fiber;
-    {
-      concurrency::MutexLock lock(&mutex_);
-      if (const auto node = dispatch_tasks_.extract(stream); !node.empty()) {
-        dispatcher_fiber = std::move(node.mapped());
-      }
-      CHECK(dispatcher_fiber != nullptr)
-          << "Dispatched stream not found in session.";
-    }
+  dispatch_tasks_.emplace(
+      stream, concurrency::NewTree({}, [this, stream]() {
+        while (true) {
+          if (auto message = stream->Receive(); message.has_value()) {
+            DispatchMessage(std::move(*message), stream).IgnoreError();
+          } else {
+            break;
+          }
+        }
 
-    concurrency::Detach(std::move(dispatcher_fiber));
-  });
+        std::unique_ptr<concurrency::Fiber> dispatcher_fiber;
+        {
+          concurrency::MutexLock cleanup_lock(&mutex_);
+          if (const auto node = dispatch_tasks_.extract(stream);
+              !node.empty()) {
+            dispatcher_fiber = std::move(node.mapped());
+          }
+          CHECK(dispatcher_fiber != nullptr)
+              << "Dispatched stream not found in session.";
+        }
 
-  dispatch_tasks_.emplace(stream, std::move(task));
+        concurrency::Detach(std::move(dispatcher_fiber));
+      }));
 }
 
 absl::Status Session::DispatchMessage(SessionMessage message,

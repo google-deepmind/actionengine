@@ -144,8 +144,7 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
                       });
   if (!stream_sending_status.ok()) {
     LOG(ERROR) << "Failed to send to stream: " << stream_sending_status;
-    // just log the error, do not return it, because we have already written
-    // the fragment to the fragment store.
+    return stream_sending_status;
   }
 
   return absl::OkStatus();
@@ -166,7 +165,7 @@ absl::Status AsyncNode::GetWriterStatus() const {
 absl::StatusOr<std::vector<Chunk>> AsyncNode::WaitForCompletion() {
   SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
   std::vector<Chunk> chunks;
-  ChunkStoreReader& reader = GetReader();
+  const ChunkStoreReader& reader = GetReader();
   while (true) {
     std::optional<Chunk> next_chunk;
     *this >> next_chunk;

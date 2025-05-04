@@ -115,9 +115,7 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
     """
     chunk = super().next_chunk()  # pytype: disable=attribute-error
     if chunk is None:
-      reader_status = self.get_reader_status()
-      if reader_status is not None:
-        raise reader_status
+      self.raise_reader_error_if_any()
       return None
     return chunk
 

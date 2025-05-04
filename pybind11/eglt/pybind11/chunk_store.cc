@@ -34,7 +34,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
       scope, absl::StrCat(name, "VirtualBase").c_str())
       .def("get", &ChunkStore::Get, py::arg("seq_id"), py::arg_v("timeout", -1),
            py::call_guard<py::gil_scoped_release>())
-      .def("pop", &ChunkStore::Pop, py::arg("seq_id"), py::arg_v("timeout", -1),
+      .def("pop", &ChunkStore::Pop, py::arg("seq_id"),
            py::call_guard<py::gil_scoped_release>())
       .def("put", &ChunkStore::Put)
       .def("__contains__", &ChunkStore::Contains)
@@ -43,50 +43,58 @@ void BindChunkStore(py::handle scope, std::string_view name) {
   py::class_<PyChunkStore, ChunkStore, std::shared_ptr<PyChunkStore>>(
       scope, name_str.c_str())
       .def(py::init<>(), keep_event_loop_memo())
-      // base methods
-      .def("get", &PyChunkStore::Get, py::arg("seq_id"),
-           py::arg_v("timeout", -1), py::call_guard<py::gil_scoped_release>())
-      .def("pop", &PyChunkStore::Pop, py::arg("seq_id"),
-           py::arg_v("timeout", -1), py::call_guard<py::gil_scoped_release>())
-      .def("put", &PyChunkStore::Put)
-      .def("__contains__", &ChunkStore::Contains)
-      .def("__len__", &ChunkStore::Size)
-      // virtual methods to be overridden by subclasses
-      .def("get_immediately", &PyChunkStore::GetImmediately)
-      .def("pop_immediately", &PyChunkStore::PopImmediately)
-      .def("size", &PyChunkStore::Size)
-      .def("contains", &PyChunkStore::Contains)
-      .def("notify_all_waiters", &PyChunkStore::NotifyAllWaiters)
-      .def("get_final_seq_id", &PyChunkStore::GetFinalSeqId)
       .def(
-          "wait_for_seq_id",
+          "get",
           [](const std::shared_ptr<PyChunkStore>& self, int seq_id,
-             double timeout) {
-            return self->WaitForSeqId(
-                seq_id,
-                absl::Seconds(timeout));  // Convert to absl::Duration
+             double timeout) -> const Chunk& {
+            auto result =
+                self->Get(seq_id, timeout < 0 ? absl::InfiniteDuration()
+                                              : absl::Seconds(timeout));
+            if (!result.ok()) {
+              throw std::runtime_error(std::string(result.status().message()));
+            }
+            return result.value().get();
           },
           py::arg("seq_id"), py::arg_v("timeout", -1),
           py::call_guard<py::gil_scoped_release>())
       .def(
-          "wait_for_arrival_offset",
-          [](const std::shared_ptr<PyChunkStore>& self, int arrival_offset,
-             double timeout) {
-            return self->WaitForArrivalOffset(
-                arrival_offset,
-                absl::Seconds(timeout));  // Convert to absl::Duration
+          "get_by_arrival_order",
+          [](const std::shared_ptr<PyChunkStore>& self, int seq_id,
+             double timeout) -> const Chunk& {
+            auto result = self->GetByArrivalOrder(
+                seq_id, timeout < 0 ? absl::InfiniteDuration()
+                                    : absl::Seconds(timeout));
+            if (!result.ok()) {
+              throw std::runtime_error(std::string(result.status().message()));
+            }
+            return result.value().get();
           },
-          py::arg("arrival_offset"), py::arg_v("timeout", -1),
+          py::arg("seq_id"), py::arg_v("timeout", -1),
           py::call_guard<py::gil_scoped_release>())
-      .def("write_to_immediate_store", &PyChunkStore::WriteToImmediateStore,
-           py::arg("seq_id"), py::arg("fragment"))
-      .def("notify_waiters", &PyChunkStore::NotifyWaiters,
-           py::arg_v("seq_id", -1), py::arg_v("arrival_offset", -1))
+      .def("pop", &PyChunkStore::Pop, py::arg("seq_id"),
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "put",
+          [](const std::shared_ptr<PyChunkStore>& self, int seq_id,
+             const Chunk& chunk, bool final) {
+            if (const auto status = self->Put(seq_id, chunk, final);
+                !status.ok()) {
+              throw std::runtime_error(std::string(status.message()));
+            }
+          },
+          py::arg("seq_id"), py::arg("chunk"), py::arg_v("final", false))
+      .def("no_further_puts", &PyChunkStore::NoFurtherPuts)
+      .def("size", &PyChunkStore::Size)
+      .def("contains", &PyChunkStore::Contains)
+      .def("set_id", &PyChunkStore::SetId)
+      .def("get_id", &PyChunkStore::GetId)
+      .def("get_final_seq_id", &PyChunkStore::GetFinalSeqId)
       .def("get_seq_id_for_arrival_offset",
            &PyChunkStore::GetSeqIdForArrivalOffset, py::arg("arrival_offset"),
            py::call_guard<py::gil_scoped_release>())
-      .def("set_final_seq_id", &PyChunkStore::SetFinalSeqId,
-           py::arg("final_seq_id"))
+      .def("__len__", &PyChunkStore::Size)
+      .def("__contains__", &PyChunkStore::Contains)
+
       .doc() = "An Evergreen ChunkStore interface.";
 }
 
@@ -94,15 +102,58 @@ void BindChunkStore(py::handle scope, std::string_view name) {
 void BindLocalChunkStore(py::handle scope, std::string_view name) {
   py::class_<LocalChunkStore, ChunkStore, std::shared_ptr<LocalChunkStore>>(
       scope, std::string(name).c_str())
-      .def(py::init<>())
-      .def("get_immediately", &LocalChunkStore::GetImmediately)
-      .def("try_pop_immediately", &LocalChunkStore::PopImmediately)
+      .def(py::init<>(), keep_event_loop_memo())
+      .def(
+          "get",
+          [](const std::shared_ptr<LocalChunkStore>& self, int seq_id,
+             double timeout) -> const Chunk& {
+            auto result =
+                self->Get(seq_id, timeout < 0 ? absl::InfiniteDuration()
+                                              : absl::Seconds(timeout));
+            if (!result.ok()) {
+              throw std::runtime_error(std::string(result.status().message()));
+            }
+            return result.value().get();
+          },
+          py::arg("seq_id"), py::arg_v("timeout", -1),
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "get_by_arrival_order",
+          [](const std::shared_ptr<LocalChunkStore>& self, int seq_id,
+             double timeout) -> const Chunk& {
+            auto result = self->GetByArrivalOrder(
+                seq_id, timeout < 0 ? absl::InfiniteDuration()
+                                    : absl::Seconds(timeout));
+            if (!result.ok()) {
+              throw std::runtime_error(std::string(result.status().message()));
+            }
+            return result.value().get();
+          },
+          py::arg("seq_id"), py::arg_v("timeout", -1),
+          py::call_guard<py::gil_scoped_release>())
+      .def("pop", &LocalChunkStore::Pop, py::arg("seq_id"),
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "put",
+          [](const std::shared_ptr<LocalChunkStore>& self, int seq_id,
+             const Chunk& chunk, bool final) {
+            if (const auto status = self->Put(seq_id, chunk, final);
+                !status.ok()) {
+              throw std::runtime_error(std::string(status.message()));
+            }
+          },
+          py::arg("seq_id"), py::arg("chunk"), py::arg_v("final", false))
+      .def("no_further_puts", &LocalChunkStore::NoFurtherPuts)
       .def("size", &LocalChunkStore::Size)
       .def("contains", &LocalChunkStore::Contains)
-      .def("notify_all_waiters", &LocalChunkStore::NotifyAllWaiters)
+      .def("set_id", &LocalChunkStore::SetId)
+      .def("get_id", &LocalChunkStore::GetId)
       .def("get_final_seq_id", &LocalChunkStore::GetFinalSeqId)
-      .def("wait_for_seq_id", &LocalChunkStore::WaitForSeqId, py::arg("seq_id"),
-           py::arg_v("timeout", 0), py::call_guard<py::gil_scoped_release>())
+      .def("get_seq_id_for_arrival_offset",
+           &LocalChunkStore::GetSeqIdForArrivalOffset,
+           py::arg("arrival_offset"), py::call_guard<py::gil_scoped_release>())
+      .def("__len__", &LocalChunkStore::Size)
+      .def("__contains__", &LocalChunkStore::Contains)
       .doc() = "Evergreen LocalChunkStore.";
 }
 

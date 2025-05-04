@@ -31,14 +31,6 @@ namespace eglt {
 
 absl::Status RunSimpleEvergreenSession(
     base::EvergreenStream* absl_nonnull stream, Session* absl_nonnull session) {
-  if (stream == nullptr) {
-    return absl::InvalidArgumentError("Stream is null.");
-  }
-
-  if (session == nullptr) {
-    return absl::InvalidArgumentError("Session is null.");
-  }
-
   absl::Status status;
   while (true) {
     std::optional<SessionMessage> message = stream->Receive();

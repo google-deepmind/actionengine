@@ -48,6 +48,8 @@ class Session;
 class Action;
 using ActionHandler =
     std::function<absl::Status(const std::shared_ptr<Action>&)>;
+// A type for Python and other bindings that cannot use absl::Status
+using VoidActionHandler = std::function<void(const std::shared_ptr<Action>&)>;
 
 using NameAndMimetype = std::pair<std::string, std::string>;
 using NameToMimetype = absl::flat_hash_map<std::string, std::string>;

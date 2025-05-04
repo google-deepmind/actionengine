@@ -54,119 +54,88 @@ class LocalChunkStore final : public ChunkStore {
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> Get(
       int seq_id, absl::Duration timeout) const override {
-    mutex_.Lock();
+    concurrency::MutexLock lock(&mutex_);
     if (chunks_.contains(seq_id)) {
       const auto& chunk = chunks_.at(seq_id);
-      mutex_.Unlock();
       return chunk;
     }
 
     if (no_further_puts_) {
-      mutex_.Unlock();
       return absl::FailedPreconditionError(
           "Cannot get chunks after the store has been closed.");
     }
 
     absl::Status status;
-    auto wait_for_chunk = [this, seq_id, timeout, &status]() {
-      concurrency::MutexLock lock(&mutex_);
-      while (!chunks_.contains(seq_id) && !no_further_puts_ &&
-             !concurrency::Cancelled()) {
-        if (cv_.WaitWithTimeout(&mutex_, timeout)) {
-          status = absl::DeadlineExceededError(
-              absl::StrCat("Timed out waiting for seq_id: ", seq_id));
-          break;
-        }
-        if (concurrency::Cancelled()) {
-          status = absl::CancelledError(
-              absl::StrCat("Cancelled waiting for seq_id: ", seq_id));
-          break;
-        }
-        if (no_further_puts_ && !chunks_.contains(seq_id)) {
-          status = absl::FailedPreconditionError(
-              "Cannot get chunks after the store has been closed.");
-          break;
-        }
-      }
-      --num_waiters_;
-      cv_.SignalAll();
-    };
-
     ++num_waiters_;
-    concurrency::Fiber fiber(std::move(wait_for_chunk));
-    mutex_.Unlock();
-    if (concurrency::Select({concurrency::OnCancel(), fiber.OnJoinable()}) ==
-        0) {
-      {
-        concurrency::MutexLock lock(&mutex_);
-        cv_.SignalAll();
+    while (!chunks_.contains(seq_id) && !no_further_puts_ &&
+           !concurrency::Cancelled()) {
+      if (cv_.WaitWithTimeout(&mutex_, timeout)) {
+        status = absl::DeadlineExceededError(
+            absl::StrCat("Timed out waiting for seq_id: ", seq_id));
+        break;
+      }
+      if (concurrency::Cancelled()) {
+        status = absl::CancelledError(
+            absl::StrCat("Cancelled waiting for seq_id: ", seq_id));
+        break;
+      }
+      if (no_further_puts_ && !chunks_.contains(seq_id)) {
+        status = absl::FailedPreconditionError(
+            "Cannot get chunks after the store has been closed.");
+        break;
       }
     }
-    fiber.Join();
+    --num_waiters_;
+    cv_.SignalAll();
+
     if (!status.ok()) {
       return status;
     }
-    concurrency::MutexLock lock(&mutex_);
     return eglt::FindOrDie(chunks_, seq_id);
   }
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetByArrivalOrder(
       int arrival_offset, absl::Duration timeout) const override {
-    mutex_.Lock();
+    concurrency::MutexLock lock(&mutex_);
     if (arrival_order_to_seq_id_.contains(arrival_offset)) {
       const int seq_id = arrival_order_to_seq_id_.at(arrival_offset);
       const Chunk& chunk = eglt::FindOrDie(chunks_, seq_id);
-      mutex_.Unlock();
       return chunk;
     }
 
     if (no_further_puts_) {
-      mutex_.Unlock();
       return absl::FailedPreconditionError(
           "Cannot get chunks after the store has been closed.");
     }
 
     absl::Status status;
-    auto wait_for_chunk = [this, arrival_offset, timeout, &status]() {
-      concurrency::MutexLock lock(&mutex_);
-      while (!arrival_order_to_seq_id_.contains(arrival_offset) &&
-             !no_further_puts_ && !concurrency::Cancelled()) {
-        if (cv_.WaitWithTimeout(&mutex_, timeout)) {
-          status = absl::DeadlineExceededError(absl::StrCat(
-              "Timed out waiting for arrival offset: ", arrival_offset));
-          break;
-        }
-        if (concurrency::Cancelled()) {
-          status = absl::CancelledError(absl::StrCat(
-              "Cancelled waiting for arrival offset: ", arrival_offset));
-          break;
-        }
-        if (no_further_puts_ &&
-            !arrival_order_to_seq_id_.contains(arrival_offset)) {
-          status = absl::FailedPreconditionError(
-              "Cannot get chunks after the store has been closed.");
-          break;
-        }
-      }
-      --num_waiters_;
-      cv_.SignalAll();
-    };
-
     ++num_waiters_;
-    concurrency::Fiber fiber(std::move(wait_for_chunk));
-    mutex_.Unlock();
-    if (concurrency::Select({concurrency::OnCancel(), fiber.OnJoinable()}) ==
-        0) {
-      {
-        concurrency::MutexLock lock(&mutex_);
-        cv_.SignalAll();
+    while (!arrival_order_to_seq_id_.contains(arrival_offset) &&
+           !no_further_puts_ && !concurrency::Cancelled()) {
+
+      if (cv_.WaitWithTimeout(&mutex_, timeout)) {
+        status = absl::DeadlineExceededError(absl::StrCat(
+            "Timed out waiting for arrival offset: ", arrival_offset));
+        break;
+      }
+      if (concurrency::Cancelled()) {
+        status = absl::CancelledError(absl::StrCat(
+            "Cancelled waiting for arrival offset: ", arrival_offset));
+        break;
+      }
+      if (no_further_puts_ &&
+          !arrival_order_to_seq_id_.contains(arrival_offset)) {
+        status = absl::FailedPreconditionError(
+            "Cannot get chunks after the store has been closed.");
+        break;
       }
     }
-    fiber.Join();
+    --num_waiters_;
+    cv_.SignalAll();
+
     if (!status.ok()) {
       return status;
     }
-    concurrency::MutexLock lock(&mutex_);
     return eglt::FindOrDie(
         chunks_, eglt::FindOrDie(arrival_order_to_seq_id_, arrival_offset));
   }

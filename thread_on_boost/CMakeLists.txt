@@ -27,7 +27,9 @@ target_sources(
         thread_on_boost/channel.h
         thread_on_boost/channel-internal.h
         thread_on_boost/fiber.cc
+        thread_on_boost/futex.h
         thread_on_boost/intrusive_list.h
+        thread_on_boost/mutex.h
         thread_on_boost/select.cc
         thread_on_boost/select-internal.cc
         thread_on_boost/select-internal.h

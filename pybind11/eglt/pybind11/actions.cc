@@ -32,6 +32,18 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
+ActionHandler MakeStatusAwareActionHandler(VoidActionHandler handler) {
+  return [handler = std::move(handler)](const std::shared_ptr<Action>& action) {
+    try {
+      std::move(handler)(action);
+    } catch (py::error_already_set& e) {
+      return absl::InternalError(
+          absl::StrCat("Python error in action handler: ", e.what()));
+    }
+    return absl::OkStatus();
+  };
+}
+
 /// @private
 void BindActionSchema(py::handle scope, std::string_view name) {
   py::class_<ActionSchema, std::shared_ptr<ActionSchema>>(
@@ -63,8 +75,14 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
       scope, std::string(name).c_str())
       .def(py::init([]() { return std::make_shared<ActionRegistry>(); }))
       .def(MakeSameObjectRefConstructor<ActionRegistry>())
-      .def("register", &ActionRegistry::Register, py::arg("name"),
-           py::arg("def"), py::arg("handler"))
+      .def(
+          "register",
+          [](const std::shared_ptr<ActionRegistry>& self, std::string_view name,
+             const ActionSchema& def, VoidActionHandler handler) {
+            return self->Register(
+                name, def, MakeStatusAwareActionHandler(std::move(handler)));
+          },
+          py::arg("name"), py::arg("def"), py::arg("handler"))
       .def("make_action_message", &ActionRegistry::MakeActionMessage,
            py::arg("name"), py::arg("id"))
       .def(
@@ -89,16 +107,20 @@ void BindAction(py::handle scope, std::string_view name) {
       .def(py::init([](ActionSchema schema, const std::string& id = "") {
         return std::make_shared<Action>(std::move(schema), id);
       }))
-      .def(
-          "run",
-          [](const std::shared_ptr<Action>& action) { return action->Run(); },
-          py::call_guard<py::gil_scoped_release>())
-      .def("call",
+      .def("run",
            [](const std::shared_ptr<Action>& action) {
-             if (const absl::Status status = action->Call(); !status.ok()) {
-               throw py::value_error(status.ToString());
+             if (const absl::Status status = action->Run(); !status.ok()) {
+               throw std::runtime_error(status.ToString());
              }
            })
+      .def(
+          "call",
+          [](const std::shared_ptr<Action>& action) {
+            if (const absl::Status status = action->Call(); !status.ok()) {
+              throw py::value_error(status.ToString());
+            }
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def("get_registry",
            [](const std::shared_ptr<Action>& action) {
              return ShareWithNoDeleter(action->GetRegistry());
@@ -114,21 +136,23 @@ void BindAction(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<Action>& action, const std::string& id) {
             return ShareWithNoDeleter(action->GetNode(id));
           },
-          py::arg("id"))
+          py::arg("id"), py::call_guard<py::gil_scoped_release>())
       .def(
           "get_input",
           [](const std::shared_ptr<Action>& action, const std::string& id,
              const std::optional<bool>& bind_stream) {
             return ShareWithNoDeleter(action->GetInput(id, bind_stream));
           },
-          py::arg("name"), py::arg_v("bind_stream", py::none()))
+          py::arg("name"), py::arg_v("bind_stream", py::none()),
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "get_output",
           [](const std::shared_ptr<Action>& action, const std::string& id,
              const std::optional<bool>& bind_stream) {
             return ShareWithNoDeleter(action->GetOutput(id, bind_stream));
           },
-          py::arg("name"), py::arg_v("bind_stream", py::none()))
+          py::arg("name"), py::arg_v("bind_stream", py::none()),
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "make_action_in_same_session",
           [](const std::shared_ptr<Action>& action, const std::string& name,
@@ -136,7 +160,13 @@ void BindAction(py::handle scope, std::string_view name) {
             return std::shared_ptr(action->MakeActionInSameSession(name, id));
           },
           py::arg("name"), py::arg_v("id", ""))
-      .def("bind_handler", &Action::BindHandler, py::arg("handler"));
+      .def(
+          "bind_handler",
+          [](const std::shared_ptr<Action>& self, VoidActionHandler handler) {
+            return self->BindHandler(
+                MakeStatusAwareActionHandler(std::move(handler)));
+          },
+          py::arg("handler"));
 }
 
 /// @private
