@@ -3,6 +3,8 @@
 ## Development log / to do list
 
 - [ ] (Important) Refine ChunkStoreReader status handling
+- [ ] Debug WS streams state/error handling
+- [ ] Outline action error / status flow
 - [ ] Make final alignment of this repo with ai-action-engine-ts
 - [x] Make `thread_on_boost` work (achieve runnable ChunkStoreTest)
 - [x] Achieve multithreaded fibers (worker pool for `boost::fibers::context`s)
@@ -14,4 +16,5 @@
   blocking operations__)
 - [x] Implement WebSocket client/server support in C++ with msgpack
   serialization
+
 - [ ] Cover important code with tests
