@@ -108,14 +108,14 @@ cmake \
 cmake --build . --parallel "${nproc}" --target install
 cd "${third_party_root}"
 
-#mkdir -p build_deps/cppzmq && cd cppzmq
-#mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
-#cmake \
-#  -DCMAKE_CXX_STANDARD="${cc_standard}" \
-#  -DCMAKE_PREFIX_PATH="${third_party_root}/build_deps/libzmq" \
-#  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/cppzmq" \
-#  -DCPPZMQ_BUILD_TESTS=OFF \
-#  -G "Ninja" \
-#  ..
-#cmake --build . --parallel "${nproc}" --target install
-#cd "${third_party_root}"
+mkdir -p build_deps/cppzmq && cd cppzmq
+mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
+cmake \
+  -DCMAKE_CXX_STANDARD="${cc_standard}" \
+  -DCMAKE_PREFIX_PATH="${third_party_root}/build_deps/libzmq" \
+  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/cppzmq" \
+  -DCPPZMQ_BUILD_TESTS=OFF \
+  -G "Ninja" \
+  ..
+cmake --build . --parallel "${nproc}" --target install
+cd "${third_party_root}"
