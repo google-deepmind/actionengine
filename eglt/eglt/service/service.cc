@@ -30,7 +30,7 @@
 namespace eglt {
 
 absl::Status RunSimpleEvergreenSession(
-    base::EvergreenStream* absl_nonnull stream, Session* absl_nonnull session) {
+    EvergreenStream* absl_nonnull stream, Session* absl_nonnull session) {
   absl::Status status;
   while (true) {
     std::optional<SessionMessage> message = stream->Receive();
@@ -73,7 +73,7 @@ Service::~Service() {
   JoinConnectionsAndCleanUp();
 }
 
-base::EvergreenStream* Service::GetStream(std::string_view stream_id) const {
+EvergreenStream* Service::GetStream(std::string_view stream_id) const {
   concurrency::MutexLock lock(&mutex_);
   if (connections_.contains(stream_id)) {
     return connections_.at(stream_id)->stream;
@@ -100,7 +100,7 @@ std::vector<std::string> Service::GetSessionKeys() const {
 }
 
 absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
-Service::EstablishConnection(std::shared_ptr<base::EvergreenStream>&& stream,
+Service::EstablishConnection(std::shared_ptr<EvergreenStream>&& stream,
                              EvergreenConnectionHandler connection_handler) {
   const auto stream_id = stream->GetId();
   if (stream_id.empty()) {

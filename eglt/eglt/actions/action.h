@@ -362,9 +362,9 @@ class Action : public std::enable_shared_from_this<Action> {
   /// Returns the node map associated with the action.
   [[nodiscard]] NodeMap* GetNodeMap() const { return node_map_; }
 
-  void BindStream(base::EvergreenStream* stream) { stream_ = stream; }
+  void BindStream(EvergreenStream* stream) { stream_ = stream; }
   /// Returns the stream associated with the action.
-  [[nodiscard]] base::EvergreenStream* GetStream() const { return stream_; }
+  [[nodiscard]] EvergreenStream* GetStream() const { return stream_; }
 
   void BindSession(Session* session) { session_ = session; }
   [[nodiscard]] Session* GetSession() const { return session_; }
@@ -468,7 +468,7 @@ class Action : public std::enable_shared_from_this<Action> {
   std::string id_;
 
   NodeMap* node_map_ = nullptr;
-  base::EvergreenStream* stream_ = nullptr;
+  EvergreenStream* stream_ = nullptr;
   Session* session_ = nullptr;
 
   bool bind_streams_on_inputs_default_ = true;

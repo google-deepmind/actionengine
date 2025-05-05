@@ -35,7 +35,7 @@ void BindService(py::handle scope, std::string_view name = "Service");
 void BindStreamToSessionConnection(
     py::handle scope, std::string_view name = "StreamToSessionConnection");
 
-class PyEvergreenStream final : public base::EvergreenStream {
+class PyEvergreenStream final : public EvergreenStream {
  public:
   using EvergreenStream::EvergreenStream;
 

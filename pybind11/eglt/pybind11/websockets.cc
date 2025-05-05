@@ -24,7 +24,7 @@ namespace eglt::pybindings {
 namespace py = ::pybind11;
 
 void BindWebsocketEvergreenStream(py::handle scope, std::string_view name) {
-  py::class_<sdk::WebsocketEvergreenStream, base::EvergreenStream,
+  py::class_<sdk::WebsocketEvergreenStream, EvergreenStream,
              std::shared_ptr<sdk::WebsocketEvergreenStream>>(
       scope, std::string(name).c_str())
       .def("send", &sdk::WebsocketEvergreenStream::Send,

@@ -89,7 +89,7 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
           "make_action",
           [](const std::shared_ptr<ActionRegistry>& self,
              const std::string& name, const std::string& id, NodeMap* node_map,
-             base::EvergreenStream* stream, Session* session) {
+             EvergreenStream* stream, Session* session) {
             auto action = self->MakeAction(name, id);
             action->BindNodeMap(node_map);
             action->BindStream(stream);

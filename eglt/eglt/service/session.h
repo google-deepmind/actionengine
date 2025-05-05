@@ -30,7 +30,7 @@ namespace eglt {
 class ActionRegistry;
 
 using DebugHandler =
-    std::function<void(const SessionMessage&, base::EvergreenStream*)>;
+    std::function<void(const SessionMessage&, EvergreenStream*)>;
 
 /**
  * @brief
@@ -54,11 +54,11 @@ class Session {
       std::string_view id,
       const ChunkStoreFactory& chunk_store_factory = {}) const;
 
-  void DispatchFrom(base::EvergreenStream* stream);
+  void DispatchFrom(EvergreenStream* stream);
   absl::Status DispatchMessage(SessionMessage message,
-                               base::EvergreenStream* stream = nullptr);
+                               EvergreenStream* stream = nullptr);
 
-  void StopDispatchingFrom(base::EvergreenStream* stream);
+  void StopDispatchingFrom(EvergreenStream* stream);
   void StopDispatchingFromAll();
 
   [[nodiscard]] NodeMap* GetNodeMap() const { return node_map_; }
@@ -76,7 +76,7 @@ class Session {
 
   concurrency::Mutex mutex_{};
   bool joined_ ABSL_GUARDED_BY(mutex_) = false;
-  absl::flat_hash_map<base::EvergreenStream*,
+  absl::flat_hash_map<EvergreenStream*,
                       std::unique_ptr<concurrency::Fiber>>
       dispatch_tasks_ ABSL_GUARDED_BY(mutex_){};
 

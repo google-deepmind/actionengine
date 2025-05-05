@@ -34,7 +34,7 @@
 
 namespace eglt {
 
-absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream* stream,
+absl::Status SendToStreamIfNotNullAndOpen(EvergreenStream* stream,
                                           NodeFragment&& fragment) {
   // if stream is null, we don't send anything and it is ok.
   if (stream == nullptr) {
@@ -89,7 +89,7 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   return *this;
 }
 
-void AsyncNode::BindWriterStream(base::EvergreenStream* stream) {
+void AsyncNode::BindWriterStream(EvergreenStream* stream) {
   writer_stream_ = stream;
 }
 

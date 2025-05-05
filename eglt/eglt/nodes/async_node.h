@@ -33,7 +33,7 @@ namespace eglt {
 
 class NodeMap;
 
-absl::Status SendToStreamIfNotNullAndOpen(base::EvergreenStream* stream,
+absl::Status SendToStreamIfNotNullAndOpen(EvergreenStream* stream,
                                           NodeFragment&& fragment);
 
 class AsyncNode {
@@ -47,7 +47,7 @@ class AsyncNode {
   AsyncNode& operator=(AsyncNode& other) = delete;
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
-  void BindWriterStream(base::EvergreenStream* stream);
+  void BindWriterStream(EvergreenStream* stream);
 
   template <typename T>
   auto Put(T value, int seq_id = -1, bool final = false) -> absl::Status {
@@ -140,7 +140,7 @@ class AsyncNode {
   mutable concurrency::Mutex mutex_;
   std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mutex_);
-  base::EvergreenStream* writer_stream_ = nullptr;
+  EvergreenStream* writer_stream_ = nullptr;
 };
 
 template <>

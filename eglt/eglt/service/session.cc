@@ -50,7 +50,7 @@ AsyncNode* Session::GetNode(
   return node_map_->Get(id, factory);
 }
 
-void Session::DispatchFrom(base::EvergreenStream* stream) {
+void Session::DispatchFrom(EvergreenStream* stream) {
   concurrency::MutexLock lock(&mutex_);
 
   if (stream == nullptr) {
@@ -88,7 +88,7 @@ void Session::DispatchFrom(base::EvergreenStream* stream) {
 }
 
 absl::Status Session::DispatchMessage(SessionMessage message,
-                                      base::EvergreenStream* stream) {
+                                      EvergreenStream* stream) {
   concurrency::MutexLock lock(&mutex_);
   if (joined_) {
     return absl::FailedPreconditionError(
@@ -126,7 +126,7 @@ absl::Status Session::DispatchMessage(SessionMessage message,
   return status;
 }
 
-void Session::StopDispatchingFrom(base::EvergreenStream* stream) {
+void Session::StopDispatchingFrom(EvergreenStream* stream) {
   std::unique_ptr<concurrency::Fiber> task;
   {
     concurrency::MutexLock lock(&mutex_);

@@ -50,7 +50,7 @@ inline auto RunInAsioContext(absl::AnyInvocable<void()>&& fn) {
   concurrency::Select({done.OnEvent()});
 }
 
-class WebsocketEvergreenStream final : public base::EvergreenStream {
+class WebsocketEvergreenStream final : public EvergreenStream {
  public:
   static constexpr size_t kSwapBufferOnCapacity = 1 * 1024 * 1024;  // 1MB
 

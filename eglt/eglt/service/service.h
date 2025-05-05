@@ -45,7 +45,7 @@ class Action;
  * @headerfile eglt/service/service.h
  */
 struct StreamToSessionConnection {
-  base::EvergreenStream* stream = nullptr;
+  EvergreenStream* stream = nullptr;
   Session* session = nullptr;
 
   std::string session_id;  // dead sessions may lose their id.
@@ -59,11 +59,11 @@ std::unique_ptr<Action> MakeActionInConnection(
     std::string_view action_id = "");
 
 using EvergreenConnectionHandler =
-    std::function<absl::Status(base::EvergreenStream*, Session*)>;
+    std::function<absl::Status(EvergreenStream*, Session*)>;
 
 /// @callgraph
 absl::Status RunSimpleEvergreenSession(
-    base::EvergreenStream* absl_nonnull stream, Session* absl_nonnull session);
+    EvergreenStream* absl_nonnull stream, Session* absl_nonnull session);
 
 /**
  * @brief
@@ -103,12 +103,12 @@ class Service : public std::enable_shared_from_this<Service> {
   Service(const Service& other) = delete;
   Service& operator=(const Service& other) = delete;
 
-  auto GetStream(std::string_view stream_id) const -> base::EvergreenStream*;
+  auto GetStream(std::string_view stream_id) const -> EvergreenStream*;
   auto GetSession(std::string_view session_id) const -> Session*;
   auto GetSessionKeys() const -> std::vector<std::string>;
 
   auto EstablishConnection(
-      std::shared_ptr<base::EvergreenStream>&& stream,
+      std::shared_ptr<EvergreenStream>&& stream,
       EvergreenConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto JoinConnection(StreamToSessionConnection* connection) -> absl::Status;
@@ -124,7 +124,7 @@ class Service : public std::enable_shared_from_this<Service> {
   ChunkStoreFactory chunk_store_factory_;
 
   mutable concurrency::Mutex mutex_;
-  absl::flat_hash_map<std::string, std::shared_ptr<base::EvergreenStream>>
+  absl::flat_hash_map<std::string, std::shared_ptr<EvergreenStream>>
       streams_ ABSL_GUARDED_BY(mutex_);
   // for now, we only support one-to-one session-stream mapping, therefore we
   // use the stream id as the session id.

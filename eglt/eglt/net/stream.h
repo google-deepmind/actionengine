@@ -29,7 +29,7 @@ using ReceiveBytesT = std::function<std::optional<Bytes>()>;
 
 }  // namespace eglt
 
-namespace eglt::base {
+namespace eglt {
 
 //! An abstract base class for an Evergreen stream.
 /*!
@@ -85,6 +85,6 @@ class EvergreenStream {
   }
 };
 
-}  // namespace eglt::base
+}  // namespace eglt
 
 #endif  // EGLT_NET_STREAM_H_
