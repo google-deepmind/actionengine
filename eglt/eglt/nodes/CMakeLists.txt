@@ -25,6 +25,22 @@ target_link_libraries(
         eglt::data
 )
 
+# -----------------------------------------------------------------------------
+
+add_executable(
+        test_chunk_store
+        test_chunk_store.cc
+)
+target_link_libraries(
+        test_chunk_store
+        eglt::data
+        eglt::nodes
+        GTest::gtest
+        GTest::gtest_main
+)
+
+gtest_discover_tests(test_chunk_store)
+
 install(
         TARGETS egltNodes
         EXPORT egltTargets

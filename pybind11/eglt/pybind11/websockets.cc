@@ -35,8 +35,7 @@ void BindWebsocketEvergreenStream(py::handle scope, std::string_view name) {
       .def("start", &sdk::WebsocketEvergreenStream::Start)
       .def("close", &sdk::WebsocketEvergreenStream::HalfClose,
            py::call_guard<py::gil_scoped_release>())
-      .def("get_last_send_status",
-           &sdk::WebsocketEvergreenStream::GetLastSendStatus)
+      .def("get_status", &sdk::WebsocketEvergreenStream::GetStatus)
       .def("get_id", &sdk::WebsocketEvergreenStream::GetId)
       .def("__repr__",
            [](const std::shared_ptr<sdk::WebsocketEvergreenStream>& self) {

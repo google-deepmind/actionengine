@@ -91,6 +91,10 @@ struct ChunkMetadata {
                    absl::FormatTime(metadata.timestamp));
     }
   }
+
+  friend bool operator==(const ChunkMetadata& lhs, const ChunkMetadata& rhs) {
+    return lhs.mimetype == rhs.mimetype && lhs.timestamp == rhs.timestamp;
+  }
 };
 
 /// Evergreen chunk.
@@ -106,9 +110,9 @@ struct Chunk {
   std::string ref;
   std::string data;
 
-  bool IsEmpty() const { return data.empty() && ref.empty(); }
+  [[nodiscard]] bool IsEmpty() const { return data.empty() && ref.empty(); }
 
-  bool IsNull() const {
+  [[nodiscard]] bool IsNull() const {
     return metadata.mimetype == kMimetypeBytes && IsEmpty();
   }
 
@@ -127,6 +131,11 @@ struct Chunk {
     if (!chunk.data.empty()) {
       absl::Format(&sink, "data: %s\n", chunk.data);
     }
+  }
+
+  friend bool operator==(const Chunk& lhs, const Chunk& rhs) {
+    return lhs.metadata == rhs.metadata && lhs.ref == rhs.ref &&
+           lhs.data == rhs.data;
   }
 };
 
@@ -158,6 +167,11 @@ struct NodeFragment {
       sink.Append("continued: false\n");
     }
   }
+
+  friend bool operator==(const NodeFragment& lhs, const NodeFragment& rhs) {
+    return lhs.id == rhs.id && lhs.chunk == rhs.chunk && lhs.seq == rhs.seq &&
+           lhs.continued == rhs.continued;
+  }
 };
 
 /// A mapping of a parameter name to its node ID in an action.
@@ -174,6 +188,10 @@ struct NamedParameter {
     if (!parameter.id.empty()) {
       sink.Append(absl::StrCat("id: ", parameter.id, "\n"));
     }
+  }
+
+  friend bool operator==(const NamedParameter& lhs, const NamedParameter& rhs) {
+    return lhs.name == rhs.name && lhs.id == rhs.id;
   }
 };
 
@@ -207,6 +225,11 @@ struct ActionMessage {
       }
     }
   }
+
+  friend bool operator==(const ActionMessage& lhs, const ActionMessage& rhs) {
+    return lhs.id == rhs.id && lhs.name == rhs.name &&
+           lhs.inputs == rhs.inputs && lhs.outputs == rhs.outputs;
+  }
 };
 
 struct SessionMessage {
@@ -228,6 +251,11 @@ struct SessionMessage {
         absl::Format(&sink, "%s\n", Indent(absl::StrCat(action), 2, true));
       }
     }
+  }
+
+  friend bool operator==(const SessionMessage& lhs, const SessionMessage& rhs) {
+    return lhs.node_fragments == rhs.node_fragments &&
+           lhs.actions == rhs.actions;
   }
 };
 

@@ -126,11 +126,12 @@ class WebsocketEvergreenStream final : public EvergreenStream {
     return message;
   }
 
-  void Start() override {
+  absl::Status Start() override {
     // In this case, the client EG stream is not responsible for handshaking.
+    return absl::OkStatus();
   }
 
-  void Accept() override {
+  absl::Status Accept() override {
     DLOG(INFO) << absl::StrFormat("WESt %s Accept()", id_);
     stream_.set_option(beast::websocket::stream_base::decorator(
         [](beast::websocket::response_type& res) {
@@ -143,8 +144,10 @@ class WebsocketEvergreenStream final : public EvergreenStream {
     RunInAsioContext([this, &error]() { stream_.accept(error); });
     if (error) {
       status_ = absl::InternalError(error.message());
+      return status_;
     }
     DLOG(INFO) << absl::StrFormat("WESt %s Accept(): %v.", id_, status_);
+    return absl::OkStatus();
   }
 
   void HalfClose() override {
@@ -166,7 +169,7 @@ class WebsocketEvergreenStream final : public EvergreenStream {
     }
   }
 
-  absl::Status GetLastSendStatus() const override { return last_send_status_; }
+  absl::Status GetStatus() const override { return last_send_status_; }
 
   [[nodiscard]] std::string GetId() const override { return id_; }
 
@@ -406,7 +409,11 @@ class WebsocketEvergreenClient {
     eg_stream_ = eglt::sdk::MakeWebsocketClientEvergreenStream(address, port);
     session_ = std::make_unique<Session>(node_map_.get(), &action_registry_);
 
-    eg_stream_->Start();
+    if (const absl::Status status = eg_stream_->Start(); !status.ok()) {
+      DLOG(ERROR) << absl::StrFormat("WESt %s Start failed: %v",
+                                     eg_stream_->GetId(), status);
+      return nullptr;
+    }
 
     fiber_ = concurrency::NewTree(concurrency::TreeOptions(), [this]() {
       auto handler_fiber = concurrency::Fiber([this]() {

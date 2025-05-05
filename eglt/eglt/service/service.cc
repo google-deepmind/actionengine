@@ -29,8 +29,8 @@
 
 namespace eglt {
 
-absl::Status RunSimpleEvergreenSession(
-    EvergreenStream* absl_nonnull stream, Session* absl_nonnull session) {
+absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
+                                       Session* absl_nonnull session) {
   absl::Status status;
   while (true) {
     std::optional<SessionMessage> message = stream->Receive();
@@ -157,7 +157,10 @@ Service::EstablishConnection(std::shared_ptr<EvergreenStream>&& stream,
 
   // for later: Stubby streams require Accept() to be called before returning
   // from StartSession. This might not be the ideal solution with other streams.
-  connections_.at(stream_id)->stream->Accept();
+  if (const absl::Status status = connections_.at(stream_id)->stream->Accept();
+      !status.ok()) {
+    return status;
+  }
 
   connection_fibers_[stream_id] = concurrency::NewTree(
       concurrency::TreeOptions(),

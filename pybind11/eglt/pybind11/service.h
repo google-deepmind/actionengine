@@ -46,7 +46,9 @@ class PyEvergreenStream final : public EvergreenStream {
     const py::function function = py::get_override(this, "send");
 
     if (!function) {
-      throw py::error_already_set();
+      return absl::UnimplementedError(
+          "send is not implemented in the Python subclass of "
+          "EvergreenStream.");
     }
     const py::object py_result = function(message);
 
@@ -64,7 +66,8 @@ class PyEvergreenStream final : public EvergreenStream {
     const py::function function = py::get_override(this, "receive");
 
     if (!function) {
-      throw py::error_already_set();
+      LOG(FATAL) << "receive is not implemented in the Python subclass of "
+                    "EvergreenStream.";
     }
     const py::object py_result = function();
 
@@ -77,21 +80,61 @@ class PyEvergreenStream final : public EvergreenStream {
     return std::move(result)->cast<SessionMessage>();
   }
 
-  void Accept() override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyEvergreenStream, "accept", Accept, );
+  absl::Status Accept() override {
+    py::gil_scoped_acquire gil;
+    const py::function function = py::get_override(this, "accept");
+
+    if (!function) {
+      return absl::UnimplementedError(
+          "accept is not implemented in the Python subclass of "
+          "EvergreenStream.");
+    }
+    try {
+      const py::object py_result = function();
+      const absl::StatusOr<py::object> result =
+          pybindings::RunThreadsafeIfCoroutine(py_result);
+
+      if (!result.ok()) {
+        return result.status();
+      }
+    } catch (const py::error_already_set& e) {
+      return absl::InternalError(e.what());
+    }
+
+    return absl::OkStatus();
   }
 
-  void Start() override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyEvergreenStream, "start", Start, );
+  absl::Status Start() override {
+    py::gil_scoped_acquire gil;
+    const py::function function = py::get_override(this, "start");
+
+    if (!function) {
+      return absl::UnimplementedError(
+          "start is not implemented in the Python subclass of "
+          "EvergreenStream.");
+    }
+    try {
+      const py::object py_result = function();
+      const absl::StatusOr<py::object> result =
+          pybindings::RunThreadsafeIfCoroutine(py_result);
+
+      if (!result.ok()) {
+        return result.status();
+      }
+    } catch (const py::error_already_set& e) {
+      return absl::InternalError(e.what());
+    }
+
+    return absl::OkStatus();
   }
 
   void HalfClose() override {
     PYBIND11_OVERRIDE_PURE_NAME(void, PyEvergreenStream, "close", Close, );
   }
 
-  absl::Status GetLastSendStatus() const override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyEvergreenStream,
-                                "get_last_send_status", GetLastSendStatus, );
+  absl::Status GetStatus() const override {
+    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyEvergreenStream, "get_status",
+                                GetStatus, );
   }
 
   [[nodiscard]] py::object GetLoop() const {

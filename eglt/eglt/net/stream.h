@@ -47,15 +47,15 @@ class EvergreenStream {
   virtual auto Receive() -> std::optional<SessionMessage> = 0;
 
   //! Accept the stream on the server side. Clients should not call this.
-  virtual auto Accept() -> void = 0;
+  virtual auto Accept() -> absl::Status = 0;
   //! Start the stream on the client side. Servers should not call this.
-  virtual auto Start() -> void = 0;
+  virtual auto Start() -> absl::Status = 0;
   //! Initiates a graceful shutdown of the stream. Should be called from the
   //! client first.
   virtual auto HalfClose() -> void = 0;
 
   //! Returns the status of the last send operation.
-  virtual auto GetLastSendStatus() const -> absl::Status = 0;
+  virtual auto GetStatus() const -> absl::Status = 0;
 
   //! Returns the implementation-dependent identifier of the stream.
   [[nodiscard]] virtual auto GetId() const -> std::string = 0;

@@ -47,7 +47,7 @@ void BindStream(py::handle scope, std::string_view name) {
       .def("accept", &EvergreenStream::Accept)
       .def("start", &EvergreenStream::Start)
       .def("close", &EvergreenStream::HalfClose)
-      .def("get_last_send_status", &EvergreenStream::GetLastSendStatus)
+      .def("get_status", &EvergreenStream::GetStatus)
       .def("get_id", &EvergreenStream::GetId);
 
   py::class_<PyEvergreenStream, EvergreenStream,
@@ -61,7 +61,7 @@ void BindStream(py::handle scope, std::string_view name) {
       .def("accept", &PyEvergreenStream::Accept)
       .def("start", &PyEvergreenStream::Start)
       .def("close", &PyEvergreenStream::HalfClose)
-      .def("get_last_send_status", &PyEvergreenStream::GetLastSendStatus)
+      .def("get_last_send_status", &PyEvergreenStream::GetStatus)
       .def("get_id", &PyEvergreenStream::GetId);
 }
 

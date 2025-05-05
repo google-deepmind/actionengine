@@ -91,13 +91,17 @@ find_package(cppitertools REQUIRED)
 find_package(GTest REQUIRED)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/cppack)
+
 include(FetchContent)
+set(BUILD_TESTING_BACKUP ${BUILD_TESTING})
+set(BUILD_TESTING OFF)
 FetchContent_Declare(
         pybind11_abseil
         GIT_REPOSITORY https://github.com/pybind/pybind11_abseil.git
         GIT_TAG master
 )
 FetchContent_MakeAvailable(pybind11_abseil)
+set(BUILD_TESTING ${BUILD_TESTING_BACKUP})
 
 set(EGLT_THIRD_PARTY_INCLUDE_DIRS
         ${EGLT_ABSL_ROOT}/include
@@ -107,13 +111,12 @@ set(EGLT_THIRD_PARTY_INCLUDE_DIRS
         ${EGLT_GTEST_ROOT}/include
 )
 
+enable_testing()
+include(GoogleTest)
 add_subdirectory(eglt)
 add_subdirectory(eglt/eglt/sdk)
 add_subdirectory(pybind11/eglt/pybind11)
 add_subdirectory(examples)
-
-enable_testing()
-add_subdirectory(tests/cc)
 
 install(
         TARGETS
