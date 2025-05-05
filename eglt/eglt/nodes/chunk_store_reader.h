@@ -43,7 +43,7 @@ class ChunkStoreReader {
   constexpr static absl::Duration kNoTimeout = absl::InfiniteDuration();
 
   explicit ChunkStoreReader(ChunkStore* absl_nonnull chunk_store,
-                            bool ordered = false, bool remove_chunks = false,
+                            bool ordered = true, bool remove_chunks = true,
                             int n_chunks_to_buffer = -1,
                             absl::Duration timeout = kDefaultWaitTimeout)
       : chunk_store_(chunk_store),

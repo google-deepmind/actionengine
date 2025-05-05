@@ -54,6 +54,11 @@ class AsyncNode {
     return Put(ConvertTo<Chunk>(std::move(value)), seq_id, final);
   }
 
+  template <typename T>
+  auto PutAndClose(T value, int seq_id = -1) -> absl::Status {
+    return Put(ConvertTo<Chunk>(std::move(value)), seq_id, /*final=*/true);
+  }
+
   ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mutex_);
   auto GetWriterStatus() const -> absl::Status;
 
@@ -82,6 +87,24 @@ class AsyncNode {
       return std::nullopt;
     }
     return status_or_next.value();
+  }
+
+  template <typename T>
+  T ConsumeAs() {
+    auto status_or_item = StatusOrNext<T>();
+    if (!status_or_item.ok()) {
+      LOG(FATAL) << "Failed to get chunk: " << status_or_item.status();
+    }
+
+    auto must_be_nullopt = StatusOrNext<T>();
+    if (!must_be_nullopt.ok()) {
+      LOG(FATAL) << "Error probing reader: " << must_be_nullopt.status();
+    }
+    if (*must_be_nullopt) {
+      LOG(FATAL) << "Reader must be empty after consuming the node.";
+    }
+
+    return ConvertTo<T>(*std::move(status_or_item));
   }
 
   auto WaitForCompletion() -> absl::StatusOr<std::vector<Chunk>>;

@@ -125,6 +125,14 @@ void BindAction(py::handle scope, std::string_view name) {
            [](const std::shared_ptr<Action>& action) {
              return ShareWithNoDeleter(action->GetRegistry());
            })
+      .def("get_session",
+           [](const std::shared_ptr<Action>& action) {
+             return ShareWithNoDeleter(action->GetSession());
+           })
+      .def("get_node_map",
+           [](const std::shared_ptr<Action>& action) {
+             return ShareWithNoDeleter(action->GetNodeMap());
+           })
       .def("get_stream",
            [](const std::shared_ptr<Action>& action) {
              return ShareWithNoDeleter(action->GetStream());

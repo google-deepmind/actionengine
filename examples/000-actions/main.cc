@@ -38,7 +38,7 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   // ----------------------------------------------------------------------------
   // Evergreen actions are asynchronous, so to read inputs, we need a streaming
   // reader. Conversely, to write outputs, we need a streaming writer. The
-  // .GetInput() and .GetOutput() methods return an instance of the
+  // .GetNode() method return an instance of the
   // AsyncNode class, which combines a reader and a writer into a single object.
   // ----------------------------------------------------------------------------
   // The call to .SetReaderOptions() is optional. It allows to control how the
@@ -48,13 +48,9 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   // - if remove_chunks is set to true, chunks will be removed from the
   //   underlying store as they are read. Default is true.
   // ----------------------------------------------------------------------------
-  auto input_text = action->GetInput("text");
+  auto input_text = action->GetNode("text");
   input_text->SetReaderOptions(/*ordered=*/true,
                                /*remove_chunks=*/true);
-
-  auto response = action->GetOutput("response");
-  response->SetReaderOptions(/*ordered=*/true,
-                             /*remove_chunks=*/true);
 
   // ----------------------------------------------------------------------------
   // The while loop below reads all chunks from the input stream and writes
@@ -65,9 +61,9 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
     // Read the next chunk from the input stream. If we reach the end of the
     // stream, the chunk will be nullopt. If we did not need to control the
     // order of chunks, we could have used the >> operator directly like this :
-    // *action->GetInput("text") >> chunk;
+    // *action->GetNode("text") >> chunk;
     // Equivalent operations are supported as AsyncNode methods, in this case:
-    // std::optional<Chunk> chunk = action->GetInput("text")->Next<Chunk>();
+    // std::optional<Chunk> chunk = action->GetNode("text")->Next<Chunk>();
     *input_text >> chunk;
 
     // End of stream (everything was read successfully)
@@ -85,11 +81,11 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
 
     // Write the chunk to the output stream. In this case, we are writing
     // directly into the temporary variable for convenience.
-    action->GetOutput("response") << *chunk;
+    action->GetNode("response") << *chunk;
   }
 
   // This is necessary and indicates the end of stream.
-  action->GetOutput("response") << eglt::EndOfStream();
+  action->GetNode("response") << eglt::EndOfStream();
 
   return absl::OkStatus();
 }
@@ -111,7 +107,7 @@ ActionRegistry MakeActionRegistry() {
   // the action logic. There must be no two nodes with the same name within the
   // same action, even if they are an input and an output.
   registry.Register(/*name=*/"echo",
-                    /*def=*/
+                    /*schema=*/
                     {
                         .name = "echo",
                         .inputs = {{"text", "text/plain"}},
@@ -155,15 +151,15 @@ std::string CallEcho(
   // Chunks will be buffered (to an extent) and sent in the background.
   // This makes it possible to start streaming multiple inputs at the same time
   // (though this is not the case here).
-  // echo->GetInput("text")
+  // echo->GetNode("text")
   //     ->PutChunk(Chunk{.metadata = {.mimetype = "text/plain"},
   //                      .data = std::string(text)},
   //                /*seq_id=*/0,
   //                /*final=*/true)
   //     .IgnoreError();
-  echo->GetInput("text") << Chunk{.metadata = {.mimetype = "text/plain"},
-                                  .data = std::string(text)}
-                         << eglt::EndOfStream();
+  echo->GetNode("text") << Chunk{.metadata = {.mimetype = "text/plain"},
+                                 .data = std::string(text)}
+                        << eglt::EndOfStream();
 
   // We will read the output to a string stream.
   std::ostringstream response;
@@ -173,7 +169,7 @@ std::string CallEcho(
   // Each of the reads below will block until the next chunk is available.
   std::optional<Chunk> response_chunk;
   while (true) {
-    *echo->GetOutput("response") >> response_chunk;
+    *echo->GetNode("response") >> response_chunk;
     if (!response_chunk.has_value()) {
       break;
     }

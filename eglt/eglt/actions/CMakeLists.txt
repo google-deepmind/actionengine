@@ -1,6 +1,5 @@
 add_library(
         egltActions STATIC
-        action.cc
         action.h
 )
 add_library(

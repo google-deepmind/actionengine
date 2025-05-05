@@ -115,10 +115,15 @@ struct ActionSchema {
 class ActionRegistry {
  public:
   void Register(std::string_view name, const ActionSchema& schema,
-                const ActionHandler& handler);
+                const ActionHandler& handler) {
+    schemas_[name] = schema;
+    handlers_[name] = handler;
+  }
 
   [[nodiscard]] ActionMessage MakeActionMessage(std::string_view action_key,
-                                                std::string_view id) const;
+                                                std::string_view id) const {
+    return eglt::FindOrDie(schemas_, action_key).GetActionMessage(id);
+  }
 
   [[nodiscard]] std::unique_ptr<Action> MakeAction(
       std::string_view action_key, std::string_view action_id = "",
@@ -256,13 +261,24 @@ class Action : public std::enable_shared_from_this<Action> {
    * @brief Gets an AsyncNode with the given \p id from the node map.
    *
    * The node does not have to be defined as an input or output of the action.
-   * If the node is not found, it will be created with the given \p id.
+   * The \p id must exist in the action schema.
    * @param id
    *   The identifier of the node to get.
    * @return
    *   A pointer to the AsyncNode with the given \p id.
    */
-  AsyncNode* GetNode(std::string_view id) const;
+  AsyncNode* GetNode(std::string_view id) {
+    if (input_name_to_id_.contains(id)) {
+      return GetInput(id);
+    }
+    if (output_name_to_id_.contains(id)) {
+      return GetOutput(id);
+    }
+
+    LOG(FATAL) << absl::StrFormat(
+        "Node %s not found in action schema for %s with id=%s", id,
+        schema_.name, id_);
+  }
 
   /** @brief Gets an AsyncNode input with the given name from the node map.
    *         If no input with the given name is found, it will return nullptr.
@@ -278,11 +294,19 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   AsyncNode* GetInput(std::string_view name,
                       const std::optional<bool> bind_stream = std::nullopt) {
-    if (!input_name_to_id_.contains(name)) {
-      return nullptr;
+    if (node_map_ == nullptr) {
+      LOG(FATAL) << absl::StrFormat(
+          "No node map is bound to action %s with id=%s. Cannot get input %s",
+          schema_.name, id_, name);
     }
 
-    AsyncNode* node = GetNode(GetInputId(name));
+    if (!input_name_to_id_.contains(name)) {
+      LOG(FATAL) << absl::StrFormat(
+          "Input %s not found in action schema for %s with id=%s", name,
+          schema_.name, id_);
+    }
+
+    AsyncNode* node = node_map_->Get(GetInputId(name));
     if (stream_ != nullptr &&
         bind_stream.value_or(bind_streams_on_inputs_default_)) {
       node->BindWriterStream(stream_);
@@ -305,11 +329,19 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   AsyncNode* GetOutput(std::string_view name,
                        const std::optional<bool> bind_stream = std::nullopt) {
-    if (!output_name_to_id_.contains(name) && name != "__status__") {
-      return nullptr;
+    if (node_map_ == nullptr) {
+      LOG(FATAL) << absl::StrFormat(
+          "No node map is bound to action %s with id=%s. Cannot get input %s",
+          schema_.name, id_, name);
     }
 
-    AsyncNode* node = GetNode(GetOutputId(name));
+    if (!output_name_to_id_.contains(name) && name != "__status__") {
+      LOG(FATAL) << absl::StrFormat(
+          "Output %s not found in action schema for %s with id=%s", name,
+          schema_.name, id_);
+    }
+
+    AsyncNode* node = node_map_->Get(GetOutputId(name));
     if (stream_ != nullptr &&
         bind_stream.value_or(bind_streams_on_outputs_default_)) {
       node->BindWriterStream(stream_);
@@ -327,10 +359,15 @@ class Action : public std::enable_shared_from_this<Action> {
   void BindHandler(ActionHandler handler) { handler_ = std::move(handler); }
 
   void BindNodeMap(NodeMap* node_map) { node_map_ = node_map; }
+  /// Returns the node map associated with the action.
+  [[nodiscard]] NodeMap* GetNodeMap() const { return node_map_; }
 
   void BindStream(base::EvergreenStream* stream) { stream_ = stream; }
+  /// Returns the stream associated with the action.
+  [[nodiscard]] base::EvergreenStream* GetStream() const { return stream_; }
 
   void BindSession(Session* session) { session_ = session; }
+  [[nodiscard]] Session* GetSession() const { return session_; }
 
   /**
    * @brief
@@ -359,8 +396,6 @@ class Action : public std::enable_shared_from_this<Action> {
 
   /// Returns the action registry from the session.
   [[nodiscard]] ActionRegistry* GetRegistry() const;
-  /// Returns the stream associated with the action.
-  [[nodiscard]] base::EvergreenStream* GetStream() const { return stream_; }
 
   /// Returns the action's identifier.
   [[nodiscard]] std::string GetId() const { return id_; }
@@ -407,8 +442,6 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
  private:
-  Session* GetSession() const { return session_; }
-
   std::string GetInputId(const std::string_view name) const {
     return absl::StrCat(id_, "#", name);
   }
@@ -442,6 +475,19 @@ class Action : public std::enable_shared_from_this<Action> {
   bool bind_streams_on_outputs_default_ = false;
   absl::flat_hash_set<AsyncNode*> nodes_with_bound_streams_;
 };
+
+inline std::unique_ptr<Action> ActionRegistry::MakeAction(
+    std::string_view action_key, std::string_view action_id,
+    std::vector<NamedParameter> inputs,
+    std::vector<NamedParameter> outputs) const {
+
+  auto action =
+      std::make_unique<Action>(eglt::FindOrDie(schemas_, action_key), action_id,
+                               std::move(inputs), std::move(outputs));
+  action->BindHandler(eglt::FindOrDie(handlers_, action_key));
+
+  return action;
+}
 
 }  // namespace eglt
 
