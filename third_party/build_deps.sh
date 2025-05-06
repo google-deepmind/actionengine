@@ -1,10 +1,22 @@
 set -e
 
+isset()   { [[ $(eval echo "\${${1}+1}") ]]; }
+isunset() { ! isset "$1"; }
+
 mkdir -p build_deps
 
 third_party_root=$(pwd)
 cc_standard=20
-nproc=6
+if isunset parallelism; then
+  if ! command -v nproc &> /dev/null; then
+    parallelism=6
+  else
+    parallelism=$(nproc)
+  fi
+fi
+if isunset build_folder_name; then
+  build_folder_name="build"
+fi
 
 python_exec_prefix=$(python -c "import sys; print(sys.exec_prefix)")
 
@@ -14,7 +26,6 @@ cppitertools_install_dir="${third_party_root}/build_deps/cppitertools"
 googletest_install_dir="${third_party_root}/build_deps/googletest"
 pybind11_install_dir="${third_party_root}/build_deps/pybind11"
 pybind11_abseil_install_dir="${third_party_root}/build_deps/pybind11_abseil"
-build_folder_name="build"
 
 # Google Test
 mkdir -p build_deps/googletest
@@ -28,7 +39,7 @@ cmake \
   -G "Ninja" \
   ..
 rm -rf "${googletest_install_dir}"
-cmake --build . --parallel "${nproc}" --target install
+cmake --build . --parallel "${parallelism}" --target install
 cd "${third_party_root}"
 
 # Abseil
@@ -49,23 +60,7 @@ cmake \
   -G "Ninja" \
   ..
 rm -rf "${abseil_install_dir}"
-cmake --build . --parallel "${nproc}" --target install
-cd "${third_party_root}"
-
-# Boost
-mkdir -p build_deps/boost
-cd boost
-mkdir -p "${build_folder_name}"
-cd "${build_folder_name}"
-cmake \
-  -DCMAKE_CXX_STANDARD="${cc_standard}" \
-  -DCMAKE_INSTALL_PREFIX="${boost_install_dir}" \
-  -DBOOST_INCLUDE_LIBRARIES="fiber;intrusive;beast;thread" \
-  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-  -G "Ninja" \
-  ..
-rm -rf "${boost_install_dir}"
-cmake --build . --parallel "${nproc}" --target install
+cmake --build . --parallel "${parallelism}" --target install
 cd "${third_party_root}"
 
 # Pybind11
@@ -83,7 +78,7 @@ cmake \
   -G "Ninja" \
   ..
 rm -rf "${pybind11_install_dir}"
-cmake --build . --parallel "${nproc}" --target install
+cmake --build . --parallel "${parallelism}" --target install
 cd "${third_party_root}"
 
 # cppitertools
@@ -98,7 +93,7 @@ cmake \
   -G "Ninja" \
   ..
 rm -rf "${cppitertools_install_dir}"
-cmake --build . --parallel "${nproc}" --target install
+cmake --build . --parallel "${parallelism}" --target install
 cd "${third_party_root}"
 
 # ZMQ
@@ -110,7 +105,7 @@ cmake \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -G "Ninja" \
   ..
-cmake --build . --parallel "${nproc}" --target install
+cmake --build . --parallel "${parallelism}" --target install
 cd "${third_party_root}"
 
 mkdir -p build_deps/cppzmq && cd cppzmq
@@ -123,5 +118,5 @@ cmake \
   -DCPPZMQ_BUILD_TESTS=OFF \
   -G "Ninja" \
   ..
-cmake --build . --parallel "${nproc}" --target install
+cmake --build . --parallel "${parallelism}" --target install
 cd "${third_party_root}"
