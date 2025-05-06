@@ -24,6 +24,7 @@ cd "${build_folder_name}"
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${googletest_install_dir}" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -G "Ninja" \
   ..
 rm -rf "${googletest_install_dir}"
@@ -44,6 +45,7 @@ cmake \
   -DCMAKE_PREFIX_PATH="${googletest_install_dir}" \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${abseil_install_dir}" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -G "Ninja" \
   ..
 rm -rf "${abseil_install_dir}"
@@ -59,7 +61,7 @@ cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${boost_install_dir}" \
   -DBOOST_INCLUDE_LIBRARIES="fiber;intrusive;beast;thread" \
-  -DBOOST_ENABLE_CMAKE=ON \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -G "Ninja" \
   ..
 rm -rf "${boost_install_dir}"
@@ -77,6 +79,7 @@ cmake \
   -DPython_ROOT_DIR="${python_exec_prefix}" \
   -DPython3_ROOT_DIR="${python_exec_prefix}" \
   -DPYBIND11_TEST=OFF \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -G "Ninja" \
   ..
 rm -rf "${pybind11_install_dir}"
@@ -91,6 +94,7 @@ cd "__${build_folder_name}"
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${cppitertools_install_dir}" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -G "Ninja" \
   ..
 rm -rf "${cppitertools_install_dir}"
@@ -103,6 +107,7 @@ mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/libzmq" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${nproc}" --target install
@@ -114,6 +119,7 @@ cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_PREFIX_PATH="${third_party_root}/build_deps/libzmq" \
   -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/cppzmq" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DCPPZMQ_BUILD_TESTS=OFF \
   -G "Ninja" \
   ..
