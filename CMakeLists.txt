@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wthread-safety -Werror=thread-safety")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(EGLT_PROJECT_TOP_LEVEL ${CMAKE_CURRENT_SOURCE_DIR}/eglt)
+set(EGLT_PROJECT_TOP_LEVEL ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(EGLT_PROJECT_ROOT ${EGLT_PROJECT_TOP_LEVEL}/eglt)
 set(EGLT_PYBIND11_TOP_LEVEL ${CMAKE_CURRENT_SOURCE_DIR}/pybind11)
 
@@ -113,8 +113,8 @@ set(EGLT_THIRD_PARTY_INCLUDE_DIRS
 
 enable_testing()
 include(GoogleTest)
-add_subdirectory(eglt)
-add_subdirectory(eglt/eglt/sdk)
+add_subdirectory(src)
+add_subdirectory(src/eglt/sdk)
 add_subdirectory(examples)
 
 install(
