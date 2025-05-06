@@ -51,10 +51,6 @@ target_link_libraries(
         absl::log_initialize
         absl::log_internal_check_op
         absl::random_random
-        absl::status
-        absl::status_matchers
-        absl::statusor
-        absl::strings
         absl::time
         boost_fiber
         boost_thread

@@ -23,7 +23,8 @@ bool PermanentEvent::Handle(internal::CaseState* c, bool enqueue) {
     // required to maintain an active list after notification has been
     // delivered.
     return c->Pick();
-  } else if (enqueue) {
+  }
+  if (enqueue) {
     internal::PushBack(&enqueued_list_, c);
   }
 
