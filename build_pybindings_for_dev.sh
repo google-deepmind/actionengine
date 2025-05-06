@@ -13,7 +13,7 @@ else
   git submodule update --init --recursive
   echo "Building third-party dependencies..."
   cd third_party
-  ./build_deps.sh
+  CC=clang CXX=clang++ ./build_deps.sh
   cd "$repo_root"
 fi
 
