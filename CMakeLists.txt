@@ -6,7 +6,7 @@ endif ()
 
 project(eglt-oss
         VERSION 0.1
-        LANGUAGES CXX
+        LANGUAGES C CXX
 )
 
 set(CMAKE_CXX_STANDARD 20)

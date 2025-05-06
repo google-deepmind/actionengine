@@ -11,21 +11,17 @@ concurrency:
   group: "cc-builds"
   cancel-in-progress: false
 
-env:
-  PATH: /usr/bin:/usr/local/bin:/opt/hostedtoolcache/pyenv/3.12.8/x64/bin:/opt/hostedtoolcache/pyenv/3.12.8/x64/shims
-
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
+  run_tests:
     runs-on: ubuntu-latest
     steps:
-    #    - name: Clear pyenv cache
-    #      run: |
-    #        sudo rm -rf /opt/hostedtoolcache/pyenv_root
     - name: Download system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build build-essential libpthread-dev libssl-dev libffi-dev libbz2-dev libsqlite3-dev liblzma-dev zlib1g-dev
+        sudo apt-get install -y \
+          cmake ninja-build build-essential \
+          libssl-dev libffi-dev libbz2-dev \
+          libsqlite3-dev liblzma-dev zlib1g-dev
     - name: setup pyenv
       uses: "gabrielfalcao/pyenv-action@v18"
       with:
@@ -34,14 +30,13 @@ jobs:
           pyenv global 3.12.8
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Update submodules
-      run: |
-        git submodule update --init --recursive
-    - name: Download and build dependencies
+      with:
+        submodules: recursive
+    - name: Build dependencies
       run: |
         export PATH="$(pyenv root)/shims:$PATH"
         cd third_party
-        ./build_deps.sh
+        build_folder_name="build_gh_actions" ./build_deps.sh
     - name: Configure and build
       run: |
         export PATH="$(pyenv root)/shims:$PATH"

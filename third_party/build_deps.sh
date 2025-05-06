@@ -14,7 +14,7 @@ cppitertools_install_dir="${third_party_root}/build_deps/cppitertools"
 googletest_install_dir="${third_party_root}/build_deps/googletest"
 pybind11_install_dir="${third_party_root}/build_deps/pybind11"
 pybind11_abseil_install_dir="${third_party_root}/build_deps/pybind11_abseil"
-build_folder_name="build_gh_actions"
+build_folder_name="build"
 
 # Google Test
 mkdir -p build_deps/googletest
