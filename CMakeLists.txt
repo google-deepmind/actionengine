@@ -59,7 +59,7 @@ set(
 set(THREAD_ON_BOOST_BOOST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost)
 set(THREAD_ON_BOOST_ABSL_ROOT ${EGLT_ABSL_ROOT})
 set(THREAD_ON_BOOST_GTEST_ROOT ${EGLT_GTEST_ROOT})
-set(THREAD_ON_BOOST_DIR ${CMAKE_CURRENT_LIST_DIR}/thread_on_boost)
+set(THREAD_ON_BOOST_DIR ${CMAKE_CURRENT_LIST_DIR}/src/thread_on_boost)
 add_subdirectory(${THREAD_ON_BOOST_DIR})
 
 set(EGLT_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include)
@@ -90,7 +90,7 @@ find_package(absl REQUIRED)
 find_package(cppitertools REQUIRED)
 find_package(GTest REQUIRED)
 
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/cppack)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/cppack)
 
 include(FetchContent)
 set(BUILD_TESTING_BACKUP ${BUILD_TESTING})
