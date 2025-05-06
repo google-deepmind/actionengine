@@ -36,7 +36,7 @@ inline bool CvBlock(absl::Time deadline, internal::Selector* sel)
 int SelectUntil(absl::Time deadline, const CaseArray& cases) {
   internal::Selector sel;
   sel.picked = internal::Selector::kNonePicked;
-  int num_cases = cases.size();
+  const int num_cases = cases.size();
 
   // Initialize internal representation of passed Cases
   absl::FixedArray<internal::CaseState, 4> case_states(num_cases);
@@ -47,12 +47,12 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
     case_states[0].index = 0;
   }
   for (int i = 1; i < num_cases; i++) {
-    int swap = Rand32() % (i + 1);
+    const int swap = Rand32() % (i + 1);
     case_states[i].index = case_states[swap].index;
     case_states[swap].index = i;
   }
 
-  bool blocking = deadline != absl::InfinitePast();
+  const bool blocking = deadline != absl::InfinitePast();
   bool ready = false;
   int registered_limit;
   for (registered_limit = 0; registered_limit < num_cases; registered_limit++) {
@@ -78,7 +78,7 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
     const bool expirable = deadline != absl::InfiniteFuture();
 
     MutexLock l(&sel.mu);
-    bool expired = !CvBlock(deadline, &sel);
+    const bool expired = !CvBlock(deadline, &sel);
     DCHECK(expirable || !expired);
     if (expired) {
       // Deadline expiry. Ensure nothing is picked from this point.

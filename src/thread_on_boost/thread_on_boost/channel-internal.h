@@ -83,7 +83,7 @@ class ChannelState final : public ChannelWaiterState {
     DCHECK(Invariants());
     CHECK(!closed_) << "Calling Close() on closed channel";
     CHECK(waiting_writers_ == nullptr)
-        << "Calling Close() on channel with blocked writers";
+        << "Calling Close() on a channel with blocked writers";
     closed_ = true;
     this->CloseAndReleaseReaders();
     DCHECK(Invariants());
@@ -119,7 +119,6 @@ class ChannelState final : public ChannelWaiterState {
             reinterpret_cast<intptr_t>(&CopyOut)};
   }
 
-  // Style approval: go/channel-move
   Case OnWrite(T&& item) {
     return {&wr_, reinterpret_cast<intptr_t>(&item),
             reinterpret_cast<intptr_t>(&MoveOut)};

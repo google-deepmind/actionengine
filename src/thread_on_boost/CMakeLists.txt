@@ -31,7 +31,6 @@ target_sources(
         thread_on_boost/intrusive_list.h
         thread_on_boost/mutex.h
         thread_on_boost/select.cc
-        thread_on_boost/select-internal.cc
         thread_on_boost/select-internal.h
         thread_on_boost/selectables.cc
 )

@@ -96,10 +96,6 @@ class ABSL_SCOPED_LOCKABLE TwoMutexLock {
   Mutex* absl_nonnull const mu2_;
 };
 
-inline void JoinOptimally(Fiber* fiber) {
-  impl::JoinOptimally(fiber);
-}
-
 inline bool Cancelled() {
   return impl::Cancelled();
 }

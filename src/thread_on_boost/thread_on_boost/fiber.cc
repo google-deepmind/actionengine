@@ -26,7 +26,6 @@ struct PerThreadDynamicFiber {
     DVLOG(2) << "PerThreadDynamicFiber destructor called: " << f;
     if (f != nullptr) {
       f->MarkFinished();
-      // TODO(b/384529493) Identify what to do if not currently joinable.
       f->InternalJoin();
       delete f;
     }
@@ -241,9 +240,6 @@ bool Fiber::MarkFinished() {
 
   // Any fiber can have detached children.
   if (children_.empty()) {
-    // We have finished execution associated with this Fiber.  Free any
-    // associated TraceContext now, rather than waiting for our parent to
-    // Join() and release us.
     joinable_.Notify();
     // Although joinable_ is true, any foreign call to Join() also needs to
     // acquire mu_, thus we can't be deleted yet.
@@ -301,17 +297,7 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
 
     // Check whether the fiber we're currently visiting has already been
     // cancelled.
-    //
-    // We don't want to do a cancellation coloring check here because the
-    // currently-running thread is checking the cancellation status of a
-    // potentially different fiber, not its own. It's fine to call Cancel on
-    // some other fiber.
-    //
-    // Indeed as far as the user is concerned we're not even checking the
-    // cancellation status, we're setting it -- this check is here only for use
-    // in an optimization below.
-    bool cancelled = fiber->cancellation_.HasBeenNotified(
-        PermanentEvent::SuppressCancellationColorCheckTag{});
+    bool cancelled = fiber->cancellation_.HasBeenNotified();
 
     // If we have children, and we're already cancelled, then they must be also.
     // We don't need to re-walk our children as future descendants will be

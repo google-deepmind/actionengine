@@ -176,11 +176,11 @@ class ChunkStoreReader {
         break;
       }
 
-      buffer_->GetWriter()->Write(
+      buffer_->writer()->Write(
           std::make_pair(next_seq_id, std::move(*next_chunk)));
     }
     // concurrency::MutexLock lock(&mutex_);
-    buffer_->GetWriter()->Close();
+    buffer_->writer()->Close();
   }
 
   // This is primarily used by the prefetch loop to update the status of the
@@ -214,9 +214,8 @@ inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next() {
   std::optional<std::pair<int, Chunk>> seq_and_chunk;
   bool ok;
   const int selected = concurrency::SelectUntil(
-      absl::Now() + timeout_,
-      {buffer_->GetReader()->OnRead(&seq_and_chunk, &ok),
-       concurrency::OnCancel()});
+      absl::Now() + timeout_, {buffer_->reader()->OnRead(&seq_and_chunk, &ok),
+                               concurrency::OnCancel()});
   if (selected == -1) {
     UpdateStatus(absl::DeadlineExceededError("Timed out waiting for chunk."));
     DLOG(INFO) << "Timed out waiting for chunk.";

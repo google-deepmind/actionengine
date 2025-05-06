@@ -257,7 +257,7 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
 
   for (const auto& [_, fiber] : fibers) {
     if (fiber != nullptr) {
-      concurrency::JoinOptimally(fiber.get());
+      fiber->Join();
     }
   }
 }

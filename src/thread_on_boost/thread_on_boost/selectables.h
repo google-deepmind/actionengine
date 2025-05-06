@@ -44,14 +44,14 @@ namespace thread {
 //         }
 //       }
 //     }
-class PermanentEvent : public internal::Selectable {
+class PermanentEvent final : public internal::Selectable {
  public:
   PermanentEvent() = default;
 
   ~PermanentEvent() override {
     // We acquire the lock here so that PermanentEvent can synchronize
     // its own deletion.
-    lock_.Lock();
+    lock_.lock();
     DCHECK(enqueued_list_ == nullptr);
   }
 
@@ -81,30 +81,8 @@ class PermanentEvent : public internal::Selectable {
  private:
   friend class Fiber;
 
-  struct CancellationEventTag final {
-    explicit CancellationEventTag() = default;
-  };
-
-  struct SuppressCancellationColorCheckTag final {
-    explicit SuppressCancellationColorCheckTag() = default;
-  };
-
-  // Construct an event that exists in particular to synchronize on cancellation
-  // of a fiber.
-  explicit PermanentEvent(CancellationEventTag) : cancellation_event_(true) {}
-
-  // Like the public HasBeenNotified method, but without a check for
-  // cancellation coloring.
-  bool HasBeenNotified(SuppressCancellationColorCheckTag) const {
-    return notified_.load(std::memory_order_acquire);
-  }
-
-  SpinLock lock_;  // Synchronizes notification with Selector (un)registration
+  boost::fibers::detail::spinlock lock_;
   std::atomic<bool> notified_{false};
-
-  // Does this event exist to track cancellation of a fiber? This is used for
-  // the purpose of go/cancellation-coloring checks.
-  const bool cancellation_event_ = false;
 
   internal::CaseState* enqueued_list_ = nullptr;
 };
@@ -153,10 +131,6 @@ Case NonSelectableCase();
 //     util::Status status_;
 //   };
 Case AlwaysSelectableCase();
-
-namespace internal {
-void CheckActiveCancellationColor();
-}  // namespace internal
 
 }  // namespace thread
 

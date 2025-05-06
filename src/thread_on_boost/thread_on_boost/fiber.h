@@ -143,7 +143,7 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   gtl::intrusive_list<Fiber, CancellationList::Tag> children_
       ABSL_GUARDED_BY(mu_);
 
-  PermanentEvent cancellation_{PermanentEvent::CancellationEventTag()};
+  PermanentEvent cancellation_;
   PermanentEvent joinable_;
 
   friend std::unique_ptr<Fiber> internal::CreateTree(

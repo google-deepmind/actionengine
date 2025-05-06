@@ -104,7 +104,7 @@ struct CaseState {
 // for passing arguments to a single selectable used in multiple different ways.
 class Selectable {
  public:
-  virtual ~Selectable();
+  virtual ~Selectable() = default;
 
   // If this selectable is ready to be picked up by c's Select, call c->Pick()
   // (which may or may not pick this selectable), and return true.
@@ -129,11 +129,6 @@ class Selectable {
   // If the CaseState is enqueued and the selectable later becomes ready before
   // Unregister is called, it should again lock c->sel->mu, call c->Pick(),
   // and perform side effects iff picked, while c->sel->mu is still held.
-  //
-  // TODO(pjt): We could simplify the Handle semantics by having a return of
-  // true indicate selection at time of initial queue.  Obvious challenge here
-  // are cases like synchronous exchange across an unbuffered channel but it's
-  // probably worth a look.
   virtual bool Handle(CaseState* c, bool enqueue) = 0;
 
   // Unregister a case against future transitions for this Selectable.

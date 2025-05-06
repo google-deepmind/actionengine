@@ -11,8 +11,6 @@
 
 namespace thread {
 
-// TODO(pjt): if we ever see contention on last_rand32 we'll want to make this
-// per-thread or per-cpu.
 inline static std::atomic<int32_t> last_rand32;
 inline static absl::once_flag init_rand32_once;
 
@@ -28,7 +26,7 @@ static void InitRand32() {
 // Pseudo-random number generator using Linear Shift Feedback Register (LSFB)
 static uint32_t Rand32() {
   // Primitive polynomial: x^32+x^22+x^2+x^1+1
-  static const uint32_t poly = (1 << 22) | (1 << 2) | (1 << 1) | (1 << 0);
+  static constexpr uint32_t poly = (1 << 22) | (1 << 2) | (1 << 1) | (1 << 0);
 
   absl::call_once(init_rand32_once, InitRand32);
   uint32_t r = last_rand32.load(std::memory_order_relaxed);
@@ -57,10 +55,6 @@ static uint32_t Rand32() {
 // The wait can be assigned a logical name, e.g.:
 //   thread::Select(cases, "FirstResponse");
 //
-// The provided name is then available to tracing implementations based on
-// the TraceEventListener API such as Dapper PE. The default value for `name`
-// is the source location of the call site.
-//
 // THREAD SAFETY:
 // Select and Cases are typically thread-safe. More detailed notes may be found
 // below.
@@ -68,7 +62,7 @@ int Select(const CaseArray& cases);
 
 // SelectUntil waits at most until the absolute time value specified by the
 // deadline parameter.  If a case completes before then, its index is returned.
-// Otherwise a special index of -1 is returned, representing expiration of the
+// Otherwise, a special index of -1 is returned, representing expiration of the
 // deadline.
 //
 // All other semantics are equivalent to Select(...).
@@ -104,7 +98,7 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases);
 // It is guaranteed that no case will proceed if -1 is returned.
 inline int TrySelect(const CaseArray& cases) {
   // Break into a variable to prevent inlining with the below overload.
-  absl::Time deadline = absl::InfinitePast();
+  constexpr absl::Time deadline = absl::InfinitePast();
   return SelectUntil(deadline, cases);
 }
 

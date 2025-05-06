@@ -88,6 +88,10 @@ class intrusive_list {
   }
 #endif  // SWIG
 
+  // These are undefined to prevent copying and assigning.
+  intrusive_list(const intrusive_list&) = delete;
+  void operator=(const intrusive_list&) = delete;
+
   // Construct an intrusive_list from a span of element pointers.
   //
   // This is useful for passing a list of known elements to a function that
@@ -324,10 +328,6 @@ class intrusive_list {
   //  `next_` points to the first element in the list.
   //  `prev_` points to the last element in the list.
   link_type sentinel_link_;
-
-  // These are private and undefined to prevent copying and assigning.
-  intrusive_list(const intrusive_list&) = delete;
-  void operator=(const intrusive_list&) = delete;
 };
 
 }  // namespace gtl

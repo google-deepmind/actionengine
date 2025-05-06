@@ -91,7 +91,7 @@ class ChunkStoreWriter {
   void SafelyCloseBuffer() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
     accepts_puts_ = false;
     if (!buffer_writer_closed_ && buffer_ != nullptr) {
-      buffer_->GetWriter()->Close();
+      buffer_->writer()->Close();
       buffer_writer_closed_ = true;
     }
   }
@@ -101,9 +101,8 @@ class ChunkStoreWriter {
       std::optional<NodeFragment> next_fragment;
       bool ok;
 
-      if (concurrency::Select(
-              {buffer_->GetReader()->OnRead(&next_fragment, &ok),
-               concurrency::OnCancel()}) == 1) {
+      if (concurrency::Select({buffer_->reader()->OnRead(&next_fragment, &ok),
+                               concurrency::OnCancel()}) == 1) {
         {
           concurrency::MutexLock lock(&mutex_);
           status_ = absl::CancelledError("Cancelled.");
@@ -159,7 +158,7 @@ class ChunkStoreWriter {
         {
           concurrency::MutexLock lock(&mutex_);
           if (!buffer_writer_closed_) {
-            buffer_->GetWriter()->WriteUnlessCancelled(std::nullopt);
+            buffer_->writer()->WriteUnlessCancelled(std::nullopt);
           }
         }
       }
@@ -232,7 +231,7 @@ inline absl::StatusOr<int> ChunkStoreWriter::Put(Chunk value, int seq,
   }
 
   EnsureWriteLoop();
-  if (!buffer_->GetWriter()->WriteUnlessCancelled(NodeFragment{
+  if (!buffer_->writer()->WriteUnlessCancelled(NodeFragment{
           .chunk = std::move(value),
           .seq = written_seq,
           .continued = !final,

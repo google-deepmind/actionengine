@@ -67,9 +67,8 @@ static bool StartTransfer(CaseState* reader, CaseState* writer)
     s2->mu.Lock();
     if (s2->picked == Selector::kNonePicked) {
       return true;
-    } else {
-      s2->mu.Unlock();
     }
+    s2->mu.Unlock();
   }
   s1->mu.Unlock();
   return false;
@@ -89,8 +88,7 @@ void ChannelWaiterState::UnlockAndReleaseWriter(CaseState* writer)
 
 bool ChannelWaiterState::GetMatchingReader(CaseState* writer,
                                            CaseState** reader) {
-  CaseState* current_reader = waiting_readers_;
-  if (current_reader != nullptr) {
+  if (CaseState* current_reader = waiting_readers_; current_reader != nullptr) {
     do {
       if (StartTransfer(current_reader, writer)) {
         // Both current_reader->sel->mu and writer->sel->mu are now locked.
@@ -105,8 +103,7 @@ bool ChannelWaiterState::GetMatchingReader(CaseState* writer,
 
 bool ChannelWaiterState::GetMatchingWriter(CaseState* reader,
                                            CaseState** writer) {
-  CaseState* current_writer = waiting_writers_;
-  if (current_writer != nullptr) {
+  if (CaseState* current_writer = waiting_writers_; current_writer != nullptr) {
     do {
       if (StartTransfer(reader, current_writer)) {
         // Both reader->sel->mu and current_writer->sel->mu are now locked.
@@ -120,8 +117,7 @@ bool ChannelWaiterState::GetMatchingWriter(CaseState* reader,
 }
 
 bool ChannelWaiterState::GetWaitingWriter(CaseState** writer) {
-  CaseState* current_writer = waiting_writers_;
-  if (current_writer != nullptr) {
+  if (CaseState* current_writer = waiting_writers_; current_writer != nullptr) {
     do {
       current_writer->sel->mu.Lock();
       if (current_writer->sel->picked == Selector::kNonePicked) {

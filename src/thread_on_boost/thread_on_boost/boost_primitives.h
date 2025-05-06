@@ -89,36 +89,6 @@ class CondVar {
   boost::fibers::condition_variable_any cv_;
 };
 
-class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED SpinLock {
- public:
-  void Lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() { spinlock_.lock(); }
-
-  void Unlock() noexcept ABSL_UNLOCK_FUNCTION() { spinlock_.unlock(); }
-
-  void lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() { Lock(); }
-
-  void unlock() noexcept ABSL_UNLOCK_FUNCTION() { Unlock(); }
-
- private:
-  boost::fibers::detail::spinlock spinlock_;
-};
-
-class ABSL_SCOPED_LOCKABLE SpinLockHolder {
- public:
-  explicit SpinLockHolder(SpinLock* lock) ABSL_EXCLUSIVE_LOCK_FUNCTION(lock)
-      : lock_(lock) {
-    lock_->Lock();
-  }
-
-  ~SpinLockHolder() ABSL_UNLOCK_FUNCTION() { lock_->Unlock(); }
-
-  SpinLockHolder(const SpinLockHolder&) = delete;
-  SpinLockHolder& operator=(const SpinLockHolder&) = delete;
-
- private:
-  SpinLock* lock_;
-};
-
 }  // namespace thread
 
 #endif  // THREAD_ON_BOOST_BOOST_PRIMITIVES_H_

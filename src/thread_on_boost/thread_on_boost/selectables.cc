@@ -4,6 +4,7 @@
 #include "thread_on_boost/selectables.h"
 
 #include <atomic>
+#include <mutex>
 
 #include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/boost_primitives.h"
@@ -13,11 +14,7 @@ namespace thread {
 
 // PermanentEvent
 bool PermanentEvent::Handle(internal::CaseState* c, bool enqueue) {
-  if (cancellation_event_) {
-    internal::CheckActiveCancellationColor();
-  }
-
-  SpinLockHolder l1(&lock_);
+  boost::fibers::detail::spinlock_lock l1(lock_);
 
   if (notified_.load(std::memory_order_relaxed)) {  // Synchronized by lock_
     MutexLock l2(&c->sel->mu);
@@ -34,7 +31,7 @@ bool PermanentEvent::Handle(internal::CaseState* c, bool enqueue) {
 }
 
 void PermanentEvent::Unregister(internal::CaseState* c) {
-  SpinLockHolder l1(&lock_);
+  boost::fibers::detail::spinlock_lock l1(lock_);
   if (!notified_.load(std::memory_order_relaxed)) {
     // We only maintain lists of active cases up until notification.
     internal::RemoveFromList(&enqueued_list_, c);
@@ -42,9 +39,7 @@ void PermanentEvent::Unregister(internal::CaseState* c) {
 }
 
 void PermanentEvent::Notify() {
-  // If traced, record the causality of the event being notified (signaled).
-
-  SpinLockHolder l(&lock_);
+  boost::fibers::detail::spinlock_lock l(lock_);
 
   DCHECK(!notified_.load(std::memory_order_relaxed))
       << "Notify() method called more than once for "
@@ -63,11 +58,7 @@ void PermanentEvent::Notify() {
 }
 
 bool PermanentEvent::HasBeenNotified() const {
-  if (cancellation_event_) {
-    internal::CheckActiveCancellationColor();
-  }
-
-  return HasBeenNotified(SuppressCancellationColorCheckTag{});
+  return notified_.load(std::memory_order_acquire);
 }
 
 // NonSelectable: an ironic implementation of a Selectable.
@@ -82,7 +73,6 @@ class NonSelectable : public internal::Selectable {
 };
 
 Case NonSelectableCase() {
-  // TODO(pjt): Select could be specialized against NonSelectable?
   static absl::NoDestructor<NonSelectable> non_selectable;
   return {non_selectable.get()};
 }
@@ -108,7 +98,5 @@ Case AlwaysSelectableCase() {
   static absl::NoDestructor<AlwaysSelectable> always_selectable;
   return {always_selectable.get()};
 }
-
-void internal::CheckActiveCancellationColor() {}
 
 }  // namespace thread

@@ -50,7 +50,6 @@ class Reader {
   explicit Reader(internal::ChannelState<T>* rep) : rep_(rep) {}
 };
 
-// Style approval: go/channel-move
 template <class T>
 class Writer {
  public:
@@ -114,20 +113,6 @@ class Writer {
   // See Write() above for a description of whether "item" is copied or moved.
   // If "item" is moved, the move happens iff this function returns true,
   // similarly to OnWrite(T&&) above.
-  //
-  // Use this function to add cancellation points to your control flow wherever
-  // you write to a channel, necessary to avoid a deadlock in some cases (see
-  // the best practices at the top of this file for details). For example:
-  //
-  //     util::Status ProduceLotsOfInts(thread::Writer<int>* c) {
-  //       for (int i = 0; i < 1e9; ++i) {
-  //         if (!c->WriteUnlessCancelled(i)) {
-  //           return util::Status::CANCELLED;
-  //         }
-  //       }
-  //       return util::Status::OK;
-  //     }
-  //
   bool WriteUnlessCancelled(const T& item) {
     return !Cancelled() && Select({OnCancel(), OnWrite(item)}) == 1;
   }
@@ -135,31 +120,6 @@ class Writer {
   bool WriteUnlessCancelled(T&& item) {
     return !Cancelled() && Select({OnCancel(), OnWrite(std::move(item))}) == 1;
   }
-
-  // // Like WriteUnlessCancelled above, except also pay attention to the current
-  // // context's deadline. Callers should use this to add interruption points to
-  // // their code when the interface they export promises to be aware of
-  // // the Context-associated deadline.
-  // //
-  // // While WriteUnlessCancelled will never post a value to a Channel once
-  // // cancelled, an "Expired" deadline will not prevent writes if there is
-  // // instantaneously room.
-  // //
-  // // "clock" is optional. Callers may set it for testing, e.g. as a
-  // // SimulatedClock or MockClock.
-  // bool WriteUnlessCancelledOrExpired(const T& item,
-  //                                    util::Clock* clock = nullptr) {
-  //   const absl::Time deadline = base::CurrentContext().deadline();
-  //   return !Cancelled() &&
-  //          SelectUntil(clock, deadline, {OnCancel(), OnWrite(item)}) == 1;
-  // }
-  //
-  // bool WriteUnlessCancelledOrExpired(T&& item, util::Clock* clock = nullptr) {
-  //   const absl::Time deadline = base::CurrentContext().deadline();
-  //   return !Cancelled() &&
-  //          SelectUntil(clock, deadline,
-  //                      {OnCancel(), OnWrite(std::move(item))}) == 1;
-  // }
 
  private:
   internal::ChannelState<T>* rep_;
@@ -198,7 +158,6 @@ class Channel {
   Channel(const Channel&) = delete;
   Channel& operator=(const Channel&) = delete;
 
-  // TODO(void): Should we require that the writer is closed?
   ~Channel() = default;
 
   // Accessors for the reader and writer endpoints of the channel. These
@@ -208,7 +167,7 @@ class Channel {
 
   // Accessor for number of items currently held-up in a channel. Returns an
   // instantaneous value; client logic should not depend on it.
-  size_t length() const { return state_.Length(); }
+  [[nodiscard]] size_t length() const { return state_.Length(); }
 
  private:
   internal::ChannelState<T> state_;
