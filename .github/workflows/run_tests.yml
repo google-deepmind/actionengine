@@ -21,7 +21,8 @@ jobs:
         sudo apt-get install -y \
           cmake ninja-build build-essential \
           libssl-dev libffi-dev libbz2-dev \
-          libsqlite3-dev liblzma-dev zlib1g-dev
+          libsqlite3-dev liblzma-dev zlib1g-dev \
+          clang llvm
     - name: setup pyenv
       uses: "gabrielfalcao/pyenv-action@v18"
       with:
@@ -35,11 +36,15 @@ jobs:
     - name: Build dependencies
       run: |
         export PATH="$(pyenv root)/shims:$PATH"
+        export CC=clang
+        export CXX=clang++
         cd third_party
         build_folder_name="build_gh_actions" ./build_deps.sh
     - name: Configure and build
       run: |
         export PATH="$(pyenv root)/shims:$PATH"
+        export CC=clang
+        export CXX=clang++
         cmake -GNinja -S . -B build -DCMAKE_BUILD_TYPE=Release
         cmake --build build
     - name: Run tests
