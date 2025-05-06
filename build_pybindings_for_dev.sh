@@ -20,7 +20,7 @@ fi
 mkdir -p build
 cd build
 echo "Configuring build..."
-cmake \
+CC=clang CXX=clang++ cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${repo_root}/install" \
   -DCMAKE_BUILD_TYPE=Debug \
@@ -29,7 +29,7 @@ cmake \
   ..
 
 echo "Building project..."
-cmake --build . --parallel "${nproc}" --target install
+CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target install
 
 echo "Moving compiled files to Python code directory..."
 cd "$repo_root"
