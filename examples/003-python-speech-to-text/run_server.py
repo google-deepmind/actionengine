@@ -28,7 +28,13 @@ async def main():
 
   print("Starting Action Engine server.")
   server.run()
-  await asyncio.to_thread(server.join)
+  task = asyncio.create_task(asyncio.to_thread(server.join))
+  try:
+    await task
+  except asyncio.CancelledError:
+    print("Shutting down Action Engine server.")
+    server.cancel()
+    await task
 
 
 def sync_main():

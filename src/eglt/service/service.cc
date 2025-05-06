@@ -157,34 +157,22 @@ Service::EstablishConnection(std::shared_ptr<EvergreenStream>&& stream,
 
   // for later: Stubby streams require Accept() to be called before returning
   // from StartSession. This might not be the ideal solution with other streams.
-  if (absl::Status status = connections_.at(stream_id)->stream->Accept();
-      !status.ok()) {
+  auto& connection = eglt::FindOrDie(connections_, stream_id);
+  if (absl::Status status = connection->stream->Accept(); !status.ok()) {
+    CleanupConnection(*connection);
     return status;
   }
 
   connection_fibers_[stream_id] = concurrency::NewTree(
       concurrency::TreeOptions(),
-      [this, stream_id, resolved_handler = std::move(resolved_handler),
-       connection = connections_.at(stream_id)]() {
+      [this, resolved_handler = std::move(resolved_handler), connection]() {
         connection->status =
             resolved_handler(connection->stream, connection->session);
-
         concurrency::MutexLock cleanup_lock(&mutex_);
-
-        streams_.erase(stream_id);
-        if (streams_per_session_.contains(connection->session_id)) {
-          streams_per_session_.at(connection->session_id).erase(stream_id);
-          if (streams_per_session_.at(connection->session_id).empty()) {
-            DLOG(INFO) << "session " << connection->session_id
-                       << " has no more stable connections, deleting.";
-            sessions_.erase(connection->session_id);
-            node_maps_.erase(connection->session_id);
-          }
-        }
-        connections_.erase(stream_id);
+        CleanupConnection(*connection);
       });
 
-  return connections_.at(stream_id);
+  return connection;
 }
 
 absl::Status Service::JoinConnection(StreamToSessionConnection* connection) {

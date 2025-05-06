@@ -62,8 +62,8 @@ using EvergreenConnectionHandler =
     std::function<absl::Status(EvergreenStream*, Session*)>;
 
 /// @callgraph
-absl::Status RunSimpleEvergreenSession(
-    EvergreenStream* absl_nonnull stream, Session* absl_nonnull session);
+absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
+                                       Session* absl_nonnull session);
 
 /**
  * @brief
@@ -119,13 +119,29 @@ class Service : public std::enable_shared_from_this<Service> {
   void JoinConnectionsAndCleanUp(bool cancel = false)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
+  void CleanupConnection(const StreamToSessionConnection& connection)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    streams_.erase(connection.stream_id);
+    if (streams_per_session_.contains(connection.session_id)) {
+      streams_per_session_.at(connection.session_id)
+          .erase(connection.stream_id);
+      if (streams_per_session_.at(connection.session_id).empty()) {
+        DLOG(INFO) << "session " << connection.session_id
+                   << " has no more stable connections, deleting.";
+        sessions_.erase(connection.session_id);
+        node_maps_.erase(connection.session_id);
+      }
+    }
+    connections_.erase(connection.stream_id);
+  }
+
   std::unique_ptr<ActionRegistry> action_registry_;
   EvergreenConnectionHandler connection_handler_;
   ChunkStoreFactory chunk_store_factory_;
 
   mutable concurrency::Mutex mutex_;
-  absl::flat_hash_map<std::string, std::shared_ptr<EvergreenStream>>
-      streams_ ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, std::shared_ptr<EvergreenStream>> streams_
+      ABSL_GUARDED_BY(mutex_);
   // for now, we only support one-to-one session-stream mapping, therefore we
   // use the stream id as the session id.
   absl::flat_hash_map<std::string, std::unique_ptr<NodeMap>> node_maps_

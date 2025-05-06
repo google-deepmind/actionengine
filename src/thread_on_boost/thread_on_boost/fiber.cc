@@ -212,6 +212,11 @@ void Fiber::Join() {
   // in this case.
   DCHECK(!IsFiberDetached(this)) << "Join() on detached fiber.";
 
+  {
+    MutexLock l(&mu_);
+    CHECK(state_ != JOINED) << "Join() called on already joined fiber.";
+  }
+
   Fiber* current_fiber = GetPerThreadFiberPtr();
   CHECK(this != current_fiber) << "Fiber trying to join itself!";
   if (parent_ != nullptr) {

@@ -7,6 +7,7 @@
 #define BOOST_ASIO_NO_DEPRECATED
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/thread_pool.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <utility>
@@ -23,8 +24,9 @@ namespace asio = boost::asio;
 namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
 
-static asio::system_context& GetSystemContext() {
-  static auto context = asio::system_context();
+static asio::thread_pool* GetDefaultAsioExecutionContext() {
+  static asio::thread_pool* context =
+      new asio::thread_pool(std::thread::hardware_concurrency() * 2);
   return context;
 }
 
@@ -34,7 +36,7 @@ template <typename Invocable, typename = std::enable_if_t<!std::is_void_v<
 auto RunInAsioContext(Invocable&& fn) {
   std::optional<decltype(fn())> result;
   concurrency::PermanentEvent done;
-  asio::post(GetSystemContext(),
+  asio::post(*GetDefaultAsioExecutionContext(),
              [&done, &result, fn = std::forward<Invocable>(fn)]() {
                result = fn();
                done.Notify();
@@ -45,7 +47,7 @@ auto RunInAsioContext(Invocable&& fn) {
 
 inline auto RunInAsioContext(absl::AnyInvocable<void()>&& fn) {
   concurrency::PermanentEvent done;
-  asio::post(GetSystemContext(), [&done, &fn]() {
+  asio::post(*GetDefaultAsioExecutionContext(), [&done, &fn]() {
     fn();
     done.Notify();
   });
@@ -201,7 +203,8 @@ class WebsocketEvergreenServer {
                                     std::string_view address = "0.0.0.0",
                                     uint16_t port = 20000)
       : service_(service),
-        acceptor_(std::make_unique<tcp::acceptor>(GetSystemContext())) {
+        acceptor_(std::make_unique<tcp::acceptor>(
+            *GetDefaultAsioExecutionContext())) {
     boost::system::error_code error;
 
     acceptor_->open(tcp::v4(), error);
@@ -236,17 +239,16 @@ class WebsocketEvergreenServer {
   }
 
   ~WebsocketEvergreenServer() {
-    if (main_loop_ != nullptr) {
-      Cancel().IgnoreError();
-      Join().IgnoreError();
-    }
+    Cancel().IgnoreError();
+    Join().IgnoreError();
     DLOG(INFO) << "WebsocketEvergreenServer destroyed";
   }
 
   void Run() {
+    concurrency::MutexLock lock(&mutex_);
     main_loop_ = concurrency::NewTree({}, [this]() {
       while (!concurrency::Cancelled()) {
-        tcp::socket socket{GetSystemContext()};
+        tcp::socket socket{*GetDefaultAsioExecutionContext()};
 
         DLOG(INFO) << "WES waiting for connection.";
         boost::system::error_code error;
@@ -263,9 +265,11 @@ class WebsocketEvergreenServer {
             DLOG(ERROR)
                 << "WebsocketEvergreenServer EstablishConnection failed: "
                 << status_;
-            // coninuing here
+            // continuing here
           }
         } else {
+          DLOG(ERROR) << "WebsocketEvergreenServer accept() failed: "
+                      << error.message();
           switch (error.value()) {
             case boost::system::errc::operation_canceled:
               status_ = absl::OkStatus();
@@ -279,13 +283,24 @@ class WebsocketEvergreenServer {
           break;
         }
       }
-      acceptor_->close();
+      concurrency::MutexLock final_lock(&mutex_);
+      if (!cancelled_) {
+        acceptor_->close();
+      }
     });
   }
 
   absl::Status Cancel() {
+    concurrency::MutexLock lock(&mutex_);
+    if (cancelled_) {
+      return absl::OkStatus();
+    }
+    cancelled_ = true;
+    DLOG(INFO) << "WebsocketEvergreenServer Cancel()";
     boost::system::error_code error;
-    acceptor_->cancel(error);
+    acceptor_->close();
+    GetDefaultAsioExecutionContext()->stop();
+    main_loop_->Cancel();
 
     if (error) {
       status_ = absl::InternalError(error.message());
@@ -296,16 +311,38 @@ class WebsocketEvergreenServer {
   }
 
   absl::Status Join() {
+    {
+      concurrency::MutexLock lock(&mutex_);
+      while (joining_) {
+        join_cv_.Wait(&mutex_);
+      }
+      if (main_loop_ == nullptr) {
+        return status_;
+      }
+      joining_ = true;
+    }
     main_loop_->Join();
-    DLOG(INFO) << "WebsocketEvergreenServer joined";
+    {
+      concurrency::MutexLock lock(&mutex_);
+      main_loop_ = nullptr;
+      joining_ = false;
+      join_cv_.SignalAll();
+    }
+
+    DLOG(INFO) << "WebsocketEvergreenServer main_loop_ joined";
     return status_;
   }
 
  private:
   eglt::Service* absl_nonnull service_;
+  asio::thread_pool thread_pool_;
   std::unique_ptr<tcp::acceptor> acceptor_;
 
+  mutable concurrency::Mutex mutex_;
   std::unique_ptr<concurrency::Fiber> main_loop_;
+  bool cancelled_ ABSL_GUARDED_BY(mutex_) = false;
+  concurrency::CondVar join_cv_ ABSL_GUARDED_BY(mutex_);
+  bool joining_ ABSL_GUARDED_BY(mutex_) = false;
   absl::Status status_;
 };
 
@@ -341,10 +378,11 @@ inline std::unique_ptr<WebsocketEvergreenStream> MakeWebsocketEvergreenStream(
     std::string_view address = "127.0.0.1", uint16_t port = 20000,
     std::string_view target = "/", std::string_view id = "",
     PrepareStreamFn prepare_stream = {}) {
-  beast::websocket::stream<tcp::socket> ws_stream(GetSystemContext());
+  beast::websocket::stream<tcp::socket> ws_stream(
+      *GetDefaultAsioExecutionContext());
   boost::system::error_code error;
 
-  tcp::resolver resolver(GetSystemContext());
+  tcp::resolver resolver(*GetDefaultAsioExecutionContext());
   auto endpoints = RunInAsioContext([&resolver, &error, address, port]() {
     return resolver.resolve(address, std::to_string(port),
                             boost::asio::ip::resolver_query_base::flags(),
