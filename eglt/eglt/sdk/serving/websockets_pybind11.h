@@ -15,7 +15,7 @@
 #ifndef EGLT_PYBIND11_EGLT_WEBSOCKETS_H_
 #define EGLT_PYBIND11_EGLT_WEBSOCKETS_H_
 
-#include "eglt/pybind11/pybind11_headers.h"
+#include "eglt/pybind11_headers.h"
 
 namespace eglt::pybindings {
 

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/pybind11/websockets.h"
-#include "eglt/pybind11/utils.h"
+#include "eglt/sdk/serving/websockets_pybind11.h"
+#include "eglt/util/utils_pybind11.h"
 
 #include "eglt/sdk/serving/websockets.h"
 #include "eglt/service/service.h"

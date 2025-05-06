@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/pybind11/service.h"
+#include "eglt/service/service_pybind11.h"
 
 #include <memory>
 #include <string>
@@ -23,12 +23,12 @@
 
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
+#include "eglt/nodes/chunk_store_pybind11.h"  // IWYU pragma: keep
 #include "eglt/nodes/node_map.h"
-#include "eglt/pybind11/chunk_store.h"  // IWYU pragma: keep
-#include "eglt/pybind11/pybind11_headers.h"
-#include "eglt/pybind11/utils.h"
+#include "eglt/pybind11_headers.h"
 #include "eglt/service/service.h"
 #include "eglt/service/session.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
 
@@ -83,11 +83,11 @@ void BindSession(py::handle scope, std::string_view name) {
           },
           py::arg_v("id", ""), py::arg_v("chunk_store_factory", py::none()))
       .def("dispatch_from",
-           [](const std::shared_ptr<Session>& self,
-              EvergreenStream* stream) { self->DispatchFrom(stream); })
+           [](const std::shared_ptr<Session>& self, EvergreenStream* stream) {
+             self->DispatchFrom(stream);
+           })
       .def("stop_dispatching_from",
-           [](const std::shared_ptr<Session>& self,
-              EvergreenStream* stream) {
+           [](const std::shared_ptr<Session>& self, EvergreenStream* stream) {
              self->StopDispatchingFrom(stream);
            })
       .def("dispatch_message", &Session::DispatchMessage,

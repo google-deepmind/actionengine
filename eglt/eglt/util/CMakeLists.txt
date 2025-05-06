@@ -20,6 +20,29 @@ target_link_libraries(
         eglt::absl_headers
 )
 
+# ------------------------------------------------------------------
+
+add_library(
+        egltUtilPybind11 STATIC
+)
+add_library(
+        eglt::util::pybind11 ALIAS
+        egltUtilPybind11
+)
+target_sources(
+        egltUtilPybind11 PRIVATE
+        utils_pybind11.cc
+)
+target_sources(
+        egltUtilPybind11 PUBLIC
+        utils_pybind11.h
+)
+target_link_libraries(
+        egltUtilPybind11 PRIVATE
+        eglt::util
+        eglt::pybind11_headers
+)
+
 install(
         TARGETS egltUtil
         EXPORT egltTargets

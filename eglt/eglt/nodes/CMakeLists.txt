@@ -25,6 +25,31 @@ target_link_libraries(
         eglt::data
 )
 
+# ------------------------------------------------------------------
+
+add_library(
+        egltNodesPybind11 STATIC
+)
+add_library(
+        eglt::nodes::pybind11 ALIAS
+        egltNodesPybind11
+)
+target_sources(
+        egltNodesPybind11 PRIVATE
+        chunk_store_pybind11.cc
+        nodes_pybind11.cc
+)
+target_sources(
+        egltNodesPybind11 PUBLIC
+        chunk_store_pybind11.h
+        nodes_pybind11.h
+)
+target_link_libraries(
+        egltNodesPybind11 PRIVATE
+        eglt::nodes
+        eglt::pybind11_headers
+)
+
 # -----------------------------------------------------------------------------
 
 add_executable(

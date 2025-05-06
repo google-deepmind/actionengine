@@ -115,7 +115,6 @@ enable_testing()
 include(GoogleTest)
 add_subdirectory(eglt)
 add_subdirectory(eglt/eglt/sdk)
-add_subdirectory(pybind11/eglt/pybind11)
 add_subdirectory(examples)
 
 install(

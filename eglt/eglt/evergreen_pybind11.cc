@@ -14,13 +14,13 @@
 
 #include <string>
 
-#include "eglt/pybind11/actions.h"
-#include "eglt/pybind11/chunk_store.h"
-#include "eglt/pybind11/nodes.h"
-#include "eglt/pybind11/pybind11_headers.h"
-#include "eglt/pybind11/service.h"
-#include "eglt/pybind11/types.h"
-#include "eglt/pybind11/websockets.h"
+#include "eglt/actions/actions_pybind11.h"
+#include "eglt/nodes/chunk_store_pybind11.h"
+#include "eglt/nodes/nodes_pybind11.h"
+#include "eglt/pybind11_headers.h"
+#include "eglt/service/service_pybind11.h"
+#include "eglt/data/types_pybind11.h"
+#include "eglt/sdk/serving/websockets_pybind11.h"
 
 namespace eglt {
 
@@ -44,4 +44,4 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
         [](const std::string& name) { py::print("Hello, " + name); });
 }
 
-}  // namespace eglt
+} // namespace eglt

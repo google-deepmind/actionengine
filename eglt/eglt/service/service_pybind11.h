@@ -22,8 +22,8 @@
 
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
-#include "eglt/pybind11/pybind11_headers.h"
-#include "eglt/pybind11/utils.h"
+#include "eglt/pybind11_headers.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
 

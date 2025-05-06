@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/pybind11/chunk_store.h"
+#include "eglt/nodes/chunk_store_pybind11.h"
 
 #include <memory>
 #include <string>
@@ -21,8 +21,8 @@
 #include "eglt/nodes/async_node.h"
 #include "eglt/nodes/chunk_store.h"
 #include "eglt/nodes/chunk_store_local.h"
-#include "eglt/pybind11/pybind11_headers.h"
-#include "eglt/pybind11/utils.h"
+#include "eglt/pybind11_headers.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
 
@@ -31,7 +31,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
   py::class_<ChunkStore, std::shared_ptr<ChunkStore>>(
-      scope, absl::StrCat(name, "VirtualBase").c_str())
+          scope, absl::StrCat(name, "VirtualBase").c_str())
       .def("get", &ChunkStore::Get, py::arg("seq_id"), py::arg_v("timeout", -1),
            py::call_guard<py::gil_scoped_release>())
       .def("pop", &ChunkStore::Pop, py::arg("seq_id"),
@@ -41,15 +41,16 @@ void BindChunkStore(py::handle scope, std::string_view name) {
       .def("__len__", &ChunkStore::Size);
 
   py::class_<PyChunkStore, ChunkStore, std::shared_ptr<PyChunkStore>>(
-      scope, name_str.c_str())
+          scope, name_str.c_str())
       .def(py::init<>(), keep_event_loop_memo())
       .def(
           "get",
           [](const std::shared_ptr<PyChunkStore>& self, int seq_id,
              double timeout) -> const Chunk& {
             auto result =
-                self->Get(seq_id, timeout < 0 ? absl::InfiniteDuration()
-                                              : absl::Seconds(timeout));
+                self->Get(seq_id, timeout < 0
+                                    ? absl::InfiniteDuration()
+                                    : absl::Seconds(timeout));
             if (!result.ok()) {
               throw std::runtime_error(std::string(result.status().message()));
             }
@@ -62,8 +63,9 @@ void BindChunkStore(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<PyChunkStore>& self, int seq_id,
              double timeout) -> const Chunk& {
             auto result = self->GetByArrivalOrder(
-                seq_id, timeout < 0 ? absl::InfiniteDuration()
-                                    : absl::Seconds(timeout));
+                seq_id, timeout < 0
+                          ? absl::InfiniteDuration()
+                          : absl::Seconds(timeout));
             if (!result.ok()) {
               throw std::runtime_error(std::string(result.status().message()));
             }
@@ -78,7 +80,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<PyChunkStore>& self, int seq_id,
              const Chunk& chunk, bool final) {
             if (const auto status = self->Put(seq_id, chunk, final);
-                !status.ok()) {
+              !status.ok()) {
               throw std::runtime_error(std::string(status.message()));
             }
           },
@@ -101,15 +103,16 @@ void BindChunkStore(py::handle scope, std::string_view name) {
 /// @private
 void BindLocalChunkStore(py::handle scope, std::string_view name) {
   py::class_<LocalChunkStore, ChunkStore, std::shared_ptr<LocalChunkStore>>(
-      scope, std::string(name).c_str())
+          scope, std::string(name).c_str())
       .def(py::init<>(), keep_event_loop_memo())
       .def(
           "get",
           [](const std::shared_ptr<LocalChunkStore>& self, int seq_id,
              double timeout) -> const Chunk& {
             auto result =
-                self->Get(seq_id, timeout < 0 ? absl::InfiniteDuration()
-                                              : absl::Seconds(timeout));
+                self->Get(seq_id, timeout < 0
+                                    ? absl::InfiniteDuration()
+                                    : absl::Seconds(timeout));
             if (!result.ok()) {
               throw std::runtime_error(std::string(result.status().message()));
             }
@@ -122,8 +125,9 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<LocalChunkStore>& self, int seq_id,
              double timeout) -> const Chunk& {
             auto result = self->GetByArrivalOrder(
-                seq_id, timeout < 0 ? absl::InfiniteDuration()
-                                    : absl::Seconds(timeout));
+                seq_id, timeout < 0
+                          ? absl::InfiniteDuration()
+                          : absl::Seconds(timeout));
             if (!result.ok()) {
               throw std::runtime_error(std::string(result.status().message()));
             }
@@ -138,7 +142,7 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<LocalChunkStore>& self, int seq_id,
              const Chunk& chunk, bool final) {
             if (const auto status = self->Put(seq_id, chunk, final);
-                !status.ok()) {
+              !status.ok()) {
               throw std::runtime_error(std::string(status.message()));
             }
           },
@@ -169,4 +173,4 @@ py::module_ MakeChunkStoreModule(py::module_ scope,
   return chunk_store;
 }
 
-}  // namespace eglt::pybindings
+} // namespace eglt::pybindings

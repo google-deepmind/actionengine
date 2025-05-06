@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/pybind11/nodes.h"
+#include "eglt/nodes/nodes_pybind11.h"
 
 #include <memory>
 #include <string>
@@ -22,8 +22,8 @@
 
 #include "eglt/nodes/chunk_store.h"
 #include "eglt/nodes/node_map.h"
-#include "eglt/pybind11/chunk_store.h"
-#include "eglt/pybind11/utils.h"
+#include "eglt/nodes/chunk_store_pybind11.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
 
@@ -70,8 +70,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<AsyncNode>& self, NodeFragment fragment,
              int seq_id = -1) {
             if (const absl::Status status =
-                    self->Put(std::move(fragment), seq_id);
-                !status.ok()) {
+                  self->Put(std::move(fragment), seq_id);
+              !status.ok()) {
               throw py::value_error(status.ToString());
             }
           },
@@ -82,8 +82,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<AsyncNode>& self, Chunk chunk,
              int seq_id = -1, bool final = false) {
             if (const absl::Status status =
-                    self->Put(std::move(chunk), seq_id, final);
-                !status.ok()) {
+                  self->Put(std::move(chunk), seq_id, final);
+              !status.ok()) {
               throw py::value_error(status.ToString());
             }
           },
@@ -103,7 +103,7 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           "raise_reader_error_if_any",
           [](const std::shared_ptr<AsyncNode>& self) {
             if (const absl::Status status = self->GetReaderStatus();
-                !status.ok()) {
+              !status.ok()) {
               throw std::runtime_error(status.ToString());
             }
           },
@@ -120,4 +120,4 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>());
 }
 
-}  // namespace eglt::pybindings
+} // namespace eglt::pybindings

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/pybind11/types.h"
+#include "eglt/data/types_pybind11.h"
 
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "eglt/data/eg_structs.h"
-#include "eglt/pybind11/pybind11_headers.h"
+#include "eglt/pybind11_headers.h"
 
 namespace eglt::pybindings {
 

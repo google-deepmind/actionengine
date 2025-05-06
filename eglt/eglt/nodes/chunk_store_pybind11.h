@@ -21,7 +21,7 @@
 
 #include "eglt/nodes/async_node.h"
 #include "eglt/nodes/chunk_store.h"
-#include "eglt/pybind11/pybind11_headers.h"
+#include "eglt/pybind11_headers.h"
 
 namespace eglt::pybindings {
 
