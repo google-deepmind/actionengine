@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 
 import evergreen
@@ -17,14 +18,15 @@ def setup_action_engine():
   settings.readers_remove_read_chunks = True
 
 
-async def main():
+async def main(args: argparse.Namespace):
   setup_action_engine()
 
   action_registry = make_action_registry()
   node_map = evergreen.NodeMap()
-  print("Connecting to server.")
+  target = "/"
+  print(f"Connecting to ws://{args.host}:{args.port}{target}.")
   stream = evergreen.websockets.make_websocket_evergreen_stream(
-      "localhost", "/", 20000
+      args.host, target, args.port
   )
 
   print("Connected, starting session.")
@@ -63,4 +65,19 @@ async def main():
 
 
 if __name__ == "__main__":
-  asyncio.run(main())
+  parser = argparse.ArgumentParser(description="Run the STT client.")
+
+  parser.add_argument(
+      "--host",
+      type=str,
+      default="localhost",
+      help="The host to connect to.",
+  )
+  parser.add_argument(
+      "--port",
+      type=int,
+      default=20000,
+      help="The port to connect to.",
+  )
+
+  asyncio.run(main(parser.parse_args()))

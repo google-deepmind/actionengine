@@ -4,6 +4,8 @@
 #include <memory>
 #include <optional>
 
+#define BOOST_ASIO_NO_DEPRECATED
+
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
@@ -261,7 +263,7 @@ class WebsocketEvergreenServer {
             DLOG(ERROR)
                 << "WebsocketEvergreenServer EstablishConnection failed: "
                 << status_;
-            break;
+            // coninuing here
           }
         } else {
           switch (error.value()) {
@@ -447,6 +449,7 @@ class WebsocketEvergreenClient {
   }
 
   absl::Status GetStatus() { return status_; }
+
   absl::Status Join() {
     concurrency::Select({fiber_->OnJoinable(), concurrency::OnCancel()});
     fiber_->Join();

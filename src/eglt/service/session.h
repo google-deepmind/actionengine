@@ -76,8 +76,7 @@ class Session {
 
   concurrency::Mutex mutex_{};
   bool joined_ ABSL_GUARDED_BY(mutex_) = false;
-  absl::flat_hash_map<EvergreenStream*,
-                      std::unique_ptr<concurrency::Fiber>>
+  absl::flat_hash_map<EvergreenStream*, std::unique_ptr<concurrency::Fiber>>
       dispatch_tasks_ ABSL_GUARDED_BY(mutex_){};
 
   NodeMap* node_map_ = nullptr;

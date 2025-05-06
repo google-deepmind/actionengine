@@ -157,7 +157,7 @@ Service::EstablishConnection(std::shared_ptr<EvergreenStream>&& stream,
 
   // for later: Stubby streams require Accept() to be called before returning
   // from StartSession. This might not be the ideal solution with other streams.
-  if (const absl::Status status = connections_.at(stream_id)->stream->Accept();
+  if (absl::Status status = connections_.at(stream_id)->stream->Accept();
       !status.ok()) {
     return status;
   }
