@@ -1,7 +1,0 @@
-<map id="RunSimpleEvergreenSession" name="RunSimpleEvergreenSession">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,35,197,60"/>
-<area shape="rect" id="Node000002" href="$classeglt_1_1_session.html#a4f5864acdd447efd6bf08f67e6bdb944" title=" " alt="" coords="245,5,455,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="197,34,229,30,229,35,197,39"/>
-<area shape="rect" id="Node000003" href="$classeglt_1_1base_1_1_evergreen_stream.html#a6c4496a164d28e4abd08fa3ebc83d79d" title="Receives an Evergreen session message from the stream." alt="" coords="256,55,444,96"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="197,56,241,61,240,66,197,61"/>
-</map>

@@ -1,7 +1,0 @@
-<map id="ChunkStore" name="ChunkStore">
-<area shape="rect" id="Node000001" title=" " alt="" coords="89,5,179,31"/>
-<area shape="rect" id="Node000002" href="$classeglt_1_1_local_chunk_store.html" title="A local chunk store for storing a node&#39;s chunks in memory." alt="" coords="5,79,127,105"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="114,44,79,80,76,77,110,40"/>
-<area shape="rect" id="Node000003" href="$classeglt_1_1pybindings_1_1_py_chunk_store.html" title=" " alt="" coords="150,79,256,105"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="158,40,194,77,190,80,154,44"/>
-</map>
