@@ -64,6 +64,14 @@ inline std::unique_ptr<Fiber> NewTree(const TreeOptions& options,
   return thread::NewTree(options, std::move(fn));
 }
 
+inline Case NonSelectableCase() {
+  return thread::NonSelectableCase();
+}
+
+inline Case AlwaysSelectableCase() {
+  return thread::AlwaysSelectableCase();
+}
+
 }  // namespace eglt::concurrency::impl
 
 #endif  // THREAD_ON_BOOST_CONCURRENCY_H_

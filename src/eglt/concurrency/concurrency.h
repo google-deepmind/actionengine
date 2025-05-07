@@ -133,6 +133,14 @@ inline std::unique_ptr<Fiber> NewTree(const TreeOptions& options,
   return impl::NewTree(options, std::move(fn));
 }
 
+inline Case NonSelectableCase() {
+  return impl::NonSelectableCase();
+}
+
+inline Case AlwaysSelectableCase() {
+  return impl::AlwaysSelectableCase();
+}
+
 // If fn() is void, result holder cannot be created
 template <typename Invocable, typename = std::enable_if_t<!std::is_void_v<
                                   std::invoke_result_t<Invocable>>>>
