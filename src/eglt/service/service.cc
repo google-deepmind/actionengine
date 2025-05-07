@@ -32,12 +32,16 @@ namespace eglt {
 absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
                                        Session* absl_nonnull session) {
   absl::Status status;
-  while (true) {
+  while (!concurrency::Cancelled()) {
     std::optional<SessionMessage> message = stream->Receive();
     if (!message.has_value()) {
       break;
     }
     status = session->DispatchMessage(message.value(), stream);
+  }
+
+  if (concurrency::Cancelled()) {
+    status = absl::CancelledError("Service is shutting down.");
   }
 
   return status;
@@ -70,7 +74,7 @@ Service::Service(ActionRegistry* absl_nullable action_registry,
       chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 Service::~Service() {
-  JoinConnectionsAndCleanUp();
+  JoinConnectionsAndCleanUp(/*cancel=*/true);
 }
 
 EvergreenStream* Service::GetStream(std::string_view stream_id) const {

@@ -222,8 +222,9 @@ int main(int argc, char** argv) {
   }
 
   client.Cancel();
-  server.Cancel().IgnoreError();
   client.Join().IgnoreError();
+
+  server.Cancel().IgnoreError();
   server.Join().IgnoreError();
 
   return 0;

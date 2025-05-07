@@ -16,5 +16,7 @@
   blocking operations__)
 - [x] Implement WebSocket client/server support in C++ with msgpack
   serialization
+- [ ] Bring global settings and serialiser registries to the C++ code from
+  Python bindings
 
 - [ ] Cover important code with tests

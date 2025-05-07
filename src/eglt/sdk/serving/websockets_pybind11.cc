@@ -89,8 +89,13 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
   websockets.def(
       "make_websocket_evergreen_stream",
       [](std::string_view address, std::string_view target, int32_t port) {
-        return std::shared_ptr(
-            sdk::MakeWebsocketEvergreenStream(address, port, target));
+        if (auto stream =
+                sdk::MakeWebsocketEvergreenStream(address, port, target);
+            !stream.ok()) {
+          throw std::runtime_error(stream.status().ToString());
+        } else {
+          return std::shared_ptr(*std::move(stream));
+        }
       },
       py::arg_v("address", "localhost"), py::arg_v("target", "/"),
       py::arg_v("port", 20000));
