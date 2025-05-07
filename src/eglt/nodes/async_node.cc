@@ -34,7 +34,7 @@
 
 namespace eglt {
 
-absl::Status SendToStreamIfNotNullAndOpen(EvergreenStream* stream,
+absl::Status SendToStreamIfNotNullAndOpen(EvergreenStream* absl_nullable stream,
                                           NodeFragment&& fragment) {
   // if stream is null, we don't send anything and it is ok.
   if (stream == nullptr) {
@@ -44,7 +44,7 @@ absl::Status SendToStreamIfNotNullAndOpen(EvergreenStream* stream,
   return stream->Send(SessionMessage{.node_fragments = {std::move(fragment)}});
 }
 
-AsyncNode::AsyncNode(std::string_view id, NodeMap* node_map,
+AsyncNode::AsyncNode(std::string_view id, NodeMap* absl_nullable node_map,
                      std::unique_ptr<ChunkStore> chunk_store)
     : node_map_(node_map), chunk_store_(std::move(chunk_store)) {
   if (chunk_store_ == nullptr) {
@@ -89,7 +89,8 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   return *this;
 }
 
-void AsyncNode::BindWriterStream(EvergreenStream* stream) {
+void AsyncNode::BindWriterStream(EvergreenStream* absl_nullable stream) {
+  concurrency::MutexLock lock(&mutex_);
   writer_stream_ = stream;
 }
 
@@ -135,18 +136,20 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
     return status_or_seq.status();
   }
 
-  auto stream_sending_status = SendToStreamIfNotNullAndOpen(
-      writer_stream_, NodeFragment{
-                          .id = std::string(chunk_store_->GetId()),
-                          .chunk = std::move(copy_to_stream),
-                          .seq = status_or_seq.value(),
-                          .continued = !final,
-                      });
-  if (!stream_sending_status.ok()) {
-    LOG(ERROR) << "Failed to send to stream: " << stream_sending_status;
-    return stream_sending_status;
+  {
+    concurrency::MutexLock lock(&mutex_);
+    auto stream_sending_status = SendToStreamIfNotNullAndOpen(
+        writer_stream_, NodeFragment{
+                            .id = std::string(chunk_store_->GetId()),
+                            .chunk = std::move(copy_to_stream),
+                            .seq = status_or_seq.value(),
+                            .continued = !final,
+                        });
+    if (!stream_sending_status.ok()) {
+      LOG(ERROR) << "Failed to send to stream: " << stream_sending_status;
+      return stream_sending_status;
+    }
   }
-
   return absl::OkStatus();
 }
 

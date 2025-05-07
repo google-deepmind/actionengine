@@ -270,7 +270,7 @@ ChunkStoreReader& operator>>(ChunkStoreReader& reader, std::vector<T>& value) {
 }
 
 template <typename T>
-ChunkStoreReader* operator>>(ChunkStoreReader* reader, T& value) {
+ChunkStoreReader* operator>>(ChunkStoreReader* absl_nonnull reader, T& value) {
   *reader >> value;
   return reader;
 }

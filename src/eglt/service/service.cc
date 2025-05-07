@@ -62,7 +62,7 @@ std::unique_ptr<Action> MakeActionInConnection(
   return action;
 }
 
-Service::Service(ActionRegistry* action_registry,
+Service::Service(ActionRegistry* absl_nullable action_registry,
                  EvergreenConnectionHandler connection_handler,
                  ChunkStoreFactory chunk_store_factory)
     : action_registry_(std::make_unique<ActionRegistry>(*action_registry)),
@@ -175,7 +175,8 @@ Service::EstablishConnection(std::shared_ptr<EvergreenStream>&& stream,
   return connection;
 }
 
-absl::Status Service::JoinConnection(StreamToSessionConnection* connection) {
+absl::Status Service::JoinConnection(
+    StreamToSessionConnection* absl_nonnull connection) {
   std::unique_ptr<concurrency::Fiber> fiber(nullptr);
 
   // Extract connection and fiber from the map, so we can join them outside

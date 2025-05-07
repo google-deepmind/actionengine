@@ -25,7 +25,7 @@ namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
 
 static asio::thread_pool* GetDefaultAsioExecutionContext() {
-  static asio::thread_pool* context =
+  static auto* context =
       new asio::thread_pool(std::thread::hardware_concurrency() * 2);
   return context;
 }
@@ -334,7 +334,7 @@ class WebsocketEvergreenServer {
   }
 
  private:
-  eglt::Service* absl_nonnull service_;
+  eglt::Service* absl_nonnull const service_;
   asio::thread_pool thread_pool_;
   std::unique_ptr<tcp::acceptor> acceptor_;
 
@@ -350,7 +350,7 @@ using PrepareStreamFn =
     absl::AnyInvocable<absl::Status(beast::websocket::stream<tcp::socket>*) &&>;
 
 inline void SetClientStreamOptions(
-    beast::websocket::stream<tcp::socket>* ws_stream) {
+    beast::websocket::stream<tcp::socket>* absl_nonnull ws_stream) {
   ws_stream->set_option(beast::websocket::stream_base::decorator(
       [](beast::websocket::request_type& req) {
         req.set(beast::http::field::user_agent,
@@ -360,8 +360,8 @@ inline void SetClientStreamOptions(
 }
 
 inline absl::Status PerformHandshake(
-    beast::websocket::stream<tcp::socket>* ws_stream, std::string_view address,
-    uint16_t port, std::string_view target) {
+    beast::websocket::stream<tcp::socket>* absl_nonnull ws_stream,
+    std::string_view address, uint16_t port, std::string_view target) {
   boost::system::error_code error;
   RunInAsioContext([ws_stream, &error, address, port, target]() {
     ws_stream->handshake(absl::StrFormat("%s:%d", address, port), target,
@@ -426,7 +426,7 @@ MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
       address, port, target, /*id=*/GenerateUUID4(),
       /*prepare_stream=*/
       [address, port,
-       target](beast::websocket::stream<tcp::socket>* ws_stream) {
+       target](beast::websocket::stream<tcp::socket>* absl_nonnull ws_stream) {
         SetClientStreamOptions(ws_stream);
         return PerformHandshake(ws_stream, address, port, target);
       });

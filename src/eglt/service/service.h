@@ -45,8 +45,8 @@ class Action;
  * @headerfile eglt/service/service.h
  */
 struct StreamToSessionConnection {
-  EvergreenStream* stream = nullptr;
-  Session* session = nullptr;
+  EvergreenStream* absl_nullable stream = nullptr;
+  Session* absl_nullable session = nullptr;
 
   std::string session_id;  // dead sessions may lose their id.
   std::string stream_id;   // dead streams may lose their id.
@@ -94,7 +94,7 @@ absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
 class Service : public std::enable_shared_from_this<Service> {
  public:
   explicit Service(
-      ActionRegistry* action_registry = nullptr,
+      ActionRegistry* absl_nullable action_registry = nullptr,
       EvergreenConnectionHandler connection_handler = RunSimpleEvergreenSession,
       ChunkStoreFactory chunk_store_factory = {});
 
@@ -111,7 +111,8 @@ class Service : public std::enable_shared_from_this<Service> {
       std::shared_ptr<EvergreenStream>&& stream,
       EvergreenConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
-  auto JoinConnection(StreamToSessionConnection* connection) -> absl::Status;
+  auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
+      -> absl::Status;
 
   auto SetActionRegistry(const ActionRegistry& action_registry) const -> void;
 

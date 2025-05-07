@@ -358,15 +358,15 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   void BindHandler(ActionHandler handler) { handler_ = std::move(handler); }
 
-  void BindNodeMap(NodeMap* node_map) { node_map_ = node_map; }
+  void BindNodeMap(NodeMap* absl_nullable node_map) { node_map_ = node_map; }
   /// Returns the node map associated with the action.
   [[nodiscard]] NodeMap* GetNodeMap() const { return node_map_; }
 
-  void BindStream(EvergreenStream* stream) { stream_ = stream; }
+  void BindStream(EvergreenStream* absl_nullable stream) { stream_ = stream; }
   /// Returns the stream associated with the action.
   [[nodiscard]] EvergreenStream* GetStream() const { return stream_; }
 
-  void BindSession(Session* session) { session_ = session; }
+  void BindSession(Session* absl_nullable session) { session_ = session; }
   [[nodiscard]] Session* GetSession() const { return session_; }
 
   /**

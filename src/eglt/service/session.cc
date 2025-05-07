@@ -30,7 +30,8 @@
 
 namespace eglt {
 
-Session::Session(NodeMap* node_map, ActionRegistry* action_registry,
+Session::Session(NodeMap* absl_nonnull node_map,
+                 ActionRegistry* absl_nullable action_registry,
                  ChunkStoreFactory chunk_store_factory)
     : node_map_(node_map),
       action_registry_(action_registry),
@@ -50,13 +51,8 @@ AsyncNode* Session::GetNode(
   return node_map_->Get(id, factory);
 }
 
-void Session::DispatchFrom(EvergreenStream* stream) {
+void Session::DispatchFrom(EvergreenStream* absl_nonnull stream) {
   concurrency::MutexLock lock(&mutex_);
-
-  if (stream == nullptr) {
-    LOG(FATAL) << "Stream is null";
-    return;
-  }
 
   if (dispatch_tasks_.contains(stream)) {
     return;
@@ -88,7 +84,7 @@ void Session::DispatchFrom(EvergreenStream* stream) {
 }
 
 absl::Status Session::DispatchMessage(SessionMessage message,
-                                      EvergreenStream* stream) {
+                                      EvergreenStream* absl_nullable stream) {
   concurrency::MutexLock lock(&mutex_);
   if (joined_) {
     return absl::FailedPreconditionError(
@@ -96,7 +92,7 @@ absl::Status Session::DispatchMessage(SessionMessage message,
   }
   absl::Status status;
   for (auto& node_fragment : message.node_fragments) {
-    AsyncNode* node = GetNode(node_fragment.id);
+    AsyncNode* absl_nonnull node = GetNode(node_fragment.id);
     status.Update(node->Put(std::move(node_fragment)));
     if (!status.ok()) {
       LOG(ERROR) << "Failed to dispatch node fragment: " << status;
@@ -126,7 +122,7 @@ absl::Status Session::DispatchMessage(SessionMessage message,
   return status;
 }
 
-void Session::StopDispatchingFrom(EvergreenStream* stream) {
+void Session::StopDispatchingFrom(EvergreenStream* absl_nonnull stream) {
   std::unique_ptr<concurrency::Fiber> task;
   {
     concurrency::MutexLock lock(&mutex_);

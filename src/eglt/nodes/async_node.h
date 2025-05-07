@@ -38,7 +38,8 @@ absl::Status SendToStreamIfNotNullAndOpen(EvergreenStream* stream,
 
 class AsyncNode {
  public:
-  explicit AsyncNode(std::string_view id = "", NodeMap* node_map = nullptr,
+  explicit AsyncNode(std::string_view id = "",
+                     NodeMap* absl_nullable node_map = nullptr,
                      std::unique_ptr<ChunkStore> chunk_store = nullptr);
 
   AsyncNode(AsyncNode& other) = delete;
@@ -134,13 +135,14 @@ class AsyncNode {
   auto PutChunk(Chunk chunk, int seq_id = -1, bool final = false)
       -> absl::Status;
 
-  NodeMap* node_map_ = nullptr;
+  NodeMap* absl_nullable node_map_ = nullptr;
   std::unique_ptr<ChunkStore> chunk_store_;
 
   mutable concurrency::Mutex mutex_;
   std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mutex_);
-  EvergreenStream* writer_stream_ = nullptr;
+  EvergreenStream* absl_nullable writer_stream_ ABSL_GUARDED_BY(mutex_) =
+      nullptr;
 };
 
 template <>
@@ -277,7 +279,7 @@ inline AsyncNode& operator<<(AsyncNode& node, std::pair<Chunk, int> value) {
 // of action->GetOutput("text"))
 /// @private
 template <typename T>
-AsyncNode* operator<<(AsyncNode* node, T value) {
+AsyncNode* operator<<(AsyncNode* absl_nonnull node, T value) {
   *node << std::move(value);
   return node;
 }

@@ -35,7 +35,7 @@ class ChunkStoreWriter {
   // thread, and are only set on construction. Other fields are only accessed by
   // the internal writer fiber, so access is always synchronous.
  public:
-  explicit ChunkStoreWriter(ChunkStore* chunk_store,
+  explicit ChunkStoreWriter(ChunkStore* absl_nonnull chunk_store,
                             int n_chunks_to_buffer = -1)
       : chunk_store_(chunk_store),
         n_chunks_to_buffer_(n_chunks_to_buffer),
@@ -177,7 +177,7 @@ class ChunkStoreWriter {
     status_ = status;
   }
 
-  ChunkStore* chunk_store_ = nullptr;
+  ChunkStore* absl_nonnull const chunk_store_ = nullptr;
   const int n_chunks_to_buffer_;
 
   int final_seq_id_ ABSL_GUARDED_BY(mutex_) = -1;
@@ -290,7 +290,7 @@ ChunkStoreWriter& operator<<(ChunkStoreWriter& writer,
 
 /// @private
 template <typename T>
-ChunkStoreWriter* operator<<(ChunkStoreWriter* writer, T value) {
+ChunkStoreWriter* operator<<(ChunkStoreWriter* absl_nonnull writer, T value) {
   *writer << std::move(value);
   return writer;
 }

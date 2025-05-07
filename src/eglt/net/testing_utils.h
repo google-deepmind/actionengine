@@ -51,7 +51,7 @@ class PairableInMemoryStream final : public EvergreenStream {
 
   std::optional<SessionMessage> Receive() override {
     SessionMessage message;
-    if (recv_queue_.GetReader()->Read(&message)) {
+    if (recv_queue_.reader()->Read(&message)) {
       return message;
     }
     return std::nullopt;
@@ -95,7 +95,7 @@ class PairableInMemoryStream final : public EvergreenStream {
       partner->HalfClose();
     }
 
-    recv_queue_.GetWriter()->Close();
+    recv_queue_.writer()->Close();
   }
 
   [[nodiscard]] std::string GetId() const override { return id_; }
@@ -118,7 +118,7 @@ class PairableInMemoryStream final : public EvergreenStream {
     CHECK(from != nullptr) << "Cannot feed message from null stream";
     CHECK(from == partner_) << "Cannot feed message from non-partner stream";
 
-    if (!recv_queue_.GetWriter()->WriteUnlessCancelled(std::move(message))) {
+    if (!recv_queue_.writer()->WriteUnlessCancelled(std::move(message))) {
       return absl::CancelledError("Stream closed");
     }
     return absl::OkStatus();

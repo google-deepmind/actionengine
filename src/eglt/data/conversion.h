@@ -27,12 +27,12 @@
 namespace eglt {
 
 template <typename Dst, typename Src>
-absl::Status StatusOrAssign(Src&& from, Dst* to) {
+absl::Status StatusOrAssign(Src&& from, Dst* absl_nonnull to) {
   return EgltAssignInto(std::forward<Src>(from), to);
 }
 
 template <typename Dst, typename Src>
-void Assign(Src&& from, Dst* to) {
+void Assign(Src&& from, Dst* absl_nonnull to) {
   if (const absl::Status status = StatusOrAssign(std::forward<Src>(from), to);
       !status.ok()) {
     LOG(FATAL) << "Conversion failed: " << status;

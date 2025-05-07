@@ -43,7 +43,8 @@ using DebugHandler =
  */
 class Session {
  public:
-  explicit Session(NodeMap* node_map, ActionRegistry* action_registry = nullptr,
+  explicit Session(NodeMap* absl_nonnull node_map,
+                   ActionRegistry* absl_nullable action_registry = nullptr,
                    ChunkStoreFactory chunk_store_factory = {});
   ~Session();
 
@@ -54,11 +55,11 @@ class Session {
       std::string_view id,
       const ChunkStoreFactory& chunk_store_factory = {}) const;
 
-  void DispatchFrom(EvergreenStream* stream);
+  void DispatchFrom(EvergreenStream* absl_nonnull stream);
   absl::Status DispatchMessage(SessionMessage message,
-                               EvergreenStream* stream = nullptr);
+                               EvergreenStream* absl_nullable stream = nullptr);
 
-  void StopDispatchingFrom(EvergreenStream* stream);
+  void StopDispatchingFrom(EvergreenStream* absl_nonnull stream);
   void StopDispatchingFromAll();
 
   [[nodiscard]] NodeMap* GetNodeMap() const { return node_map_; }
@@ -79,8 +80,8 @@ class Session {
   absl::flat_hash_map<EvergreenStream*, std::unique_ptr<concurrency::Fiber>>
       dispatch_tasks_ ABSL_GUARDED_BY(mutex_){};
 
-  NodeMap* node_map_ = nullptr;
-  ActionRegistry* action_registry_ = nullptr;
+  NodeMap* absl_nonnull const node_map_;
+  ActionRegistry* absl_nullable action_registry_ = nullptr;
   ChunkStoreFactory chunk_store_factory_;
 };
 
