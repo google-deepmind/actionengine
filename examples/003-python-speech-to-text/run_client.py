@@ -37,14 +37,21 @@ async def main(args: argparse.Namespace):
       "speech_to_text", node_map=node_map, stream=stream, session=session
   )
 
-  print("Initialising audio recorder, please wait.")
+  print("Calling action.")
+  await action.call()
+
+  print("Action called, waiting for ready signal.")
+  ready = await action.get_output("ready").next()
+  if ready is not True:
+    print("Action not ready, exiting.")
+    return
+
+  print("Initialising audio recorder.")
   recorder = AudioToTextRecorder(
       spinner=True,
       on_recorded_chunk=lambda audio: action.get_input("speech").put(audio),
   )
-
-  print("Recording started, you can start speaking.")
-  await action.call()
+  print("You can start speaking now.")
 
   try:
     async for text in action.get_output("text"):
@@ -57,11 +64,11 @@ async def main(args: argparse.Namespace):
     print("Stopped recording.")
 
     await action.get_input("speech").finalize()
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.2)
     print("Finalised speech stream.")
 
     stream.close()
-    print("Closed the client-server stream.")
+    # print("Closed the client-server stream.")
 
 
 if __name__ == "__main__":

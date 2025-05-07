@@ -1,6 +1,17 @@
 from evergreen import serialisation
 
-BYTEARRAY_MIMETYPE = "application/x-eglt;bytearray"
+BOOL_MIMETYPE = "x-eglt;bool"
+BYTEARRAY_MIMETYPE = "x-eglt;bytearray"
+
+
+def bool_to_bytes(value: bool) -> bytes:
+  return bytes([1 if value else 0])
+
+
+def bytes_to_bool(data: bytes) -> bool:
+  if len(data) != 1:
+    raise ValueError("Invalid length for boolean deserialisation")
+  return bool(data[0])
 
 
 def bytearray_to_bytes(arr: bytearray) -> bytes:
@@ -22,11 +33,13 @@ def bytes_to_str(data: bytes) -> str:
 _SERIALIZERS = {
     (bytearray, BYTEARRAY_MIMETYPE): bytearray_to_bytes,
     (str, "text/plain"): str_to_bytes,
+    (bool, BOOL_MIMETYPE): bool_to_bytes,
 }
 
 _DESERIALIZERS = {
     (bytes, BYTEARRAY_MIMETYPE): bytes_to_bytearray,
     (str, "text/plain"): bytes_to_str,
+    (bytes, BOOL_MIMETYPE): bytes_to_bool,
 }
 
 

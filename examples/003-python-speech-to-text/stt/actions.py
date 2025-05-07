@@ -3,6 +3,7 @@ import asyncio
 import evergreen
 
 from .model_server import STTModelServer
+from .serialisation import BOOL_MIMETYPE
 from .serialisation import BYTEARRAY_MIMETYPE
 
 
@@ -16,28 +17,33 @@ def has_stop_command(text: str) -> bool:
   )
 
 
-def stream_text_output_to_node(node: evergreen.AsyncNode):
-  model_server = STTModelServer.instance()
+def stream_text_output(action: evergreen.Action,
+    model_server: STTModelServer):
+  output_node = action.get_output("text")
+  ready_node = action.get_output("ready")
+
+  ready_node.put(True)
+  ready_node.finalize()
 
   try:
     while True:
       transcription = model_server.wait_for_transcription_piece()
-      node.put(transcription)
+      output_node.put(transcription)
 
       if has_stop_command(transcription):
         print("Stop command received, stopping output stream.", flush=True)
         break
 
   finally:
-    node.finalize()
+    output_node.finalize()
 
 
 async def run_speech_to_text(action: evergreen.Action):
   print("Running speech_to_text action", flush=True)
-  model_server = STTModelServer.instance()
+  model_server = STTModelServer()
 
   stream_output_task = asyncio.create_task(
-      asyncio.to_thread(stream_text_output_to_node, action.get_output("text"))
+      asyncio.to_thread(stream_text_output, action, model_server)
   )
 
   async for audio_chunk in action.get_input("speech"):
@@ -53,7 +59,7 @@ def make_action_registry():
       evergreen.ActionSchema(
           name="speech_to_text",
           inputs=[("speech", BYTEARRAY_MIMETYPE)],
-          outputs=[("text", "text/plain")],
+          outputs=[("text", "text/plain"), ("ready", BOOL_MIMETYPE)],
       ),
       run_speech_to_text,
   )
