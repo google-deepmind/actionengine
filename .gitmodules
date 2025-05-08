@@ -9,7 +9,8 @@
 	url = https://github.com/pybind/pybind11
 [submodule "third_party/boost"]
 	path = third_party/boost
-	url = https://github.com/boostorg/boost
+	url = https://github.com/hpnkv/boost
+	branch = master
 [submodule "third_party/cppitertools"]
 	path = third_party/cppitertools
 	url = https://github.com/ryanhaining/cppitertools
