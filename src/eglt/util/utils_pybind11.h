@@ -19,6 +19,8 @@
 
 #include <pybind11/pybind11.h>
 
+#include "eglt/absl_headers.h"
+
 namespace eglt::pybindings {
 
 namespace py = ::pybind11;

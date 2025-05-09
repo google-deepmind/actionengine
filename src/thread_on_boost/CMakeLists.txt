@@ -52,8 +52,11 @@ target_link_libraries(
         absl::log_internal_check_op
         absl::random_random
         absl::time
-        boost_fiber
         boost_thread
+)
+target_link_libraries(
+        ThreadOnBoost PUBLIC
+        boost_fiber
 )
 message(${THREAD_ON_BOOST_BOOST_ROOT}/../../boost/include)
 set(THREAD_ON_BOOST_INCLUDE_DIRS

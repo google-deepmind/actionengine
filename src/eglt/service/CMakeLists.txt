@@ -14,7 +14,7 @@ target_include_directories(
 )
 target_link_libraries(
         egltService PUBLIC
-        eglt::absl_headers
+        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
 )
@@ -39,7 +39,11 @@ target_sources(
 target_link_libraries(
         egltServicePybind11 PRIVATE
         eglt::service
-        eglt::pybind11_headers
+        ${EGLT_PYBIND11_DEPENDENCIES}
+)
+target_include_directories(
+        egltServicePybind11 PUBLIC
+        ${EGLT_PYBIND11_INCLUDE_DIRS}
 )
 
 install(

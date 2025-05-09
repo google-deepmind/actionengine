@@ -12,10 +12,9 @@ target_include_directories(
 )
 target_link_libraries(
         egltNet INTERFACE
-        eglt::absl_headers
+        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
-        eglt::util
 )
 
 # -----------------------------------------------------------------------------
@@ -32,11 +31,10 @@ target_include_directories(
 )
 target_link_libraries(
         egltNet INTERFACE
-        eglt::absl_headers
+        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::net
         eglt::data
-        eglt::util
 )
 
 # -----------------------------------------------------------------------------

@@ -1,10 +1,11 @@
 add_library(
         eglt_sdk_serving_websockets STATIC
         websockets.h
+        websockets.cc
 )
 add_library(eglt::sdk::serving::websockets ALIAS eglt_sdk_serving_websockets)
 target_include_directories(
-        eglt_sdk_serving_websockets PRIVATE
+        eglt_sdk_serving_websockets PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${Boost_INCLUDE_DIRS}
@@ -12,7 +13,9 @@ target_include_directories(
 )
 target_link_libraries(
         eglt_sdk_serving_websockets PUBLIC
-        eglt::absl_headers
+        ${EGLT_ABSL_DEPENDENCIES}
+        ${EGLT_PYBIND11_DEPENDENCIES}
+        cppack
         eglt::nodes
         Boost::beast
 )
@@ -35,7 +38,13 @@ target_sources(
         websockets_pybind11.h
 )
 target_link_libraries(
-        eglt_sdk_serving_websockets_pybind11 PRIVATE
+        eglt_sdk_serving_websockets_pybind11 PUBLIC
         eglt::sdk::serving::websockets
-        eglt::pybind11_headers
+        ${EGLT_ABSL_DEPENDENCIES}
+        ${EGLT_PYBIND11_DEPENDENCIES}
+)
+message(STATUS "EGLT_PYBIND11_INCLUDE_DIRS: ${EGLT_PYBIND11_INCLUDE_DIRS}")
+target_include_directories(
+        eglt_sdk_serving_websockets_pybind11 PUBLIC
+        ${EGLT_PYBIND11_INCLUDE_DIRS}
 )

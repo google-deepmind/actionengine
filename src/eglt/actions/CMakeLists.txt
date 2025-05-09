@@ -1,5 +1,6 @@
 add_library(
         egltActions STATIC
+        action.cc
         action.h
 )
 add_library(
@@ -8,7 +9,7 @@ add_library(
 )
 target_include_directories(
         egltActions
-        PRIVATE
+        PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
@@ -16,11 +17,10 @@ target_include_directories(
 target_link_libraries(
         egltActions
         PUBLIC
-        eglt::absl_headers
+        ${EGLT_ABSL_DEPENDENCIES}
         eglt::data
         eglt::net
         eglt::nodes
-        eglt::util
 )
 
 # ------------------------------------------------------------------
@@ -43,7 +43,11 @@ target_sources(
 target_link_libraries(
         egltActionsPybind11 PRIVATE
         eglt::actions
-        eglt::pybind11_headers
+        ${EGLT_PYBIND11_DEPENDENCIES}
+)
+target_include_directories(
+        egltActionsPybind11 PUBLIC
+        ${EGLT_PYBIND11_INCLUDE_DIRS}
 )
 
 install(

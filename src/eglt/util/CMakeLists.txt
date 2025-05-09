@@ -1,27 +1,3 @@
-add_library(egltUtil STATIC)
-add_library(eglt::util ALIAS egltUtil)
-set_target_properties(egltUtil PROPERTIES
-        LANGUAGE CXX
-        LINKER_LANGUAGE CXX
-)
-target_sources(
-        egltUtil PUBLIC map_util.h platform.h random.h
-)
-target_include_directories(
-        egltUtil
-        PUBLIC
-        ${EGLT_PROJECT_TOP_LEVEL}
-        ${EGLT_INCLUDE_DIR}
-        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
-)
-target_link_libraries(
-        egltUtil
-        PUBLIC
-        eglt::absl_headers
-)
-
-# ------------------------------------------------------------------
-
 add_library(
         egltUtilPybind11 STATIC
 )
@@ -39,14 +15,13 @@ target_sources(
 )
 target_link_libraries(
         egltUtilPybind11 PRIVATE
-        eglt::util
-        eglt::pybind11_headers
+        ${EGLT_ABSL_DEPENDENCIES}
+        ${EGLT_PYBIND11_DEPENDENCIES}
 )
-
-install(
-        TARGETS egltUtil
-        EXPORT egltTargets
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib/eglt
-        ARCHIVE DESTINATION lib/eglt
+target_include_directories(
+        egltUtilPybind11 PUBLIC
+        ${EGLT_PYBIND11_INCLUDE_DIRS}
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )

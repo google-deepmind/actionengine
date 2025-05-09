@@ -1,24 +1,28 @@
-add_library(egltData INTERFACE)
+add_library(egltData STATIC)
 add_library(eglt::data ALIAS egltData)
 
 target_sources(egltData
-        INTERFACE
+        PUBLIC
         conversion.h
         eg_structs.h
         mimetypes.h
         msgpack.h
         serialization.h
 )
+target_sources(egltData
+        PRIVATE
+        eg_structs.cc
+)
 target_include_directories(
-        egltData INTERFACE
+        egltData PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
-        egltData INTERFACE
+        egltData PRIVATE
         cppack
-        eglt::absl_headers
+        ${EGLT_ABSL_DEPENDENCIES}
 )
 
 # ------------------------------------------------------------------
@@ -41,7 +45,11 @@ target_sources(
 target_link_libraries(
         egltDataPybind11 PRIVATE
         eglt::data
-        eglt::pybind11_headers
+        ${EGLT_PYBIND11_DEPENDENCIES}
+)
+target_include_directories(
+        egltDataPybind11 PUBLIC
+        ${EGLT_PYBIND11_INCLUDE_DIRS}
 )
 
 install(

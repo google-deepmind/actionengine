@@ -1,20 +1,27 @@
 add_library(
-        egltConcurrency INTERFACE
+        egltConcurrency STATIC
 )
 add_library(eglt::concurrency ALIAS egltConcurrency)
-target_precompile_headers(
-        egltConcurrency INTERFACE
+target_sources(
+        egltConcurrency PRIVATE
+        concurrency.cc
+)
+target_sources(
+        egltConcurrency PUBLIC
         concurrency.h
 )
 target_include_directories(
-        egltConcurrency INTERFACE
+        egltConcurrency PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+)
+target_include_directories(
+        egltConcurrency PRIVATE
         ${THREAD_ON_BOOST_INCLUDE_DIRS}
 )
 target_link_libraries(
-        egltConcurrency INTERFACE
+        egltConcurrency PUBLIC
         ThreadOnBoost
 )
 

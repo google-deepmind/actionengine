@@ -1,7 +1,5 @@
-add_library(eglt_absl_headers STATIC)
-add_library(eglt::absl_headers ALIAS eglt_absl_headers)
-target_link_libraries(eglt_absl_headers
-        PUBLIC
+set(
+        EGLT_ABSL_DEPENDENCIES
         absl::base
         absl::debugging
         absl::debugging_internal
@@ -22,37 +20,11 @@ target_link_libraries(eglt_absl_headers
         absl::symbolize
         absl::time
 )
-target_include_directories(
-        eglt_absl_headers
-        INTERFACE
-        ${EGLT_INCLUDE_DIR}
-        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp/include
-)
-target_sources(eglt_absl_headers PUBLIC
-        ${EGLT_INCLUDE_DIR}/eglt/absl_headers.h
-        ${EGLT_INCLUDE_DIR}/eglt/absl_headers.cc
-)
+set(EGLT_ABSL_DEPENDENCIES ${EGLT_ABSL_DEPENDENCIES} PARENT_SCOPE)
 
 # ------------------------------------------------------------------
 
-add_library(eglt_pybind11_headers INTERFACE)
-add_library(eglt::pybind11_headers ALIAS eglt_pybind11_headers)
-target_precompile_headers(
-        eglt_pybind11_headers
-        INTERFACE
-        ${EGLT_INCLUDE_DIR}/eglt/pybind11_headers.h
-)
-target_include_directories(
-        eglt_pybind11_headers INTERFACE
-        ${EGLT_INCLUDE_DIR}
-        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
-        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
-        ${EGLT_PROJECT_TOP_LEVEL}
-        ${EGLT_PYBIND11_TOP_LEVEL}
-)
-target_link_libraries(
-        eglt_pybind11_headers
-        INTERFACE
+set(EGLT_PYBIND11_DEPENDENCIES
         pybind11::module
         pybind11::embed
         pybind11_abseil::status_casters
@@ -60,6 +32,15 @@ target_link_libraries(
         pybind11_abseil::import_status_module
         pybind11_abseil::statusor_caster
 )
+set(EGLT_PYBIND11_DEPENDENCIES ${EGLT_PYBIND11_DEPENDENCIES} PARENT_SCOPE)
+
+set(
+        EGLT_PYBIND11_INCLUDE_DIRS
+        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
+        ${Python_INCLUDE_DIRS}
+        ${EGLT_PYBIND11_TOP_LEVEL}
+)
+set(EGLT_PYBIND11_INCLUDE_DIRS ${EGLT_PYBIND11_INCLUDE_DIRS} PARENT_SCOPE)
 
 # ------------------------------------------------------------------
 
@@ -111,12 +92,11 @@ target_link_libraries(
         eglt::service::pybind11
         eglt::nodes
         eglt::nodes::pybind11
-        eglt::absl_headers
+        ${EGLT_ABSL_DEPENDENCIES}
         eglt::sdk::serving::websockets
         eglt::sdk::serving::websockets::pybind11
-        eglt::util
         eglt::util::pybind11
-        eglt::pybind11_headers
+        ${EGLT_PYBIND11_DEPENDENCIES}
 )
 
 target_include_directories(
@@ -125,6 +105,7 @@ target_include_directories(
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
         ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_PYBIND11_INCLUDE_DIRS}
         ${EGLT_PYBIND11_TOP_LEVEL}
 )
 

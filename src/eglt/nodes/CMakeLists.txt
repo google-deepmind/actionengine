@@ -12,7 +12,7 @@ add_library(
 )
 add_library(eglt::nodes ALIAS egltNodes)
 target_include_directories(
-        egltNodes PRIVATE
+        egltNodes PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
@@ -20,7 +20,7 @@ target_include_directories(
 target_link_libraries(
         egltNodes PUBLIC
         cppitertools::cppitertools
-        eglt::absl_headers
+        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
 )
@@ -47,7 +47,11 @@ target_sources(
 target_link_libraries(
         egltNodesPybind11 PRIVATE
         eglt::nodes
-        eglt::pybind11_headers
+        ${EGLT_PYBIND11_DEPENDENCIES}
+)
+target_include_directories(
+        egltNodesPybind11 PUBLIC
+        ${EGLT_PYBIND11_INCLUDE_DIRS}
 )
 
 # -----------------------------------------------------------------------------

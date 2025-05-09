@@ -19,7 +19,6 @@
 #include <string_view>
 #include <utility>
 
-#include "eglt/nodes/async_node.h"
 #include "eglt/nodes/chunk_store.h"
 #include "eglt/pybind11_headers.h"
 
