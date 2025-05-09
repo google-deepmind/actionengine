@@ -96,6 +96,77 @@ class ABSL_SCOPED_LOCKABLE TwoMutexLock {
   Mutex* absl_nonnull const mu2_;
 };
 
+class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
+ public:
+  ExclusiveAccessGuard(Mutex* absl_nonnull mutex, CondVar* absl_nonnull cv)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex)
+      : mutex_(mutex), cv_(cv) {}
+
+  ~ExclusiveAccessGuard() {
+    CHECK(pending_operations_ == 0) << "FinalizationGuard destroyed with "
+                                       "pending operations";
+  }
+
+  void WaitForAllPendingOperations() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_)
+      ABSL_UNLOCK_FUNCTION() {
+    while (pending_operations_ > 0) {
+      cv_->Wait(mutex_);
+    }
+  }
+
+  void StartPendingOperation() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_)
+      ABSL_UNLOCK_FUNCTION(mutex_) {
+    ++pending_operations_;
+    mutex_->Unlock();
+  }
+
+  void FinishPendingOperation() ABSL_LOCKS_EXCLUDED(mutex_)
+      ABSL_EXCLUSIVE_LOCK_FUNCTION(mutex_) {
+    mutex_->Lock();
+    --pending_operations_;
+    cv_->SignalAll();
+  }
+
+ private:
+  friend class EnsureExclusiveAccess;
+
+  Mutex* absl_nonnull const mutex_;
+  CondVar* absl_nonnull const cv_ ABSL_GUARDED_BY(mutex_);
+  int pending_operations_ ABSL_GUARDED_BY(mutex_) = 0;
+};
+
+class ABSL_SCOPED_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED EnsureExclusiveAccess {
+ public:
+  explicit EnsureExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard)
+      ABSL_EXCLUSIVE_LOCK_FUNCTION(guard)
+      : guard_(guard) {
+    guard_->WaitForAllPendingOperations();
+  }
+
+  ~EnsureExclusiveAccess() ABSL_UNLOCK_FUNCTION() {
+    guard_->cv_->SignalAll();
+  }
+
+ private:
+  ExclusiveAccessGuard* absl_nonnull const guard_;
+};
+
+class ABSL_SCOPED_LOCKABLE PreventExclusiveAccess {
+ public:
+  explicit PreventExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard)
+      ABSL_SHARED_LOCK_FUNCTION(guard)
+      : guard_(guard) {
+    guard_->StartPendingOperation();
+  }
+
+  ~PreventExclusiveAccess() ABSL_UNLOCK_FUNCTION() {
+    guard_->FinishPendingOperation();
+  }
+
+ private:
+  ExclusiveAccessGuard* absl_nonnull const guard_;
+};
+
 inline bool Cancelled() {
   return impl::Cancelled();
 }

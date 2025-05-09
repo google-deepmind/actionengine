@@ -38,10 +38,9 @@ class RecoverableStream final : public eglt::EvergreenStream {
   ~RecoverableStream() override {
     CloseAndNotify(/*ignore_lost=*/false);
 
-    concurrency::MutexLock lock(&mutex_);
-    while (pending_operations_ > 0) {
-      cv_.Wait(&mutex_);
-    }
+    concurrency::EnsureExclusiveAccess waiter(&finalization_guard_);
+    CHECK(closed_)
+        << "Recoverable stream is not closed after waiting for pending IO";
   }
 
   [[nodiscard]] concurrency::Case OnTimeout() const {
@@ -103,13 +102,8 @@ class RecoverableStream final : public eglt::EvergreenStream {
           "Cannot send message on a half-closed stream");
     }
 
-    ++pending_operations_;
-    mutex_.Unlock();
+    concurrency::PreventExclusiveAccess pending(&finalization_guard_);
     absl::Status status = (*stream)->Send(std::move(message));
-    mutex_.Lock();
-    --pending_operations_;
-    cv_.SignalAll();
-
     return status;
   }
 
@@ -120,14 +114,8 @@ class RecoverableStream final : public eglt::EvergreenStream {
       return std::nullopt;
     }
 
-    ++pending_operations_;
-    mutex_.Unlock();
-    auto message = (*stream)->Receive();
-    mutex_.Lock();
-    --pending_operations_;
-    cv_.SignalAll();
-
-    return message;
+    concurrency::PreventExclusiveAccess pending(&finalization_guard_);
+    return (*stream)->Receive();
   }
 
   absl::Status Accept() override {
@@ -137,13 +125,8 @@ class RecoverableStream final : public eglt::EvergreenStream {
       return stream.status();
     }
 
-    ++pending_operations_;
-    mutex_.Unlock();
-    absl::Status status = (*stream)->Accept();
-    mutex_.Lock();
-    --pending_operations_;
-    cv_.SignalAll();
-    return status;
+    concurrency::PreventExclusiveAccess pending(&finalization_guard_);
+    return (*stream)->Accept();
   }
 
   absl::Status Start() override {
@@ -154,14 +137,8 @@ class RecoverableStream final : public eglt::EvergreenStream {
       return stream.status();
     }
 
-    ++pending_operations_;
-    mutex_.Unlock();
-    absl::Status status = (*stream)->Start();
-    mutex_.Lock();
-    --pending_operations_;
-    cv_.SignalAll();
-
-    return status;
+    concurrency::PreventExclusiveAccess pending(&finalization_guard_);
+    return (*stream)->Start();
   }
 
   void HalfClose() override {
@@ -250,7 +227,6 @@ class RecoverableStream final : public eglt::EvergreenStream {
   const std::string id_;
   const absl::Duration timeout_{absl::InfiniteDuration()};
 
-  int pending_operations_ ABSL_GUARDED_BY(mutex_){0};
   bool half_closed_ ABSL_GUARDED_BY(mutex_){false};
   bool closed_ ABSL_GUARDED_BY(mutex_){false};
   bool lost_ ABSL_GUARDED_BY(mutex_){false};
@@ -259,6 +235,7 @@ class RecoverableStream final : public eglt::EvergreenStream {
 
   mutable concurrency::Mutex mutex_;
   mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
+  concurrency::ExclusiveAccessGuard finalization_guard_{&mutex_, &cv_};
 };
 
 }  // namespace eglt::net
