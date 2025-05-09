@@ -31,9 +31,6 @@ class Action;
 
 class ActionRegistry;
 
-using DebugHandler =
-    std::function<void(const SessionMessage&, EvergreenStream*)>;
-
 /**
  * @brief
  *   A session for handling Evergreen actions.

@@ -19,14 +19,29 @@ class RecoverableStream final : public eglt::EvergreenStream {
         timeout_(timeout),
         timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
 
+  explicit RecoverableStream(std::unique_ptr<EvergreenStream> stream,
+                             std::string_view id = "",
+                             absl::Duration timeout = absl::InfiniteDuration())
+      : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
+        id_(!id.empty() ? id : GenerateUUID4()),
+        timeout_(timeout),
+        timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
+
+  explicit RecoverableStream(std::shared_ptr<EvergreenStream> stream,
+                             std::string_view id = "",
+                             absl::Duration timeout = absl::InfiniteDuration())
+      : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
+        id_(!id.empty() ? id : GenerateUUID4()),
+        timeout_(timeout),
+        timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
+
   ~RecoverableStream() override {
-    {
-      concurrency::MutexLock lock(&mutex_);
-      if (closed_) {
-        return;
-      }
-    }
     CloseAndNotify(/*ignore_lost=*/false);
+
+    concurrency::MutexLock lock(&mutex_);
+    while (pending_operations_ > 0) {
+      cv_.Wait(&mutex_);
+    }
   }
 
   [[nodiscard]] concurrency::Case OnTimeout() const {
@@ -59,7 +74,7 @@ class RecoverableStream final : public eglt::EvergreenStream {
     CHECK(!closed_) << "Cannot close stream, it is already closed";
     if (!half_closed_) {
       if (get_stream_() != nullptr) {
-        LOG(FATAL)
+        LOG(WARNING)
             << "Calling CloseAndNotify() on a stream that is not half-closed";
         return;
       }
@@ -77,46 +92,87 @@ class RecoverableStream final : public eglt::EvergreenStream {
   }
 
   absl::Status Send(SessionMessage message) override {
+    concurrency::MutexLock lock(&mutex_);
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       return stream.status();
     }
-    return (*stream)->Send(std::move(message));
+
+    if (half_closed_) {
+      return absl::FailedPreconditionError(
+          "Cannot send message on a half-closed stream");
+    }
+
+    ++pending_operations_;
+    mutex_.Unlock();
+    absl::Status status = (*stream)->Send(std::move(message));
+    mutex_.Lock();
+    --pending_operations_;
+    cv_.SignalAll();
+
+    return status;
   }
 
   std::optional<SessionMessage> Receive() override {
+    concurrency::MutexLock lock(&mutex_);
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       return std::nullopt;
     }
-    return (*stream)->Receive();
+
+    ++pending_operations_;
+    mutex_.Unlock();
+    auto message = (*stream)->Receive();
+    mutex_.Lock();
+    --pending_operations_;
+    cv_.SignalAll();
+
+    return message;
   }
 
   absl::Status Accept() override {
+    concurrency::MutexLock lock(&mutex_);
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       return stream.status();
     }
-    return (*stream)->Accept();
+
+    ++pending_operations_;
+    mutex_.Unlock();
+    absl::Status status = (*stream)->Accept();
+    mutex_.Lock();
+    --pending_operations_;
+    cv_.SignalAll();
+    return status;
   }
 
   absl::Status Start() override {
+    concurrency::MutexLock lock(&mutex_);
+
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       return stream.status();
     }
-    return (*stream)->Start();
+
+    ++pending_operations_;
+    mutex_.Unlock();
+    absl::Status status = (*stream)->Start();
+    mutex_.Lock();
+    --pending_operations_;
+    cv_.SignalAll();
+
+    return status;
   }
 
   void HalfClose() override {
+    concurrency::MutexLock lock(&mutex_);
+
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       LOG(ERROR) << "Trying to half-close unavailable stream: "
                  << stream.status();
       return;
     }
-
-    concurrency::MutexLock lock(&mutex_);
     (*stream)->HalfClose();
     half_closed_ = true;
   }
@@ -161,9 +217,7 @@ class RecoverableStream final : public eglt::EvergreenStream {
 
  private:
   absl::StatusOr<EvergreenStream*> GetObservedStream()
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
-
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
     if (closed_) {
       return absl::UnavailableError("Recoverable stream is closed");
     }
@@ -196,6 +250,7 @@ class RecoverableStream final : public eglt::EvergreenStream {
   const std::string id_;
   const absl::Duration timeout_{absl::InfiniteDuration()};
 
+  int pending_operations_ ABSL_GUARDED_BY(mutex_){0};
   bool half_closed_ ABSL_GUARDED_BY(mutex_){false};
   bool closed_ ABSL_GUARDED_BY(mutex_){false};
   bool lost_ ABSL_GUARDED_BY(mutex_){false};

@@ -23,6 +23,7 @@
 
 #include "eglt/actions/action.h"
 #include "eglt/concurrency/concurrency.h"
+#include "eglt/net/recoverable_stream.h"
 #include "eglt/net/stream.h"
 #include "eglt/nodes/chunk_store.h"
 #include "eglt/nodes/node_map.h"
@@ -111,6 +112,10 @@ class Service : public std::enable_shared_from_this<Service> {
       std::shared_ptr<EvergreenStream>&& stream,
       EvergreenConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
+  auto EstablishConnection(
+      net::GetStreamFn get_stream,
+      EvergreenConnectionHandler connection_handler = nullptr)
+      -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
       -> absl::Status;
 
@@ -122,6 +127,8 @@ class Service : public std::enable_shared_from_this<Service> {
 
   void CleanupConnection(const StreamToSessionConnection& connection)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    auto& stream = eglt::FindOrDie(streams_, connection.stream_id);
+    stream->HalfClose();
     streams_.erase(connection.stream_id);
     if (streams_per_session_.contains(connection.session_id)) {
       streams_per_session_.at(connection.session_id)
@@ -141,8 +148,8 @@ class Service : public std::enable_shared_from_this<Service> {
   ChunkStoreFactory chunk_store_factory_;
 
   mutable concurrency::Mutex mutex_;
-  absl::flat_hash_map<std::string, std::shared_ptr<EvergreenStream>> streams_
-      ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, std::shared_ptr<net::RecoverableStream>>
+      streams_ ABSL_GUARDED_BY(mutex_);
   // for now, we only support one-to-one session-stream mapping, therefore we
   // use the stream id as the session id.
   absl::flat_hash_map<std::string, std::unique_ptr<NodeMap>> node_maps_

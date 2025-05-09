@@ -74,7 +74,7 @@ Service::Service(ActionRegistry* absl_nullable action_registry,
       chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 Service::~Service() {
-  JoinConnectionsAndCleanUp(/*cancel=*/true);
+  JoinConnectionsAndCleanUp(/*cancel=*/false);
 }
 
 EvergreenStream* Service::GetStream(std::string_view stream_id) const {
@@ -106,7 +106,22 @@ std::vector<std::string> Service::GetSessionKeys() const {
 absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
 Service::EstablishConnection(std::shared_ptr<EvergreenStream>&& stream,
                              EvergreenConnectionHandler connection_handler) {
-  const auto stream_id = stream->GetId();
+  return EstablishConnection(
+      [stream = std::move(stream)]() { return stream.get(); },
+      std::move(connection_handler));
+}
+
+absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
+Service::EstablishConnection(net::GetStreamFn get_stream,
+                             EvergreenConnectionHandler connection_handler) {
+  concurrency::MutexLock lock(&mutex_);
+
+  std::string stream_id;
+  if (EvergreenStream* stream = get_stream(); stream == nullptr) {
+    return absl::InvalidArgumentError("Provided stream resolves to nullptr.");
+  } else {
+    stream_id = stream->GetId();
+  }
   if (stream_id.empty()) {
     return absl::InvalidArgumentError("Provided stream has no id.");
   }
@@ -116,7 +131,8 @@ Service::EstablishConnection(std::shared_ptr<EvergreenStream>&& stream,
     return absl::InvalidArgumentError("Provided stream has no session id.");
   }
 
-  concurrency::MutexLock lock(&mutex_);
+  auto stream = std::make_shared<net::RecoverableStream>(
+      std::move(get_stream), stream_id, /*timeout=*/absl::Seconds(10));
 
   if (cleanup_started_) {
     return absl::FailedPreconditionError(
