@@ -30,6 +30,7 @@ namespace py = ::pybind11;
 PYBIND11_MODULE(evergreen_pybind11, m) {
   // pybind11::google::ImportStatusModule();
   // pybind11_protobuf::ImportNativeProtoCasters();
+  absl::InstallFailureSignalHandler({});
 
   py::module_ types = pybindings::MakeTypesModule(m, "types");
   py::module_ chunk_store = pybindings::MakeChunkStoreModule(m, "chunk_store");

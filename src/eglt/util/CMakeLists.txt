@@ -5,7 +5,7 @@ set_target_properties(egltUtil PROPERTIES
         LINKER_LANGUAGE CXX
 )
 target_sources(
-        egltUtil PUBLIC map_util.h random.h
+        egltUtil PUBLIC map_util.h platform.h random.h
 )
 target_include_directories(
         egltUtil

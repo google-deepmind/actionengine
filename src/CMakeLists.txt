@@ -3,6 +3,9 @@ add_library(eglt::absl_headers ALIAS eglt_absl_headers)
 target_link_libraries(eglt_absl_headers
         PUBLIC
         absl::base
+        absl::debugging
+        absl::debugging_internal
+        absl::failure_signal_handler
         absl::flags
         absl::flags_parse
         absl::flat_hash_map
@@ -10,11 +13,13 @@ target_link_libraries(eglt_absl_headers
         absl::log_initialize
         absl::log_internal_check_op
         absl::random_random
+        absl::stacktrace
         absl::status
         absl::status_matchers
         absl::statusor
         absl::strings
         absl::strings_internal
+        absl::symbolize
         absl::time
 )
 target_include_directories(
