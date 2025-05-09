@@ -127,9 +127,9 @@ class Service : public std::enable_shared_from_this<Service> {
       streams_per_session_.at(connection.session_id)
           .erase(connection.stream_id);
       if (streams_per_session_.at(connection.session_id).empty()) {
-        DLOG(INFO) << "session " << connection.session_id
-                   << " has no more stable connections, deleting.";
         sessions_.erase(connection.session_id);
+        DLOG(INFO) << "session " << connection.session_id
+                   << " has no more stable connections, deleted.";
         node_maps_.erase(connection.session_id);
       }
     }

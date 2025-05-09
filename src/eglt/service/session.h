@@ -27,6 +27,8 @@
 
 namespace eglt {
 
+class Action;
+
 class ActionRegistry;
 
 using DebugHandler =
@@ -73,7 +75,10 @@ class Session {
   }
 
  private:
-  void JoinDispatchers(bool cancel = false) ABSL_LOCKS_EXCLUDED(mutex_);
+  void JoinDispatchers(bool cancel = false)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  void CancelActions() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   concurrency::Mutex mutex_{};
   bool joined_ ABSL_GUARDED_BY(mutex_) = false;
@@ -83,6 +88,11 @@ class Session {
   NodeMap* absl_nonnull const node_map_;
   ActionRegistry* absl_nullable action_registry_ = nullptr;
   ChunkStoreFactory chunk_store_factory_;
+
+  absl::flat_hash_map<Action*, std::unique_ptr<concurrency::Fiber>>
+      running_actions_ ABSL_GUARDED_BY(mutex_);
+  concurrency::PermanentEvent actions_cancelled_;
+  concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
 };
 
 }  // namespace eglt

@@ -38,6 +38,23 @@ Session::Session(NodeMap* absl_nonnull node_map,
       chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 Session::~Session() {
+  concurrency::MutexLock lock(&mutex_);
+  DLOG(INFO) << "Session destructor called.";
+  if (actions_cancelled_.HasBeenNotified()) {
+    actions_cancelled_.Notify();
+  }
+
+  CancelActions();
+
+  const absl::Time deadline = absl::Now() + absl::Seconds(10);
+  while (!running_actions_.empty()) {
+    if (cv_.WaitWithDeadline(&mutex_, deadline)) {
+      CHECK(running_actions_.empty())
+          << "Session destructor timed out waiting for actions to "
+             "finish. Some actions have not completed.";
+    }
+  }
+
   JoinDispatchers(/*cancel=*/true);
 }
 
@@ -105,21 +122,55 @@ absl::Status Session::DispatchMessage(SessionMessage message,
     }
   }
   for (auto& action_message : message.actions) {
-    // for later: error handling
-    concurrency::Detach(
-        {}, [action_message = std::move(action_message), stream, this] {
-          const auto action = std::shared_ptr(action_registry_->MakeAction(
-              action_message.name, action_message.id, action_message.inputs,
-              action_message.outputs));
+    auto action = std::shared_ptr(action_registry_->MakeAction(
+        action_message.name, action_message.id, action_message.inputs,
+        action_message.outputs));
+
+    Action* action_ptr = action.get();
+
+    auto action_fiber = concurrency::NewTree(
+        {}, [action = std::move(action), stream, this]() mutable {
           action->BindNodeMap(node_map_);
           action->BindStream(stream);
           action->BindSession(this);
-          if (const auto run_status = action->Run(); !run_status.ok()) {
+          if (const auto run_status = action->Run(&actions_cancelled_);
+              !run_status.ok()) {
             LOG(ERROR) << "Failed to run action: " << run_status;
           }
+          concurrency::MutexLock lock(&mutex_);
+          const auto map_node = running_actions_.extract(action.get());
+          CHECK(!map_node.empty())
+              << "Running action not found in session it was created in.";
+          action = nullptr;
+          cv_.SignalAll();
+          concurrency::Detach(std::move(map_node.mapped()));
         });
+
+    running_actions_[action_ptr] = std::move(action_fiber);
   }
   return status;
+}
+
+void Session::CancelActions() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+  // cooperative (external) cancellation of all actions
+  if (actions_cancelled_.HasBeenNotified()) {
+    actions_cancelled_.Notify();
+  }
+
+  for (auto& [action, action_fiber] : running_actions_) {
+    CHECK(action_fiber != nullptr) << "Action is still in the running "
+                                      "actions map, but the fiber is null.";
+
+    // cooperative cancellation of each individual action
+    action->Cancel();
+
+    // "forceful" cancellation of running actions' fibers. It is also
+    // cooperative (not obligatory), but it will help the library's classes
+    // to react to cancellation even if the user forgot to check for it in
+    // their handler code.
+    action_fiber->Cancel();
+  }
+  DLOG(INFO) << "Cancelled all actions in session.";
 }
 
 void Session::StopDispatchingFrom(EvergreenStream* absl_nonnull stream) {
@@ -140,11 +191,11 @@ void Session::StopDispatchingFrom(EvergreenStream* absl_nonnull stream) {
 }
 
 void Session::StopDispatchingFromAll() {
+  concurrency::MutexLock lock(&mutex_);
   JoinDispatchers(/*cancel=*/true);
 }
 
 void Session::JoinDispatchers(bool cancel) {
-  mutex_.Lock();
   joined_ = true;
 
   if (cancel) {
@@ -157,11 +208,10 @@ void Session::JoinDispatchers(bool cancel) {
     task->Join();
     mutex_.Lock();
   }
-
-  mutex_.Unlock();
 }
 
 ActionRegistry* Action::GetRegistry() const {
+  concurrency::MutexLock lock(&mutex_);
   return session_->GetActionRegistry();
 }
 

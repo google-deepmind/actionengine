@@ -25,8 +25,8 @@
 #include "eglt/actions/action.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/pybind11_headers.h"
-#include "eglt/util/utils_pybind11.h"
 #include "eglt/service/session.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
 
@@ -47,7 +47,7 @@ ActionHandler MakeStatusAwareActionHandler(VoidActionHandler handler) {
 /// @private
 void BindActionSchema(py::handle scope, std::string_view name) {
   py::class_<ActionSchema, std::shared_ptr<ActionSchema>>(
-          scope, std::string(name).c_str())
+      scope, std::string(name).c_str())
       .def(py::init<>())
       .def(MakeSameObjectRefConstructor<ActionSchema>())
       .def(py::init([](const std::string& action_name,
@@ -72,7 +72,7 @@ void BindActionSchema(py::handle scope, std::string_view name) {
 /// @private
 void BindActionRegistry(py::handle scope, std::string_view name) {
   py::class_<ActionRegistry, std::shared_ptr<ActionRegistry>>(
-          scope, std::string(name).c_str())
+      scope, std::string(name).c_str())
       .def(py::init([]() { return std::make_shared<ActionRegistry>(); }))
       .def(MakeSameObjectRefConstructor<ActionRegistry>())
       .def(
@@ -121,6 +121,12 @@ void BindAction(py::handle scope, std::string_view name) {
             }
           },
           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "cancel",
+          [](const std::shared_ptr<Action>& self) { return self->Cancel(); },
+          py::call_guard<py::gil_scoped_release>())
+      .def("cancelled", &Action::Cancelled,
+           py::call_guard<py::gil_scoped_release>())
       .def("get_registry",
            [](const std::shared_ptr<Action>& action) {
              return ShareWithNoDeleter(action->GetRegistry());
@@ -189,4 +195,4 @@ py::module_ MakeActionsModule(py::module_ scope, std::string_view module_name) {
   return actions;
 }
 
-} // namespace eglt::pybindings
+}  // namespace eglt::pybindings
