@@ -60,10 +60,10 @@ std::unique_ptr<Action> MakeActionInConnection(
     std::string_view action_id = "");
 
 using EvergreenConnectionHandler =
-    std::function<absl::Status(EvergreenStream*, Session*)>;
+    std::function<absl::Status(std::shared_ptr<EvergreenStream>, Session*)>;
 
 /// @callgraph
-absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
+absl::Status RunSimpleEvergreenSession(std::shared_ptr<EvergreenStream> stream,
                                        Session* absl_nonnull session);
 
 /**

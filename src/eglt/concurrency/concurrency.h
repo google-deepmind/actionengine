@@ -107,11 +107,33 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
                                        "pending operations";
   }
 
-  void WaitForAllPendingOperations() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_)
+  void Wait() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_)
       ABSL_UNLOCK_FUNCTION() {
     while (pending_operations_ > 0) {
       cv_->Wait(mutex_);
     }
+  }
+
+  [[nodiscard]] bool WaitWithTimeout(absl::Duration timeout) const
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) ABSL_UNLOCK_FUNCTION() {
+    bool timed_out = false;
+    while (pending_operations_ > 0) {
+      if (timed_out = cv_->WaitWithTimeout(mutex_, timeout); timed_out) {
+        break;
+      }
+    }
+    return timed_out;
+  }
+
+  [[nodiscard]] bool WaitWithDeadline(absl::Time deadline) const
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) ABSL_UNLOCK_FUNCTION() {
+    bool timed_out = false;
+    while (pending_operations_ > 0) {
+      if (timed_out = cv_->WaitWithDeadline(mutex_, deadline); timed_out) {
+        break;
+      }
+    }
+    return timed_out;
   }
 
   void StartPendingOperation() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_)
@@ -139,16 +161,34 @@ class ABSL_SCOPED_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED EnsureExclusiveAccess {
  public:
   explicit EnsureExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard)
       ABSL_EXCLUSIVE_LOCK_FUNCTION(guard)
+      : EnsureExclusiveAccess(guard, absl::InfiniteFuture()) {}
+
+  explicit EnsureExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard,
+                                 absl::Time deadline)
+      ABSL_EXCLUSIVE_LOCK_FUNCTION(guard)
       : guard_(guard) {
-    guard_->WaitForAllPendingOperations();
+    timed_out_ = guard_->WaitWithDeadline(deadline);
   }
 
-  ~EnsureExclusiveAccess() ABSL_UNLOCK_FUNCTION() {
-    guard_->cv_->SignalAll();
+  static EnsureExclusiveAccess WithDeadline(
+      ExclusiveAccessGuard* absl_nonnull guard,
+      absl::Time deadline) ABSL_NO_THREAD_SAFETY_ANALYSIS {
+    return EnsureExclusiveAccess(guard, deadline);
   }
+
+  static EnsureExclusiveAccess WithTimeout(
+      ExclusiveAccessGuard* absl_nonnull guard,
+      absl::Duration timeout) ABSL_NO_THREAD_SAFETY_ANALYSIS {
+    return EnsureExclusiveAccess(guard, absl::Now() + timeout);
+  }
+
+  ~EnsureExclusiveAccess() ABSL_UNLOCK_FUNCTION() { guard_->cv_->SignalAll(); }
+
+  [[nodiscard]] bool TimedOut() const { return timed_out_; }
 
  private:
   ExclusiveAccessGuard* absl_nonnull const guard_;
+  bool timed_out_{false};
 };
 
 class ABSL_SCOPED_LOCKABLE PreventExclusiveAccess {

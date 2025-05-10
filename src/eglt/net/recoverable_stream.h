@@ -12,6 +12,8 @@ using GetStreamFn = absl::AnyInvocable<EvergreenStream*() const>;
 
 class RecoverableStream final : public eglt::EvergreenStream {
  public:
+  static constexpr auto kFinalizationTimeout = absl::Seconds(5);
+
   explicit RecoverableStream(GetStreamFn get_stream, std::string_view id = "",
                              absl::Duration timeout = absl::InfiniteDuration())
       : get_stream_(std::move(get_stream)),
@@ -38,7 +40,14 @@ class RecoverableStream final : public eglt::EvergreenStream {
   ~RecoverableStream() override {
     CloseAndNotify(/*ignore_lost=*/false);
 
-    concurrency::EnsureExclusiveAccess waiter(&finalization_guard_);
+    concurrency::EnsureExclusiveAccess waiter(&finalization_guard_,
+                                              absl::Now() + timeout_);
+
+    if (waiter.TimedOut()) {
+      LOG(ERROR) << "Recoverable stream's senders or receivers are still "
+                    "pending after "
+                    "timeout";
+    }
     CHECK(closed_)
         << "Recoverable stream is not closed after waiting for pending IO";
   }

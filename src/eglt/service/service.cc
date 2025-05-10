@@ -29,15 +29,16 @@
 
 namespace eglt {
 
-absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
+absl::Status RunSimpleEvergreenSession(std::shared_ptr<EvergreenStream> stream,
                                        Session* absl_nonnull session) {
+  const auto shared_stream = std::move(stream);
   absl::Status status;
   while (!concurrency::Cancelled()) {
-    std::optional<SessionMessage> message = stream->Receive();
+    std::optional<SessionMessage> message = shared_stream->Receive();
     if (!message.has_value()) {
       break;
     }
-    status = session->DispatchMessage(message.value(), stream);
+    status = session->DispatchMessage(message.value(), shared_stream.get());
   }
 
   if (concurrency::Cancelled()) {
@@ -117,10 +118,10 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
   concurrency::MutexLock lock(&mutex_);
 
   std::string stream_id;
-  if (EvergreenStream* stream = get_stream(); stream == nullptr) {
+  if (EvergreenStream* raw_stream = get_stream(); raw_stream == nullptr) {
     return absl::InvalidArgumentError("Provided stream resolves to nullptr.");
   } else {
-    stream_id = stream->GetId();
+    stream_id = raw_stream->GetId();
   }
   if (stream_id.empty()) {
     return absl::InvalidArgumentError("Provided stream has no id.");
@@ -131,15 +132,15 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
     return absl::InvalidArgumentError("Provided stream has no session id.");
   }
 
-  auto stream = std::make_shared<net::RecoverableStream>(
-      std::move(get_stream), stream_id, /*timeout=*/absl::Seconds(10));
-
   if (cleanup_started_) {
     return absl::FailedPreconditionError(
         "Service is shutting down, cannot establish new connections.");
   }
 
-  streams_.emplace(stream_id, std::move(stream));
+  auto recoverable_stream = std::make_shared<net::RecoverableStream>(
+      std::move(get_stream), stream_id, /*timeout=*/absl::Seconds(10));
+
+  streams_.insert_or_assign(stream_id, recoverable_stream);
 
   if (connections_.contains(stream_id)) {
     return absl::AlreadyExistsError(
@@ -185,9 +186,10 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
 
   connection_fibers_[stream_id] = concurrency::NewTree(
       concurrency::TreeOptions(),
-      [this, resolved_handler = std::move(resolved_handler), connection]() {
-        connection->status =
-            resolved_handler(connection->stream, connection->session);
+      [this, resolved_handler = std::move(resolved_handler), connection,
+       recoverable_stream = std::move(recoverable_stream)]() {
+        connection->status = resolved_handler(std::move(recoverable_stream),
+                                              connection->session);
         concurrency::MutexLock cleanup_lock(&mutex_);
         CleanupConnection(*connection);
       });
