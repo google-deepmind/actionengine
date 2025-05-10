@@ -60,10 +60,10 @@ std::unique_ptr<Action> MakeActionInConnection(
     std::string_view action_id = "");
 
 using EvergreenConnectionHandler =
-    std::function<absl::Status(std::shared_ptr<EvergreenStream>, Session*)>;
+    std::function<absl::Status(EvergreenStream* absl_nonnull, Session* absl)>;
 
 /// @callgraph
-absl::Status RunSimpleEvergreenSession(std::shared_ptr<EvergreenStream> stream,
+absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
                                        Session* absl_nonnull session);
 
 /**
@@ -127,20 +127,45 @@ class Service : public std::enable_shared_from_this<Service> {
 
   void CleanupConnection(const StreamToSessionConnection& connection)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
-    auto& stream = eglt::FindOrDie(streams_, connection.stream_id);
-    stream->HalfClose();
-    streams_.erase(connection.stream_id);
-    if (streams_per_session_.contains(connection.session_id)) {
-      streams_per_session_.at(connection.session_id)
-          .erase(connection.stream_id);
-      if (streams_per_session_.at(connection.session_id).empty()) {
-        sessions_.erase(connection.session_id);
-        DLOG(INFO) << "session " << connection.session_id
-                   << " has no more stable connections, deleted.";
-        node_maps_.erase(connection.session_id);
-      }
-    }
     connections_.erase(connection.stream_id);
+
+    std::unique_ptr<net::RecoverableStream> extracted_stream = nullptr;
+    std::unique_ptr<NodeMap> extracted_node_map = nullptr;
+    std::unique_ptr<Session> extracted_session = nullptr;
+
+    if (const auto map_node = streams_.extract(connection.stream_id);
+        !map_node.empty()) {
+      extracted_stream = std::move(map_node.mapped());
+    }
+
+    streams_per_session_.at(connection.session_id).erase(connection.stream_id);
+    if (streams_per_session_.at(connection.session_id).empty()) {
+      if (const auto map_node = sessions_.extract(connection.session_id);
+          !map_node.empty()) {
+        extracted_session = std::move(map_node.mapped());
+      }
+      if (const auto map_node = node_maps_.extract(connection.stream_id);
+          !map_node.empty()) {
+        extracted_node_map = std::move(map_node.mapped());
+      }
+      streams_per_session_.erase(connection.session_id);
+    }
+
+    mutex_.Unlock();
+
+    if (extracted_session != nullptr) {
+      extracted_session.reset();
+      DLOG(INFO) << "session " << connection.session_id
+                 << " has no more stable connections, deleted.";
+    }
+
+    if (extracted_stream != nullptr) {
+      extracted_stream->HalfClose();
+    }
+    extracted_stream.reset();
+
+    extracted_node_map.reset();
+    mutex_.Lock();
   }
 
   std::unique_ptr<ActionRegistry> action_registry_;
@@ -148,7 +173,7 @@ class Service : public std::enable_shared_from_this<Service> {
   ChunkStoreFactory chunk_store_factory_;
 
   mutable concurrency::Mutex mutex_;
-  absl::flat_hash_map<std::string, std::shared_ptr<net::RecoverableStream>>
+  absl::flat_hash_map<std::string, std::unique_ptr<net::RecoverableStream>>
       streams_ ABSL_GUARDED_BY(mutex_);
   // for now, we only support one-to-one session-stream mapping, therefore we
   // use the stream id as the session id.

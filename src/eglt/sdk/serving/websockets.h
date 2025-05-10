@@ -543,7 +543,7 @@ class WebsocketEvergreenClient {
 
     fiber_ = concurrency::NewTree(concurrency::TreeOptions(), [this]() {
       auto handler_fiber = concurrency::Fiber([this]() {
-        status_ = connection_handler_(eg_stream_, session_.get());
+        status_ = connection_handler_(eg_stream_.get(), session_.get());
       });
 
       const auto selected = concurrency::Select(

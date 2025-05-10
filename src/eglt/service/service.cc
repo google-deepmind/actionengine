@@ -29,16 +29,15 @@
 
 namespace eglt {
 
-absl::Status RunSimpleEvergreenSession(std::shared_ptr<EvergreenStream> stream,
+absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
                                        Session* absl_nonnull session) {
-  const auto shared_stream = std::move(stream);
   absl::Status status;
   while (!concurrency::Cancelled()) {
-    std::optional<SessionMessage> message = shared_stream->Receive();
+    std::optional<SessionMessage> message = stream->Receive();
     if (!message.has_value()) {
       break;
     }
-    status = session->DispatchMessage(message.value(), shared_stream.get());
+    status = session->DispatchMessage(message.value(), stream);
   }
 
   if (concurrency::Cancelled()) {
@@ -137,10 +136,9 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
         "Service is shutting down, cannot establish new connections.");
   }
 
-  auto recoverable_stream = std::make_shared<net::RecoverableStream>(
-      std::move(get_stream), stream_id, /*timeout=*/absl::Seconds(10));
-
-  streams_.insert_or_assign(stream_id, recoverable_stream);
+  streams_.emplace(stream_id, std::make_unique<net::RecoverableStream>(
+                                  std::move(get_stream), stream_id,
+                                  /*timeout=*/absl::Seconds(10)));
 
   if (connections_.contains(stream_id)) {
     return absl::AlreadyExistsError(
@@ -186,10 +184,9 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
 
   connection_fibers_[stream_id] = concurrency::NewTree(
       concurrency::TreeOptions(),
-      [this, resolved_handler = std::move(resolved_handler), connection,
-       recoverable_stream = std::move(recoverable_stream)]() {
-        connection->status = resolved_handler(std::move(recoverable_stream),
-                                              connection->session);
+      [this, resolved_handler = std::move(resolved_handler), connection]() {
+        connection->status =
+            resolved_handler(connection->stream, connection->session);
         concurrency::MutexLock cleanup_lock(&mutex_);
         CleanupConnection(*connection);
       });
