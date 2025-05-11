@@ -8,9 +8,9 @@
 
 namespace eglt::net {
 
-using GetStreamFn = absl::AnyInvocable<EvergreenStream*() const>;
+using GetStreamFn = absl::AnyInvocable<EvergreenWireStream*() const>;
 
-class RecoverableStream final : public eglt::EvergreenStream {
+class RecoverableStream final : public eglt::EvergreenWireStream {
  public:
   static constexpr auto kFinalizationTimeout = absl::Seconds(5);
 
@@ -21,7 +21,7 @@ class RecoverableStream final : public eglt::EvergreenStream {
         timeout_(timeout),
         timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
 
-  explicit RecoverableStream(std::unique_ptr<EvergreenStream> stream,
+  explicit RecoverableStream(std::unique_ptr<EvergreenWireStream> stream,
                              std::string_view id = "",
                              absl::Duration timeout = absl::InfiniteDuration())
       : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
@@ -29,7 +29,7 @@ class RecoverableStream final : public eglt::EvergreenStream {
         timeout_(timeout),
         timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
 
-  explicit RecoverableStream(std::shared_ptr<EvergreenStream> stream,
+  explicit RecoverableStream(std::shared_ptr<EvergreenWireStream> stream,
                              std::string_view id = "",
                              absl::Duration timeout = absl::InfiniteDuration())
       : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
@@ -202,14 +202,14 @@ class RecoverableStream final : public eglt::EvergreenStream {
   }
 
  private:
-  absl::StatusOr<EvergreenStream*> GetObservedStream()
+  absl::StatusOr<EvergreenWireStream*> GetObservedStream()
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
     if (closed_) {
       return absl::UnavailableError("Recoverable stream is closed");
     }
 
     // get_stream_ returns a valid stream, just return it
-    EvergreenStream* stream = get_stream_();
+    EvergreenWireStream* stream = get_stream_();
     if (stream != nullptr) {
       return stream;
     }

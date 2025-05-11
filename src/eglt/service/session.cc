@@ -68,7 +68,7 @@ AsyncNode* Session::GetNode(
   return node_map_->Get(id, factory);
 }
 
-void Session::DispatchFrom(EvergreenStream* absl_nonnull stream) {
+void Session::DispatchFrom(EvergreenWireStream* absl_nonnull stream) {
   concurrency::MutexLock lock(&mutex_);
 
   if (dispatch_tasks_.contains(stream)) {
@@ -101,7 +101,7 @@ void Session::DispatchFrom(EvergreenStream* absl_nonnull stream) {
 }
 
 absl::Status Session::DispatchMessage(SessionMessage message,
-                                      EvergreenStream* absl_nullable stream) {
+                                      EvergreenWireStream* absl_nullable stream) {
   concurrency::MutexLock lock(&mutex_);
   if (joined_) {
     return absl::FailedPreconditionError(
@@ -173,7 +173,7 @@ void Session::CancelActions() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
   DLOG(INFO) << "Cancelled all actions in session.";
 }
 
-void Session::StopDispatchingFrom(EvergreenStream* absl_nonnull stream) {
+void Session::StopDispatchingFrom(EvergreenWireStream* absl_nonnull stream) {
   std::unique_ptr<concurrency::Fiber> task;
   {
     concurrency::MutexLock lock(&mutex_);

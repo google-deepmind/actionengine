@@ -25,7 +25,7 @@ class Session(service_pybind11.Session):
   async def dispatch_message(
       self,
       message: types.SessionMessage,
-      stream: eg_stream.EvergreenStream,
+      stream: eg_stream.EvergreenWireStream,
   ):
     """Dispatches a message to the session."""
     return await asyncio.to_thread(super().dispatch_message, message,

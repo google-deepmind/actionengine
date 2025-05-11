@@ -34,7 +34,7 @@
 
 namespace eglt {
 
-absl::Status SendToStreamIfNotNullAndOpen(EvergreenStream* absl_nullable stream,
+absl::Status SendToStreamIfNotNullAndOpen(EvergreenWireStream* absl_nullable stream,
                                           NodeFragment&& fragment) {
   // if stream is null, we don't send anything and it is ok.
   if (stream == nullptr) {
@@ -89,7 +89,7 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   return *this;
 }
 
-void AsyncNode::BindWriterStream(EvergreenStream* absl_nullable stream) {
+void AsyncNode::BindWriterStream(EvergreenWireStream* absl_nullable stream) {
   concurrency::MutexLock lock(&mutex_);
   writer_stream_ = stream;
 }

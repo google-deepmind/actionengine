@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
   // This is enough to run the server. Notice how Service is decoupled from
   // the server implementation. We could have used any other implementation,
   // such as gRPC or WebSockets, if they provide an implementation of
-  // EvergreenStream and (de)serialization of base types (eg_structs.h) from
+  // EvergreenWireStream and (de)serialization of base types (eg_structs.h) from
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   eglt::Service service(&action_registry);

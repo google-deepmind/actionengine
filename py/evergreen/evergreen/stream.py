@@ -8,8 +8,8 @@ from evergreen.evergreen_pybind11 import \
   service as service_pybind11
 
 
-class EvergreenStream(service_pybind11.EvergreenStream):
-  """A Pythonic wrapper for the raw pybind11 EvergreenStream bindings."""
+class EvergreenWireStream(service_pybind11.EvergreenWireStream):
+  """A Pythonic wrapper for the raw pybind11 EvergreenWireStream bindings."""
 
   async def receive(self) -> types.SessionMessage | None:
     """Receives a message from the stream."""

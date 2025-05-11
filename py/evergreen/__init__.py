@@ -23,7 +23,7 @@ Chunk = types.Chunk
 ChunkMetadata = types.ChunkMetadata
 ChunkStoreFactory = types.ChunkStoreFactory
 
-EvergreenStream = eg_stream.EvergreenStream
+EvergreenWireStream = eg_stream.EvergreenWireStream
 
 NamedParameter = types.NamedParameter
 

@@ -29,7 +29,7 @@
 
 namespace eglt {
 
-absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
+absl::Status RunSimpleEvergreenSession(EvergreenWireStream* absl_nonnull stream,
                                        Session* absl_nonnull session) {
   absl::Status status;
   while (!concurrency::Cancelled()) {
@@ -77,7 +77,7 @@ Service::~Service() {
   JoinConnectionsAndCleanUp(/*cancel=*/false);
 }
 
-EvergreenStream* Service::GetStream(std::string_view stream_id) const {
+EvergreenWireStream* Service::GetStream(std::string_view stream_id) const {
   concurrency::MutexLock lock(&mutex_);
   if (connections_.contains(stream_id)) {
     return connections_.at(stream_id)->stream;
@@ -104,7 +104,7 @@ std::vector<std::string> Service::GetSessionKeys() const {
 }
 
 absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
-Service::EstablishConnection(std::shared_ptr<EvergreenStream>&& stream,
+Service::EstablishConnection(std::shared_ptr<EvergreenWireStream>&& stream,
                              EvergreenConnectionHandler connection_handler) {
   return EstablishConnection(
       [stream = std::move(stream)]() { return stream.get(); },
@@ -117,7 +117,7 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
   concurrency::MutexLock lock(&mutex_);
 
   std::string stream_id;
-  if (EvergreenStream* raw_stream = get_stream(); raw_stream == nullptr) {
+  if (EvergreenWireStream* raw_stream = get_stream(); raw_stream == nullptr) {
     return absl::InvalidArgumentError("Provided stream resolves to nullptr.");
   } else {
     stream_id = raw_stream->GetId();

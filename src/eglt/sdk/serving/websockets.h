@@ -64,18 +64,18 @@ inline auto RunInAsioContext(
   concurrency::Select(cases);
 }
 
-class WebsocketEvergreenStream final : public EvergreenStream {
+class WebsocketEvergreenWireStream final : public EvergreenWireStream {
  public:
   static constexpr size_t kSwapBufferOnCapacity = 1 * 1024 * 1024;  // 1MB
 
-  explicit WebsocketEvergreenStream(
+  explicit WebsocketEvergreenWireStream(
       beast::websocket::stream<tcp::socket> stream, std::string_view id = "")
       : stream_(std::move(stream)),
         id_(id.empty() ? GenerateUUID4() : std::string(id)) {
     DLOG(INFO) << absl::StrFormat("WESt %s created", id_);
   }
 
-  ~WebsocketEvergreenStream() override {
+  ~WebsocketEvergreenWireStream() override {
     if (stream_.is_open()) {
       HalfClose();
     }
@@ -225,9 +225,9 @@ class WebsocketEvergreenStream final : public EvergreenStream {
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink,
-                            const WebsocketEvergreenStream& stream) {
+                            const WebsocketEvergreenWireStream& stream) {
     const auto endpoint = stream.stream_.next_layer().remote_endpoint();
-    sink.Append(absl::StrFormat("WebsocketEvergreenStream %s %s:%d", stream.id_,
+    sink.Append(absl::StrFormat("WebsocketEvergreenWireStream %s %s:%d", stream.id_,
                                 endpoint.address().to_string(),
                                 endpoint.port()));
   }
@@ -319,7 +319,7 @@ class WebsocketEvergreenServer {
         if (!error) {
           beast::websocket::stream<tcp::socket> stream(std::move(socket));
           auto connection = service_->EstablishConnection(
-              std::make_shared<WebsocketEvergreenStream>(std::move(stream)));
+              std::make_shared<WebsocketEvergreenWireStream>(std::move(stream)));
           if (!connection.ok()) {
             status_ = connection.status();
             DLOG(ERROR)
@@ -412,7 +412,7 @@ inline void SetClientStreamOptions(
       [](beast::websocket::request_type& req) {
         req.set(beast::http::field::user_agent,
                 "Action Engine / Evergreen Light 0.1.0 "
-                "WebsocketEvergreenStream client");
+                "WebsocketEvergreenWireStream client");
       }));
 }
 
@@ -433,8 +433,8 @@ inline absl::Status PerformHandshake(
   return absl::OkStatus();
 }
 
-inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenStream>>
-MakeWebsocketEvergreenStream(std::string_view address = "127.0.0.1",
+inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>>
+MakeWebsocketEvergreenWireStream(std::string_view address = "127.0.0.1",
                              uint16_t port = 20000,
                              std::string_view target = "/",
                              std::string_view id = "",
@@ -491,16 +491,16 @@ MakeWebsocketEvergreenStream(std::string_view address = "127.0.0.1",
   }
 
   std::string session_id = id.empty() ? GenerateUUID4() : std::string(id);
-  return std::make_unique<WebsocketEvergreenStream>(std::move(ws_stream),
+  return std::make_unique<WebsocketEvergreenWireStream>(std::move(ws_stream),
                                                     session_id);
 }
 
-inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenStream>>
-MakeWebsocketClientEvergreenStream(std::string_view address = "0.0.0.0",
+inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>>
+MakeWebsocketClientEvergreenWireStream(std::string_view address = "0.0.0.0",
                                    uint16_t port = 20000,
                                    std::string_view target = "/") {
 
-  return MakeWebsocketEvergreenStream(
+  return MakeWebsocketEvergreenWireStream(
       address, port, target, /*id=*/GenerateUUID4(),
       /*prepare_stream=*/
       [address, port,
@@ -524,8 +524,8 @@ class WebsocketEvergreenClient {
 
   std::shared_ptr<StreamToSessionConnection> Connect(std::string_view address,
                                                      int32_t port) {
-    if (absl::StatusOr<std::unique_ptr<WebsocketEvergreenStream>> stream =
-            MakeWebsocketClientEvergreenStream(address, port);
+    if (absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>> stream =
+            MakeWebsocketClientEvergreenWireStream(address, port);
         !stream.ok()) {
       DLOG(ERROR) << absl::StrFormat("WESt %s Connect failed: %v", address,
                                      stream.status());
@@ -593,7 +593,7 @@ class WebsocketEvergreenClient {
 
   absl::Status status_;
 
-  std::shared_ptr<WebsocketEvergreenStream> eg_stream_;
+  std::shared_ptr<WebsocketEvergreenWireStream> eg_stream_;
   std::unique_ptr<NodeMap> node_map_;
   std::unique_ptr<Session> session_;
 

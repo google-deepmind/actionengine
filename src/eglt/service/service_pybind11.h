@@ -29,17 +29,17 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
-void BindStream(py::handle scope, std::string_view name = "EvergreenStream");
+void BindStream(py::handle scope, std::string_view name = "EvergreenWireStream");
 void BindSession(py::handle scope, std::string_view name = "Session");
 void BindService(py::handle scope, std::string_view name = "Service");
 void BindStreamToSessionConnection(
     py::handle scope, std::string_view name = "StreamToSessionConnection");
 
-class PyEvergreenStream final : public EvergreenStream {
+class PyEvergreenWireStream final : public EvergreenWireStream {
  public:
-  using EvergreenStream::EvergreenStream;
+  using EvergreenWireStream::EvergreenWireStream;
 
-  PyEvergreenStream() : EvergreenStream() {}
+  PyEvergreenWireStream() : EvergreenWireStream() {}
 
   absl::Status Send(SessionMessage message) override {
     py::gil_scoped_acquire gil;
@@ -48,7 +48,7 @@ class PyEvergreenStream final : public EvergreenStream {
     if (!function) {
       return absl::UnimplementedError(
           "send is not implemented in the Python subclass of "
-          "EvergreenStream.");
+          "EvergreenWireStream.");
     }
     const py::object py_result = function(message);
 
@@ -67,7 +67,7 @@ class PyEvergreenStream final : public EvergreenStream {
 
     if (!function) {
       LOG(FATAL) << "receive is not implemented in the Python subclass of "
-                    "EvergreenStream.";
+                    "EvergreenWireStream.";
     }
     const py::object py_result = function();
 
@@ -87,7 +87,7 @@ class PyEvergreenStream final : public EvergreenStream {
     if (!function) {
       return absl::UnimplementedError(
           "accept is not implemented in the Python subclass of "
-          "EvergreenStream.");
+          "EvergreenWireStream.");
     }
     try {
       const py::object py_result = function();
@@ -111,7 +111,7 @@ class PyEvergreenStream final : public EvergreenStream {
     if (!function) {
       return absl::UnimplementedError(
           "start is not implemented in the Python subclass of "
-          "EvergreenStream.");
+          "EvergreenWireStream.");
     }
     try {
       const py::object py_result = function();
@@ -129,21 +129,21 @@ class PyEvergreenStream final : public EvergreenStream {
   }
 
   void HalfClose() override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyEvergreenStream, "close", Close, );
+    PYBIND11_OVERRIDE_PURE_NAME(void, PyEvergreenWireStream, "close", Close, );
   }
 
   absl::Status GetStatus() const override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyEvergreenStream, "get_status",
+    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyEvergreenWireStream, "get_status",
                                 GetStatus, );
   }
 
   [[nodiscard]] py::object GetLoop() const {
-    PYBIND11_OVERRIDE_PURE_NAME(py::object, PyEvergreenStream, "get_loop",
+    PYBIND11_OVERRIDE_PURE_NAME(py::object, PyEvergreenWireStream, "get_loop",
                                 GetLoop, );
   }
 
   [[nodiscard]] std::string GetId() const override {
-    PYBIND11_OVERRIDE_PURE_NAME(std::string, PyEvergreenStream, "get_id",
+    PYBIND11_OVERRIDE_PURE_NAME(std::string, PyEvergreenWireStream, "get_id",
                                 GetId, );
   }
 };

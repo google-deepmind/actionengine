@@ -46,7 +46,7 @@ class Action;
  * @headerfile eglt/service/service.h
  */
 struct StreamToSessionConnection {
-  EvergreenStream* absl_nullable stream = nullptr;
+  EvergreenWireStream* absl_nullable stream = nullptr;
   Session* absl_nullable session = nullptr;
 
   std::string session_id;  // dead sessions may lose their id.
@@ -60,10 +60,10 @@ std::unique_ptr<Action> MakeActionInConnection(
     std::string_view action_id = "");
 
 using EvergreenConnectionHandler =
-    std::function<absl::Status(EvergreenStream* absl_nonnull, Session* absl)>;
+    std::function<absl::Status(EvergreenWireStream* absl_nonnull, Session* absl)>;
 
 /// @callgraph
-absl::Status RunSimpleEvergreenSession(EvergreenStream* absl_nonnull stream,
+absl::Status RunSimpleEvergreenSession(EvergreenWireStream* absl_nonnull stream,
                                        Session* absl_nonnull session);
 
 /**
@@ -104,12 +104,12 @@ class Service : public std::enable_shared_from_this<Service> {
   Service(const Service& other) = delete;
   Service& operator=(const Service& other) = delete;
 
-  auto GetStream(std::string_view stream_id) const -> EvergreenStream*;
+  auto GetStream(std::string_view stream_id) const -> EvergreenWireStream*;
   auto GetSession(std::string_view session_id) const -> Session*;
   auto GetSessionKeys() const -> std::vector<std::string>;
 
   auto EstablishConnection(
-      std::shared_ptr<EvergreenStream>&& stream,
+      std::shared_ptr<EvergreenWireStream>&& stream,
       EvergreenConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto EstablishConnection(

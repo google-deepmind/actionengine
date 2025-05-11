@@ -15,4 +15,23 @@
 #ifndef EGLT_NODES_SHARED_CHUNK_STORE_H_
 #define EGLT_NODES_SHARED_CHUNK_STORE_H_
 
+#include <cstddef>
+#include <memory>
+
+#include "eglt/absl_headers.h"
+#include "eglt/concurrency/concurrency.h"
+#include "eglt/data/eg_structs.h"
+#include "eglt/nodes/chunk_store.h"
+#include "eglt/nodes/local_chunk_store.h"
+#include "eglt/util/map_util.h"
+
+namespace eglt {
+
+class SharedChunkStore : public ChunkStore {
+ public:
+ private:
+};
+
+}  // namespace eglt
+
 #endif  // EGLT_NODES_SHARED_CHUNK_STORE_H_

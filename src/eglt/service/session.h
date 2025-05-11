@@ -54,11 +54,11 @@ class Session {
       std::string_view id,
       const ChunkStoreFactory& chunk_store_factory = {}) const;
 
-  void DispatchFrom(EvergreenStream* absl_nonnull stream);
+  void DispatchFrom(EvergreenWireStream* absl_nonnull stream);
   absl::Status DispatchMessage(SessionMessage message,
-                               EvergreenStream* absl_nullable stream = nullptr);
+                               EvergreenWireStream* absl_nullable stream = nullptr);
 
-  void StopDispatchingFrom(EvergreenStream* absl_nonnull stream);
+  void StopDispatchingFrom(EvergreenWireStream* absl_nonnull stream);
   void StopDispatchingFromAll();
 
   [[nodiscard]] NodeMap* GetNodeMap() const { return node_map_; }
@@ -79,7 +79,7 @@ class Session {
 
   concurrency::Mutex mutex_{};
   bool joined_ ABSL_GUARDED_BY(mutex_) = false;
-  absl::flat_hash_map<EvergreenStream*, std::unique_ptr<concurrency::Fiber>>
+  absl::flat_hash_map<EvergreenWireStream*, std::unique_ptr<concurrency::Fiber>>
       dispatch_tasks_ ABSL_GUARDED_BY(mutex_){};
 
   NodeMap* absl_nonnull const node_map_;

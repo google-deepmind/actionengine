@@ -254,7 +254,7 @@ class Action : public std::enable_shared_from_this<Action> {
     }
   }
 
-  //! Makes an action message to be sent on an EvergreenStream.
+  //! Makes an action message to be sent on an EvergreenWireStream.
   /**
    * @return
    *   The action message.
@@ -400,13 +400,13 @@ class Action : public std::enable_shared_from_this<Action> {
     return node_map_;
   }
 
-  void BindStream(EvergreenStream* absl_nullable stream)
+  void BindStream(EvergreenWireStream* absl_nullable stream)
       ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     stream_ = stream;
   }
   /// Returns the stream associated with the action.
-  [[nodiscard]] EvergreenStream* GetStream() const ABSL_LOCKS_EXCLUDED(mutex_) {
+  [[nodiscard]] EvergreenWireStream* GetStream() const ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     return stream_;
   }
@@ -559,7 +559,7 @@ class Action : public std::enable_shared_from_this<Action> {
   std::string id_;
 
   NodeMap* node_map_ ABSL_GUARDED_BY(mutex_) = nullptr;
-  EvergreenStream* stream_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  EvergreenWireStream* stream_ ABSL_GUARDED_BY(mutex_) = nullptr;
   Session* session_ ABSL_GUARDED_BY(mutex_) = nullptr;
 
   bool bind_streams_on_inputs_default_ = true;

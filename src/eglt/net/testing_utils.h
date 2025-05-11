@@ -7,7 +7,7 @@
 
 namespace eglt::testing {
 
-class PairableInMemoryStream final : public EvergreenStream {
+class PairableInMemoryStream final : public EvergreenWireStream {
  public:
   explicit PairableInMemoryStream(std::string_view id = "") : id_(id) {}
 
