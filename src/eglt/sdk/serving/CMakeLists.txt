@@ -43,7 +43,6 @@ target_link_libraries(
         ${EGLT_ABSL_DEPENDENCIES}
         ${EGLT_PYBIND11_DEPENDENCIES}
 )
-message(STATUS "EGLT_PYBIND11_INCLUDE_DIRS: ${EGLT_PYBIND11_INCLUDE_DIRS}")
 target_include_directories(
         eglt_sdk_serving_websockets_pybind11 PUBLIC
         ${EGLT_PYBIND11_INCLUDE_DIRS}

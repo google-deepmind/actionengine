@@ -19,7 +19,7 @@
 #include <string_view>
 
 #include "eglt/nodes/chunk_store.h"
-#include "eglt/nodes/chunk_store_local.h"
+#include "eglt/nodes/local_chunk_store.h"
 #include "eglt/pybind11_headers.h"
 #include "eglt/util/utils_pybind11.h"
 

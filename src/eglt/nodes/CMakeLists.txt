@@ -6,9 +6,10 @@ add_library(
         chunk_store_io.h
         chunk_store_reader.h
         chunk_store_writer.h
-        chunk_store_local.h
+        local_chunk_store.h
         node_map.cc
         node_map.h
+        shared_chunk_store.h
 )
 add_library(eglt::nodes ALIAS egltNodes)
 target_include_directories(

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EGLT_NODES_CHUNK_STORE_LOCAL_H_
-#define EGLT_NODES_CHUNK_STORE_LOCAL_H_
+#ifndef EGLT_NODES_LOCAL_CHUNK_STORE_H_
+#define EGLT_NODES_LOCAL_CHUNK_STORE_H_
 
 #include <cstddef>
 #include <memory>
@@ -34,7 +34,7 @@ namespace eglt {
  * stores chunks in memory. It allows for writing, reading, and waiting for
  * chunks to be available.
  *
- * @headerfile eglt/nodes/chunk_store_local.h
+ * @headerfile eglt/nodes/local_chunk_store.h
  */
 class LocalChunkStore final : public ChunkStore {
  public:
@@ -243,4 +243,4 @@ class LocalChunkStore final : public ChunkStore {
 
 }  // namespace eglt
 
-#endif  // EGLT_NODES_CHUNK_STORE_LOCAL_H_
+#endif  // EGLT_NODES_LOCAL_CHUNK_STORE_H_

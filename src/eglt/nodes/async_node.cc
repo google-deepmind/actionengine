@@ -29,7 +29,7 @@
 #include "eglt/net/stream.h"
 #include "eglt/nodes/chunk_store.h"
 #include "eglt/nodes/chunk_store_io.h"
-#include "eglt/nodes/chunk_store_local.h"
+#include "eglt/nodes/local_chunk_store.h"
 #include "eglt/nodes/node_map.h"
 
 namespace eglt {
