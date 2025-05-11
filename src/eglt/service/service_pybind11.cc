@@ -23,7 +23,7 @@
 
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
-#include "eglt/nodes/chunk_store_pybind11.h"  // IWYU pragma: keep
+#include "eglt/stores/chunk_store_pybind11.h"  // IWYU pragma: keep
 #include "eglt/nodes/node_map.h"
 #include "eglt/pybind11_headers.h"
 #include "eglt/service/service.h"

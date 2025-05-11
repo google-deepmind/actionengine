@@ -9,8 +9,8 @@
 
 #include "eglt/absl_headers.h"
 #include "eglt/data/eg_structs.h"
-#include "eglt/nodes/chunk_store_io.h"
-#include "eglt/nodes/local_chunk_store.h"
+#include "eglt/stores/chunk_store_io.h"
+#include "eglt/stores/local_chunk_store.h"
 
 #define EXPECT_OK(expression) EXPECT_THAT(expression, ::absl_testing::IsOk())
 

@@ -67,6 +67,7 @@ add_subdirectory(eglt/data)
 add_subdirectory(eglt/net)
 add_subdirectory(eglt/nodes)
 add_subdirectory(eglt/service)
+add_subdirectory(eglt/stores)
 add_subdirectory(eglt/util)
 
 # ------------------------------------------------------------------
@@ -90,6 +91,8 @@ target_link_libraries(
         eglt::net
         eglt::service
         eglt::service::pybind11
+        eglt::stores
+        eglt::stores::pybind11
         eglt::nodes
         eglt::nodes::pybind11
         ${EGLT_ABSL_DEPENDENCIES}

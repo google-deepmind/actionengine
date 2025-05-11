@@ -20,9 +20,9 @@
 
 #include <pybind11/pybind11.h>
 
-#include "eglt/nodes/chunk_store.h"
+#include "eglt/stores/chunk_store.h"
 #include "eglt/nodes/node_map.h"
-#include "eglt/nodes/chunk_store_pybind11.h"
+#include "eglt/stores/chunk_store_pybind11.h"
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {

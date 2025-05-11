@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EGLT_NODES_CHUNK_STORE_WRITER_H_
-#define EGLT_NODES_CHUNK_STORE_WRITER_H_
+#ifndef EGLT_STORES_CHUNK_STORE_WRITER_H_
+#define EGLT_STORES_CHUNK_STORE_WRITER_H_
 
 #include <algorithm>
 #include <memory>
@@ -25,7 +25,7 @@
 #include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
-#include "eglt/nodes/chunk_store.h"
+#include "eglt/stores/chunk_store.h"
 
 namespace eglt {
 
@@ -313,4 +313,4 @@ std::shared_ptr<ChunkStoreWriter>& operator<<(
 
 }  // namespace eglt
 
-#endif  // EGLT_NODES_CHUNK_STORE_WRITER_H_
+#endif  // EGLT_STORES_CHUNK_STORE_WRITER_H_

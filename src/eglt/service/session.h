@@ -22,7 +22,7 @@
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
-#include "eglt/nodes/chunk_store.h"
+#include "eglt/stores/chunk_store.h"
 #include "eglt/nodes/node_map.h"
 
 namespace eglt {

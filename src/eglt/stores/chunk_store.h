@@ -19,8 +19,8 @@
  *   nodes.
  */
 
-#ifndef EGLT_NODES_CHUNK_STORE_H_
-#define EGLT_NODES_CHUNK_STORE_H_
+#ifndef EGLT_STORES_CHUNK_STORE_H_
+#define EGLT_STORES_CHUNK_STORE_H_
 
 #include <functional>
 #include <memory>
@@ -71,4 +71,4 @@ std::unique_ptr<T> MakeChunkStore(Args&&... args) {
 
 }  // namespace eglt
 
-#endif  // EGLT_NODES_CHUNK_STORE_H_
+#endif  // EGLT_STORES_CHUNK_STORE_H_

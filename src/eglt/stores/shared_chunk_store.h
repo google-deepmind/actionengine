@@ -12,12 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EGLT_NODES_CHUNK_STORE_IO_H_
-#define EGLT_NODES_CHUNK_STORE_IO_H_
+#ifndef EGLT_STORES_SHARED_CHUNK_STORE_H_
+#define EGLT_STORES_SHARED_CHUNK_STORE_H_
 
-// IWYU pragma: begin_exports
-#include "eglt/nodes/chunk_store_reader.h"
-#include "eglt/nodes/chunk_store_writer.h"
-// IWYU pragma: end_exports
+#include <cstddef>
+#include <memory>
 
-#endif  // EGLT_NODES_CHUNK_STORE_IO_H_
+#include "eglt/absl_headers.h"
+#include "eglt/concurrency/concurrency.h"
+#include "eglt/data/eg_structs.h"
+#include "eglt/stores/chunk_store.h"
+#include "eglt/stores/local_chunk_store.h"
+#include "eglt/util/map_util.h"
+
+namespace eglt {
+
+class SharedChunkStore : public ChunkStore {
+ public:
+ private:
+};
+
+}  // namespace eglt
+
+#endif  // EGLT_STORES_SHARED_CHUNK_STORE_H_

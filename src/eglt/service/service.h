@@ -25,7 +25,7 @@
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/net/recoverable_stream.h"
 #include "eglt/net/stream.h"
-#include "eglt/nodes/chunk_store.h"
+#include "eglt/stores/chunk_store.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/service/session.h"
 

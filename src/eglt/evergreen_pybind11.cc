@@ -15,7 +15,7 @@
 #include <string>
 
 #include "eglt/actions/actions_pybind11.h"
-#include "eglt/nodes/chunk_store_pybind11.h"
+#include "eglt/stores/chunk_store_pybind11.h"
 #include "eglt/nodes/nodes_pybind11.h"
 #include "eglt/pybind11_headers.h"
 #include "eglt/service/service_pybind11.h"

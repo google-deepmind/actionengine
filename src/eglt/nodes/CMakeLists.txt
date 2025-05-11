@@ -2,14 +2,8 @@ add_library(
         egltNodes STATIC
         async_node.cc
         async_node.h
-        chunk_store.h
-        chunk_store_io.h
-        chunk_store_reader.h
-        chunk_store_writer.h
-        local_chunk_store.h
         node_map.cc
         node_map.h
-        shared_chunk_store.h
 )
 add_library(eglt::nodes ALIAS egltNodes)
 target_include_directories(
@@ -24,6 +18,7 @@ target_link_libraries(
         ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
+        eglt::stores
 )
 
 # ------------------------------------------------------------------
@@ -37,12 +32,10 @@ add_library(
 )
 target_sources(
         egltNodesPybind11 PRIVATE
-        chunk_store_pybind11.cc
         nodes_pybind11.cc
 )
 target_sources(
         egltNodesPybind11 PUBLIC
-        chunk_store_pybind11.h
         nodes_pybind11.h
 )
 target_link_libraries(
@@ -54,22 +47,6 @@ target_include_directories(
         egltNodesPybind11 PUBLIC
         ${EGLT_PYBIND11_INCLUDE_DIRS}
 )
-
-# -----------------------------------------------------------------------------
-
-add_executable(
-        test_chunk_store
-        test_chunk_store.cc
-)
-target_link_libraries(
-        test_chunk_store
-        eglt::data
-        eglt::nodes
-        GTest::gtest
-        GTest::gtest_main
-)
-
-gtest_discover_tests(test_chunk_store)
 
 install(
         TARGETS egltNodes

@@ -27,15 +27,15 @@
 #include "eglt/absl_headers.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
-#include "eglt/nodes/chunk_store.h"
-#include "eglt/nodes/chunk_store_io.h"
-#include "eglt/nodes/local_chunk_store.h"
 #include "eglt/nodes/node_map.h"
+#include "eglt/stores/chunk_store.h"
+#include "eglt/stores/chunk_store_io.h"
+#include "eglt/stores/local_chunk_store.h"
 
 namespace eglt {
 
-absl::Status SendToStreamIfNotNullAndOpen(EvergreenWireStream* absl_nullable stream,
-                                          NodeFragment&& fragment) {
+absl::Status SendToStreamIfNotNullAndOpen(
+    EvergreenWireStream* absl_nullable stream, NodeFragment&& fragment) {
   // if stream is null, we don't send anything and it is ok.
   if (stream == nullptr) {
     return absl::OkStatus();

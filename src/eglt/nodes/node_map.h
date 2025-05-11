@@ -23,7 +23,7 @@
 #include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/nodes/async_node.h"
-#include "eglt/nodes/chunk_store.h"
+#include "eglt/stores/chunk_store.h"
 
 namespace eglt {
 class AsyncNode;
