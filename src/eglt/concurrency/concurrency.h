@@ -142,6 +142,10 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
     mutex_->Unlock();
   }
 
+  void StartBlockingPendingOperation() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    ++pending_operations_;
+  }
+
   void FinishPendingOperation() ABSL_LOCKS_EXCLUDED(mutex_)
       ABSL_EXCLUSIVE_LOCK_FUNCTION(mutex_) {
     mutex_->Lock();
@@ -149,8 +153,14 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
     cv_->SignalAll();
   }
 
+  void FinishBlockingPendingOperation() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    --pending_operations_;
+    cv_->SignalAll();
+  }
+
  private:
   friend class EnsureExclusiveAccess;
+  friend class PreventExclusiveAccess;
 
   Mutex* absl_nonnull const mutex_;
   CondVar* absl_nonnull const cv_ ABSL_GUARDED_BY(mutex_);
@@ -193,18 +203,28 @@ class ABSL_SCOPED_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED EnsureExclusiveAccess {
 
 class ABSL_SCOPED_LOCKABLE PreventExclusiveAccess {
  public:
-  explicit PreventExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard)
+  explicit PreventExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard,
+                                  bool retain_lock = false)
       ABSL_SHARED_LOCK_FUNCTION(guard)
-      : guard_(guard) {
-    guard_->StartPendingOperation();
+      : guard_(guard), retain_lock_(retain_lock) {
+    if (retain_lock_) {
+      guard_->StartBlockingPendingOperation();
+    } else {
+      guard_->StartPendingOperation();
+    }
   }
 
   ~PreventExclusiveAccess() ABSL_UNLOCK_FUNCTION() {
-    guard_->FinishPendingOperation();
+    if (retain_lock_) {
+      guard_->FinishBlockingPendingOperation();
+    } else {
+      guard_->FinishPendingOperation();
+    }
   }
 
  private:
   ExclusiveAccessGuard* absl_nonnull const guard_;
+  bool retain_lock_;
 };
 
 inline bool Cancelled() {

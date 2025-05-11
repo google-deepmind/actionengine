@@ -307,6 +307,7 @@ class Action : public std::enable_shared_from_this<Action> {
     LOG(FATAL) << absl::StrFormat(
         "Node %s not found in action schema for %s with id=%s", id,
         schema_.name, id_);
+    ABSL_ASSUME(false);
   }
 
   /** @brief Gets an AsyncNode input with the given name from the node map.
@@ -328,12 +329,14 @@ class Action : public std::enable_shared_from_this<Action> {
       LOG(FATAL) << absl::StrFormat(
           "No node map is bound to action %s with id=%s. Cannot get input %s",
           schema_.name, id_, name);
+      ABSL_ASSUME(false);
     }
 
     if (!input_name_to_id_.contains(name)) {
       LOG(FATAL) << absl::StrFormat(
           "Input %s not found in action schema for %s with id=%s", name,
           schema_.name, id_);
+      ABSL_ASSUME(false);
     }
 
     AsyncNode* node = node_map_->Get(GetInputId(name));
@@ -364,12 +367,14 @@ class Action : public std::enable_shared_from_this<Action> {
       LOG(FATAL) << absl::StrFormat(
           "No node map is bound to action %s with id=%s. Cannot get input %s",
           schema_.name, id_, name);
+      ABSL_ASSUME(false);
     }
 
     if (!output_name_to_id_.contains(name) && name != "__status__") {
       LOG(FATAL) << absl::StrFormat(
           "Output %s not found in action schema for %s with id=%s", name,
           schema_.name, id_);
+      ABSL_ASSUME(false);
     }
 
     AsyncNode* node = node_map_->Get(GetOutputId(name));

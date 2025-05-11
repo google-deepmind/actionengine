@@ -35,8 +35,10 @@ class ThreadOnlyMutex ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED {
       state_.store(kUnlocked, std::memory_order_release);
     } else if (state == kUnlocked) {
       LOG(FATAL) << "ThreadOnlyMutex::Unlock() called when not locked.";
+      ABSL_ASSUME(false);
     } else {
       LOG(FATAL) << "ThreadOnlyMutex corrupted, state_=" << state;
+      ABSL_ASSUME(false);
     }
   }
 

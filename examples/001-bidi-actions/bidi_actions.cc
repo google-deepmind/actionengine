@@ -107,6 +107,7 @@ ActionRegistry MakeActionRegistry() {
 }
 
 int main(int argc, char** argv) {
+  absl::InstallFailureSignalHandler({});
   absl::ParseCommandLine(argc, argv);
   const uint16_t port = absl::GetFlag(FLAGS_port);
   auto action_registry = MakeActionRegistry();
@@ -149,6 +150,7 @@ int main(int argc, char** argv) {
       if (const auto status = text_input->Put(absl::StrCat(word, " "));
           !status.ok()) {
         LOG(FATAL) << "Error: " << status;
+        ABSL_ASSUME(false);
       }
     }
     text_input->Put(eglt::EndOfStream()).IgnoreError();

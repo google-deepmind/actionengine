@@ -185,6 +185,7 @@ std::string CallEcho(
 }
 
 int main(int argc, char** argv) {
+  absl::InstallFailureSignalHandler({});
   absl::ParseCommandLine(argc, argv);
 
   const uint16_t port = absl::GetFlag(FLAGS_port);

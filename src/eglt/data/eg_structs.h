@@ -124,6 +124,7 @@ struct Chunk {
     }
     if (!chunk.ref.empty() && !chunk.data.empty()) {
       LOG(FATAL) << "Chunk has both ref and data set.";
+      ABSL_ASSUME(false);
     }
     if (!chunk.ref.empty()) {
       absl::Format(&sink, "ref: %s\n", chunk.ref);

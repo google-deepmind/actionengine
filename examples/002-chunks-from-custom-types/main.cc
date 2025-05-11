@@ -55,6 +55,7 @@ absl::Status EgltAssignInto(const Chunk& chunk, User* user) {
 }
 
 int main(int argc, char** argv) {
+  absl::InstallFailureSignalHandler({});
   // create some users
   const std::vector users = {
       User{.name = "John Doe", .email = "johndoe@example.com"},
@@ -67,6 +68,7 @@ int main(int argc, char** argv) {
   for (const auto& user : users) {
     if (const auto status = node_that_streams_users.Put(user); !status.ok()) {
       LOG(FATAL) << "Error: " << status;
+      ABSL_ASSUME(false);
     }
   }
   node_that_streams_users.Put(eglt::EndOfStream()).IgnoreError();

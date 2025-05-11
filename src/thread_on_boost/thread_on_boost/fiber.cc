@@ -174,7 +174,7 @@ Fiber* GetPerThreadFiberPtr() {
   // then something is wrong. We should never be called outside a fiber context.
   if (ctx == nullptr) {
     LOG(FATAL) << "Current() called outside of a fiber context.";
-    return nullptr;
+    ABSL_ASSUME(false);
   }
 
   // If we have been created through thread_on_boost API, there will be properties

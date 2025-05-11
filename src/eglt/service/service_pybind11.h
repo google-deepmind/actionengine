@@ -68,6 +68,7 @@ class PyEvergreenWireStream final : public EvergreenWireStream {
     if (!function) {
       LOG(FATAL) << "receive is not implemented in the Python subclass of "
                     "EvergreenWireStream.";
+      ABSL_ASSUME(false);
     }
     const py::object py_result = function();
 

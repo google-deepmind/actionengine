@@ -21,6 +21,7 @@ target_link_libraries(
         ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
+        eglt::net
 )
 
 # ------------------------------------------------------------------

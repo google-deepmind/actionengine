@@ -90,7 +90,7 @@ class RecoverableStream final : public eglt::EvergreenWireStream {
         LOG(FATAL)
             << "Cannot close stream: the underlying stream is lost, we haven't "
                "been half-closed, and ignore_lost is false";
-        return;
+        ABSL_ASSUME(false);
       }
     }
     // if we're here, we're either half-closed or the stream is lost and we're

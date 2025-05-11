@@ -172,6 +172,7 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
   if (resolved_handler == nullptr) {
     LOG(FATAL)
         << "no connection handler provided, and no default handler is set.";
+    ABSL_ASSUME(false);
   }
 
   // for later: Stubby streams require Accept() to be called before returning

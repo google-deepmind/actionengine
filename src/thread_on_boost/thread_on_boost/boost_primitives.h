@@ -14,23 +14,25 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
   Mutex() = default;
   ~Mutex() = default;
 
-  void Lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() {
+  void Lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() {
     try {
       mu_.lock();
     } catch (boost::fibers::lock_error& error) {
       LOG(FATAL) << "Mutex lock failed. " << error.what();
+      ABSL_ASSUME(false);
     }
   }
-  void Unlock() ABSL_UNLOCK_FUNCTION() {
+  void Unlock() noexcept ABSL_UNLOCK_FUNCTION() {
     try {
       mu_.unlock();
     } catch (boost::fibers::lock_error& error) {
       LOG(FATAL) << "Mutex unlock failed. " << error.what();
+      ABSL_ASSUME(false);
     }
   }
 
-  void lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() { Lock(); }
-  void unlock() ABSL_UNLOCK_FUNCTION() { Unlock(); }
+  void lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() { Lock(); }
+  void unlock() noexcept ABSL_UNLOCK_FUNCTION() { Unlock(); }
 
   friend class CondVar;
 
@@ -64,26 +66,55 @@ class CondVar {
   CondVar(const CondVar&) = delete;
   CondVar& operator=(const CondVar&) = delete;
 
-  void Wait(Mutex* absl_nonnull mu) { cv_.wait(mu->GetImpl()); }
+  void Wait(Mutex* absl_nonnull mu) noexcept ABSL_SHARED_LOCKS_REQUIRED(mu) {
+    try {
+      cv_.wait(mu->GetImpl());
+    } catch (boost::fibers::lock_error& error) {
+      LOG(FATAL) << "Error in underlying implementation: " << error.what();
+      ABSL_ASSUME(false);
+    }
+  }
 
-  bool WaitWithTimeout(Mutex* absl_nonnull mu, absl::Duration timeout) {
+  bool WaitWithTimeout(Mutex* absl_nonnull mu, absl::Duration timeout) noexcept
+      ABSL_SHARED_LOCKS_REQUIRED(mu) {
     return WaitWithDeadline(mu, absl::Now() + timeout);
   }
 
-  bool WaitWithDeadline(Mutex* absl_nonnull mu, const absl::Time& deadline) {
+  bool WaitWithDeadline(Mutex* absl_nonnull mu,
+                        const absl::Time& deadline) noexcept
+      ABSL_SHARED_LOCKS_REQUIRED(mu) {
     if (ABSL_PREDICT_TRUE(deadline == absl::InfiniteFuture())) {
       Wait(mu);
       return false;
     }
 
-    return cv_.wait_for(mu->GetImpl(),
-                        absl::ToChronoNanoseconds(deadline - absl::Now())) ==
-           boost::fibers::cv_status::timeout;
+    try {
+      return cv_.wait_for(mu->GetImpl(),
+                          absl::ToChronoNanoseconds(deadline - absl::Now())) ==
+             boost::fibers::cv_status::timeout;
+    } catch (boost::fibers::lock_error& error) {
+      LOG(FATAL) << "Error in underlying implementation: " << error.what();
+      ABSL_ASSUME(false);
+    }
   }
 
-  void Signal() { cv_.notify_one(); }
+  void Signal() noexcept {
+    try {
+      cv_.notify_one();
+    } catch (boost::fibers::lock_error& error) {
+      LOG(FATAL) << "Error in underlying implementation: " << error.what();
+      ABSL_ASSUME(false);
+    }
+  }
 
-  void SignalAll() { cv_.notify_all(); }
+  void SignalAll() noexcept {
+    try {
+      cv_.notify_all();
+    } catch (boost::fibers::lock_error& error) {
+      LOG(FATAL) << "Error in underlying implementation: " << error.what();
+      ABSL_ASSUME(false);
+    }
+  }
 
  private:
   boost::fibers::condition_variable_any cv_;

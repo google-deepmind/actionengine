@@ -55,6 +55,8 @@ class LocalChunkStore final : public ChunkStore {
   absl::StatusOr<std::reference_wrapper<const Chunk>> Get(
       int seq_id, absl::Duration timeout) const override {
     concurrency::MutexLock lock(&mutex_);
+    concurrency::PreventExclusiveAccess pending(&finalization_guard_,
+                                                /*retain_lock=*/true);
     if (chunks_.contains(seq_id)) {
       const auto& chunk = chunks_.at(seq_id);
       return chunk;
@@ -66,7 +68,6 @@ class LocalChunkStore final : public ChunkStore {
     }
 
     absl::Status status;
-    ++num_waiters_;
     while (!chunks_.contains(seq_id) && !no_further_puts_ &&
            !concurrency::Cancelled()) {
       if (cv_.WaitWithTimeout(&mutex_, timeout)) {
@@ -85,8 +86,6 @@ class LocalChunkStore final : public ChunkStore {
         break;
       }
     }
-    --num_waiters_;
-    cv_.SignalAll();
 
     if (!status.ok()) {
       return status;
@@ -97,6 +96,8 @@ class LocalChunkStore final : public ChunkStore {
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetByArrivalOrder(
       int arrival_offset, absl::Duration timeout) const override {
     concurrency::MutexLock lock(&mutex_);
+    concurrency::PreventExclusiveAccess pending(&finalization_guard_,
+                                                /*retain_lock=*/true);
     if (arrival_order_to_seq_id_.contains(arrival_offset)) {
       const int seq_id = arrival_order_to_seq_id_.at(arrival_offset);
       const Chunk& chunk = eglt::FindOrDie(chunks_, seq_id);
@@ -109,7 +110,6 @@ class LocalChunkStore final : public ChunkStore {
     }
 
     absl::Status status;
-    ++num_waiters_;
     while (!arrival_order_to_seq_id_.contains(arrival_offset) &&
            !no_further_puts_ && !concurrency::Cancelled()) {
 
@@ -130,8 +130,6 @@ class LocalChunkStore final : public ChunkStore {
         break;
       }
     }
-    --num_waiters_;
-    cv_.SignalAll();
 
     if (!status.ok()) {
       return status;
@@ -217,9 +215,7 @@ class LocalChunkStore final : public ChunkStore {
     // Notify all waiters because they will not be able to get any more chunks.
     cv_.SignalAll();
 
-    while (num_waiters_ > 0) {
-      cv_.Wait(&mutex_);
-    }
+    concurrency::EnsureExclusiveAccess waiter(&finalization_guard_);
   }
 
   mutable concurrency::Mutex mutex_;
@@ -236,9 +232,9 @@ class LocalChunkStore final : public ChunkStore {
   int max_seq_id_ = -1;
   int total_chunks_put_ ABSL_GUARDED_BY(mutex_) = 0;
 
-  mutable int num_waiters_ ABSL_GUARDED_BY(mutex_) = 0;
   bool no_further_puts_ ABSL_GUARDED_BY(mutex_) = false;
   mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
+  mutable concurrency::ExclusiveAccessGuard finalization_guard_{&mutex_, &cv_};
 };
 
 }  // namespace eglt

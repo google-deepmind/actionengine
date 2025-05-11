@@ -85,7 +85,7 @@ class AsyncNode {
     auto status_or_next = StatusOrNext<T>();
     if (!status_or_next.ok()) {
       LOG(FATAL) << "Failed to get next chunk: " << status_or_next.status();
-      return std::nullopt;
+      ABSL_ASSUME(false);
     }
     return status_or_next.value();
   }
@@ -95,14 +95,17 @@ class AsyncNode {
     auto status_or_item = StatusOrNext<T>();
     if (!status_or_item.ok()) {
       LOG(FATAL) << "Failed to get chunk: " << status_or_item.status();
+      ABSL_ASSUME(false);
     }
 
     auto must_be_nullopt = StatusOrNext<T>();
     if (!must_be_nullopt.ok()) {
       LOG(FATAL) << "Error probing reader: " << must_be_nullopt.status();
+      ABSL_ASSUME(false);
     }
     if (*must_be_nullopt) {
       LOG(FATAL) << "Reader must be empty after consuming the node.";
+      ABSL_ASSUME(false);
     }
 
     return ConvertTo<T>(*std::move(status_or_item));

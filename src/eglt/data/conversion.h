@@ -36,6 +36,7 @@ void Assign(Src&& from, Dst* absl_nonnull to) {
   if (const absl::Status status = StatusOrAssign(std::forward<Src>(from), to);
       !status.ok()) {
     LOG(FATAL) << "Conversion failed: " << status;
+    ABSL_ASSUME(false);
   }
 }
 
@@ -54,7 +55,7 @@ Dst ConvertTo(Src&& from) {
   if (auto result = StatusOrConvertTo<Dst>(std::forward<Src>(from));
       !result.ok()) {
     LOG(FATAL) << "Conversion failed: " << result.status();
-    std::terminate();
+    ABSL_ASSUME(false);
   } else {
     return *result;
   }

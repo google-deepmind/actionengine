@@ -259,14 +259,14 @@ class WebsocketEvergreenServer {
     if (error) {
       status_ = absl::InternalError(error.message());
       LOG(FATAL) << "WebsocketEvergreenServer open() failed: " << status_;
-      return;
+      ABSL_ASSUME(false);
     }
 
     acceptor_->set_option(boost::asio::socket_base::reuse_address(true), error);
     if (error) {
       status_ = absl::InternalError(error.message());
       LOG(FATAL) << "WebsocketEvergreenServer set_option() failed: " << status_;
-      return;
+      ABSL_ASSUME(false);
     }
 
     acceptor_->bind(tcp::endpoint(boost::asio::ip::make_address(address), port),
@@ -274,12 +274,14 @@ class WebsocketEvergreenServer {
     if (error) {
       status_ = absl::InternalError(error.message());
       LOG(FATAL) << "WebsocketEvergreenServer bind() failed: " << status_;
+      ABSL_ASSUME(false);
     }
 
     acceptor_->listen(boost::asio::socket_base::max_listen_connections, error);
     if (error) {
       status_ = absl::InternalError(error.message());
       LOG(FATAL) << "WebsocketEvergreenServer listen() failed: " << status_;
+      ABSL_ASSUME(false);
     }
 
     DLOG(INFO) << "WebsocketEvergreenServer created at " << address << ":"

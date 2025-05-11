@@ -20,17 +20,17 @@ class PairableInMemoryStream final : public EvergreenWireStream {
       concurrency::MutexLock lock(&mutex_);
       if (partner_ != nullptr) {
         LOG(FATAL) << "Cannot pair with another stream, already paired.";
-        return;
+        ABSL_ASSUME(false);
       }
     }
 
     if (partner == nullptr) {
       LOG(FATAL) << "Cannot pair with a null stream.";
-      return;
+      ABSL_ASSUME(false);
     }
     if (partner == this) {
       LOG(FATAL) << "Cannot pair with itself.";
-      return;
+      ABSL_ASSUME(false);
     }
     concurrency::TwoMutexLock lock(&mutex_, &partner->mutex_);
     partner_ = partner;
