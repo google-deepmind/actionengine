@@ -84,23 +84,23 @@ void BindNodeFragment(py::handle scope, std::string_view name) {
 }
 
 /// @private
-void BindNamedParameter(py::handle scope, std::string_view name) {
-  py::class_<NamedParameter>(scope, std::string(name).c_str())
+void BindPort(py::handle scope, std::string_view name) {
+  py::class_<Port>(scope, std::string(name).c_str())
       .def(py::init<>())
       .def(py::init([](std::string_view name, std::string_view id) {
-             return NamedParameter{
+             return Port{
                  .name = std::string(name),
                  .id = std::string(id),
              };
            }),
            py::kw_only(), py::arg_v("name", ""), py::arg_v("id", ""))
-      .def_readwrite("name", &NamedParameter::name)
-      .def_readwrite("id", &NamedParameter::id)
+      .def_readwrite("name", &Port::name)
+      .def_readwrite("id", &Port::id)
       .def("__repr__",
-           [](const NamedParameter& parameter) {
+           [](const Port& parameter) {
              return absl::StrCat(parameter);
            })
-      .doc() = "An Evergreen NamedParameter for an Action.";
+      .doc() = "An Evergreen Port for an Action.";
 }
 
 /// @private
@@ -108,15 +108,15 @@ void BindActionMessage(py::handle scope, std::string_view name) {
   py::class_<ActionMessage>(scope, std::string(name).c_str())
       .def(py::init<>())
       .def(py::init([](std::string_view action_name,
-                       std::vector<NamedParameter> inputs,
-                       std::vector<NamedParameter> outputs) {
+                       std::vector<Port> inputs,
+                       std::vector<Port> outputs) {
              return ActionMessage{.name = std::string(action_name),
                                   .inputs = std::move(inputs),
                                   .outputs = std::move(outputs)};
            }),
            py::kw_only(), py::arg("name"),
-           py::arg_v("inputs", std::vector<NamedParameter>()),
-           py::arg_v("outputs", std::vector<NamedParameter>()))
+           py::arg_v("inputs", std::vector<Port>()),
+           py::arg_v("outputs", std::vector<Port>()))
       .def_readwrite("name", &ActionMessage::name)
       .def_readwrite("inputs", &ActionMessage::inputs)
       .def_readwrite("outputs", &ActionMessage::outputs)
@@ -152,7 +152,7 @@ py::module_ MakeTypesModule(py::module_ scope, std::string_view module_name) {
   BindChunkMetadata(types, "ChunkMetadata");
   BindChunk(types, "Chunk");
   BindNodeFragment(types, "NodeFragment");
-  BindNamedParameter(types, "NamedParameter");
+  BindPort(types, "Port");
   BindActionMessage(types, "ActionMessage");
   BindSessionMessage(types, "SessionMessage");
 

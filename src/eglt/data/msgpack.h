@@ -70,13 +70,13 @@ inline void CppackFromBytes(eglt::NodeFragment& obj,
   unpacker(obj.seq);
 }
 
-inline void CppackToBytes(const eglt::NamedParameter& obj,
+inline void CppackToBytes(const eglt::Port& obj,
                           cppack::Packer& packer) {
   packer(obj.name);
   packer(obj.id);
 }
 
-inline void CppackFromBytes(eglt::NamedParameter& obj,
+inline void CppackFromBytes(eglt::Port& obj,
                             cppack::Unpacker& unpacker) {
   unpacker(obj.name);
   unpacker(obj.id);

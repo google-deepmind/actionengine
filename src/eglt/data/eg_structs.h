@@ -176,12 +176,12 @@ struct NodeFragment {
 
 /// A mapping of a parameter name to its node ID in an action.
 /// @headerfile eglt/data/eg_structs.h
-struct NamedParameter {
+struct Port {
   std::string name;
   std::string id;
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const NamedParameter& parameter) {
+  friend void AbslStringify(Sink& sink, const Port& parameter) {
     if (!parameter.name.empty()) {
       sink.Append(absl::StrCat("name: ", parameter.name, "\n"));
     }
@@ -190,7 +190,7 @@ struct NamedParameter {
     }
   }
 
-  friend bool operator==(const NamedParameter& lhs, const NamedParameter& rhs) {
+  friend bool operator==(const Port& lhs, const Port& rhs) {
     return lhs.name == rhs.name && lhs.id == rhs.id;
   }
 };
@@ -204,8 +204,8 @@ struct NamedParameter {
 struct ActionMessage {
   std::string id;
   std::string name;
-  std::vector<NamedParameter> inputs;
-  std::vector<NamedParameter> outputs;
+  std::vector<Port> inputs;
+  std::vector<Port> outputs;
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const ActionMessage& action) {
@@ -311,7 +311,7 @@ inline absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk) {
 using ChunkMetadata = base::ChunkMetadata;
 using Chunk = base::Chunk;
 using NodeFragment = base::NodeFragment;
-using NamedParameter = base::NamedParameter;
+using Port = base::Port;
 using ActionMessage = base::ActionMessage;
 using SessionMessage = base::SessionMessage;
 

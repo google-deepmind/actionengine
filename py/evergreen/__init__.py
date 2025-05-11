@@ -25,7 +25,7 @@ ChunkStoreFactory = types.ChunkStoreFactory
 
 EvergreenWireStream = eg_stream.EvergreenWireStream
 
-NamedParameter = types.NamedParameter
+Port = types.Port
 
 NodeFragment = types.NodeFragment
 NodeMap = node_map.NodeMap

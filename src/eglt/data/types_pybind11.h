@@ -30,8 +30,8 @@ void BindChunk(py::handle scope, std::string_view name = "Chunk");
 
 void BindNodeFragment(py::handle scope, std::string_view name = "NodeFragment");
 
-void BindNamedParameter(py::handle scope,
-                        std::string_view name = "NamedParameter");
+void BindPort(py::handle scope,
+                        std::string_view name = "Port");
 
 void BindActionMessage(py::handle scope,
                        std::string_view name = "ActionMessage");

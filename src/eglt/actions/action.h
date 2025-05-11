@@ -81,19 +81,19 @@ struct ActionSchema {
     CHECK(!action_id.empty())
         << "Action ID cannot be empty to create a message";
 
-    std::vector<NamedParameter> input_parameters;
+    std::vector<Port> input_parameters;
     input_parameters.reserve(inputs.size());
     for (const auto& [name, _] : inputs) {
-      input_parameters.push_back(NamedParameter{
+      input_parameters.push_back(Port{
           .name = name,
           .id = absl::StrCat(action_id, "#", name),
       });
     }
 
-    std::vector<NamedParameter> output_parameters;
+    std::vector<Port> output_parameters;
     output_parameters.reserve(outputs.size());
     for (const auto& [name, _] : outputs) {
-      output_parameters.push_back(NamedParameter{
+      output_parameters.push_back(Port{
           .name = name,
           .id = absl::StrCat(action_id, "#", name),
       });
@@ -127,8 +127,8 @@ class ActionRegistry {
 
   [[nodiscard]] std::unique_ptr<Action> MakeAction(
       std::string_view action_key, std::string_view action_id = "",
-      std::vector<NamedParameter> inputs = {},
-      std::vector<NamedParameter> outputs = {}) const;
+      std::vector<Port> inputs = {},
+      std::vector<Port> outputs = {}) const;
 
   [[nodiscard]] bool IsRegistered(const std::string_view name) const {
     return schemas_.contains(name) && handlers_.contains(name);
@@ -179,20 +179,20 @@ class Action : public std::enable_shared_from_this<Action> {
    *   generated based on the schema.
    */
   explicit Action(ActionSchema schema, std::string_view id = "",
-                  std::vector<NamedParameter> inputs = {},
-                  std::vector<NamedParameter> outputs = {})
+                  std::vector<Port> inputs = {},
+                  std::vector<Port> outputs = {})
       : schema_(std::move(schema)),
         id_(id.empty() ? GenerateUUID4() : std::string(id)),
         cancelled_(std::make_unique<concurrency::PermanentEvent>()) {
     ActionMessage message = schema_.GetActionMessage(id_);
 
-    std::vector<NamedParameter>& input_parameters =
+    std::vector<Port>& input_parameters =
         inputs.empty() ? message.inputs : inputs;
     for (auto& [input_name, input_id] : std::move(input_parameters)) {
       input_name_to_id_[std::move(input_name)] = std::move(input_id);
     }
 
-    std::vector<NamedParameter>& output_parameters =
+    std::vector<Port>& output_parameters =
         outputs.empty() ? message.outputs : outputs;
     for (auto& [output_name, output_id] : std::move(output_parameters)) {
       output_name_to_id_[std::move(output_name)] = std::move(output_id);
@@ -200,8 +200,8 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   explicit Action(std::string_view name, std::string_view id = "",
-                  std::vector<NamedParameter> inputs = {},
-                  std::vector<NamedParameter> outputs = {}) {
+                  std::vector<Port> inputs = {},
+                  std::vector<Port> outputs = {}) {
     ActionSchema schema;
     schema.name = name;
     for (const auto& [input_name, _] : inputs) {
@@ -260,7 +260,7 @@ class Action : public std::enable_shared_from_this<Action> {
    *   The action message.
    */
   [[nodiscard]] ActionMessage GetActionMessage() const {
-    std::vector<NamedParameter> input_parameters;
+    std::vector<Port> input_parameters;
     input_parameters.reserve(input_name_to_id_.size());
     for (const auto& [name, id] : input_name_to_id_) {
       input_parameters.push_back({
@@ -269,7 +269,7 @@ class Action : public std::enable_shared_from_this<Action> {
       });
     }
 
-    std::vector<NamedParameter> output_parameters;
+    std::vector<Port> output_parameters;
     output_parameters.reserve(output_name_to_id_.size());
     for (const auto& [name, id] : output_name_to_id_) {
       output_parameters.push_back({
@@ -573,8 +573,8 @@ class Action : public std::enable_shared_from_this<Action> {
 
 inline std::unique_ptr<Action> ActionRegistry::MakeAction(
     std::string_view action_key, std::string_view action_id,
-    std::vector<NamedParameter> inputs,
-    std::vector<NamedParameter> outputs) const {
+    std::vector<Port> inputs,
+    std::vector<Port> outputs) const {
 
   auto action =
       std::make_unique<Action>(eglt::FindOrDie(schemas_, action_key), action_id,
