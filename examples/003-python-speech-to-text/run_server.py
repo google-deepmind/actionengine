@@ -30,7 +30,6 @@ async def main():
   except asyncio.CancelledError:
     print("Shutting down Action Engine server.")
     server.cancel()
-    await task
 
 
 def sync_main():

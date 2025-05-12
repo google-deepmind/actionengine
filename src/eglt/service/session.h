@@ -43,19 +43,53 @@ class ActionContext {
   ~ActionContext();
 
   absl::Status Dispatch(std::shared_ptr<Action> action);
-  void CancelActions() ABSL_LOCKS_EXCLUDED(mutex_) {
+  void CancelContext() ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
-    CancelActionsImpl();
+    CancelContextImpl();
+  }
+
+  void WaitForActionsToDetach() ABSL_LOCKS_EXCLUDED(mutex_) {
+    concurrency::MutexLock lock(&mutex_);
+    WaitForActionsToDetachImpl();
   }
 
  private:
-  void CancelActionsImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void CancelContextImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   std::unique_ptr<concurrency::Fiber> ExtractActionFiber(Action* action)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
     const auto map_node = running_actions_.extract(action);
     CHECK(!map_node.empty())
         << "Running action not found in session it was created in.";
     return std::move(map_node.mapped());
+  }
+
+  void WaitForActionsToDetachImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    const absl::Time now = absl::Now();
+    const absl::Time fiber_cancel_by = now + kFiberCancellationTimeout;
+    const absl::Time expect_actions_to_detach_by = now + kActionDetachTimeout;
+
+    while (!running_actions_.empty()) {
+      if (cv_.WaitWithDeadline(&mutex_, fiber_cancel_by)) {
+        break;
+      }
+    }
+
+    if (running_actions_.empty()) {
+      DLOG(INFO) << "All actions have detached cooperatively.";
+      return;
+    }
+
+    for (auto& [_, action_fiber] : running_actions_) {
+      action_fiber->Cancel();
+    }
+    DLOG(INFO) << "Some actions are still running, waiting for them to detach.";
+
+    while (!running_actions_.empty()) {
+      if (cv_.WaitWithDeadline(&mutex_, expect_actions_to_detach_by)) {
+        break;
+      }
+    }
   }
 
   concurrency::Mutex mutex_;

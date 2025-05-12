@@ -322,9 +322,12 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
     return self
 
   async def __anext__(self):
-    chunk = await self.next_chunk()
-    while chunk is not None and utils.is_null_chunk(chunk):
+    try:
       chunk = await self.next_chunk()
+      while chunk is not None and utils.is_null_chunk(chunk):
+        chunk = await self.next_chunk()
+    except asyncio.CancelledError:
+      raise StopAsyncIteration()
 
     if chunk is None:
       raise StopAsyncIteration()

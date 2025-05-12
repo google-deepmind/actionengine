@@ -76,6 +76,7 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
   }
 
   ~WebsocketEvergreenWireStream() override {
+    DLOG(INFO) << absl::StrFormat("~WebsocketEvergreenWireStream()");
     if (stream_.is_open()) {
       HalfClose();
     }

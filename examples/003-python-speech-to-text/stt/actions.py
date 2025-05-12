@@ -37,9 +37,9 @@ async def stream_text_output(action: evergreen.Action,
 
   except asyncio.CancelledError:
     print("Output stream cancelled.", flush=True)
-    raise
 
   finally:
+    print("Finalising output stream.", flush=True)
     await output_node.finalize()
 
 
@@ -51,18 +51,13 @@ async def run_speech_to_text(action: evergreen.Action):
       stream_text_output(action, model_server)
   )
 
-  try:
-    async for audio_chunk in action.get_input("speech"):
-      model_server.feed_audio_chunk(audio_chunk)
+  async for audio_chunk in action.get_input("speech"):
+    model_server.feed_audio_chunk(audio_chunk)
 
-    print("Finalising speech input stream.", flush=True)
-    model_server._recorder.shutdown()
-    await stream_output_task
-
-  except asyncio.CancelledError:
-    print("Action cancelled.", flush=True)
-    stream_output_task.cancel()
-    raise
+  print("Finalising speech input stream.", flush=True)
+  model_server._recorder.shutdown()
+  stream_output_task.cancel()
+  await stream_output_task
 
 
 def make_action_registry():

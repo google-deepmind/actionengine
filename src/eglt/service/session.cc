@@ -32,39 +32,16 @@ namespace eglt {
 
 ActionContext::~ActionContext() {
   concurrency::MutexLock lock(&mutex_);
-  DLOG(INFO) << "Action context destructor called.";
-  const absl::Time now = absl::Now();
-  const absl::Time fiber_cancel_by = now + kFiberCancellationTimeout;
-  const absl::Time expect_actions_to_detach_by = now + kActionDetachTimeout;
+  DLOG(INFO) << "ActionContext::~ActionContext()";
 
   if (!cancelled_) {
-    CancelActions();
+    CancelContextImpl();
   }
 
-  while (!running_actions_.empty()) {
-    if (cv_.WaitWithDeadline(&mutex_, fiber_cancel_by)) {
-      break;
-    }
-  }
-
-  if (running_actions_.empty()) {
-    DLOG(INFO) << "All action have detached cooperatively.";
-    return;
-  }
-
-  for (auto& [_, action_fiber] : running_actions_) {
-    action_fiber->Cancel();
-  }
-  DLOG(INFO) << "Some actions are still running, waiting for them to detach.";
-
-  while (!running_actions_.empty()) {
-    if (cv_.WaitWithDeadline(&mutex_, expect_actions_to_detach_by)) {
-      break;
-    }
-  }
+  WaitForActionsToDetachImpl();
 
   CHECK(running_actions_.empty())
-      << "Action context destructor timed out waiting for actions to "
+      << "ActionContext::~ActionContext() timed out waiting for actions to "
          "detach. Please make sure that all actions react to cancellation "
          "and detach themselves from the context.";
 }
@@ -78,23 +55,27 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
   Action* action_ptr = action.get();
 
   running_actions_[action_ptr] =
-      concurrency::NewTree({}, [action = std::move(action), this]() {
+      concurrency::NewTree({}, [action = std::move(action), this]() mutable {
         if (const auto run_status = action->Run(&cancellation_);
             !run_status.ok()) {
           LOG(ERROR) << "Failed to run action: " << run_status;
         }
         concurrency::MutexLock cleanup_lock(&mutex_);
-        concurrency::Detach(ExtractActionFiber(action.get()));
+        Action* action_ptr = action.get();
+        action = nullptr;
+        concurrency::Detach(ExtractActionFiber(action_ptr));
         cv_.SignalAll();
       });
 
   return absl::OkStatus();
 }
 
-void ActionContext::CancelActionsImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+void ActionContext::CancelContextImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
   cancellation_.Notify();
   cancelled_ = true;
-  DLOG(INFO) << "Action context cancelled.";
+  DLOG(INFO) << absl::StrFormat(
+      "Action context cancelled, actions pending: %v.",
+      running_actions_.size());
 }
 
 Session::Session(NodeMap* absl_nonnull node_map,
@@ -107,9 +88,10 @@ Session::Session(NodeMap* absl_nonnull node_map,
 
 Session::~Session() {
   concurrency::MutexLock lock(&mutex_);
-  DLOG(INFO) << "Session destructor called.";
-  action_context_->CancelActions();
-  JoinDispatchers(/*cancel=*/false);
+  DLOG(INFO) << "Session::~Session()";
+  action_context_->CancelContext();
+  action_context_->WaitForActionsToDetach();
+  JoinDispatchers(/*cancel=*/true);
 }
 
 AsyncNode* Session::GetNode(
@@ -151,10 +133,10 @@ void Session::DispatchFrom(
               !node.empty()) {
             dispatcher_fiber = std::move(node.mapped());
           }
-          CHECK(dispatcher_fiber != nullptr)
-              << "Dispatched stream not found in session.";
         }
-
+        if (dispatcher_fiber == nullptr) {
+          return;
+        }
         concurrency::Detach(std::move(dispatcher_fiber));
       }));
 }
@@ -206,15 +188,21 @@ void Session::StopDispatchingFromAll() {
   JoinDispatchers(/*cancel=*/true);
 }
 
-void Session::JoinDispatchers(bool cancel) {
+void Session::JoinDispatchers(bool cancel)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
   joined_ = true;
 
+  std::vector<std::unique_ptr<concurrency::Fiber>> tasks_to_join;
+  for (auto& [_, task] : dispatch_tasks_) {
+    tasks_to_join.push_back(std::move(task));
+  }
+
   if (cancel) {
-    for (auto& [_, task] : dispatch_tasks_) {
+    for (const auto& task : tasks_to_join) {
       task->Cancel();
     }
   }
-  for (const auto& [_, task] : dispatch_tasks_) {
+  for (const auto& task : tasks_to_join) {
     mutex_.Unlock();
     task->Join();
     mutex_.Lock();

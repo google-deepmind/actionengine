@@ -26,10 +26,10 @@ def wrap_async_handler(handler: AsyncActionHandler) -> SyncActionHandler:
   loop = asyncio.get_running_loop()
 
   def sync_handler(action: Action) -> None:
-    result = asyncio.run_coroutine_threadsafe(
+    future = asyncio.run_coroutine_threadsafe(
         handler(utils.wrap_pybind_object(Action, action)), loop
     )
-    result.result()
+    future.result()
 
   return sync_handler
 

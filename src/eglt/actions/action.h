@@ -238,6 +238,14 @@ class Action : public std::enable_shared_from_this<Action> {
     return *this;
   }
 
+  ~Action() {
+    DLOG(INFO) << "Action::~Action() called for " << id_;
+    concurrency::MutexLock lock(&mutex_);
+    if (!has_been_run_ && node_map_ != nullptr) {
+      ResetIoNodes();
+    }
+  }
+
   //! Makes an action message to be sent on an EvergreenWireStream.
   /**
    * @return
@@ -497,14 +505,8 @@ class Action : public std::enable_shared_from_this<Action> {
     mutex_.Lock();
 
     UnbindStreams();
-
     if (node_map_ != nullptr) {
-      for (const auto& [input_name, input_id] : input_name_to_id_) {
-        node_map_->Extract(input_id).reset();
-      }
-      for (const auto& [output_name, output_id] : output_name_to_id_) {
-        node_map_->Extract(output_id).reset();
-      }
+      ResetIoNodes();
     }
 
     return status;
@@ -554,6 +556,15 @@ class Action : public std::enable_shared_from_this<Action> {
       node->BindPeers({});
     }
     nodes_with_bound_streams_.clear();
+  }
+
+  void ResetIoNodes() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    for (const auto& [input_name, input_id] : input_name_to_id_) {
+      node_map_->Extract(input_id).reset();
+    }
+    for (const auto& [output_name, output_id] : output_name_to_id_) {
+      node_map_->Extract(output_id).reset();
+    }
   }
 
   mutable concurrency::Mutex mutex_{};
