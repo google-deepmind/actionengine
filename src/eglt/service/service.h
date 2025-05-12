@@ -25,9 +25,9 @@
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/net/recoverable_stream.h"
 #include "eglt/net/stream.h"
-#include "eglt/stores/chunk_store.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/service/session.h"
+#include "eglt/stores/chunk_store.h"
 
 namespace eglt {
 
@@ -46,7 +46,7 @@ class Action;
  * @headerfile eglt/service/service.h
  */
 struct StreamToSessionConnection {
-  EvergreenWireStream* absl_nullable stream = nullptr;
+  std::shared_ptr<EvergreenWireStream> absl_nullable stream = nullptr;
   Session* absl_nullable session = nullptr;
 
   std::string session_id;  // dead sessions may lose their id.
@@ -59,12 +59,14 @@ std::unique_ptr<Action> MakeActionInConnection(
     const StreamToSessionConnection& connection, std::string_view action_name,
     std::string_view action_id = "");
 
-using EvergreenConnectionHandler =
-    std::function<absl::Status(EvergreenWireStream* absl_nonnull, Session* absl)>;
+using EvergreenConnectionHandler = std::function<absl::Status(
+    const std::shared_ptr<EvergreenWireStream>& absl_nonnull,
+    Session* absl_nonnull)>;
 
 /// @callgraph
-absl::Status RunSimpleEvergreenSession(EvergreenWireStream* absl_nonnull stream,
-                                       Session* absl_nonnull session);
+absl::Status RunSimpleEvergreenSession(
+    const std::shared_ptr<EvergreenWireStream>& absl_nonnull stream,
+    Session* absl_nonnull session);
 
 /**
  * @brief
@@ -129,7 +131,7 @@ class Service : public std::enable_shared_from_this<Service> {
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
     connections_.erase(connection.stream_id);
 
-    std::unique_ptr<net::RecoverableStream> extracted_stream = nullptr;
+    std::shared_ptr<net::RecoverableStream> extracted_stream = nullptr;
     std::unique_ptr<NodeMap> extracted_node_map = nullptr;
     std::unique_ptr<Session> extracted_session = nullptr;
 
@@ -162,7 +164,7 @@ class Service : public std::enable_shared_from_this<Service> {
     if (extracted_stream != nullptr) {
       extracted_stream->HalfClose();
     }
-    extracted_stream.reset();
+    // extracted_stream.reset();
 
     extracted_node_map.reset();
     mutex_.Lock();
@@ -173,7 +175,7 @@ class Service : public std::enable_shared_from_this<Service> {
   ChunkStoreFactory chunk_store_factory_;
 
   mutable concurrency::Mutex mutex_;
-  absl::flat_hash_map<std::string, std::unique_ptr<net::RecoverableStream>>
+  absl::flat_hash_map<std::string, std::shared_ptr<net::RecoverableStream>>
       streams_ ABSL_GUARDED_BY(mutex_);
   // for now, we only support one-to-one session-stream mapping, therefore we
   // use the stream id as the session id.

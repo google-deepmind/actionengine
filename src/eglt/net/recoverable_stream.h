@@ -189,7 +189,7 @@ class RecoverableStream final : public eglt::EvergreenWireStream {
     return stream->GetStatus();
   }
 
-  [[nodiscard]] std::string GetId() const override { return id_; }
+  [[nodiscard]] std::string_view GetId() const override { return id_; }
 
   [[nodiscard]] const void* GetImpl() const override {
     // TODO: determine whether this method should return observed stream or

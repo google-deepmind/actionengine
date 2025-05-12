@@ -1,6 +1,7 @@
 add_library(
         egltNet INTERFACE
         testing_utils.h
+        peers.h
         stream.h
         recoverable_stream.h
 )

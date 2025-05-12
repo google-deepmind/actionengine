@@ -58,7 +58,7 @@ class EvergreenWireStream {
   virtual auto GetStatus() const -> absl::Status = 0;
 
   //! Returns the implementation-dependent identifier of the stream.
-  [[nodiscard]] virtual auto GetId() const -> std::string = 0;
+  [[nodiscard]] virtual auto GetId() const -> std::string_view = 0;
 
   //! Returns the underlying implementation of the stream.
   /*!

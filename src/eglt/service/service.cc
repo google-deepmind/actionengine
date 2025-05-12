@@ -29,15 +29,17 @@
 
 namespace eglt {
 
-absl::Status RunSimpleEvergreenSession(EvergreenWireStream* absl_nonnull stream,
-                                       Session* absl_nonnull session) {
+absl::Status RunSimpleEvergreenSession(
+    const std::shared_ptr<EvergreenWireStream>& absl_nonnull stream,
+    Session* absl_nonnull session) {
+  const auto owned_stream = stream;
   absl::Status status;
   while (!concurrency::Cancelled()) {
-    std::optional<SessionMessage> message = stream->Receive();
+    std::optional<SessionMessage> message = owned_stream->Receive();
     if (!message.has_value()) {
       break;
     }
-    status = session->DispatchMessage(message.value(), stream);
+    status = session->DispatchMessage(message.value(), owned_stream);
   }
 
   if (concurrency::Cancelled()) {
@@ -74,13 +76,13 @@ Service::Service(ActionRegistry* absl_nullable action_registry,
       chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 Service::~Service() {
-  JoinConnectionsAndCleanUp(/*cancel=*/false);
+  JoinConnectionsAndCleanUp(/*cancel=*/true);
 }
 
 EvergreenWireStream* Service::GetStream(std::string_view stream_id) const {
   concurrency::MutexLock lock(&mutex_);
   if (connections_.contains(stream_id)) {
-    return connections_.at(stream_id)->stream;
+    return connections_.at(stream_id)->stream.get();
   }
   return nullptr;
 }
@@ -117,7 +119,8 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
   concurrency::MutexLock lock(&mutex_);
 
   std::string stream_id;
-  if (EvergreenWireStream* raw_stream = get_stream(); raw_stream == nullptr) {
+  if (const EvergreenWireStream* raw_stream = get_stream();
+      raw_stream == nullptr) {
     return absl::InvalidArgumentError("Provided stream resolves to nullptr.");
   } else {
     stream_id = raw_stream->GetId();
@@ -159,7 +162,7 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
 
   connections_[stream_id] =
       std::make_shared<StreamToSessionConnection>(StreamToSessionConnection{
-          .stream = streams_.at(stream_id).get(),
+          .stream = streams_.at(stream_id),
           .session = sessions_.at(session_id).get(),
           .session_id = session_id,
           .stream_id = stream_id,

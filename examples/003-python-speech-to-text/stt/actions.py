@@ -17,25 +17,30 @@ def has_stop_command(text: str) -> bool:
   )
 
 
-def stream_text_output(action: evergreen.Action,
+async def stream_text_output(action: evergreen.Action,
     model_server: STTModelServer):
   output_node = action.get_output("text")
   ready_node = action.get_output("ready")
 
-  ready_node.put(True)
-  ready_node.finalize()
+  await ready_node.put(True)
+  await ready_node.finalize()
 
   try:
     while True:
-      transcription = model_server.wait_for_transcription_piece()
-      output_node.put(transcription)
+      transcription = await asyncio.to_thread(
+          model_server.wait_for_transcription_piece)
+      await output_node.put(transcription)
 
       if has_stop_command(transcription):
         print("Stop command received, stopping output stream.", flush=True)
         break
 
+  except asyncio.CancelledError:
+    print("Output stream cancelled.", flush=True)
+    raise
+
   finally:
-    output_node.finalize()
+    await output_node.finalize()
 
 
 async def run_speech_to_text(action: evergreen.Action):
@@ -43,13 +48,21 @@ async def run_speech_to_text(action: evergreen.Action):
   model_server = STTModelServer()
 
   stream_output_task = asyncio.create_task(
-      asyncio.to_thread(stream_text_output, action, model_server)
+      stream_text_output(action, model_server)
   )
 
-  async for audio_chunk in action.get_input("speech"):
-    model_server.feed_audio_chunk(audio_chunk)
+  try:
+    async for audio_chunk in action.get_input("speech"):
+      model_server.feed_audio_chunk(audio_chunk)
 
-  await stream_output_task
+    print("Finalising speech input stream.", flush=True)
+    model_server._recorder.shutdown()
+    await stream_output_task
+
+  except asyncio.CancelledError:
+    print("Action cancelled.", flush=True)
+    stream_output_task.cancel()
+    raise
 
 
 def make_action_registry():

@@ -127,8 +127,7 @@ class ActionRegistry {
 
   [[nodiscard]] std::unique_ptr<Action> MakeAction(
       std::string_view action_key, std::string_view action_id = "",
-      std::vector<Port> inputs = {},
-      std::vector<Port> outputs = {}) const;
+      std::vector<Port> inputs = {}, std::vector<Port> outputs = {}) const;
 
   [[nodiscard]] bool IsRegistered(const std::string_view name) const {
     return schemas_.contains(name) && handlers_.contains(name);
@@ -179,8 +178,7 @@ class Action : public std::enable_shared_from_this<Action> {
    *   generated based on the schema.
    */
   explicit Action(ActionSchema schema, std::string_view id = "",
-                  std::vector<Port> inputs = {},
-                  std::vector<Port> outputs = {})
+                  std::vector<Port> inputs = {}, std::vector<Port> outputs = {})
       : schema_(std::move(schema)),
         id_(id.empty() ? GenerateUUID4() : std::string(id)),
         cancelled_(std::make_unique<concurrency::PermanentEvent>()) {
@@ -231,7 +229,6 @@ class Action : public std::enable_shared_from_this<Action> {
     handler_ = std::move(other.handler_);
     has_been_run_ = other.has_been_run_;
     node_map_ = other.node_map_;
-    stream_ = other.stream_;
     session_ = other.session_;
     cancelled_ = std::move(other.cancelled_);
     cancelled_externally_ = other.cancelled_externally_;
@@ -239,19 +236,6 @@ class Action : public std::enable_shared_from_this<Action> {
     bind_streams_on_inputs_default_ = other.bind_streams_on_inputs_default_;
     bind_streams_on_outputs_default_ = other.bind_streams_on_outputs_default_;
     return *this;
-  }
-
-  ~Action() {
-    concurrency::MutexLock lock(&mutex_);
-    if (node_map_ == nullptr) {
-      return;
-    }
-    for (const auto& [input_name, input_id] : input_name_to_id_) {
-      node_map_->Extract(input_id).reset();
-    }
-    for (const auto& [output_name, output_id] : output_name_to_id_) {
-      node_map_->Extract(output_id).reset();
-    }
   }
 
   //! Makes an action message to be sent on an EvergreenWireStream.
@@ -342,7 +326,11 @@ class Action : public std::enable_shared_from_this<Action> {
     AsyncNode* node = node_map_->Get(GetInputId(name));
     if (stream_ != nullptr &&
         bind_stream.value_or(bind_streams_on_inputs_default_)) {
-      node->BindWriterStream(stream_);
+      absl::flat_hash_map<std::string_view,
+                          std::shared_ptr<EvergreenWireStream>>
+          peers;
+      peers.insert({stream_->GetId(), stream_});
+      node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }
     return node;
@@ -380,7 +368,11 @@ class Action : public std::enable_shared_from_this<Action> {
     AsyncNode* node = node_map_->Get(GetOutputId(name));
     if (stream_ != nullptr &&
         bind_stream.value_or(bind_streams_on_outputs_default_)) {
-      node->BindWriterStream(stream_);
+      absl::flat_hash_map<std::string_view,
+                          std::shared_ptr<EvergreenWireStream>>
+          peers;
+      peers.insert({stream_->GetId(), stream_});
+      node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }
     return node;
@@ -405,15 +397,16 @@ class Action : public std::enable_shared_from_this<Action> {
     return node_map_;
   }
 
-  void BindStream(EvergreenWireStream* absl_nullable stream)
+  void BindStream(std::shared_ptr<EvergreenWireStream> absl_nullable stream)
       ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
-    stream_ = stream;
+    stream_ = std::move(stream);
   }
   /// Returns the stream associated with the action.
-  [[nodiscard]] EvergreenWireStream* GetStream() const ABSL_LOCKS_EXCLUDED(mutex_) {
+  [[nodiscard]] EvergreenWireStream* GetStream() const
+      ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
-    return stream_;
+    return stream_.get();
   }
 
   void BindSession(Session* absl_nullable session) ABSL_LOCKS_EXCLUDED(mutex_) {
@@ -504,6 +497,16 @@ class Action : public std::enable_shared_from_this<Action> {
     mutex_.Lock();
 
     UnbindStreams();
+
+    if (node_map_ != nullptr) {
+      for (const auto& [input_name, input_id] : input_name_to_id_) {
+        node_map_->Extract(input_id).reset();
+      }
+      for (const auto& [output_name, output_id] : output_name_to_id_) {
+        node_map_->Extract(output_id).reset();
+      }
+    }
+
     return status;
   }
 
@@ -548,7 +551,7 @@ class Action : public std::enable_shared_from_this<Action> {
       if (node == nullptr) {
         continue;
       }
-      node->BindWriterStream(nullptr);
+      node->BindPeers({});
     }
     nodes_with_bound_streams_.clear();
   }
@@ -564,7 +567,8 @@ class Action : public std::enable_shared_from_this<Action> {
   std::string id_;
 
   NodeMap* node_map_ ABSL_GUARDED_BY(mutex_) = nullptr;
-  EvergreenWireStream* stream_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  std::shared_ptr<EvergreenWireStream> stream_ ABSL_GUARDED_BY(mutex_) =
+      nullptr;
   Session* session_ ABSL_GUARDED_BY(mutex_) = nullptr;
 
   bool bind_streams_on_inputs_default_ = true;
@@ -578,8 +582,7 @@ class Action : public std::enable_shared_from_this<Action> {
 
 inline std::unique_ptr<Action> ActionRegistry::MakeAction(
     std::string_view action_key, std::string_view action_id,
-    std::vector<Port> inputs,
-    std::vector<Port> outputs) const {
+    std::vector<Port> inputs, std::vector<Port> outputs) const {
 
   auto action =
       std::make_unique<Action>(eglt::FindOrDie(schemas_, action_key), action_id,

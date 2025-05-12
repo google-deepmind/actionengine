@@ -21,6 +21,7 @@
 #include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
+#include "eglt/net/peers.h"
 #include "eglt/net/stream.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/stores/chunk_store.h"
@@ -30,6 +31,40 @@ namespace eglt {
 class Action;
 
 class ActionRegistry;
+
+class Session;
+
+class ActionContext {
+ public:
+  static constexpr absl::Duration kFiberCancellationTimeout = absl::Seconds(3);
+  static constexpr absl::Duration kActionDetachTimeout = absl::Seconds(10);
+
+  ActionContext() = default;
+  ~ActionContext();
+
+  absl::Status Dispatch(std::shared_ptr<Action> action);
+  void CancelActions() ABSL_LOCKS_EXCLUDED(mutex_) {
+    concurrency::MutexLock lock(&mutex_);
+    CancelActionsImpl();
+  }
+
+ private:
+  void CancelActionsImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  std::unique_ptr<concurrency::Fiber> ExtractActionFiber(Action* action)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    const auto map_node = running_actions_.extract(action);
+    CHECK(!map_node.empty())
+        << "Running action not found in session it was created in.";
+    return std::move(map_node.mapped());
+  }
+
+  concurrency::Mutex mutex_;
+  absl::flat_hash_map<Action*, std::unique_ptr<concurrency::Fiber>>
+      running_actions_ ABSL_GUARDED_BY(mutex_);
+  concurrency::PermanentEvent cancellation_;
+  bool cancelled_;
+  concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
+};
 
 /**
  * @brief
@@ -54,10 +89,11 @@ class Session {
       std::string_view id,
       const ChunkStoreFactory& chunk_store_factory = {}) const;
 
-  void DispatchFrom(EvergreenWireStream* absl_nonnull stream);
-  absl::Status DispatchMessage(
-      SessionMessage message,
-      EvergreenWireStream* absl_nullable stream = nullptr);
+  void DispatchFrom(
+      const std::shared_ptr<EvergreenWireStream>& absl_nonnull stream);
+  absl::Status DispatchMessage(SessionMessage message,
+                               const std::shared_ptr<EvergreenWireStream>&
+                                   absl_nullable stream = nullptr);
 
   void StopDispatchingFrom(EvergreenWireStream* absl_nonnull stream);
   void StopDispatchingFromAll();
@@ -76,8 +112,6 @@ class Session {
   void JoinDispatchers(bool cancel = false)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  void CancelActions() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-
   concurrency::Mutex mutex_{};
   bool joined_ ABSL_GUARDED_BY(mutex_) = false;
   absl::flat_hash_map<EvergreenWireStream*, std::unique_ptr<concurrency::Fiber>>
@@ -87,10 +121,7 @@ class Session {
   ActionRegistry* absl_nullable action_registry_ = nullptr;
   ChunkStoreFactory chunk_store_factory_;
 
-  absl::flat_hash_map<Action*, std::unique_ptr<concurrency::Fiber>>
-      running_actions_ ABSL_GUARDED_BY(mutex_);
-  concurrency::PermanentEvent actions_cancelled_;
-  concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
+  std::unique_ptr<ActionContext> action_context_ = nullptr;
 };
 
 }  // namespace eglt

@@ -59,12 +59,11 @@ AsyncNode::AsyncNode(AsyncNode&& other) noexcept {
   chunk_store_ = std::move(other.chunk_store_);
   default_reader_ = std::move(other.default_reader_);
   default_writer_ = std::move(other.default_writer_);
-  writer_stream_ = other.writer_stream_;
+  peers_ = std::move(other.peers_);
   other.node_map_ = nullptr;
   other.chunk_store_ = nullptr;
   other.default_reader_ = nullptr;
   other.default_writer_ = nullptr;
-  other.writer_stream_ = nullptr;
 }
 
 AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
@@ -78,20 +77,14 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   chunk_store_ = std::move(other.chunk_store_);
   default_reader_ = std::move(other.default_reader_);
   default_writer_ = std::move(other.default_writer_);
-  writer_stream_ = other.writer_stream_;
+  peers_ = std::move(other.peers_);
 
   other.node_map_ = nullptr;
   other.chunk_store_ = nullptr;
   other.default_reader_ = nullptr;
   other.default_writer_ = nullptr;
-  other.writer_stream_ = nullptr;
 
   return *this;
-}
-
-void AsyncNode::BindWriterStream(EvergreenWireStream* absl_nullable stream) {
-  concurrency::MutexLock lock(&mutex_);
-  writer_stream_ = stream;
 }
 
 absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
@@ -122,9 +115,14 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
   concurrency::MutexLock lock(&mutex_);
   ChunkStoreWriter* writer = EnsureWriter();
 
-  // I want to be able to move the chunk to writer, but I might also need to
-  // send it to the stream.
-  Chunk copy_to_stream = chunk;
+  SessionMessage message_for_peers;
+  if (!peers_.empty()) {
+    message_for_peers.node_fragments.push_back(
+        NodeFragment{.id = std::string(chunk_store_->GetId()),
+                     .chunk = chunk,
+                     .seq = seq_id,
+                     .continued = !final});
+  }
 
   auto status_or_seq = writer->Put(std::move(chunk), seq_id, final);
   if (!status_or_seq.ok()) {
@@ -132,16 +130,15 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
     return status_or_seq.status();
   }
 
-  auto stream_sending_status = SendToStreamIfNotNullAndOpen(
-      writer_stream_, NodeFragment{
-                          .id = std::string(chunk_store_->GetId()),
-                          .chunk = std::move(copy_to_stream),
-                          .seq = status_or_seq.value(),
-                          .continued = !final,
-                      });
-  if (!stream_sending_status.ok()) {
-    LOG(ERROR) << "Failed to send to stream: " << stream_sending_status;
-    return stream_sending_status;
+  std::vector<std::string_view> dead_peers;
+  for (const auto& [peer_id, peer] : peers_) {
+    if (auto status = peer->Send(message_for_peers); !status.ok()) {
+      LOG(ERROR) << "Failed to send to stream: " << status;
+      dead_peers.push_back(peer_id);
+    }
+  }
+  for (const auto& peer_id : dead_peers) {
+    peers_.erase(peer_id);
   }
 
   return absl::OkStatus();

@@ -24,3 +24,10 @@ class STTModelServer:
 
   def wait_for_transcription_piece(self, callback=None):
     return self._recorder.text(callback)
+
+  def __enter__(self):
+    return self
+
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    self._recorder.shutdown()
+    return False

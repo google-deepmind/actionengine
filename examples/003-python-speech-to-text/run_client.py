@@ -67,7 +67,7 @@ async def main(args: argparse.Namespace):
     await asyncio.sleep(0.2)
     print("Finalised speech stream.")
 
-    stream.close()
+    # stream.close()
     # print("Closed the client-server stream.")
 
 

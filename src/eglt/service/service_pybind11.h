@@ -29,7 +29,8 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
-void BindStream(py::handle scope, std::string_view name = "EvergreenWireStream");
+void BindStream(py::handle scope,
+                std::string_view name = "EvergreenWireStream");
 void BindSession(py::handle scope, std::string_view name = "Session");
 void BindService(py::handle scope, std::string_view name = "Service");
 void BindStreamToSessionConnection(
@@ -134,8 +135,8 @@ class PyEvergreenWireStream final : public EvergreenWireStream {
   }
 
   absl::Status GetStatus() const override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyEvergreenWireStream, "get_status",
-                                GetStatus, );
+    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyEvergreenWireStream,
+                                "get_status", GetStatus, );
   }
 
   [[nodiscard]] py::object GetLoop() const {
@@ -143,9 +144,9 @@ class PyEvergreenWireStream final : public EvergreenWireStream {
                                 GetLoop, );
   }
 
-  [[nodiscard]] std::string GetId() const override {
-    PYBIND11_OVERRIDE_PURE_NAME(std::string, PyEvergreenWireStream, "get_id",
-                                GetId, );
+  [[nodiscard]] std::string_view GetId() const override {
+    PYBIND11_OVERRIDE_PURE_NAME(std::string_view, PyEvergreenWireStream,
+                                "get_id", GetId, );
   }
 };
 

@@ -23,11 +23,11 @@
 
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
-#include "eglt/stores/chunk_store_pybind11.h"  // IWYU pragma: keep
 #include "eglt/nodes/node_map.h"
 #include "eglt/pybind11_headers.h"
 #include "eglt/service/service.h"
 #include "eglt/service/session.h"
+#include "eglt/stores/chunk_store_pybind11.h"  // IWYU pragma: keep
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
@@ -83,11 +83,13 @@ void BindSession(py::handle scope, std::string_view name) {
           },
           py::arg_v("id", ""), py::arg_v("chunk_store_factory", py::none()))
       .def("dispatch_from",
-           [](const std::shared_ptr<Session>& self, EvergreenWireStream* stream) {
+           [](const std::shared_ptr<Session>& self,
+              const std::shared_ptr<EvergreenWireStream>& stream) {
              self->DispatchFrom(stream);
            })
       .def("stop_dispatching_from",
-           [](const std::shared_ptr<Session>& self, EvergreenWireStream* stream) {
+           [](const std::shared_ptr<Session>& self,
+              EvergreenWireStream* stream) {
              self->StopDispatchingFrom(stream);
            })
       .def("dispatch_message", &Session::DispatchMessage,
@@ -149,7 +151,8 @@ void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
   py::class_<StreamToSessionConnection,
              std::shared_ptr<StreamToSessionConnection>>(
       scope, std::string(name).c_str())
-      .def(py::init([](EvergreenWireStream* stream, Session* session) {
+      .def(py::init([](const std::shared_ptr<EvergreenWireStream>& stream,
+                       Session* session) {
              return std::make_shared<StreamToSessionConnection>(stream,
                                                                 session);
            }),
@@ -158,7 +161,7 @@ void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
       .def("get_stream",
            [](const StreamToSessionConnection& self) {
              return ShareWithNoDeleter(
-                 dynamic_cast<PyEvergreenWireStream*>(self.stream));
+                 dynamic_cast<PyEvergreenWireStream*>(self.stream.get()));
            })
       .def("get_session",
            [](const StreamToSessionConnection& self) {

@@ -25,6 +25,7 @@
 
 #include "eglt/absl_headers.h"
 #include "eglt/data/eg_structs.h"
+#include "eglt/net/peers.h"
 #include "eglt/net/stream.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_io.h"
@@ -48,7 +49,12 @@ class AsyncNode {
   AsyncNode& operator=(AsyncNode& other) = delete;
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
-  void BindWriterStream(EvergreenWireStream* stream);
+  void BindPeers(absl::flat_hash_map<std::string_view,
+                                     std::shared_ptr<EvergreenWireStream>>
+                     peers) {
+    concurrency::MutexLock lock(&mutex_);
+    peers_ = std::move(peers);
+  }
 
   template <typename T>
   auto Put(T value, int seq_id = -1, bool final = false) -> absl::Status {
@@ -144,8 +150,8 @@ class AsyncNode {
   mutable concurrency::Mutex mutex_;
   std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mutex_);
-  EvergreenWireStream* absl_nullable writer_stream_ ABSL_GUARDED_BY(mutex_) =
-      nullptr;
+  absl::flat_hash_map<std::string_view, std::shared_ptr<EvergreenWireStream>>
+      peers_ ABSL_GUARDED_BY(mutex_);
 };
 
 template <>

@@ -219,7 +219,7 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
 
   absl::Status GetStatus() const override { return last_send_status_; }
 
-  [[nodiscard]] std::string GetId() const override { return id_; }
+  [[nodiscard]] std::string_view GetId() const override { return id_; }
 
   [[nodiscard]] const void* GetImpl() const override { return &stream_; }
 
@@ -227,8 +227,8 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
   friend void AbslStringify(Sink& sink,
                             const WebsocketEvergreenWireStream& stream) {
     const auto endpoint = stream.stream_.next_layer().remote_endpoint();
-    sink.Append(absl::StrFormat("WebsocketEvergreenWireStream %s %s:%d", stream.id_,
-                                endpoint.address().to_string(),
+    sink.Append(absl::StrFormat("WebsocketEvergreenWireStream %s %s:%d",
+                                stream.id_, endpoint.address().to_string(),
                                 endpoint.port()));
   }
 
@@ -321,7 +321,8 @@ class WebsocketEvergreenServer {
         if (!error) {
           beast::websocket::stream<tcp::socket> stream(std::move(socket));
           auto connection = service_->EstablishConnection(
-              std::make_shared<WebsocketEvergreenWireStream>(std::move(stream)));
+              std::make_shared<WebsocketEvergreenWireStream>(
+                  std::move(stream)));
           if (!connection.ok()) {
             status_ = connection.status();
             DLOG(ERROR)
@@ -437,10 +438,10 @@ inline absl::Status PerformHandshake(
 
 inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>>
 MakeWebsocketEvergreenWireStream(std::string_view address = "127.0.0.1",
-                             uint16_t port = 20000,
-                             std::string_view target = "/",
-                             std::string_view id = "",
-                             PrepareStreamFn prepare_stream = {}) {
+                                 uint16_t port = 20000,
+                                 std::string_view target = "/",
+                                 std::string_view id = "",
+                                 PrepareStreamFn prepare_stream = {}) {
   beast::websocket::stream<tcp::socket> ws_stream(
       *GetDefaultAsioExecutionContext());
   boost::system::error_code error;
@@ -494,13 +495,13 @@ MakeWebsocketEvergreenWireStream(std::string_view address = "127.0.0.1",
 
   std::string session_id = id.empty() ? GenerateUUID4() : std::string(id);
   return std::make_unique<WebsocketEvergreenWireStream>(std::move(ws_stream),
-                                                    session_id);
+                                                        session_id);
 }
 
 inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>>
 MakeWebsocketClientEvergreenWireStream(std::string_view address = "0.0.0.0",
-                                   uint16_t port = 20000,
-                                   std::string_view target = "/") {
+                                       uint16_t port = 20000,
+                                       std::string_view target = "/") {
 
   return MakeWebsocketEvergreenWireStream(
       address, port, target, /*id=*/GenerateUUID4(),
@@ -545,7 +546,7 @@ class WebsocketEvergreenClient {
 
     fiber_ = concurrency::NewTree(concurrency::TreeOptions(), [this]() {
       auto handler_fiber = concurrency::Fiber([this]() {
-        status_ = connection_handler_(eg_stream_.get(), session_.get());
+        status_ = connection_handler_(eg_stream_, session_.get());
       });
 
       const auto selected = concurrency::Select(
@@ -562,10 +563,10 @@ class WebsocketEvergreenClient {
 
     return std::make_shared<StreamToSessionConnection>(
         StreamToSessionConnection{
-            .stream = eg_stream_.get(),
+            .stream = eg_stream_,
             .session = session_.get(),
-            .session_id = eg_stream_->GetId(),
-            .stream_id = eg_stream_->GetId(),
+            .session_id = std::string(eg_stream_->GetId()),
+            .stream_id = std::string(eg_stream_->GetId()),
         });
   }
 
