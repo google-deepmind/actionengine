@@ -21,9 +21,10 @@ class RecoverableStream final : public eglt::EvergreenWireStream {
         timeout_(timeout),
         timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
 
-  explicit RecoverableStream(std::unique_ptr<EvergreenWireStream> stream,
-                             std::string_view id = "",
-                             absl::Duration timeout = absl::InfiniteDuration())
+  explicit RecoverableStream(
+      std::unique_ptr<EvergreenWireStream> stream = nullptr,
+      std::string_view id = "",
+      absl::Duration timeout = absl::InfiniteDuration())
       : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
         id_(!id.empty() ? id : GenerateUUID4()),
         timeout_(timeout),

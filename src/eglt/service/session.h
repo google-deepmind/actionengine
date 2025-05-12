@@ -22,8 +22,8 @@
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
-#include "eglt/stores/chunk_store.h"
 #include "eglt/nodes/node_map.h"
+#include "eglt/stores/chunk_store.h"
 
 namespace eglt {
 
@@ -55,8 +55,9 @@ class Session {
       const ChunkStoreFactory& chunk_store_factory = {}) const;
 
   void DispatchFrom(EvergreenWireStream* absl_nonnull stream);
-  absl::Status DispatchMessage(SessionMessage message,
-                               EvergreenWireStream* absl_nullable stream = nullptr);
+  absl::Status DispatchMessage(
+      SessionMessage message,
+      EvergreenWireStream* absl_nullable stream = nullptr);
 
   void StopDispatchingFrom(EvergreenWireStream* absl_nonnull stream);
   void StopDispatchingFromAll();

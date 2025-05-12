@@ -22,33 +22,11 @@
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/recoverable_stream.h"
+#include "eglt/nodes/async_node.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/local_chunk_store.h"
 #include "eglt/util/map_util.h"
 
-namespace eglt {
-
-class SharedChunkStore : public ChunkStore {
- public:
-  SharedChunkStore() = default;
-  explicit SharedChunkStore(std::string_view id) : SharedChunkStore() {
-    SharedChunkStore::SetId(id);
-  }
-  ~SharedChunkStore() override = default;
-
-  size_t Size() override { return local_store_.Size(); }
-
-  bool Contains(int seq_id) override { return local_store_.Contains(seq_id); }
-
-  void SetId(std::string_view id) override { local_store_.SetId(id); }
-  std::string_view GetId() const override { return local_store_.GetId(); }
-
- private:
-  concurrency::Mutex mutex_;
-  LocalChunkStore local_store_;
-  absl::flat_hash_map<std::string, net::RecoverableStream> outbound_streams_;
-};
-
-}  // namespace eglt
+namespace eglt {}  // namespace eglt
 
 #endif  // EGLT_STORES_SHARED_CHUNK_STORE_H_
