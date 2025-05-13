@@ -82,11 +82,13 @@ void BindSession(py::handle scope, std::string_view name) {
             return ShareWithNoDeleter(self->GetNode(id, chunk_store_factory));
           },
           py::arg_v("id", ""), py::arg_v("chunk_store_factory", py::none()))
-      .def("dispatch_from",
-           [](const std::shared_ptr<Session>& self,
-              const std::shared_ptr<EvergreenWireStream>& stream) {
-             self->DispatchFrom(stream);
-           })
+      .def(
+          "dispatch_from",
+          [](const std::shared_ptr<Session>& self,
+             const std::shared_ptr<EvergreenWireStream>& stream) {
+            self->DispatchFrom(stream);
+          },
+          py::keep_alive<1, 2>())
       .def("stop_dispatching_from",
            [](const std::shared_ptr<Session>& self,
               EvergreenWireStream* stream) {

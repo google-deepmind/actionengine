@@ -58,19 +58,14 @@ async def main(args: argparse.Namespace):
         print("Stop command received, stopping recording.")
         break
   finally:
-    recorder.shutdown()
+    shutdown = asyncio.to_thread(recorder.shutdown)
     print("Stopped recording.")
 
     await action.get_input("speech").finalize()
-    await asyncio.sleep(0.5)
+    await shutdown
     print("Finalised speech stream.")
 
     del action
-    del session
-    del stream
-
-    # stream.close()
-    # print("Closed the client-server stream.")
 
 
 if __name__ == "__main__":

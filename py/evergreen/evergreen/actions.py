@@ -114,7 +114,7 @@ class ActionRegistry(actions_pybind11.ActionRegistry):
     # pytype: enable=name-error
     """Creates an action."""
 
-    return utils.wrap_pybind_object(
+    action = utils.wrap_pybind_object(
         Action,
         super().make_action(  # pytype: disable=attribute-error
             name,
@@ -124,6 +124,12 @@ class ActionRegistry(actions_pybind11.ActionRegistry):
             session,
         ),
     )
+
+    action._node_map = node_map
+    action._stream = stream
+    action._session = session
+
+    return action
 
 
 class Action(actions_pybind11.Action):

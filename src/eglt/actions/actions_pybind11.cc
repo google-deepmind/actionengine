@@ -98,7 +98,9 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
             return std::shared_ptr(std::move(action));
           },
           py::arg("name"), py::arg_v("id", ""), py::arg_v("node_map", nullptr),
-          py::arg_v("stream", nullptr), py::arg_v("session", nullptr));
+          py::arg_v("stream", nullptr), py::arg_v("session", nullptr),
+          py::keep_alive<1, 3>(), py::keep_alive<1, 4>(),
+          py::keep_alive<1, 5>());
 }
 
 /// @private

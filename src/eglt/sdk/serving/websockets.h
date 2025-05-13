@@ -76,7 +76,9 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
   }
 
   ~WebsocketEvergreenWireStream() override {
-    DLOG(INFO) << absl::StrFormat("~WebsocketEvergreenWireStream()");
+    DLOG(INFO) << absl::StrFormat(
+        "WebsocketEvergreenWireStream::~WebsocketEvergreenWireStream(), id=%s",
+        id_);
     if (stream_.is_open()) {
       HalfClose();
     }
@@ -84,8 +86,6 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
     while (send_pending_ || recv_pending_) {
       cv_.Wait(&mutex_);
     }
-
-    DLOG(INFO) << absl::StrFormat("WESt %s destroyed", id_);
   }
 
   absl::Status Send(SessionMessage message) override {
@@ -292,7 +292,7 @@ class WebsocketEvergreenServer {
   ~WebsocketEvergreenServer() {
     Cancel().IgnoreError();
     Join().IgnoreError();
-    DLOG(INFO) << "WebsocketEvergreenServer destroyed";
+    DLOG(INFO) << "WebsocketEvergreenServer::~WebsocketEvergreenServer()";
   }
 
   void Run() {

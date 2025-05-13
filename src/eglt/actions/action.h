@@ -239,7 +239,6 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   ~Action() {
-    DLOG(INFO) << "Action::~Action() called for " << id_;
     concurrency::MutexLock lock(&mutex_);
     if (!has_been_run_ && node_map_ != nullptr) {
       ResetIoNodes();
@@ -399,6 +398,7 @@ class Action : public std::enable_shared_from_this<Action> {
     concurrency::MutexLock lock(&mutex_);
     node_map_ = node_map;
   }
+
   /// Returns the node map associated with the action.
   [[nodiscard]] NodeMap* GetNodeMap() const ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
@@ -410,6 +410,7 @@ class Action : public std::enable_shared_from_this<Action> {
     concurrency::MutexLock lock(&mutex_);
     stream_ = std::move(stream);
   }
+
   /// Returns the stream associated with the action.
   [[nodiscard]] EvergreenWireStream* GetStream() const
       ABSL_LOCKS_EXCLUDED(mutex_) {
@@ -421,6 +422,7 @@ class Action : public std::enable_shared_from_this<Action> {
     concurrency::MutexLock lock(&mutex_);
     session_ = session;
   }
+
   [[nodiscard]] Session* GetSession() const ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     return session_;
