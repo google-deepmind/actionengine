@@ -7,7 +7,7 @@ cmake-build-relwithdebinfo/
 
 **/.DS_Store/
 **/.DS_Store
-.idea/
+**/.idea/*
 
 third_party/build_deps/*
 !third_party/build_deps.sh
