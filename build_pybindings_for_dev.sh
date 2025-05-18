@@ -17,9 +17,9 @@ if [[ "$1" == "--only-rebuild-pybind11" ]]; then
   echo "Skipping Python requirements."
 else
   echo "Installing requirements and Python package and cleaning up."
-  pip install -r py/requirements.txt
-  pip install --force-reinstall -e ./py
+  pip3 install -r py/requirements.txt
+  pip3 install --force-reinstall -e ./py
 fi
 
 echo "Validating installation."
-python -c "import evergreen; print('Evergreen imports successfully!')"
+python3 -c "import evergreen; print('Evergreen imports successfully!')"
