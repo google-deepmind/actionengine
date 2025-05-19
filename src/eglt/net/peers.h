@@ -162,12 +162,12 @@ class OutboundPeerGroup {
 
   ~OutboundPeerGroup() = default;
 
-  void AddPeer(std::shared_ptr<WirePeer> absl_nonnull peer) {
+  void AddPeer(std::shared_ptr<WirePeer> peer) {
     concurrency::MutexLock lock(&mutex_);
     peers_.emplace(peer->GetId(), std::move(peer));
   }
 
-  void RemovePeer(const std::shared_ptr<WirePeer>& absl_nonnull peer) {
+  void RemovePeer(const std::shared_ptr<WirePeer>& peer) {
     concurrency::MutexLock lock(&mutex_);
     peers_.erase(peer->GetId());
   }

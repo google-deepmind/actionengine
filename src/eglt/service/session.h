@@ -123,11 +123,10 @@ class Session {
       std::string_view id,
       const ChunkStoreFactory& chunk_store_factory = {}) const;
 
-  void DispatchFrom(
-      const std::shared_ptr<EvergreenWireStream>& absl_nonnull stream);
-  absl::Status DispatchMessage(SessionMessage message,
-                               const std::shared_ptr<EvergreenWireStream>&
-                                   absl_nullable stream = nullptr);
+  void DispatchFrom(const std::shared_ptr<EvergreenWireStream>& stream);
+  absl::Status DispatchMessage(
+      SessionMessage message,
+      const std::shared_ptr<EvergreenWireStream>& stream = nullptr);
 
   void StopDispatchingFrom(EvergreenWireStream* absl_nonnull stream);
   void StopDispatchingFromAll();

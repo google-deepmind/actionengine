@@ -405,7 +405,7 @@ class Action : public std::enable_shared_from_this<Action> {
     return node_map_;
   }
 
-  void BindStream(std::shared_ptr<EvergreenWireStream> absl_nullable stream)
+  void BindStream(std::shared_ptr<EvergreenWireStream> stream)
       ABSL_LOCKS_EXCLUDED(mutex_) {
     concurrency::MutexLock lock(&mutex_);
     stream_ = std::move(stream);

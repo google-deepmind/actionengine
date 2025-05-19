@@ -104,8 +104,7 @@ AsyncNode* Session::GetNode(
   return node_map_->Get(id, factory);
 }
 
-void Session::DispatchFrom(
-    const std::shared_ptr<EvergreenWireStream>& absl_nonnull stream) {
+void Session::DispatchFrom(const std::shared_ptr<EvergreenWireStream>& stream) {
   concurrency::MutexLock lock(&mutex_);
 
   if (joined_) {
@@ -143,7 +142,7 @@ void Session::DispatchFrom(
 
 absl::Status Session::DispatchMessage(
     SessionMessage message,
-    const std::shared_ptr<EvergreenWireStream>& absl_nullable stream) {
+    const std::shared_ptr<EvergreenWireStream>& stream) {
   concurrency::MutexLock lock(&mutex_);
   if (joined_) {
     return absl::FailedPreconditionError(

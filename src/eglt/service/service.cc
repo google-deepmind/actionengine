@@ -30,7 +30,7 @@
 namespace eglt {
 
 absl::Status RunSimpleEvergreenSession(
-    const std::shared_ptr<EvergreenWireStream>& absl_nonnull stream,
+    const std::shared_ptr<EvergreenWireStream>& stream,
     Session* absl_nonnull session) {
   const auto owned_stream = stream;
   absl::Status status;
@@ -235,42 +235,24 @@ void Service::SetActionRegistry(const ActionRegistry& action_registry) const {
 }
 
 void Service::JoinConnectionsAndCleanUp(bool cancel) {
-  absl::flat_hash_map<std::string, std::unique_ptr<concurrency::Fiber>> fibers;
-
-  bool cleanup_started = false;
-  {
-    concurrency::MutexLock lock(&mutex_);
-    cleanup_started = cleanup_started_;
-    if (!cleanup_started_) {
-      // We are the first ones here, so we will start the cleanup.
-      cleanup_started_ = true;
-
-      fibers = std::move(connection_fibers_);
-      connection_fibers_.clear();
-
-      absl::flat_hash_map<std::string,
-                          std::shared_ptr<StreamToSessionConnection>>
-          connections = std::move(connections_);
-      connections_.clear();
-    }
-  }
-
-  // It is now safe to operate with the extracted data structures, because we
-  // know that nobody can modify them while we are doing so, and we have
-  // communicated to other threads that the cleanup has started, if so.
-
-  if (cleanup_started) {
-    // If we are here, it means that a cleanup is either in progress, or has
-    // already finished. In the former case, we need to wait for the cleanup to
-    // finish before returning. In either case, we do not need to do anything
-    // else.
+  concurrency::MutexLock lock(&mutex_);
+  if (cleanup_started_) {
+    mutex_.Unlock();
     concurrency::Select({cleanup_done_.OnEvent()});
+    mutex_.Lock();
     return;
   }
 
-  // If we are here, it means that we are the first ones to start the cleanup,
-  // and definitely extracted the right data structures. We need to cancel all
-  // the fibers, and then join them.
+  cleanup_started_ = true;
+
+  absl::flat_hash_map<std::string, std::unique_ptr<concurrency::Fiber>> fibers =
+      std::move(connection_fibers_);
+  connection_fibers_.clear();
+
+  absl::flat_hash_map<std::string, std::shared_ptr<StreamToSessionConnection>>
+      connections = std::move(connections_);
+  connections_.clear();
+
   if (cancel) {
     for (const auto& [_, fiber] : fibers) {
       if (fiber != nullptr) {
@@ -279,11 +261,14 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
     }
   }
 
+  DLOG(INFO) << "Cleaning up connections.";
+  mutex_.Unlock();
   for (const auto& [_, fiber] : fibers) {
     if (fiber != nullptr) {
       fiber->Join();
     }
   }
+  mutex_.Lock();
 }
 
 }  // namespace eglt
