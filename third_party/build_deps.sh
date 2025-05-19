@@ -1,3 +1,5 @@
+#/usr/bin/env bash
+
 set -e
 
 isset()   { [[ $(eval echo "\${${1}+1}") ]]; }
@@ -18,7 +20,7 @@ if isunset build_folder_name; then
   build_folder_name="build"
 fi
 
-python_exec_prefix=$(python -c "import sys; print(sys.exec_prefix)")
+python_exec_prefix=$(python3 -c "import sys; print(sys.exec_prefix)")
 
 abseil_install_dir="${third_party_root}/build_deps/abseil-cpp"
 boost_install_dir="${third_party_root}/build_deps/boost"
@@ -103,6 +105,7 @@ cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/libzmq" \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${parallelism}" --target install
