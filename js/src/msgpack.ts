@@ -1,4 +1,4 @@
-import { decode, encode } from '@msgpack/msgpack';
+import { decode, decodeMulti, encode } from '@msgpack/msgpack';
 
 export const encodeChunkMetadata = (metadata: ChunkMetadata) => {
   const encodedMimetype = encode(metadata.mimetype || '');
@@ -18,16 +18,13 @@ export const encodeChunkMetadata = (metadata: ChunkMetadata) => {
 };
 
 export const decodeChunkMetadata = (bytes: Uint8Array): ChunkMetadata => {
-  const [mimetype, unixMicros] = decode(bytes) as [string, number | null];
-
-  let timestamp: Date | undefined;
-  if (unixMicros) {
-    timestamp = new Date(unixMicros / 1000);
-  }
-
+  const [mimetype, timestamp] = decodeMulti(bytes) as unknown as [
+    string,
+    number,
+  ];
   return {
-    mimetype: mimetype || undefined,
-    timestamp,
+    mimetype,
+    timestamp: timestamp ? new Date(timestamp / 1000) : undefined,
   };
 };
 
@@ -48,15 +45,15 @@ export const encodeChunk = (chunk: Chunk) => {
 };
 
 export const decodeChunk = (bytes: Uint8Array): Chunk => {
-  const [metadataBytes, ref, data] = decode(bytes) as [
+  const [metadataBytes, ref, data] = decodeMulti(bytes) as unknown as [
     Uint8Array,
     string,
     Uint8Array,
   ];
   return {
     metadata: decodeChunkMetadata(metadataBytes),
-    data: ref ? undefined : data,
-    ref: ref || undefined,
+    ref,
+    data: data || new Uint8Array(0),
   };
 };
 
@@ -93,18 +90,18 @@ export const encodeNodeFragment = (fragment: NodeFragment) => {
 };
 
 export const decodeNodeFragment = (bytes: Uint8Array): NodeFragment => {
-  const [chunkBytes, continued, id, seq] = decode(bytes) as [
-    Uint8Array | null,
+  const [chunkBytes, continued, id, seq] = decodeMulti(bytes) as unknown as [
+    Uint8Array,
     boolean,
     string,
     number,
   ];
-
   return {
+    chunk: chunkBytes ? decodeChunk(chunkBytes) : null,
+    continued:
+      continued === undefined || continued === null ? false : continued,
     id,
-    chunk: chunkBytes ? decodeChunk(chunkBytes) : undefined,
-    seq,
-    continued,
+    seq: seq === undefined || seq === null ? -1 : seq,
   };
 };
 
@@ -121,7 +118,7 @@ export const encodePort = (port: Port) => {
 };
 
 export const decodePort = (bytes: Uint8Array): Port => {
-  const [name, id] = decode(bytes) as [string, string];
+  const [name, id] = decodeMulti(bytes) as unknown as [string, string];
   return {
     name,
     id,
@@ -151,7 +148,7 @@ export const encodeActionMessage = (message: ActionMessage) => {
 };
 
 export const decodeActionMessage = (bytes: Uint8Array): ActionMessage => {
-  const [id, name, inputsBytes, outputsBytes] = decode(bytes) as [
+  const [id, name, inputs, outputs] = decodeMulti(bytes) as unknown as [
     string,
     string,
     Uint8Array[],
@@ -160,12 +157,22 @@ export const decodeActionMessage = (bytes: Uint8Array): ActionMessage => {
   return {
     id,
     name,
-    inputs: inputsBytes.map(decodePort),
-    outputs: outputsBytes.map(decodePort),
+    inputs: inputs.map(decodePort),
+    outputs: outputs.map(decodePort),
   };
 };
 
 export const encodeSessionMessage = (message: SessionMessage) => {
+  if (message.actions && message.actions.length > 0) {
+    for (const action of message.actions) {
+      console.log('CALL:', JSON.stringify(action, null, 2));
+    }
+  }
+  if (message.nodeFragments && message.nodeFragments.length > 0) {
+    for (const fragment of message.nodeFragments) {
+      console.log('SEND:', JSON.stringify(fragment, null, 2));
+    }
+  }
   const packedNodeFragments = encode(
     (message.nodeFragments || []).map(encodeNodeFragment),
   );
@@ -182,12 +189,24 @@ export const encodeSessionMessage = (message: SessionMessage) => {
 };
 
 export const decodeSessionMessage = (bytes: Uint8Array): SessionMessage => {
-  const [nodeFragmentsBytes, actionsBytes] = decode(bytes) as [
-    Uint8Array[],
-    Uint8Array[],
-  ];
-  return {
-    nodeFragments: nodeFragmentsBytes.map(decodeNodeFragment),
-    actions: actionsBytes.map(decodeActionMessage),
-  };
+  const unpackedMessage = decode(bytes) as Uint8Array;
+  // @ts-expect-error decodeMulti is not strictly typed
+  const [packedNodeFragments, packedActions]: [Uint8Array[], Uint8Array[]] =
+    decodeMulti(unpackedMessage);
+
+  const nodeFragments = packedNodeFragments.map(decodeNodeFragment);
+  const actions = packedActions.map(decodeActionMessage);
+  const message = { nodeFragments, actions };
+  if (nodeFragments.length > 0) {
+    for (const fragment of nodeFragments) {
+      console.log('RECV:', JSON.stringify(fragment, null, 2));
+    }
+  }
+  if (actions.length > 0) {
+    for (const action of actions) {
+      console.log('RUN:', JSON.stringify(action, null, 2));
+    }
+  }
+
+  return message;
 };

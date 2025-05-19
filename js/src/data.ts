@@ -14,3 +14,10 @@ export const isNullChunk = (chunk: Chunk): boolean =>
   !chunk.ref;
 
 export const isEndOfStream = (chunk: Chunk): boolean => isNullChunk(chunk);
+
+export const makeTextChunk = (text: string): Chunk => {
+  return {
+    metadata: { mimetype: 'text/plain' },
+    data: new TextEncoder().encode(text),
+  };
+};
