@@ -45,13 +45,16 @@ inline void CppackFromBytes(eglt::ChunkMetadata& obj,
 inline void CppackToBytes(const eglt::Chunk& obj, cppack::Packer& packer) {
   packer(obj.metadata);
   packer(obj.ref);
-  packer(obj.data);
+  const std::vector<uint8_t> data(obj.data.begin(), obj.data.end());
+  packer(data);
 }
 
 inline void CppackFromBytes(eglt::Chunk& obj, cppack::Unpacker& unpacker) {
   unpacker(obj.metadata);
   unpacker(obj.ref);
-  unpacker(obj.data);
+  std::vector<uint8_t> data;
+  unpacker(data);
+  obj.data = std::string(data.begin(), data.end());
 }
 
 inline void CppackToBytes(const eglt::NodeFragment& obj,
@@ -70,14 +73,12 @@ inline void CppackFromBytes(eglt::NodeFragment& obj,
   unpacker(obj.seq);
 }
 
-inline void CppackToBytes(const eglt::Port& obj,
-                          cppack::Packer& packer) {
+inline void CppackToBytes(const eglt::Port& obj, cppack::Packer& packer) {
   packer(obj.name);
   packer(obj.id);
 }
 
-inline void CppackFromBytes(eglt::Port& obj,
-                            cppack::Unpacker& unpacker) {
+inline void CppackFromBytes(eglt::Port& obj, cppack::Unpacker& unpacker) {
   unpacker(obj.name);
   unpacker(obj.id);
 }
@@ -86,16 +87,16 @@ inline void CppackToBytes(const eglt::ActionMessage& obj,
                           cppack::Packer& packer) {
   packer(obj.id);
   packer(obj.name);
-  packer(obj.outputs);
   packer(obj.inputs);
+  packer(obj.outputs);
 }
 
 inline void CppackFromBytes(eglt::ActionMessage& obj,
                             cppack::Unpacker& unpacker) {
   unpacker(obj.id);
   unpacker(obj.name);
-  unpacker(obj.outputs);
   unpacker(obj.inputs);
+  unpacker(obj.outputs);
 }
 
 inline void CppackToBytes(const eglt::SessionMessage& obj,

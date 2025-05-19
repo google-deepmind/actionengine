@@ -1,9 +1,13 @@
 {
   "compilerOptions": {
-    "target": "es2022",
-    "module": "node16",
+    "target": "esnext",
+    "module": "esnext",
     "lib": ["ES2022", "DOM"],
-    "moduleResolution": "node16",
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "actionengine": ["."],
+    },
     "rootDir": ".",
     "outDir": "build",
     "allowSyntheticDefaultImports": true,
@@ -18,6 +22,9 @@
     "noImplicitAny": false,
     "noImplicitThis": false,
     "strictNullChecks": false,
+    "typeRoots": [
+      "src/@types"
+    ],
   },
-  "include": ["src", "__tests__"]
+  "include": ["**/*.ts", "**/*.tsx", "next-env.d.ts", "**/*.d.ts"],
 }

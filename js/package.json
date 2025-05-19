@@ -1,8 +1,14 @@
 {
-  "name": "actionengine-ts",
+  "name": "actionengine",
   "version": "0.1.0",
+  "author": "Google DeepMind <no-reply@google.com>",
+  "license": "Apache-2.0",
   "description": "A TypeScript client library for Action Engine.",
   "type": "module",
+  "exports": {
+    ".": "./build/actionengine.js"
+  },
+  "types": "index.ts",
   "engines": {
     "node": ">= 23.0 < 24"
   },
@@ -13,23 +19,24 @@
     "@typescript-eslint/parser": "~8.19",
     "@vitest/coverage-v8": "~2.1",
     "@vitest/eslint-plugin": "~1.1",
-    "eslint-config-prettier": "~9.1",
     "eslint": "~9.17",
+    "eslint-config-prettier": "~9.1",
     "globals": "~15.14",
     "prettier": "~3.4",
     "rimraf": "~6.0",
     "ts-api-utils": "~2.0",
-    "typescript-eslint": "~8.19",
     "typescript": "~5.7",
+    "typescript-eslint": "~8.19",
     "vitest": "~2.1"
   },
   "scripts": {
-    "start": "node build/src/main.js",
     "clean": "rimraf coverage build tmp",
     "prebuild": "npm run lint",
     "build": "tsc -p tsconfig.json",
+    "build:bundle": "esbuild --bundle index.ts --format=esm --outfile=build/actionengine.js",
     "build:watch": "tsc -w -p tsconfig.json",
     "build:release": "npm run clean && tsc -p tsconfig.release.json",
+    "build:typings": "tsc --declaration --emitDeclarationOnly --outDir build",
     "lint": "eslint .",
     "test": "vitest run unit --config __tests__/vitest.config.ts",
     "test:coverage": "vitest run unit --config __tests__/vitest.config.ts --coverage.enabled --coverage.all",
@@ -37,10 +44,10 @@
     "prettier:check": "prettier \"{src,__{tests}__}/**/*.{ts,mts}\" --config .prettierrc --check",
     "test:watch": "vitest unit"
   },
-  "author": "Jakub Synowiec <jsynowiec@users.noreply.github.com>",
-  "license": "Apache-2.0",
   "dependencies": {
-    "tslib": "~2.8"
+    "@msgpack/msgpack": "^3.1.1",
+    "tslib": "~2.8",
+    "uuid": "^11.1.0"
   },
   "volta": {
     "node": "22.12.0"

@@ -156,11 +156,16 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
     }
 
     if (error) {
+      LOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
+                                    error.message());
       return std::nullopt;
     }
 
     if (auto unpacked = cppack::Unpack<SessionMessage>(buffer); unpacked.ok()) {
       return *std::move(unpacked);
+    } else {
+      LOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
+                                    unpacked.status());
     }
 
     return std::nullopt;

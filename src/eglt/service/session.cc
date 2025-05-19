@@ -155,6 +155,11 @@ absl::Status Session::DispatchMessage(
     status.Update(node->Put(std::move(node_fragment)));
   }
   for (auto& [action_id, action_name, inputs, outputs] : message.actions) {
+    if (!action_registry_->IsRegistered(action_name)) {
+      status.Update(
+          absl::NotFoundError(absl::StrCat("Action not found: ", action_name)));
+      break;
+    }
     auto action = action_registry_->MakeAction(
         action_name, action_id, std::move(inputs), std::move(outputs));
     action->BindNodeMap(node_map_);
@@ -162,6 +167,9 @@ absl::Status Session::DispatchMessage(
     action->BindStream(stream);
 
     status.Update(action_context_->Dispatch(std::move(action)));
+  }
+  if (!status.ok()) {
+    DLOG(ERROR) << "Failed to dispatch message: " << status;
   }
   return status;
 }

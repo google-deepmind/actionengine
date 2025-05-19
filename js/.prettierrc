@@ -2,5 +2,6 @@
   "parser": "typescript",
   "semi": true,
   "singleQuote": true,
-  "trailingComma": "all"
+  "trailingComma": "all",
+  "maxLineLength": 80
 }

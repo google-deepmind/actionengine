@@ -150,6 +150,9 @@ class Action(actions_pybind11.Action):
     """Constructor for Action."""
 
     self._schema = schema
+    self._node_map = node_map
+    self._stream = stream
+    self._session = session
 
     super().__init__(
         schema,
