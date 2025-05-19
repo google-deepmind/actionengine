@@ -199,8 +199,19 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
   void HalfClose() override {
     concurrency::MutexLock lock(&mutex_);
 
+    if (!stream_.is_open()) {
+      DLOG(INFO) << absl::StrFormat(
+          "WESt %s HalfClose: stream is already closed", id_);
+      return;
+    }
+
     boost::system::error_code error;
-    stream_.next_layer().cancel();
+    stream_.next_layer().cancel(error);
+    if (error) {
+      LOG(ERROR) << absl::StrFormat("WESt %s HalfClose cancel failed: %v", id_,
+                                    error.message());
+      status_ = absl::InternalError(error.message());
+    }
     status_ = absl::CancelledError("Cancelled");
     while (send_pending_ || recv_pending_) {
       cv_.Wait(&mutex_);

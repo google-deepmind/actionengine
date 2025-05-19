@@ -153,8 +153,6 @@ class Service : public std::enable_shared_from_this<Service> {
       streams_per_session_.erase(connection.session_id);
     }
 
-    mutex_.Unlock();
-
     if (extracted_session != nullptr) {
       extracted_session.reset();
       DLOG(INFO) << "session " << connection.session_id
@@ -167,7 +165,10 @@ class Service : public std::enable_shared_from_this<Service> {
     // extracted_stream.reset();
 
     extracted_node_map.reset();
-    mutex_.Lock();
+    auto fiber = connection_fibers_.extract(connection.stream_id);
+    if (!fiber.empty() && fiber.mapped() != nullptr) {
+      concurrency::Detach(std::move(fiber.mapped()));
+    }
   }
 
   std::unique_ptr<ActionRegistry> action_registry_;
