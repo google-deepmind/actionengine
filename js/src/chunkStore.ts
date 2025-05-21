@@ -1,4 +1,5 @@
-import { Event, Lock } from './utils.js';
+import { CondVar } from './utils.js';
+import { Mutex } from 'async-mutex';
 
 export interface ChunkStore {
   get(seqId: number, timeout: number): Promise<Chunk>;
@@ -32,9 +33,8 @@ export class LocalChunkStore implements ChunkStore {
 
   private noFurtherPutsFlag: boolean;
 
-  private lock: Lock;
-  private cv: Event;
-  private nPendingOperations: number;
+  private readonly mutex: Mutex;
+  private cv: CondVar;
 
   constructor(id: string = '') {
     this.id = id;
@@ -50,113 +50,83 @@ export class LocalChunkStore implements ChunkStore {
 
     this.noFurtherPutsFlag = false;
 
-    this.lock = new Lock();
-    this.cv = new Event();
-    this.nPendingOperations = 0;
+    this.mutex = new Mutex();
+    this.cv = new CondVar();
   }
 
   async get(seqId: number, timeout?: number) {
-    const shouldWait = () => !this.chunks.has(seqId) && !this.noFurtherPutsFlag;
-
-    let chunk: Chunk | null = null;
-    let continueWaiting = false;
-
-    await this.lock.acquireAndDo(async () => {
+    return await this.mutex.runExclusive(async () => {
       if (this.chunks.has(seqId)) {
-        chunk = this.chunks.get(seqId);
-        return;
+        return this.chunks.get(seqId);
       }
+
       if (this.noFurtherPutsFlag) {
-        throw new Error(`No further puts allowed, cannot wait for chunk`);
+        throw new Error(
+          `No further puts allowed, no sense to wait for chunks.`,
+        );
       }
-      continueWaiting = shouldWait();
-    });
 
-    if (!continueWaiting) {
-      return chunk;
-    }
-
-    ++this.nPendingOperations;
-
-    while (continueWaiting) {
-      await this.cv.wait(timeout);
-      await this.lock.acquireAndDo(async () => {
-        if (this.noFurtherPutsFlag && !this.chunks.has(seqId)) {
-          continueWaiting = false;
-        } else if (this.chunks.has(seqId)) {
-          chunk = this.chunks.get(seqId);
-          continueWaiting = false;
-        } else {
-          continueWaiting = shouldWait();
+      while (!this.chunks.has(seqId) && !this.noFurtherPutsFlag) {
+        if (
+          await this.cv.waitWithTimeout(
+            this.mutex,
+            timeout === undefined ? -1 : timeout,
+          )
+        ) {
+          throw new Error(`Timeout waiting for chunk with seqId ${seqId}`);
         }
-      });
-    }
+        if (this.noFurtherPutsFlag) {
+          throw new Error(
+            `No further puts flag was set while waiting for chunk`,
+          );
+        }
+      }
 
-    --this.nPendingOperations;
-    this.cv.notifyAll();
-
-    return chunk;
+      return this.chunks.get(seqId);
+    });
   }
 
   async getByArrivalOrder(arrivalOffset: number, timeout?: number) {
-    const shouldWait = () => {
-      if (this.noFurtherPutsFlag) {
-        return false;
-      }
-      if (!this.arrivalOffsetToSeqId.has(arrivalOffset)) {
-        return true;
-      }
-      const seqId = this.arrivalOffsetToSeqId.get(arrivalOffset);
-      return !this.chunks.has(seqId);
-    };
-
-    let chunk: Chunk | null = null;
-    let continueWaiting = false;
-
-    await this.lock.acquireAndDo(async () => {
+    return await this.mutex.runExclusive(async () => {
       if (this.arrivalOffsetToSeqId.has(arrivalOffset)) {
         const seqId = this.arrivalOffsetToSeqId.get(arrivalOffset);
-        chunk = this.chunks.get(seqId);
-        return;
+        return this.chunks.get(seqId);
       }
+
       if (this.noFurtherPutsFlag) {
-        throw new Error(`No further puts allowed, cannot wait for chunk`);
+        throw new Error(
+          `No further puts allowed, no sense to wait for chunks.`,
+        );
       }
-      continueWaiting = shouldWait();
-    });
 
-    if (!continueWaiting) {
-      return chunk;
-    }
-
-    ++this.nPendingOperations;
-
-    while (continueWaiting) {
-      await this.cv.wait(timeout);
-      await this.lock.acquireAndDo(async () => {
+      while (
+        !this.arrivalOffsetToSeqId.has(arrivalOffset) &&
+        !this.noFurtherPutsFlag
+      ) {
         if (
-          this.noFurtherPutsFlag &&
-          !this.arrivalOffsetToSeqId.has(arrivalOffset)
+          await this.cv.waitWithTimeout(
+            this.mutex,
+            timeout === undefined ? -1 : timeout,
+          )
         ) {
-          continueWaiting = false;
-        } else if (this.arrivalOffsetToSeqId.has(arrivalOffset)) {
-          const seqId = this.arrivalOffsetToSeqId.get(arrivalOffset);
-          chunk = this.chunks.get(seqId);
-          continueWaiting = false;
-        } else {
-          continueWaiting = shouldWait();
+          throw new Error(
+            `Timeout waiting for chunk with arrival offset ${arrivalOffset}`,
+          );
         }
-      });
-    }
+        if (this.noFurtherPutsFlag) {
+          throw new Error(
+            `No further puts flag was set while waiting for chunk`,
+          );
+        }
+      }
 
-    --this.nPendingOperations;
-    this.cv.notifyAll();
-
-    return chunk;
+      const seqId = this.arrivalOffsetToSeqId.get(arrivalOffset);
+      return this.chunks.get(seqId);
+    });
   }
 
   async pop(seqId: number) {
-    return await this.lock.acquireAndDo(async () => {
+    return await this.mutex.runExclusive(async () => {
       if (!this.chunks.has(seqId)) {
         return null;
       }
@@ -170,7 +140,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async put(seqId: number, chunk: Chunk, final: boolean) {
-    await this.lock.acquireAndDo(async () => {
+    await this.mutex.runExclusive(async () => {
       if (this.noFurtherPutsFlag) {
         throw new Error(
           `Cannot put chunk after noFurtherPuts() has been called`,
@@ -190,7 +160,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async noFurtherPuts() {
-    await this.lock.acquireAndDo(async () => {
+    await this.mutex.runExclusive(async () => {
       this.noFurtherPutsFlag = true;
       if (this.maxSeqId !== -1) {
         this.finalSeqId = Math.min(this.finalSeqId, this.maxSeqId);
@@ -200,13 +170,13 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async size() {
-    return await this.lock.acquireAndDo(async () => {
+    return await this.mutex.runExclusive(async () => {
       return this.chunks.size;
     });
   }
 
   async contains(seqId: number) {
-    return await this.lock.acquireAndDo(async () => {
+    return await this.mutex.runExclusive(async () => {
       return this.chunks.has(seqId);
     });
   }
@@ -220,7 +190,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async getSeqIdForArrivalOffset(arrival_offset: number) {
-    return await this.lock.acquireAndDo(async () => {
+    return await this.mutex.runExclusive(async () => {
       if (!this.arrivalOffsetToSeqId.has(arrival_offset)) {
         return -1;
       }
@@ -229,7 +199,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async getFinalSeqId() {
-    return await this.lock.acquireAndDo(async () => {
+    return await this.mutex.runExclusive(async () => {
       return this.finalSeqId;
     });
   }

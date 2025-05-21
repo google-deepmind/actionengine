@@ -1,6 +1,6 @@
 export { Action, ActionRegistry } from './src/action.js';
 export { AsyncNode, NodeMap } from './src/asyncNode.js';
-export { ChunkStore, LocalChunkStore } from './src/chunkStore.js';
+export { type ChunkStore, LocalChunkStore } from './src/chunkStore.js';
 export { ChunkStoreReader } from './src/chunkStoreReader.js';
 export { ChunkStoreWriter } from './src/chunkStoreWriter.js';
 export {
@@ -12,4 +12,4 @@ export {
 export { Session } from './src/session.js';
 export * from './src/msgpack.js';
 export { EvergreenStream } from './src/stream.js';
-export { Lock, Event, Channel, Deque } from './src/utils.js';
+export { CondVar, Channel, Deque } from './src/utils.js';

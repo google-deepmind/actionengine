@@ -3,12 +3,12 @@ import { endOfStream } from './data.js';
 import { ChunkStoreReader, NumberedChunk } from './chunkStoreReader.js';
 import { ChunkStoreWriter } from './chunkStoreWriter.js';
 import { EvergreenStream } from './stream.js';
-import { Lock } from './utils.js';
+import { Mutex } from 'async-mutex';
 
 export class NodeMap {
   private nodes: Map<string, AsyncNode>;
   private readonly chunkStoreFactory: (() => ChunkStore) | null;
-  private lock: Lock;
+  private mutex: Mutex;
 
   constructor(chunkStoreFactory: (() => ChunkStore) | null = null) {
     this.nodes = new Map();
@@ -16,11 +16,11 @@ export class NodeMap {
       chunkStoreFactory !== null
         ? chunkStoreFactory
         : () => new LocalChunkStore();
-    this.lock = new Lock();
+    this.mutex = new Mutex();
   }
 
   async getNode(id: string): Promise<AsyncNode> {
-    return await this.lock.acquireAndDo(async () => {
+    return await this.mutex.runExclusive(async () => {
       if (!this.nodes.has(id)) {
         this.nodes.set(id, new AsyncNode(id, this.chunkStoreFactory()));
       }

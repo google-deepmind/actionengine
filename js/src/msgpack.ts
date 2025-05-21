@@ -1,4 +1,19 @@
-import { decode, decodeMulti, encode } from '@msgpack/msgpack';
+import { Encoder, Decoder } from '@msgpack/msgpack';
+
+const encoder = new Encoder();
+const decoder = new Decoder();
+
+const encode = (value: unknown) => {
+  return encoder.encode(value);
+};
+
+const decode = (bytes: Uint8Array) => {
+  return decoder.decode(bytes);
+};
+
+const decodeMulti = (bytes: Uint8Array) => {
+  return decoder.decodeMulti(bytes);
+};
 
 export const encodeChunkMetadata = (metadata: ChunkMetadata) => {
   const encodedMimetype = encode(metadata.mimetype || '');
@@ -163,16 +178,6 @@ export const decodeActionMessage = (bytes: Uint8Array): ActionMessage => {
 };
 
 export const encodeSessionMessage = (message: SessionMessage) => {
-  if (message.actions && message.actions.length > 0) {
-    for (const action of message.actions) {
-      console.log('CALL:', JSON.stringify(action, null, 2));
-    }
-  }
-  if (message.nodeFragments && message.nodeFragments.length > 0) {
-    for (const fragment of message.nodeFragments) {
-      console.log('SEND:', JSON.stringify(fragment, null, 2));
-    }
-  }
   const packedNodeFragments = encode(
     (message.nodeFragments || []).map(encodeNodeFragment),
   );
@@ -196,17 +201,6 @@ export const decodeSessionMessage = (bytes: Uint8Array): SessionMessage => {
 
   const nodeFragments = packedNodeFragments.map(decodeNodeFragment);
   const actions = packedActions.map(decodeActionMessage);
-  const message = { nodeFragments, actions };
-  if (nodeFragments.length > 0) {
-    for (const fragment of nodeFragments) {
-      console.log('RECV:', JSON.stringify(fragment, null, 2));
-    }
-  }
-  if (actions.length > 0) {
-    for (const action of actions) {
-      console.log('RUN:', JSON.stringify(action, null, 2));
-    }
-  }
 
-  return message;
+  return { nodeFragments, actions };
 };

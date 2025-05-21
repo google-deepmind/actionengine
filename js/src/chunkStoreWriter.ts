@@ -57,7 +57,7 @@ export class ChunkStoreWriter {
     }
 
     this.ensureWriterLoop();
-    this.buffer.sendNowait({
+    await this.buffer.sendNowait({
       id: this.chunkStore.getId(),
       seq: writtenSeq,
       chunk,

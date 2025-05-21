@@ -41,7 +41,7 @@ export class ChunkStoreReader {
       this.prefetchLoop = this.runPrefetchLoop();
     }
 
-    if (this.buffer.isClosed()) {
+    if (await this.buffer.isClosed()) {
       return null;
     }
 
@@ -112,6 +112,6 @@ export class ChunkStoreReader {
       await this.buffer.send({ seq: nextSeqId, chunk: nextChunk });
       this.totalChunksRead++;
     }
-    this.buffer.close();
+    await this.buffer.close();
   }
 }
