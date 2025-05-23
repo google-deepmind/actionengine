@@ -1,9 +1,6 @@
 import asyncio
-import os
 
 import evergreen
-from evergreen.evergreen import serialisation
-from google import genai
 from google.genai import types
 from google.genai.types import (
     GenerateContentConfig,
@@ -11,25 +8,7 @@ from google.genai.types import (
     GoogleSearch,
 )
 
-API_KEY = os.environ.get("GEMINI_API_KEY")
-
-GLOBALLY_DUCT_TAPED_NODE_MAP: evergreen.NodeMap | None = None
-
-
-def get_gemini_client():
-    # if not hasattr(get_gemini_client, "_client"):
-    #     get_gemini_client._client = genai.client.AsyncClient(
-    #         genai.client.BaseApiClient(
-    #             api_key=API_KEY,
-    #         )
-    #     )
-    # return get_gemini_client._client
-
-    return genai.client.AsyncClient(
-        genai.client.BaseApiClient(
-            api_key=API_KEY,
-        )
-    )
+from .gemini import get_gemini_client
 
 
 async def create_plan(action: evergreen.Action):
@@ -39,9 +18,9 @@ async def create_plan(action: evergreen.Action):
 
     prompt = (
         f"You are about to do a research on the following topic: {topic}."
-        f"You may use tools such as Google "
-        "Search if you need. Do not do the research yet. Just think "
-        "about your plan and what you will do. Present your "
+        f"Do not do the research yet. Just think "
+        "about your plan and what you will do. You may use Google Search "
+        "to make a plan and later do research. Present your "
         "plan clearly step by step, numbering each step, so that they form an "
         "ordered list. Formulate each step as if it was an instruction to "
         "yourself. Do not explain anything yet. Just present your plan. "
@@ -50,12 +29,13 @@ async def create_plan(action: evergreen.Action):
         "that describes how you will synthesise and present the final result. "
         "Use no more than 5 steps. Make sure that the steps can be "
         "performed independently, because they will be performed by "
-        "different agents. "
+        "different agents. Reply in the same language as the input. "
     )
 
-    async for (
-        response
-    ) in await get_gemini_client().models.generate_content_stream(
+    api_key = await action.get_input("api_key").consume()
+    async for response in await get_gemini_client(
+        api_key
+    ).models.generate_content_stream(
         model="gemini-2.5-flash-preview-05-20",
         contents=prompt,
         config=GenerateContentConfig(
@@ -86,7 +66,10 @@ async def create_plan(action: evergreen.Action):
 
 CREATE_PLAN_SCHEMA = evergreen.ActionSchema(
     name="create_plan",
-    inputs=[("topic", "text/plain")],
+    inputs=[
+        ("api_key", "text/plain"),
+        ("topic", "text/plain"),
+    ],
     outputs=[("plan_items", "text/plain")],
 )
 
@@ -104,12 +87,15 @@ async def investigate_plan_item(action: evergreen.Action):
         "citations. Present your findings in a clear and concise manner, "
         "using bullet points. Make sure to include the sources you used. In the "
         "beginning of your report, concisely mention the brief you were given. "
+        "You may, and are encouraged to use Google Search to find relevant "
+        "information. Respond in the same language as the input. "
     )
 
+    api_key = await action.get_input("api_key").consume()
     response_parts = []
-    async for (
-        response
-    ) in await get_gemini_client().models.generate_content_stream(
+    async for response in await get_gemini_client(
+        api_key
+    ).models.generate_content_stream(
         model="gemini-2.5-flash-preview-05-20",
         contents=prompt,
         config=GenerateContentConfig(
@@ -133,6 +119,7 @@ async def investigate_plan_item(action: evergreen.Action):
 INVESTIGATE_PLAN_ITEM_SCHEMA = evergreen.ActionSchema(
     name="investigate_plan_item",
     inputs=[
+        ("api_key", "text/plain"),
         ("topic", "text/plain"),
         ("brief", "text/plain"),
     ],
@@ -147,23 +134,23 @@ async def synthesise_findings(action: evergreen.Action):
         report_id async for report_id in action.get_input("report_ids")
     ]
 
+    node_map = action.get_node_map()
     reports: list[str] = await asyncio.gather(
-        *(
-            GLOBALLY_DUCT_TAPED_NODE_MAP.get(report_id).consume()
-            for report_id in report_ids
-        )
+        *(node_map.get(report_id).consume() for report_id in report_ids)
     )
     print("All reports have been received.")
 
     prompt = (
-        f"You are about to synthesise the findings of a research on the "
-        f"following topic: {topic}. You have the following {len(reports)} "
+        f"You are asked to synthesise the findings of a research on the "
+        f"following topic: {topic}. Report in the same language. You have the "
+        f"following {len(reports)} intermediate "
         f"reports: {'\n\n'.join(reports)}\n\n NOW, {brief}"
     )
     response_parts = []
-    async for (
-        response
-    ) in await get_gemini_client().models.generate_content_stream(
+    api_key = await action.get_input("api_key").consume()
+    async for response in await get_gemini_client(
+        api_key
+    ).models.generate_content_stream(
         model="gemini-2.5-flash-preview-05-20",
         contents=prompt,
         config=GenerateContentConfig(
@@ -187,6 +174,7 @@ async def synthesise_findings(action: evergreen.Action):
 SYNTHESISE_FINDINGS_SCHEMA = evergreen.ActionSchema(
     name="synthesise_findings",
     inputs=[
+        ("api_key", "text/plain"),
         ("topic", "text/plain"),
         ("brief", "text/plain"),
         ("report_ids", "text/plain"),
@@ -195,21 +183,8 @@ SYNTHESISE_FINDINGS_SCHEMA = evergreen.ActionSchema(
 )
 
 
-def str_to_bytes(text: str) -> bytes:
-    return text.encode("utf-8")
-
-
-def bytes_to_str(data: bytes) -> str:
-    return data.decode("utf-8")
-
-
-def register_serialisers(
-    registry: serialisation.SerialiserRegistry | None = None,
-):
-    registry = registry or serialisation.get_global_serialiser_registry()
-
-    registry.register_serialiser(str_to_bytes, "text/plain", str)
-    registry.register_deserialiser(bytes_to_str, "text/plain", str)
+async def do_deep_research(action: evergreen.Action):
+    pass
 
 
 def make_action_registry():
@@ -230,70 +205,3 @@ def make_action_registry():
         synthesise_findings,
     )
     return registry
-
-
-async def main():
-    global GLOBALLY_DUCT_TAPED_NODE_MAP
-
-    action_registry = make_action_registry()
-    GLOBALLY_DUCT_TAPED_NODE_MAP = evergreen.NodeMap()
-    node_map = GLOBALLY_DUCT_TAPED_NODE_MAP
-
-    topic_prompt = input("Enter a topic to perform deep research on: ")
-
-    print("Making a plan.\n")
-    action = action_registry.make_action("create_plan", node_map=node_map)
-
-    _ = (
-        action.run()
-    )  # Keep a reference to the action object to keep the task alive
-
-    topic = action.get_input("topic")
-    await topic.put_and_finalize(topic_prompt)
-
-    plan_items = [item async for item in action.get_output("plan_items")]
-    research_briefs, synthesis_brief = plan_items[:-1], plan_items[-1]
-
-    print("Running independent investigations:\n")
-    research_actions = []
-    for idx, brief in enumerate(research_briefs):
-        print(f"Investigation {idx + 1}:\n{brief}\n")
-        action = action_registry.make_action(
-            "investigate_plan_item", node_map=node_map
-        )
-        _ = action.run()
-        await action.get_input("topic").put_and_finalize(topic_prompt)
-        await action.get_input("brief").put_and_finalize(brief)
-        research_actions.append(action)
-
-    print("Requesting final findings:\n")
-    synthesis_action = action_registry.make_action(
-        "synthesise_findings", node_map=node_map
-    )
-    _ = synthesis_action.run()
-    await synthesis_action.get_input("topic").put_and_finalize(topic_prompt)
-    await synthesis_action.get_input("brief").put_and_finalize(synthesis_brief)
-    try:
-        for action in research_actions:
-            report_id = action.get_output("report").get_id()
-            await synthesis_action.get_input("report_ids").put(report_id)
-    finally:
-        await synthesis_action.get_input("report_ids").finalize()
-
-    final_report = await synthesis_action.get_output("report").consume()
-    print(f"Final report:\n\n{final_report}")
-
-
-def sync_main():
-    register_serialisers()
-
-    settings = evergreen.get_global_eglt_settings()
-    settings.readers_deserialise_automatically = True
-    settings.readers_read_in_order = True
-    settings.readers_remove_read_chunks = True
-
-    asyncio.run(main())
-
-
-if __name__ == "__main__":
-    sync_main()
