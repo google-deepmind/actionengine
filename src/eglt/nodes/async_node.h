@@ -117,7 +117,6 @@ class AsyncNode {
     return ConvertTo<T>(*std::move(status_or_item));
   }
 
-  auto WaitForCompletion() -> absl::StatusOr<std::vector<Chunk>>;
   ChunkStoreReader& GetReader() ABSL_LOCKS_EXCLUDED(mutex_);
   auto GetReaderStatus() const -> absl::Status;
   [[nodiscard]] auto MakeReader(bool ordered = false,

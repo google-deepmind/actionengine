@@ -103,19 +103,6 @@ export class AsyncNode {
     return await this.put(chunk, seq, /*final=*/ true);
   }
 
-  async waitForCompletion(): Promise<Array<Chunk>> {
-    this.setReaderOptions(/*ordered=*/ true, /*removeChunks=*/ true);
-    const chunks: Array<Chunk> = [];
-    while (true) {
-      const chunk = await this.next();
-      if (chunk === null) {
-        break;
-      }
-      chunks.push(chunk);
-    }
-    return chunks;
-  }
-
   bindWriterStream(stream: EvergreenStream | null = null) {
     this.writerStream = stream;
   }

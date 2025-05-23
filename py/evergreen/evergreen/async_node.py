@@ -259,58 +259,6 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         """Returns the id of the node."""
         return super().get_id()  # pytype: disable=attribute-error
 
-    async def wait_for_completion(
-        self, deserialise: bool | None = None
-    ) -> list[Chunk]:
-        """Waits for the node to complete and returns all its chunks, including children's chunks.
-
-        Returned chunks will be in their sequence order, and groups of children's
-        chunks will be returned grouped by child, but the order of groups is not
-        guaranteed.
-
-        Args:
-          deserialise: Whether to deserialise the chunks.
-
-        Returns:
-          A list of node's chunks, including children's chunks.
-        """
-        chunks = await asyncio.to_thread(
-            self.wait_for_completion_sync, deserialise=False
-        )
-        if deserialise is None:
-            deserialise = self.deserialise
-
-        if deserialise:
-            tasks = [
-                asyncio.to_thread(deserialise_from_chunk, chunk)
-                for chunk in chunks
-            ]
-            return await asyncio.gather(*tasks)
-        return chunks
-
-    def wait_for_completion_sync(
-        self, deserialise: bool | None = None
-    ) -> list[Chunk]:
-        """Waits for the node to complete and returns all its chunks, including children's chunks.
-
-        Returned chunks will be in their sequence order, and groups of children's
-        chunks will be returned grouped by child, but the order of groups is not
-        guaranteed.
-
-        Args:
-          deserialise: Whether to deserialise the chunks.
-
-        Returns:
-          A list of node's chunks, including children's chunks.
-        """
-        deserialise = self.deserialise
-        chunks = (
-            super().wait_for_completion()
-        )  # pytype: disable=attribute-error
-        if deserialise:
-            return [deserialise_from_chunk(chunk) for chunk in chunks]
-        return chunks
-
     def set_reader_options(
         self,
         ordered: bool | None = None,

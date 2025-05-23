@@ -156,28 +156,6 @@ absl::Status AsyncNode::GetWriterStatus() const {
   return default_writer_->GetStatus();
 }
 
-absl::StatusOr<std::vector<Chunk>> AsyncNode::WaitForCompletion() {
-  SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
-  std::vector<Chunk> chunks;
-  const ChunkStoreReader& reader = GetReader();
-  while (true) {
-    std::optional<Chunk> next_chunk;
-    *this >> next_chunk;
-    if (absl::Status status = reader.GetStatus(); !status.ok()) {
-      return status;
-    }
-    if (!next_chunk.has_value()) {
-      break;
-    }
-    chunks.push_back(std::move(next_chunk.value()));
-  }
-
-  concurrency::MutexLock lock(&mutex_);
-  default_reader_ = nullptr;
-
-  return chunks;
-}
-
 ChunkStoreReader& AsyncNode::GetReader() ABSL_LOCKS_EXCLUDED(mutex_) {
   concurrency::MutexLock lock(&mutex_);
   return *EnsureReader();

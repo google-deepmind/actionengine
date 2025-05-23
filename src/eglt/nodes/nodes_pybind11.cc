@@ -20,8 +20,8 @@
 
 #include <pybind11/pybind11.h>
 
-#include "eglt/stores/chunk_store.h"
 #include "eglt/nodes/node_map.h"
+#include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_pybind11.h"
 #include "eglt/util/utils_pybind11.h"
 
@@ -70,8 +70,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<AsyncNode>& self, NodeFragment fragment,
              int seq_id = -1) {
             if (const absl::Status status =
-                  self->Put(std::move(fragment), seq_id);
-              !status.ok()) {
+                    self->Put(std::move(fragment), seq_id);
+                !status.ok()) {
               throw py::value_error(status.ToString());
             }
           },
@@ -82,8 +82,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<AsyncNode>& self, Chunk chunk,
              int seq_id = -1, bool final = false) {
             if (const absl::Status status =
-                  self->Put(std::move(chunk), seq_id, final);
-              !status.ok()) {
+                    self->Put(std::move(chunk), seq_id, final);
+                !status.ok()) {
               throw py::value_error(status.ToString());
             }
           },
@@ -97,16 +97,24 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>())
       .def("get_id",
            [](const std::shared_ptr<AsyncNode>& self) { return self->GetId(); })
-      .def("wait_for_completion", &AsyncNode::WaitForCompletion,
-           py::call_guard<py::gil_scoped_release>())
       .def(
           "raise_reader_error_if_any",
           [](const std::shared_ptr<AsyncNode>& self) {
             if (const absl::Status status = self->GetReaderStatus();
-              !status.ok()) {
+                !status.ok()) {
               throw std::runtime_error(status.ToString());
             }
           },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "make_reader",
+          [](const std::shared_ptr<AsyncNode>& self, bool ordered = false,
+             bool remove_chunks = false, int n_chunks_to_buffer = -1) {
+            return std::shared_ptr(
+                self->MakeReader(ordered, remove_chunks, n_chunks_to_buffer));
+          },
+          py::arg_v("ordered", false), py::arg_v("remove_chunks", false),
+          py::arg_v("n_chunks_to_buffer", -1),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "set_reader_options",
@@ -120,4 +128,4 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>());
 }
 
-} // namespace eglt::pybindings
+}  // namespace eglt::pybindings
