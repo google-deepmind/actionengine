@@ -22,9 +22,11 @@
 #ifndef EGLT_DATA_EG_STRUCTS_H_
 #define EGLT_DATA_EG_STRUCTS_H_
 
+#include <concepts>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "eglt/absl_headers.h"
@@ -315,6 +317,16 @@ using NodeFragment = base::NodeFragment;
 using Port = base::Port;
 using ActionMessage = base::ActionMessage;
 using SessionMessage = base::SessionMessage;
+
+template <typename T>
+concept ConvertibleToChunk = requires(T t) {
+  {eglt::ConvertTo<Chunk>(std::move(t))};
+};
+
+template <typename T>
+concept ConvertibleFromChunk = requires(Chunk chunk) {
+  {eglt::ConvertTo<T>(std::move(chunk))};
+};
 
 constexpr Chunk EndOfStream() {
   return Chunk{

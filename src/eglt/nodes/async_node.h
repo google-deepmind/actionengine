@@ -58,12 +58,12 @@ class AsyncNode {
 
   template <typename T>
   auto Put(T value, int seq_id = -1, bool final = false) -> absl::Status {
-    return Put(ConvertTo<Chunk>(std::move(value)), seq_id, final);
+    return Put(Serialize(std::move(value)), seq_id, final);
   }
 
   template <typename T>
   auto PutAndClose(T value, int seq_id = -1) -> absl::Status {
-    return Put(ConvertTo<Chunk>(std::move(value)), seq_id, /*final=*/true);
+    return Put(Serialize(std::move(value)), seq_id, /*final=*/true);
   }
 
   ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mutex_);
@@ -114,7 +114,7 @@ class AsyncNode {
       ABSL_ASSUME(false);
     }
 
-    return ConvertTo<T>(*std::move(status_or_item));
+    return *std::move(status_or_item);
   }
 
   ChunkStoreReader& GetReader() ABSL_LOCKS_EXCLUDED(mutex_);
@@ -185,7 +185,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
     value = std::nullopt;
     return node;
   }
-  value = ConvertTo<T>(*std::move(chunk));
+  value = DeserializeAs<T>(*std::move(chunk));
   return node;
 }
 
@@ -193,7 +193,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, T value) {
   node.EnsureWriter();
-  return node << ConvertTo<Chunk>(std::move(value));
+  return node << Serialize(std::move(value));
 }
 
 // -----------------------------------------------------------------------------

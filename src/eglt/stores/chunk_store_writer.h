@@ -65,7 +65,7 @@ class ChunkStoreWriter {
   template <typename T>
   absl::StatusOr<int> Put(T value, int seq = -1, bool final = false)
       ABSL_LOCKS_EXCLUDED(mutex_) {
-    return Put(ConvertTo<Chunk>(std::move(value)), seq, final);
+    return Put(Serialize(std::move(value)), seq, final);
   }
 
   absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mutex_) {
@@ -75,7 +75,7 @@ class ChunkStoreWriter {
 
   template <typename T>
   friend ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, T value) {
-    Chunk chunk = ConvertTo<Chunk>(std::move(value));
+    Chunk chunk = Serialize(std::move(value));
     const bool final = chunk.IsNull();
     writer.Put(std::move(chunk), -1, final).IgnoreError();
     return writer;

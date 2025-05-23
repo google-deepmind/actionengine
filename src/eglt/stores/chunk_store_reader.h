@@ -94,7 +94,7 @@ class ChunkStoreReader {
     if (!chunk || chunk->IsNull()) {
       return std::nullopt;
     }
-    return ConvertTo<T>(*std::move(chunk));
+    return DeserializeAs<T>(*std::move(chunk));
   }
 
   // definitions follow in the header for some well-known types.
