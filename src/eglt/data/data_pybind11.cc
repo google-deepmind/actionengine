@@ -192,8 +192,8 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
 
 /// @private
 py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
-  py::module_ data = scope.def_submodule(
-      std::string(module_name).c_str(), "Evergreen data structures, as PODs.");
+  py::module_ data = scope.def_submodule(std::string(module_name).c_str(),
+                                         "Evergreen data structures, as PODs.");
 
   BindChunkMetadata(data, "ChunkMetadata");
   BindChunk(data, "Chunk");
@@ -204,9 +204,27 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
   BindSerializerRegistry(data, "SerializerRegistry");
 
   data.def("get_global_serializer_registry",
-            []() -> std::shared_ptr<SerializerRegistry> {
-              return ShareWithNoDeleter(&GetGlobalSerializerRegistry());
-            });
+           []() -> std::shared_ptr<SerializerRegistry> {
+             return ShareWithNoDeleter(&GetGlobalSerializerRegistry());
+           });
+
+  data.def(
+      "to_bytes",
+      [](py::object obj, std::string_view mimetype = "",
+         SerializerRegistry* registry = nullptr) -> py::bytes {
+        return pybindings::PyToChunk(std::move(obj), mimetype, registry).data;
+      },
+      py::arg("obj"), py::arg_v("mimetype", ""),
+      py::arg_v("registry", nullptr));
+
+  data.def(
+      "to_chunk",
+      [](py::object obj, std::string_view mimetype = "",
+         SerializerRegistry* registry = nullptr) {
+        return pybindings::PyToChunk(std::move(obj), mimetype, registry);
+      },
+      py::arg("obj"), py::arg_v("mimetype", ""),
+      py::arg_v("registry", nullptr));
 
   return data;
 }

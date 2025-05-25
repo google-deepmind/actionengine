@@ -17,11 +17,11 @@ from evergreen import evergreen_pybind11
 
 
 def to_bytes(obj: Any, mimetype: str = "") -> bytes:
-    return evergreen_pybind11.to_bytes(obj, mimetype)
+    return evergreen_pybind11.data.to_bytes(obj, mimetype)
 
 
 def to_chunk(obj: Any, mimetype: str = "") -> data.Chunk:
-    return evergreen_pybind11.to_chunk(obj, mimetype)
+    return evergreen_pybind11.data.to_chunk(obj, mimetype)
 
 
 Action = actions.Action

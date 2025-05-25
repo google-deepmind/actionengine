@@ -44,24 +44,6 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
   py::module_ service = pybindings::MakeServiceModule(m, "service");
   py::module_ websockets = pybindings::MakeWebsocketsModule(m, "websockets");
 
-  m.def(
-      "to_bytes",
-      [](py::object obj, std::string_view mimetype = "",
-         SerializerRegistry* registry = nullptr) -> py::bytes {
-        return pybindings::PyToChunk(std::move(obj), mimetype, registry).data;
-      },
-      py::arg("obj"), py::arg_v("mimetype", ""),
-      py::arg_v("registry", nullptr));
-
-  m.def(
-      "to_chunk",
-      [](py::object obj, std::string_view mimetype = "",
-         SerializerRegistry* registry = nullptr) {
-        return pybindings::PyToChunk(std::move(obj), mimetype, registry);
-      },
-      py::arg("obj"), py::arg_v("mimetype", ""),
-      py::arg_v("registry", nullptr));
-
   m.def("say_hello",
         [](const std::string& name) { py::print("Hello, " + name); });
 }
