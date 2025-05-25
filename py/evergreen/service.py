@@ -5,12 +5,11 @@ import inspect
 from typing import Awaitable
 from typing import Callable
 
-from evergreen.evergreen import actions
-from evergreen.evergreen import session as eg_session
-from evergreen.evergreen import stream as eg_stream
-from evergreen.evergreen import utils
-from evergreen.evergreen_pybind11 import \
-    service as service_pybind11
+from evergreen import actions
+from evergreen import session as eg_session
+from evergreen import stream as eg_stream
+from evergreen import utils
+from evergreen.evergreen_pybind11 import service as service_pybind11
 
 ActionRegistry = actions.ActionRegistry
 EvergreenWireStream = eg_stream.EvergreenWireStream
@@ -41,13 +40,15 @@ class EvergreenWireStream(eg_stream.EvergreenWireStream):
         return self._stream_id
 
 
-AsyncConnectionHandler = Callable[[EvergreenWireStream, Session], Awaitable[None]]
+AsyncConnectionHandler = Callable[
+    [EvergreenWireStream, Session], Awaitable[None]
+]
 SyncConnectionHandler = Callable[[EvergreenWireStream, Session], None]
 ConnectionHandler = SyncConnectionHandler | AsyncConnectionHandler
 
 
 def wrap_async_handler(
-        handler: AsyncConnectionHandler,
+    handler: AsyncConnectionHandler,
 ) -> SyncConnectionHandler:
     """Wraps the given handler to run in the event loop."""
     loop = asyncio.get_running_loop()
@@ -88,9 +89,9 @@ class Service(service_pybind11.Service):
     """A Pythonic wrapper for the raw pybind11 Service bindings."""
 
     def __init__(
-            self,
-            action_registry: actions.ActionRegistry,
-            connection_handler: ConnectionHandler | None = None,
+        self,
+        action_registry: actions.ActionRegistry,
+        connection_handler: ConnectionHandler | None = None,
     ):
         super().__init__(action_registry, wrap_handler(connection_handler))
 
@@ -113,10 +114,10 @@ class StreamToSessionConnection(StreamToSessionConnection):
         )
 
     def make_action(
-            self,
-            registry: actions.ActionRegistry,
-            name: str,
-            action_id: str = "",
+        self,
+        registry: actions.ActionRegistry,
+        name: str,
+        action_id: str = "",
     ) -> actions.Action:
         """Creates an action."""
         session = self.get_session()

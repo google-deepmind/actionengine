@@ -1,7 +1,7 @@
 from typing import Any
 
 import umsgpack
-from evergreen.evergreen import data
+from evergreen import data
 
 ChunkMetadata = data.ChunkMetadata
 Chunk = data.Chunk

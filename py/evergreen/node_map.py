@@ -1,9 +1,9 @@
 """A Pythonic wrapper for the raw pybind11 NodeMap bindings."""
 
 import evergreen.evergreen_pybind11 as evergreen_pybind11
-from evergreen.evergreen import async_node
-from evergreen.evergreen import data
-from evergreen.evergreen import utils
+from evergreen import async_node
+from evergreen import data
+from evergreen import utils
 
 AsyncNode = async_node.AsyncNode
 ChunkStoreFactory = data.ChunkStoreFactory

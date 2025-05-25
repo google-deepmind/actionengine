@@ -1,4 +1,4 @@
-from evergreen.evergreen import data
+from evergreen import data
 
 
 def str_to_bytes(text: str) -> bytes:

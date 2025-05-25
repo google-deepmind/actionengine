@@ -2,8 +2,8 @@
 
 import asyncio
 
-from evergreen.evergreen import data
-from evergreen.evergreen import utils
+from evergreen import data
+from evergreen import utils
 from evergreen.evergreen_pybind11 import service as service_pybind11
 
 

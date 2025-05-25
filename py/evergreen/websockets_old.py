@@ -6,9 +6,9 @@ from typing import Any
 from typing import Awaitable
 from typing import Callable
 
-from evergreen.evergreen import service as eg_service
-from evergreen.evergreen import data
-from evergreen.evergreen import umsgpack_extensions
+from evergreen import service as eg_service
+from evergreen import data
+from evergreen import umsgpack_extensions
 
 import websockets
 

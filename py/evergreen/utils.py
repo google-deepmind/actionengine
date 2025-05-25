@@ -5,7 +5,7 @@ from typing import Any
 from typing import Coroutine
 from typing import TypeVar
 
-from evergreen.evergreen import data
+from evergreen import data
 
 T = TypeVar("T")
 Instance = TypeVar("Instance")

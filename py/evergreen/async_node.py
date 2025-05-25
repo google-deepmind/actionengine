@@ -7,9 +7,9 @@ from collections.abc import Awaitable
 from typing import Any
 
 import evergreen.evergreen_pybind11 as evergreen_pybind11
-from evergreen.evergreen import global_settings
-from evergreen.evergreen import data
-from evergreen.evergreen import utils
+from evergreen import global_settings
+from evergreen import data
+from evergreen import utils
 from evergreen.evergreen_pybind11 import chunk_store as chunk_store_pybind11
 
 Chunk = data.Chunk

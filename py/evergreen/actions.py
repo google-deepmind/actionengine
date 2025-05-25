@@ -6,10 +6,10 @@ from typing import Any
 from typing import Awaitable
 from typing import Callable
 
-from evergreen.evergreen import async_node
-from evergreen.evergreen import node_map as eg_node_map
-from evergreen.evergreen import data
-from evergreen.evergreen import utils
+from evergreen import async_node
+from evergreen import node_map as eg_node_map
+from evergreen import data
+from evergreen import utils
 from evergreen.evergreen_pybind11 import actions as actions_pybind11
 
 AsyncNode = async_node.AsyncNode
