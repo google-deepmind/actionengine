@@ -8,7 +8,6 @@ from typing import Any
 
 import evergreen.evergreen_pybind11 as evergreen_pybind11
 from evergreen.evergreen import global_settings
-from evergreen.evergreen import serialisation
 from evergreen.evergreen import data
 from evergreen.evergreen import utils
 from evergreen.evergreen_pybind11 import chunk_store as chunk_store_pybind11
@@ -20,9 +19,6 @@ ChunkStoreFactory = data.ChunkStoreFactory
 LocalChunkStore = chunk_store_pybind11.LocalChunkStore
 
 global_setting_if_none = global_settings.global_setting_if_none
-
-serialise_to_chunk = serialisation.serialise_to_chunk
-deserialise_from_chunk = serialisation.deserialise_from_chunk
 
 
 class AsyncNode(evergreen_pybind11.AsyncNode):
@@ -39,7 +35,7 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         node_id: str,
         chunk_store: chunk_store_pybind11.ChunkStore | None = None,
         node_map: "NodeMap | None" = None,
-        serialiser_registry: serialisation.SerialiserRegistry | None = None,
+        serializer_registry: data.SerializerRegistry | None = None,
     ):
         # pytype: enable=name-error
         """Constructor for AsyncNode.
@@ -61,26 +57,23 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         if chunk_store is None:
             chunk_store = LocalChunkStore()
 
-        self._deserialise_automatically_preference: bool | None = None
-        self._serialiser_registry = (
-            serialiser_registry
-            or serialisation.get_global_serialiser_registry()
+        self._deserialize_automatically_preference: bool | None = None
+        self._serializer_registry = (
+            serializer_registry or data.get_global_serializer_registry()
         )
         super().__init__(node_id, chunk_store, node_map)
         self.set_reader_options()
 
     def _add_python_specific_attributes(self):
         """Adds Python-specific attributes to the node."""
-        self._deserialise_automatically_preference: bool | None = None
-        self._serialiser_registry = (
-            serialisation.get_global_serialiser_registry()
-        )
+        self._deserialize_automatically_preference: bool | None = None
+        self._serializer_registry = data.get_global_serializer_registry()
 
     @property
-    def deserialise(self) -> bool:
-        """Returns whether the node deserialises objects automatically."""
+    def deserialize(self) -> bool:
+        """Returns whether the node deserializes objects automatically."""
         return global_setting_if_none(
-            self._deserialise_automatically_preference,
+            self._deserialize_automatically_preference,
             "readers_deserialise_automatically",
         )
 
@@ -106,13 +99,13 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
             return self._consume_sync()
 
     async def next(self):
-        if self.deserialise:
+        if self.deserialize:
             return await self.next_object()
         else:
             return await self.next_chunk()
 
     def next_sync(self):
-        if self.deserialise:
+        if self.deserialize:
             return self.next_object_sync()
         else:
             return self.next_chunk_sync()
@@ -126,7 +119,11 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         chunk = self.next_chunk_sync()
         if chunk is None:
             return None
-        return deserialise_from_chunk(chunk)
+        return data.from_chunk(
+            chunk,
+            mimetype=chunk.metadata.mimetype,
+            registry=self._serializer_registry,
+        )
 
     async def next_chunk(self) -> Chunk | None:
         return await asyncio.to_thread(self.next_chunk_sync)
@@ -196,6 +193,7 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
             super().put_chunk(
                 chunk, seq_id, final
             )  # pytype: disable=attribute-error
+            return None
 
     def put_and_finalize(
         self,
@@ -228,7 +226,11 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
                 )
             return self.put_fragment(obj, seq_id)
 
-        chunk = serialise_to_chunk(obj, mimetype)
+        chunk = data.to_chunk(
+            obj,
+            mimetype=mimetype or "",
+            registry=self._serializer_registry,
+        )
         return self.put_chunk(chunk, seq_id, final)
 
     def put_text(
@@ -293,13 +295,13 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
             self.finalize()
 
     @contextlib.contextmanager
-    def deserialise_automatically(self):
+    def deserialize_automatically(self):
         """Returns the node which automatically deserialises objects."""
-        self._deserialise_automatically = True
+        self._deserialize_automatically = True
         try:
             yield self
         finally:
-            self._deserialise_automatically = None
+            self._deserialize_automatically = None
 
     def __aiter__(self):
         return self
@@ -318,8 +320,13 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         if chunk is None:
             raise StopAsyncIteration()
 
-        if self.deserialise:
-            return await asyncio.to_thread(deserialise_from_chunk, chunk)
+        if self.deserialize:
+            return await asyncio.to_thread(
+                data.from_chunk,
+                chunk,
+                "",
+                self._serializer_registry,
+            )
 
         return chunk
 
@@ -331,7 +338,11 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         if chunk is None:
             raise StopIteration()
 
-        if self.deserialise:
-            return deserialise_from_chunk(chunk)
+        if self.deserialize:
+            return data.from_chunk(
+                chunk,
+                mimetype=chunk.metadata.mimetype,
+                registry=self._serializer_registry,
+            )
 
         return chunk

@@ -1,33 +1,33 @@
-from evergreen import serialisation
+from evergreen import data
 
 BOOL_MIMETYPE = "x-eglt;bool"
 BYTEARRAY_MIMETYPE = "x-eglt;bytearray"
 
 
 def bool_to_bytes(value: bool) -> bytes:
-  return bytes([1 if value else 0])
+    return bytes([1 if value else 0])
 
 
 def bytes_to_bool(data: bytes) -> bool:
-  if len(data) != 1:
-    raise ValueError("Invalid length for boolean deserialisation")
-  return bool(data[0])
+    if len(data) != 1:
+        raise ValueError("Invalid length for boolean deserialisation")
+    return bool(data[0])
 
 
 def bytearray_to_bytes(arr: bytearray) -> bytes:
-  return bytes(arr)
+    return bytes(arr)
 
 
 def bytes_to_bytearray(data: bytes) -> bytearray:
-  return bytearray(data)
+    return bytearray(data)
 
 
 def str_to_bytes(text: str) -> bytes:
-  return text.encode("utf-8")
+    return text.encode("utf-8")
 
 
 def bytes_to_str(data: bytes) -> str:
-  return data.decode("utf-8")
+    return data.decode("utf-8")
 
 
 _SERIALIZERS = {
@@ -44,12 +44,12 @@ _DESERIALIZERS = {
 
 
 def register_stt_serialisers(
-    registry: serialisation.SerialiserRegistry | None = None,
+    registry: data.SerializerRegistry | None = None,
 ):
-  registry = registry or serialisation.get_global_serialiser_registry()
+    registry = registry or data.get_global_serializer_registry()
 
-  for (python_type, mimetype), serialiser in _SERIALIZERS.items():
-    registry.register_serialiser(serialiser, mimetype, python_type)
+    for (python_type, mimetype), serialiser in _SERIALIZERS.items():
+        registry.register_serializer(mimetype, serialiser, python_type)
 
-  for (python_type, mimetype), deserialiser in _DESERIALIZERS.items():
-    registry.register_deserialiser(deserialiser, mimetype, python_type)
+    for (python_type, mimetype), deserialiser in _DESERIALIZERS.items():
+        registry.register_deserializer(mimetype, deserialiser, python_type)

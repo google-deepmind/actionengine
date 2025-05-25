@@ -1,4 +1,4 @@
-from evergreen.evergreen import serialisation
+from evergreen.evergreen import data
 
 
 def str_to_bytes(text: str) -> bytes:
@@ -10,9 +10,9 @@ def bytes_to_str(data: bytes) -> str:
 
 
 def register_serialisers(
-    registry: serialisation.SerialiserRegistry | None = None,
+    registry: data.SerializerRegistry | None = None,
 ):
-    registry = registry or serialisation.get_global_serialiser_registry()
+    registry = registry or data.get_global_serializer_registry()
 
-    registry.register_serialiser(str_to_bytes, "text/plain", str)
-    registry.register_deserialiser(bytes_to_str, "text/plain", str)
+    registry.register_serializer("text/plain", str_to_bytes, str)
+    registry.register_deserializer("text/plain", bytes_to_str, str)

@@ -30,12 +30,6 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
 
   py::module_ data = pybindings::MakeDataModule(m, "data");
 
-  auto& mimetype_associations = pybindings::GetGlobalMimetypeAssociations();
-  mimetype_associations[py::str().get_type()] = "text/plain";
-  mimetype_associations[py::bytes().get_type()] = "application/octet-stream";
-
-  m.attr("MIMETYPE_ASSOCIATIONS") = mimetype_associations;
-
   py::module_ chunk_store = pybindings::MakeChunkStoreModule(m, "chunk_store");
   pybindings::BindNodeMap(m, "NodeMap");
   pybindings::BindAsyncNode(m, "AsyncNode");
@@ -43,9 +37,6 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
   py::module_ actions = pybindings::MakeActionsModule(m, "actions");
   py::module_ service = pybindings::MakeServiceModule(m, "service");
   py::module_ websockets = pybindings::MakeWebsocketsModule(m, "websockets");
-
-  m.def("say_hello",
-        [](const std::string& name) { py::print("Hello, " + name); });
 }
 
 }  // namespace eglt

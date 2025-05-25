@@ -119,11 +119,18 @@ class SerializerRegistry {
     return mime_deserializers_.contains(mimetype);
   }
 
+  [[nodiscard]] void* GetUserData() const { return user_data_.get(); }
+  void SetUserData(std::shared_ptr<void> user_data) {
+    user_data_ = std::move(user_data);
+  }
+
  protected:
   absl::flat_hash_map<std::string, absl::InlinedVector<Serializer, 2>>
       mime_serializers_;
   absl::flat_hash_map<std::string, absl::InlinedVector<Deserializer, 2>>
       mime_deserializers_;
+  std::shared_ptr<void> user_data_ =
+      nullptr;  // Optional user data for custom use.
 };
 
 static inline absl::once_flag kInitSerializerRegistryFlag;
@@ -139,6 +146,10 @@ static void InitSerializerRegistryWithDefaults(SerializerRegistry* registry) {
         return absl::InvalidArgumentError(
             "Cannot serialize value to text/plain: not a string.");
       });
+  registry->RegisterDeserializer("text/plain",
+                                 [](Bytes data) -> absl::StatusOr<std::any> {
+                                   return std::any(std::move(data));
+                                 });
   registry->RegisterSerializer(
       "application/octet-stream", [](std::any value) -> absl::StatusOr<Bytes> {
         if (const auto bytes = std::any_cast<Bytes>(&value); bytes != nullptr) {
@@ -222,13 +233,24 @@ absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},
   return resolved_registry->DeserializeAs<T>(std::move(chunk), mimetype);
 }
 
+inline absl::StatusOr<std::any> FromChunk(
+    Chunk chunk, std::string_view mimetype = {},
+    const SerializerRegistry* const registry = nullptr) {
+  const SerializerRegistry* resolved_registry =
+      registry ? registry : GetGlobalSerializerRegistryPtr();
+
+  return resolved_registry->Deserialize(
+      std::move(chunk).data,
+      !mimetype.empty() ? mimetype : chunk.metadata.mimetype);
+}
+
 template <typename T>
 absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},
                               SerializerRegistry* const registry = nullptr)
     requires(!ConvertibleFromChunk<T>) {
   if (mimetype.empty()) {
     return absl::FailedPreconditionError(
-        "Deserialize(chunk, mimetype) was called with an empty mimetype, "
+        "FromChunkAs(chunk, mimetype) was called with an empty mimetype, "
         "and chunk's type is not a candidate for ADL-based conversion.");
   }
 
