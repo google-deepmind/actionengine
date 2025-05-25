@@ -12,7 +12,6 @@ from evergreen import pydantic_helpers
 from evergreen import umsgpack_extensions
 from evergreen import utils
 from evergreen import websockets
-from evergreen import websockets_old
 from evergreen import evergreen_pybind11
 
 
