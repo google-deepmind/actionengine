@@ -63,7 +63,19 @@ async def main():
     print(f"Final report:\n\n{final_report}")
 
 
+def test_serialiser(text: str) -> bytes:
+    """A simple test serialiser that converts text to bytes."""
+    print("py test_serialiser called")
+    return text.encode("utf-8")
+
+
 def sync_main():
+    registry = evergreen.data.get_global_serializer_registry()
+    registry.register_serializer("text/plain", test_serialiser)
+    print(evergreen.data.get_global_serializer_registry())
+    print(evergreen.to_chunk("hello"))
+    print(evergreen.to_chunk("hello", "application/octet-stream"))
+    print(evergreen.to_bytes("hello"))
     register_serialisers()
 
     settings = evergreen.get_global_eglt_settings()

@@ -320,12 +320,16 @@ using SessionMessage = base::SessionMessage;
 
 template <typename T>
 concept ConvertibleToChunk = requires(T t) {
-  {eglt::ConvertTo<Chunk>(std::move(t))};
+  {
+    EgltAssignInto(std::move(t), std::declval<Chunk*>())
+  } -> std::same_as<absl::Status>;
 };
 
 template <typename T>
 concept ConvertibleFromChunk = requires(Chunk chunk) {
-  {eglt::ConvertTo<T>(std::move(chunk))};
+  {
+    EgltAssignInto(std::move(chunk), std::declval<T*>())
+  } -> std::same_as<absl::Status>;
 };
 
 constexpr Chunk EndOfStream() {

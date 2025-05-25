@@ -1,33 +1,30 @@
 from typing import Any
 
 import umsgpack
-from evergreen.evergreen import types
+from evergreen.evergreen import data
 
-ChunkMetadata = types.ChunkMetadata
-Chunk = types.Chunk
-NodeFragment = types.NodeFragment
-Port = types.Port
-ActionMessage = types.ActionMessage
-SessionMessage = types.SessionMessage
+ChunkMetadata = data.ChunkMetadata
+Chunk = data.Chunk
+NodeFragment = data.NodeFragment
+Port = data.Port
+ActionMessage = data.ActionMessage
+SessionMessage = data.SessionMessage
 
 WellKnownType = (
-        ChunkMetadata
-        | Chunk
-        | NodeFragment
-        | Port
-        | ActionMessage
-        | SessionMessage
+    ChunkMetadata | Chunk | NodeFragment | Port | ActionMessage | SessionMessage
 )
 
 
 def encode_chunk_metadata(metadata: ChunkMetadata):
-    return umsgpack.packb([
-        metadata.mimetype,
-        metadata.role,
-        metadata.channel,
-        metadata.environment,
-        metadata.original_file_name,
-    ])
+    return umsgpack.packb(
+        [
+            metadata.mimetype,
+            metadata.role,
+            metadata.channel,
+            metadata.environment,
+            metadata.original_file_name,
+        ]
+    )
 
 
 def encode_chunk(chunk: Chunk | None):
@@ -39,13 +36,15 @@ def encode_chunk(chunk: Chunk | None):
 
 
 def encode_node_fragment(node_fragment: NodeFragment):
-    return umsgpack.packb([
-        node_fragment.id,
-        encode_chunk(node_fragment.chunk),
-        node_fragment.seq,
-        node_fragment.continued,
-        node_fragment.child_ids,
-    ])
+    return umsgpack.packb(
+        [
+            node_fragment.id,
+            encode_chunk(node_fragment.chunk),
+            node_fragment.seq,
+            node_fragment.continued,
+            node_fragment.child_ids,
+        ]
+    )
 
 
 def encode_port(port: Port):
@@ -53,18 +52,22 @@ def encode_port(port: Port):
 
 
 def encode_action_message(action_message: ActionMessage):
-    return umsgpack.packb([
-        action_message.name,
-        [encode_port(np) for np in action_message.inputs],
-        [encode_port(np) for np in action_message.outputs],
-    ])
+    return umsgpack.packb(
+        [
+            action_message.name,
+            [encode_port(np) for np in action_message.inputs],
+            [encode_port(np) for np in action_message.outputs],
+        ]
+    )
 
 
 def encode_session_message(session_message: SessionMessage):
-    return umsgpack.packb([
-        [encode_node_fragment(nf) for nf in session_message.node_fragments],
-        [encode_action_message(am) for am in session_message.actions],
-    ])
+    return umsgpack.packb(
+        [
+            [encode_node_fragment(nf) for nf in session_message.node_fragments],
+            [encode_action_message(am) for am in session_message.actions],
+        ]
+    )
 
 
 def decode_chunk_metadata(data):

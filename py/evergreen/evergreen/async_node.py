@@ -9,14 +9,14 @@ from typing import Any
 import evergreen.evergreen_pybind11 as evergreen_pybind11
 from evergreen.evergreen import global_settings
 from evergreen.evergreen import serialisation
-from evergreen.evergreen import types
+from evergreen.evergreen import data
 from evergreen.evergreen import utils
 from evergreen.evergreen_pybind11 import chunk_store as chunk_store_pybind11
 
-Chunk = types.Chunk
-ChunkMetadata = types.ChunkMetadata
-NodeFragment = types.NodeFragment
-ChunkStoreFactory = types.ChunkStoreFactory
+Chunk = data.Chunk
+ChunkMetadata = data.ChunkMetadata
+NodeFragment = data.NodeFragment
+ChunkStoreFactory = data.ChunkStoreFactory
 LocalChunkStore = chunk_store_pybind11.LocalChunkStore
 
 global_setting_if_none = global_settings.global_setting_if_none

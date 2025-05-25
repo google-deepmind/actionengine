@@ -15,24 +15,27 @@
 #include <string>
 
 #include "eglt/actions/actions_pybind11.h"
-#include "eglt/stores/chunk_store_pybind11.h"
+#include "eglt/data/data_pybind11.h"
 #include "eglt/nodes/nodes_pybind11.h"
 #include "eglt/pybind11_headers.h"
-#include "eglt/service/service_pybind11.h"
-#include "eglt/data/types_pybind11.h"
 #include "eglt/sdk/serving/websockets_pybind11.h"
+#include "eglt/service/service_pybind11.h"
+#include "eglt/stores/chunk_store_pybind11.h"
 
 namespace eglt {
 
-namespace py = ::pybind11;
-
 /// @private
 PYBIND11_MODULE(evergreen_pybind11, m) {
-  // pybind11::google::ImportStatusModule();
-  // pybind11_protobuf::ImportNativeProtoCasters();
   absl::InstallFailureSignalHandler({});
 
-  py::module_ types = pybindings::MakeTypesModule(m, "types");
+  py::module_ data = pybindings::MakeDataModule(m, "data");
+
+  auto& mimetype_associations = pybindings::GetGlobalMimetypeAssociations();
+  mimetype_associations[py::str().get_type()] = "text/plain";
+  mimetype_associations[py::bytes().get_type()] = "application/octet-stream";
+
+  m.attr("MIMETYPE_ASSOCIATIONS") = mimetype_associations;
+
   py::module_ chunk_store = pybindings::MakeChunkStoreModule(m, "chunk_store");
   pybindings::BindNodeMap(m, "NodeMap");
   pybindings::BindAsyncNode(m, "AsyncNode");
@@ -41,8 +44,26 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
   py::module_ service = pybindings::MakeServiceModule(m, "service");
   py::module_ websockets = pybindings::MakeWebsocketsModule(m, "websockets");
 
+  m.def(
+      "to_bytes",
+      [](py::object obj, std::string_view mimetype = "",
+         SerializerRegistry* registry = nullptr) -> py::bytes {
+        return pybindings::PyToChunk(std::move(obj), mimetype, registry).data;
+      },
+      py::arg("obj"), py::arg_v("mimetype", ""),
+      py::arg_v("registry", nullptr));
+
+  m.def(
+      "to_chunk",
+      [](py::object obj, std::string_view mimetype = "",
+         SerializerRegistry* registry = nullptr) {
+        return pybindings::PyToChunk(std::move(obj), mimetype, registry);
+      },
+      py::arg("obj"), py::arg_v("mimetype", ""),
+      py::arg_v("registry", nullptr));
+
   m.def("say_hello",
         [](const std::string& name) { py::print("Hello, " + name); });
 }
 
-} // namespace eglt
+}  // namespace eglt

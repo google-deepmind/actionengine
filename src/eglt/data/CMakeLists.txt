@@ -36,11 +36,11 @@ add_library(
 )
 target_sources(
         egltDataPybind11 PRIVATE
-        types_pybind11.cc
+        data_pybind11.cc
 )
 target_sources(
         egltDataPybind11 PUBLIC
-        types_pybind11.h
+        data_pybind11.h
 )
 target_link_libraries(
         egltDataPybind11 PRIVATE

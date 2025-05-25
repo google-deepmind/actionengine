@@ -44,9 +44,13 @@ export class EvergreenStream {
       });
     };
 
-    this.socket.onmessage = async (event) => {
-      const array = new Uint8Array(await event.data.arrayBuffer());
-      await this.channel.send(decodeSessionMessage(array));
+    this.socket.onmessage = (event) => {
+      event.data.arrayBuffer().then((buffer) => {
+        const array = new Uint8Array(buffer);
+        this.channel.send(decodeSessionMessage(array));
+      });
+      // const array = new Uint8Array(await event.data.arrayBuffer());
+      // await this.channel.send(decodeSessionMessage(array));
     };
   }
 
@@ -62,7 +66,18 @@ export class EvergreenStream {
         throw new Error('Stream has been closed.');
       }
     });
-    return await this.channel.receive();
+    const message = await this.channel.receive();
+    if (message.actions) {
+      for (const action of message.actions) {
+        console.log('dispatch action:', action);
+      }
+    }
+    if (message.nodeFragments) {
+      for (const fragment of message.nodeFragments) {
+        console.log('recv node fragment:', fragment);
+      }
+    }
+    return message;
   }
 
   async send(message: SessionMessage) {
@@ -77,6 +92,18 @@ export class EvergreenStream {
         throw new Error('Stream has been closed.');
       }
     });
+
+    if (message.actions) {
+      for (const action of message.actions) {
+        console.log('call action:', action);
+      }
+    }
+
+    if (message.nodeFragments) {
+      for (const fragment of message.nodeFragments) {
+        console.log('send node fragment:', fragment);
+      }
+    }
 
     this.socket.send(encodeSessionMessage(message));
   }

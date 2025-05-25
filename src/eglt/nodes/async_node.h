@@ -29,6 +29,7 @@
 #include "eglt/net/stream.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_io.h"
+#include "eglt/util/global_settings.h"
 
 namespace eglt {
 
@@ -58,12 +59,12 @@ class AsyncNode {
 
   template <typename T>
   auto Put(T value, int seq_id = -1, bool final = false) -> absl::Status {
-    return Put(Serialize(std::move(value)), seq_id, final);
+    return Put(ToChunk(std::move(value)), seq_id, final);
   }
 
   template <typename T>
   auto PutAndClose(T value, int seq_id = -1) -> absl::Status {
-    return Put(Serialize(std::move(value)), seq_id, /*final=*/true);
+    return Put(ToChunk(std::move(value)), seq_id, /*final=*/true);
   }
 
   ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mutex_);
@@ -185,7 +186,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
     value = std::nullopt;
     return node;
   }
-  value = DeserializeAs<T>(*std::move(chunk));
+  value = FromChunkAs<T>(*std::move(chunk));
   return node;
 }
 
@@ -193,7 +194,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, T value) {
   node.EnsureWriter();
-  return node << Serialize(std::move(value));
+  return node << ToChunk(std::move(value));
 }
 
 // -----------------------------------------------------------------------------

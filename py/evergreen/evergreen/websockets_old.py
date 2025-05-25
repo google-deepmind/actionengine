@@ -7,7 +7,7 @@ from typing import Awaitable
 from typing import Callable
 
 from evergreen.evergreen import service as eg_service
-from evergreen.evergreen import types
+from evergreen.evergreen import data
 from evergreen.evergreen import umsgpack_extensions
 
 import websockets
@@ -15,7 +15,7 @@ import websockets
 encode_well_known = umsgpack_extensions.encode_well_known
 decode_well_known = umsgpack_extensions.decode_well_known
 
-SessionMessage = types.SessionMessage
+SessionMessage = data.SessionMessage
 
 WebsocketHandler = Callable[
     [websockets.WebSocketCommonProtocol], Awaitable[Any]
@@ -61,10 +61,10 @@ class WebsocketEvergreenServer:
     async def run(self, address: str = "::", port: int = 20000, **kwargs):
         """Serves the Evergreen service on the given port."""
         async with websockets.serve(
-                self._ws_handler,
-                address,
-                port,
-                max_size=kwargs.pop("max_size", 20 * 2 ** 20),
-                **kwargs,
+            self._ws_handler,
+            address,
+            port,
+            max_size=kwargs.pop("max_size", 20 * 2**20),
+            **kwargs,
         ) as server:
             await server.serve_forever()

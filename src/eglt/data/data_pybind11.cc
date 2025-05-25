@@ -12,16 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/data/types_pybind11.h"
+#include "eglt/data/data_pybind11.h"
 
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "eglt/data/eg_structs.h"
+#include "eglt/data/serialization.h"
 #include "eglt/pybind11_headers.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
+
+auto PySerializerToCppSerializer(py::function py_serializer) -> Serializer {
+  return [py_serializer = std::move(py_serializer)](
+             std::any value) -> absl::StatusOr<py::bytes> {
+    if (std::any_cast<py::object>(&value) == nullptr) {
+      return absl::InvalidArgumentError(
+          "Value must be a py::object to serialize with a Python function.");
+    }
+    return py::cast<py::bytes>(py_serializer(std::any_cast<py::object>(value)));
+  };
+}
+
+auto PyDeserializerToCppDeserializer(py::function py_deserializer)
+    -> Deserializer {
+  return [py_deserializer = std::move(py_deserializer)](
+             const py::bytes& data) -> absl::StatusOr<std::any> {
+    py::object result = py_deserializer(data);
+    if (result.is_none()) {
+      return absl::InvalidArgumentError("Deserialization returned None.");
+    }
+    return std::any(std::move(result));
+  };
+}
 
 /// @private
 void BindChunkMetadata(py::handle scope, std::string_view name) {
@@ -97,9 +122,7 @@ void BindPort(py::handle scope, std::string_view name) {
       .def_readwrite("name", &Port::name)
       .def_readwrite("id", &Port::id)
       .def("__repr__",
-           [](const Port& parameter) {
-             return absl::StrCat(parameter);
-           })
+           [](const Port& parameter) { return absl::StrCat(parameter); })
       .doc() = "An Evergreen Port for an Action.";
 }
 
@@ -107,8 +130,7 @@ void BindPort(py::handle scope, std::string_view name) {
 void BindActionMessage(py::handle scope, std::string_view name) {
   py::class_<ActionMessage>(scope, std::string(name).c_str())
       .def(py::init<>())
-      .def(py::init([](std::string_view action_name,
-                       std::vector<Port> inputs,
+      .def(py::init([](std::string_view action_name, std::vector<Port> inputs,
                        std::vector<Port> outputs) {
              return ActionMessage{.name = std::string(action_name),
                                   .inputs = std::move(inputs),
@@ -144,19 +166,49 @@ void BindSessionMessage(py::handle scope, std::string_view name) {
       .doc() = "An Evergreen SessionMessage data structure.";
 }
 
+void BindSerializerRegistry(py::handle scope, std::string_view name) {
+  py::class_<SerializerRegistry, std::shared_ptr<SerializerRegistry>>(
+      scope, std::string(name).c_str())
+      .def(MakeSameObjectRefConstructor<SerializerRegistry>())
+      .def(py::init([]() { return std::make_shared<SerializerRegistry>(); }))
+      // .def(
+      //     "serialize",
+      //     [](const std::shared_ptr<SerializerRegistry>& self, py::object value,
+      //        std::string_view mimetype) -> py::bytes {
+      //       return registry.Serialize(std::move(value), mimetype);
+      //     },
+      //     py::arg("value"), py::arg("mimetype"))
+      .def(
+          "register_serializer",
+          [](const std::shared_ptr<SerializerRegistry>& self,
+             std::string_view mimetype, py::function serializer) {
+            self->RegisterSerializer(
+                std::string(mimetype),
+                PySerializerToCppSerializer(std::move(serializer)));
+          },
+          py::arg("mimetype"), py::arg("serializer"))
+      .doc() = "A registry for serialization functions.";
+}
+
 /// @private
-py::module_ MakeTypesModule(py::module_ scope, std::string_view module_name) {
-  py::module_ types = scope.def_submodule(
+py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
+  py::module_ data = scope.def_submodule(
       std::string(module_name).c_str(), "Evergreen data structures, as PODs.");
 
-  BindChunkMetadata(types, "ChunkMetadata");
-  BindChunk(types, "Chunk");
-  BindNodeFragment(types, "NodeFragment");
-  BindPort(types, "Port");
-  BindActionMessage(types, "ActionMessage");
-  BindSessionMessage(types, "SessionMessage");
+  BindChunkMetadata(data, "ChunkMetadata");
+  BindChunk(data, "Chunk");
+  BindNodeFragment(data, "NodeFragment");
+  BindPort(data, "Port");
+  BindActionMessage(data, "ActionMessage");
+  BindSessionMessage(data, "SessionMessage");
+  BindSerializerRegistry(data, "SerializerRegistry");
 
-  return types;
+  data.def("get_global_serializer_registry",
+            []() -> std::shared_ptr<SerializerRegistry> {
+              return ShareWithNoDeleter(&GetGlobalSerializerRegistry());
+            });
+
+  return data;
 }
 
 }  // namespace eglt::pybindings
