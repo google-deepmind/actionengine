@@ -249,8 +249,14 @@ inline Chunk PyToChunk(py::handle obj, std::string_view mimetype = "",
   if (mimetype_str.empty()) {
     const auto* data = static_cast<py::tuple*>(registry->GetUserData());
     const auto type_to_mimetype = (*data)[1].cast<py::dict>();
-    mimetype_str =
-        type_to_mimetype.attr("get")(obj.get_type(), "").cast<std::string>();
+    const auto mro = obj.get_type().attr("__mro__");
+    for (const auto& type : mro) {
+      mimetype_str =
+          type_to_mimetype.attr("get")(type, py::str()).cast<std::string>();
+      if (!mimetype_str.empty()) {
+        break;  // Found a matching mimetype.
+      }
+    }
   }
 
   if (mimetype_str.empty()) {

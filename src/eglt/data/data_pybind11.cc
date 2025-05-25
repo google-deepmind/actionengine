@@ -195,9 +195,15 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
          std::string_view mimetype) -> py::bytes {
         auto mimetype_str = std::string(mimetype);
         if (mimetype_str.empty()) {
-          mimetype_str = GetTypeToMimetypeDict(self.get())
-                             .attr("get")(value.get_type(), "")
-                             .cast<std::string>();
+          auto type_to_mimetype = GetTypeToMimetypeDict(self.get());
+          auto mro = value.get_type().attr("__mro__");
+          for (const auto& type : mro) {
+            auto mtype = type_to_mimetype.attr("get")(type, py::none());
+            if (!mtype.is_none()) {
+              mimetype_str = mtype.cast<std::string>();
+              break;
+            }
+          }
         }
         absl::StatusOr<Bytes> serialized;
         {
@@ -301,12 +307,10 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
   BindSessionMessage(data, "SessionMessage");
   BindSerializerRegistry(data, "SerializerRegistry");
 
-  data.def("get_global_serializer_registry",
-           []() -> std::shared_ptr<SerializerRegistry> {
-             return ShareWithNoDeleter(&GetGlobalSerializerRegistry());
-           });
+  data.def("get_global_serializer_registry", []() {
+    return ShareWithNoDeleter(GetGlobalSerializerRegistryPtr());
+  });
 
-  // TODO: release GIL here, but that requires taking handles, not objects.
   data.def(
       "to_bytes",
       [](py::handle obj, std::string_view mimetype = "",

@@ -8,6 +8,7 @@ from evergreen.evergreen import service as eg_service
 from evergreen.evergreen import session as eg_session
 from evergreen.evergreen import stream as eg_stream
 from evergreen.evergreen import data
+from evergreen.evergreen import pydantic_helpers
 from evergreen.evergreen import umsgpack_extensions
 from evergreen.evergreen import utils
 from evergreen.evergreen import websockets
