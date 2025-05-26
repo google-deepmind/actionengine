@@ -12,4 +12,10 @@ export {
 export { Session } from './src/session.js';
 export * from './src/msgpack.js';
 export { EvergreenStream } from './src/stream.js';
-export { CondVar, Channel, Deque } from './src/utils.js';
+export {
+  CondVar,
+  Channel,
+  Deque,
+  makeBlobFromChunk,
+  makeChunkFromBlob,
+} from './src/utils.js';

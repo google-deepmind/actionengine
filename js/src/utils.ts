@@ -214,3 +214,12 @@ export class Channel<ValueType> {
     });
   }
 }
+
+export const makeBlobFromChunk = (chunk: Chunk): Blob => {
+  return new Blob([chunk.data], { type: chunk.metadata.mimetype });
+};
+
+export const makeChunkFromBlob = async (blob: Blob): Promise<Chunk> => {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return { metadata: { mimetype: blob.type }, data: bytes };
+};

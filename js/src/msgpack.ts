@@ -59,6 +59,19 @@ export const encodeChunk = (chunk: Chunk) => {
   return bytes;
 };
 
+export interface BaseModelMessage {
+  model: string;
+  data: unknown;
+}
+
+export const decodeBaseModelChunk = (chunk: Chunk) => {
+  return decode(chunk.data) as BaseModelMessage;
+};
+
+export const encodeBaseModelMessage = (model: string, data: unknown) => {
+  return encode([model, encode(data)]);
+};
+
 export const decodeChunk = (bytes: Uint8Array): Chunk => {
   const [metadataBytes, ref, data] = decodeMulti(bytes) as unknown as [
     Uint8Array,

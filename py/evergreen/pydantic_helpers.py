@@ -33,6 +33,10 @@ class AnyModel(BaseModel):
 
 
 def packb_with_basic_collections(obj: Any, **kwargs):
+    if isinstance(obj, BaseModel):
+        component_name = get_component_name(type(obj))
+        _get_component_registry()[component_name] = type(obj)
+
     def recursively_pack_collections(obj: Any):
         if isinstance(obj, BaseModel):
             fields = obj.model_dump()
@@ -294,16 +298,14 @@ def _get_component_registry() -> dict[str, type]:
     return _get_component_registry._registry
 
 
-def base_model_to_bytes(model: BaseModel) -> bytes:
-    component_name = get_component_name(type(model))
-    _get_component_registry()[component_name] = type(model)
-
-    return component_name.encode("utf-8") + b";" + packb(model)
+def base_model_to_bytes(component: BaseModel) -> bytes:
+    component_name = get_component_name(type(component))
+    return ormsgpack.packb((component_name, packb(component)))
 
 
 def bytes_to_base_model(data: bytes) -> BaseModel:
-    component_name, packed_data = data.split(b";", 1)
-    component_name = component_name.decode("utf-8")
+    component_name, packed_data = ormsgpack.unpackb(data)
+    print(component_name, packed_data)
 
     model = _get_component_registry().get(component_name)
     if model is None:

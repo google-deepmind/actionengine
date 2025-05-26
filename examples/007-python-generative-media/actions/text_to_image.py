@@ -2,13 +2,13 @@ import asyncio
 
 import evergreen
 import torch
-from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionPipeline, UniPCMultistepScheduler
 from pydantic import BaseModel
 
 
 class DiffusionRequest(BaseModel):
     prompt: str
-    num_inference_steps: int = 20
+    num_inference_steps: int = 25
     height: int = 512
     width: int = 512
     seed: int | None = None
@@ -30,6 +30,10 @@ def get_pipeline():
             "stable-diffusion-v1-5/stable-diffusion-v1-5",
             torch_dtype=torch.float32 if device == "cpu" else torch.float16,
             safety_checker=None,
+            scheduler=UniPCMultistepScheduler.from_pretrained(
+                "stable-diffusion-v1-5/stable-diffusion-v1-5",
+                subfolder="scheduler",
+            ),
             requires_safety_checker=False,
         )
 
