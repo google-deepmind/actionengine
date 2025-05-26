@@ -53,6 +53,7 @@ class Session(service_pybind11.Session):
     def dispatch_from(self, stream: eg_stream.EvergreenWireStream):
         """Dispatches messages from the stream to the session."""
         super().dispatch_from(stream)  # pytype: disable=attribute-error
+        self._streams.add(stream)
 
     def stop_dispatching_from(self, stream: eg_stream.EvergreenWireStream):
         """Stops dispatching messages from the stream to the session."""

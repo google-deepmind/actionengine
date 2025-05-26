@@ -99,14 +99,14 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
           },
           py::arg("name"), py::arg_v("id", ""), py::arg_v("node_map", nullptr),
           py::arg_v("stream", nullptr), py::arg_v("session", nullptr),
-          py::keep_alive<1, 3>(), py::keep_alive<1, 4>(),
-          py::keep_alive<1, 5>());
+          py::keep_alive<0, 4>(), py::keep_alive<0, 5>(),
+          py::keep_alive<0, 6>());
 }
 
 /// @private
 void BindAction(py::handle scope, std::string_view name) {
   py::class_<Action, std::shared_ptr<Action>>(scope, std::string(name).c_str())
-      .def(MakeSameObjectRefConstructor<Action>())
+      .def(MakeSameObjectRefConstructor<Action>(), py::keep_alive<0, 1>())
       .def(py::init([](ActionSchema schema, const std::string& id = "") {
         return std::make_shared<Action>(std::move(schema), id);
       }))

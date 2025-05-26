@@ -26,6 +26,10 @@
 namespace eglt::pybindings {
 
 auto PySerializerToCppSerializer(py::function py_serializer) -> Serializer {
+  {
+    py::gil_scoped_acquire gil;
+    py_serializer.inc_ref();
+  }
   return [py_serializer = std::move(py_serializer)](
              std::any value) -> absl::StatusOr<Bytes> {
     py::gil_scoped_acquire gil;
@@ -45,6 +49,10 @@ auto PySerializerToCppSerializer(py::function py_serializer) -> Serializer {
 
 auto PyDeserializerToCppDeserializer(py::function py_deserializer)
     -> Deserializer {
+  {
+    py::gil_scoped_acquire gil;
+    py_deserializer.inc_ref();
+  }
   return [py_deserializer = std::move(py_deserializer)](
              Bytes data) -> absl::StatusOr<std::any> {
     py::gil_scoped_acquire gil;
@@ -270,27 +278,31 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
                                  PySerializerToCppSerializer(serializer));
       },
       py::arg("mimetype"), py::arg("serializer"),
-      py::arg_v("obj_type", py::none()));
-  registry.def("register_deserializer",
-               [](const std::shared_ptr<SerializerRegistry>& self,
-                  std::string_view mimetype, const py::function& deserializer,
-                  const py::object& obj_type = py::none()) {
-                 if (!obj_type.is_none()) {
-                   if (!py::isinstance<py::type>(obj_type)) {
-                     throw py::type_error(
-                         "obj_type must be a type, not an instance or other "
-                         "object.");
-                   }
-                   // Register the mimetype with the type.
-                   auto mimetype_str = std::string(mimetype);
-                   GetTypeToMimetypeDict(self.get())[obj_type] = mimetype_str;
-                   GetMimetypeToTypeDict(self.get())[mimetype_str.c_str()] =
-                       obj_type;
-                 }
-                 self->RegisterDeserializer(
-                     std::string(mimetype),
-                     PyDeserializerToCppDeserializer(deserializer));
-               });
+      py::arg_v("obj_type", py::none()), py::keep_alive<1, 3>());
+  registry.def(
+      "register_deserializer",
+      [](const std::shared_ptr<SerializerRegistry>& self,
+         std::string_view mimetype, const py::function& deserializer,
+         const py::object& obj_type = py::none()) {
+        if (!obj_type.is_none()) {
+          if (!py::isinstance<py::type>(obj_type)) {
+            throw py::type_error(
+                "obj_type must be a type, not an instance or other "
+                "object.");
+          }
+          // Register the mimetype with the type.
+          auto mimetype_str = std::string(mimetype);
+          GetTypeToMimetypeDict(self.get())[obj_type] = mimetype_str;
+          GetMimetypeToTypeDict(self.get())[mimetype_str.c_str()] = obj_type;
+        }
+        self->RegisterDeserializer(
+            std::string(mimetype),
+            PyDeserializerToCppDeserializer(deserializer));
+      },
+      py::keep_alive<1, 3>());
+  registry.def("__del__", [](const std::shared_ptr<SerializerRegistry>& self) {
+    self->SetUserData(nullptr);
+  });
   registry.doc() = "A registry for serialization functions.";
 }
 

@@ -11,6 +11,7 @@ from evergreen import node_map as eg_node_map
 from evergreen import data
 from evergreen import utils
 from evergreen.evergreen_pybind11 import actions as actions_pybind11
+from pydantic import BaseModel
 
 AsyncNode = async_node.AsyncNode
 NodeMap = eg_node_map.NodeMap
@@ -18,6 +19,10 @@ NodeMap = eg_node_map.NodeMap
 AsyncActionHandler = Callable[["Action"], Awaitable[None]]
 SyncActionHandler = Callable[["Action"], None]
 ActionHandler = SyncActionHandler | AsyncActionHandler
+
+
+async def do_nothing(_: "Action") -> None:
+    pass
 
 
 def wrap_async_handler(handler: AsyncActionHandler) -> SyncActionHandler:
@@ -55,8 +60,8 @@ class ActionSchema(actions_pybind11.ActionSchema):
         self,
         *,
         name: str = "",
-        inputs: list[tuple[str, str]],
-        outputs: list[tuple[str, str]],
+        inputs: list[tuple[str, str | type[BaseModel]]],
+        outputs: list[tuple[str, str | type[BaseModel]]],
     ):
         """Constructor for ActionSchema.
 
@@ -65,6 +70,20 @@ class ActionSchema(actions_pybind11.ActionSchema):
           inputs: The inputs of the action definition.
           outputs: The outputs of the action definition.
         """
+        inputs = [
+            (
+                name,
+                (mimetype if isinstance(mimetype, str) else "__BaseModel__"),
+            )
+            for name, mimetype in inputs
+        ]
+        outputs = [
+            (
+                name,
+                (mimetype if isinstance(mimetype, str) else "__BaseModel__"),
+            )
+            for name, mimetype in outputs
+        ]
         super().__init__(name=name, inputs=inputs, outputs=outputs)
 
 
@@ -75,7 +94,7 @@ class ActionRegistry(actions_pybind11.ActionRegistry):
         self,
         name: str,
         schema: actions_pybind11.ActionSchema,
-        handler: Any,
+        handler: Any = do_nothing,
     ) -> None:
         """Registers an action schema and handler."""
 
@@ -140,7 +159,7 @@ class Action(actions_pybind11.Action):
     def __init__(
         self,
         schema: ActionSchema,
-        handler: Any,
+        handler: Any = do_nothing,
         action_id: str = "",
         *,
         node_map: NodeMap | None = None,
@@ -235,11 +254,11 @@ class Action(actions_pybind11.Action):
 
         schema = self.get_schema()
         for param in schema.inputs:
-            if param.name.endswith(name):
+            if param.endswith(name):
                 node = self.get_input(name)
                 break
         for param in schema.outputs:
-            if param.name.endswith(name):
+            if param.endswith(name):
                 node = self.get_output(name)
                 break
 
