@@ -22,6 +22,7 @@ def setup_action_engine():
     settings.readers_read_in_order = True
     settings.readers_remove_read_chunks = True
 
+    # will not be needed later:
     evergreen.to_chunk(
         actions.text_to_image.DiffusionRequest(
             prompt="a hack to get the schema registered for serialization",

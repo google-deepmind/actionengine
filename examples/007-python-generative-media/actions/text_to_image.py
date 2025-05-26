@@ -20,13 +20,20 @@ class ProgressMessage(BaseModel):
 
 def get_pipeline():
     if not hasattr(get_pipeline, "pipe"):
+        device = "cpu"
+        if torch.backends.mps.is_available():
+            device = "mps"
+        if torch.cuda.is_available():
+            device = "cuda"
+
         get_pipeline.pipe = StableDiffusionPipeline.from_pretrained(
             "stable-diffusion-v1-5/stable-diffusion-v1-5",
-            torch_dtype=torch.float16,
+            torch_dtype=torch.float32 if device == "cpu" else torch.float16,
             safety_checker=None,
             requires_safety_checker=False,
         )
-        get_pipeline.pipe.to("mps")
+
+        get_pipeline.pipe.to(device)
 
     return get_pipeline.pipe
 

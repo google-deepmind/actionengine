@@ -31,26 +31,30 @@ async def main():
                 stream=stream,
                 session=session,
             )
-            await action.call()
 
-            prompt = await asyncio.to_thread(input)
+            prompt = await asyncio.to_thread(
+                input, "Enter a prompt (or /q to quit): "
+            )
             if prompt.lower().startswith("/q"):
                 print("Exiting client.")
                 break
 
-            num_inference_steps = 4
+            await action.call()
+
+            num_inference_steps = 20
             await action["request"].put_and_finalize(
                 actions.text_to_image.DiffusionRequest(
                     prompt=prompt, num_inference_steps=num_inference_steps
                 )
             )
 
-            with tqdm(total=num_inference_steps) as pbar:
+            with tqdm(total=num_inference_steps + 1) as pbar:
                 async for _ in action["progress"]:
                     pbar.update(1)
 
             image = await action["image"].consume()
-            print(image)
+            print("Received image:", image)
+            image.save("output.png")
     finally:
         session.stop_dispatching_from(stream)
         try:
