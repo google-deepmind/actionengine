@@ -18,7 +18,7 @@ export class EvergreenStream {
     this.url = url;
     this.socket = new WebSocket(this.url);
 
-    this.channel = new Channel<SessionMessage>();
+    this.channel = new Channel<SessionMessage | null>();
 
     this.socketOpen = false;
     this.closed = false;

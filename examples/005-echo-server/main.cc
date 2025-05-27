@@ -66,15 +66,6 @@ int main(int argc, char** argv) {
   absl::InstallFailureSignalHandler({});
   absl::ParseCommandLine(argc, argv);
 
-  eglt::SessionMessage message{
-      .node_fragments = {eglt::NodeFragment{.id = "test",
-                                            .chunk = eglt::EndOfStream()}},
-  };
-  for (const auto bytes = cppack::Pack(message); const auto& byte : bytes) {
-    std::cout << std::hex << static_cast<int>(byte) << " ";
-  }
-  std::cout << std::endl;
-
   const uint16_t port = absl::GetFlag(FLAGS_port);
   ActionRegistry action_registry = MakeActionRegistry();
   eglt::Service service(&action_registry);

@@ -43,9 +43,6 @@ class CancellationList {
 template <typename Algo, typename... Args>
 static void EnsureThreadHasScheduler(Args&&... args) {
   thread_local bool kThreadHasScheduler = false;
-  // DLOG(INFO) << "EnsureThreadHasScheduler, thread_id="
-  //            << std::this_thread::get_id()
-  //            << ", kThreadHasScheduler=" << kThreadHasScheduler;
   if (kThreadHasScheduler) {
     return;
   }
@@ -185,6 +182,9 @@ inline void Detach(std::unique_ptr<Fiber> fiber) {
       fiber->detached_.store(true, std::memory_order_relaxed);
       fiber.release();  // Fiber will delete itself.
     }
+  }
+  if (ABSL_PREDICT_FALSE(fiber != nullptr)) {
+    fiber->InternalJoin();
   }
 }
 

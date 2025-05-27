@@ -66,8 +66,6 @@ inline auto RunInAsioContext(
 
 class WebsocketEvergreenWireStream final : public EvergreenWireStream {
  public:
-  static constexpr size_t kSwapBufferOnCapacity = 1 * 1024 * 1024;  // 1MB
-
   explicit WebsocketEvergreenWireStream(
       beast::websocket::stream<tcp::socket> stream, std::string_view id = "")
       : stream_(std::move(stream)),
@@ -89,7 +87,6 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
   }
 
   absl::Status Send(SessionMessage message) override {
-    auto message_bytes = cppack::Pack(std::move(message));
 
     concurrency::MutexLock lock(&mutex_);
     if (!status_.ok()) {
@@ -101,14 +98,13 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
     boost::system::error_code error;
     stream_.binary(true);
     RunInAsioContext(
-        [this, &error, &message_bytes]() {
+        [this, &error, &message]() {
+          auto message_bytes = cppack::Pack(std::move(message));
           stream_.write(asio::buffer(message_bytes), error);
         },
         {concurrency::OnCancel()});
     mutex_.Lock();
     send_pending_ = false;
-    cv_.SignalAll();
-
     last_send_status_ = absl::OkStatus();
 
     if (concurrency::Cancelled()) {
@@ -123,42 +119,47 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
                                     last_send_status_);
     }
 
+    cv_.SignalAll();
+
     return last_send_status_;
   }
 
   std::optional<SessionMessage> Receive() override {
-    concurrency::MutexLock lock(&mutex_);
-    if (!status_.ok()) {
-      DLOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
-                                     status_);
-      return std::nullopt;
-    }
-
     std::vector<uint8_t> buffer;
 
-    recv_pending_ = true;
-    mutex_.Unlock();
-    boost::system::error_code error;
-    RunInAsioContext(
-        [this, &buffer, &error]() {
-          auto dynamic_buffer = asio::dynamic_buffer(buffer);
-          stream_.read(dynamic_buffer, error);
-        },
-        {concurrency::OnCancel()});
-    mutex_.Lock();
-    recv_pending_ = false;
-    cv_.SignalAll();
+    {
+      concurrency::MutexLock lock(&mutex_);
+      if (!status_.ok()) {
+        DLOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
+                                       status_);
+        return std::nullopt;
+      }
 
-    if (concurrency::Cancelled()) {
-      stream_.next_layer().shutdown(asio::socket_base::shutdown_receive);
-      DLOG(INFO) << absl::StrFormat("WESt %s Receive cancelled", id_);
-      return std::nullopt;
-    }
+      recv_pending_ = true;
+      mutex_.Unlock();
+      boost::system::error_code error;
+      RunInAsioContext(
+          [this, &buffer, &error]() {
+            auto dynamic_buffer = asio::dynamic_buffer(buffer);
+            stream_.read(dynamic_buffer, error);
+          },
+          {concurrency::OnCancel()});
+      mutex_.Lock();
+      recv_pending_ = false;
 
-    if (error) {
-      LOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
-                                    error.message());
-      return std::nullopt;
+      if (concurrency::Cancelled()) {
+        stream_.next_layer().shutdown(asio::socket_base::shutdown_receive);
+        DLOG(INFO) << absl::StrFormat("WESt %s Receive cancelled", id_);
+        return std::nullopt;
+      }
+
+      if (error) {
+        LOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
+                                      error.message());
+        return std::nullopt;
+      }
+
+      cv_.SignalAll();
     }
 
     if (auto unpacked = cppack::Unpack<SessionMessage>(buffer); unpacked.ok()) {
@@ -279,6 +280,7 @@ class WebsocketEvergreenServer {
       ABSL_ASSUME(false);
     }
 
+    acceptor_->set_option(tcp::no_delay(true));
     acceptor_->set_option(boost::asio::socket_base::reuse_address(true), error);
     if (error) {
       status_ = absl::InternalError(error.message());

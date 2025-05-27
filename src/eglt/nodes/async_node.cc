@@ -34,16 +34,6 @@
 
 namespace eglt {
 
-absl::Status SendToStreamIfNotNullAndOpen(
-    EvergreenWireStream* absl_nullable stream, NodeFragment&& fragment) {
-  // if stream is null, we don't send anything and it is ok.
-  if (stream == nullptr) {
-    return absl::OkStatus();
-  }
-
-  return stream->Send(SessionMessage{.node_fragments = {std::move(fragment)}});
-}
-
 AsyncNode::AsyncNode(std::string_view id, NodeMap* absl_nullable node_map,
                      std::unique_ptr<ChunkStore> chunk_store)
     : node_map_(node_map), chunk_store_(std::move(chunk_store)) {
