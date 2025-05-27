@@ -15,7 +15,6 @@ export { EvergreenStream } from './src/stream.js';
 export {
   CondVar,
   Channel,
-  Deque,
   makeBlobFromChunk,
   makeChunkFromBlob,
 } from './src/utils.js';

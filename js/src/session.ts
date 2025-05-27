@@ -39,7 +39,7 @@ export class Session {
         this.stream,
         this,
       );
-      action.run();
+      action.run().then();
     }
   }
 

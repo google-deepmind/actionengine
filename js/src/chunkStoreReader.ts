@@ -101,16 +101,14 @@ export class ChunkStoreReader {
         }
       }
 
+      if (nextChunk !== null) {
+        await this.buffer.send({ seq: nextSeqId, chunk: nextChunk });
+        this.totalChunksRead++;
+      }
+
       if (this.removeChunks && nextSeqId >= 0) {
-        this.chunkStore.pop(nextSeqId);
+        await this.chunkStore.pop(nextSeqId);
       }
-
-      if (nextChunk === null) {
-        break;
-      }
-
-      await this.buffer.send({ seq: nextSeqId, chunk: nextChunk });
-      this.totalChunksRead++;
     }
     await this.buffer.close();
   }

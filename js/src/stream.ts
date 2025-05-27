@@ -56,14 +56,11 @@ export class EvergreenStream {
 
   async send(message: SessionMessage) {
     await this.mutex.runExclusive(async () => {
+      if (this.closed) {
+        throw new Error('Stream is closed');
+      }
       while (!this.socketOpen) {
         await this.cv.wait(this.mutex);
-      }
-    });
-
-    await this.mutex.runExclusive(async () => {
-      if (this.closed) {
-        throw new Error('Stream has been closed.');
       }
     });
 

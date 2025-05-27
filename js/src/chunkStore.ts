@@ -126,7 +126,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async pop(seqId: number) {
-    return await this.mutex.runExclusive(async () => {
+    return await this.mutex.runExclusive(() => {
       if (!this.chunks.has(seqId)) {
         return null;
       }
@@ -140,7 +140,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async put(seqId: number, chunk: Chunk, final: boolean) {
-    await this.mutex.runExclusive(async () => {
+    await this.mutex.runExclusive(() => {
       if (this.noFurtherPutsFlag) {
         throw new Error(
           `Cannot put chunk after noFurtherPuts() has been called`,
@@ -160,7 +160,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async noFurtherPuts() {
-    await this.mutex.runExclusive(async () => {
+    await this.mutex.runExclusive(() => {
       this.noFurtherPutsFlag = true;
       if (this.maxSeqId !== -1) {
         this.finalSeqId = Math.min(this.finalSeqId, this.maxSeqId);
@@ -170,13 +170,13 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async size() {
-    return await this.mutex.runExclusive(async () => {
+    return await this.mutex.runExclusive(() => {
       return this.chunks.size;
     });
   }
 
   async contains(seqId: number) {
-    return await this.mutex.runExclusive(async () => {
+    return await this.mutex.runExclusive(() => {
       return this.chunks.has(seqId);
     });
   }
@@ -190,7 +190,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async getSeqIdForArrivalOffset(arrival_offset: number) {
-    return await this.mutex.runExclusive(async () => {
+    return await this.mutex.runExclusive(() => {
       if (!this.arrivalOffsetToSeqId.has(arrival_offset)) {
         return -1;
       }
@@ -199,7 +199,7 @@ export class LocalChunkStore implements ChunkStore {
   }
 
   async getFinalSeqId() {
-    return await this.mutex.runExclusive(async () => {
+    return await this.mutex.runExclusive(() => {
       return this.finalSeqId;
     });
   }
