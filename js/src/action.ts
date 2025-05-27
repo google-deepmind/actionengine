@@ -69,7 +69,7 @@ export class Action {
   private bindStreamsOnInputsDefault: boolean = true;
   private bindStreamsOnOutputsDefault: boolean = false;
 
-  private nodesWithBoundStreams: Set<AsyncNode>;
+  private readonly nodesWithBoundStreams: Set<AsyncNode>;
 
   constructor(
     definition: ActionDefinition,
@@ -129,7 +129,7 @@ export class Action {
     try {
       await this.handler(this);
     } finally {
-      this.unbindStreams();
+      await this.unbindStreams();
     }
   }
 
@@ -154,7 +154,7 @@ export class Action {
       bindStreamResolved = this.bindStreamsOnInputsDefault;
     }
     if (this.stream !== null && bindStreamResolved) {
-      node.bindWriterStream(this.stream);
+      await node.bindWriterStream(this.stream);
       this.nodesWithBoundStreams.add(node);
     }
     return node;
@@ -170,7 +170,7 @@ export class Action {
       bindStreamResolved = this.bindStreamsOnOutputsDefault;
     }
     if (this.stream !== null && bindStreamResolved) {
-      node.bindWriterStream(this.stream);
+      await node.bindWriterStream(this.stream);
       this.nodesWithBoundStreams.add(node);
     }
     return node;
@@ -213,10 +213,10 @@ export class Action {
     return `${this.id}#${name}`;
   }
 
-  private unbindStreams() {
-    this.nodesWithBoundStreams.forEach((node) => {
-      node.bindWriterStream(null);
-    });
+  private async unbindStreams() {
+    for (const node of this.nodesWithBoundStreams) {
+      await node.bindWriterStream(null);
+    }
     this.nodesWithBoundStreams.clear();
   }
 }
@@ -240,21 +240,6 @@ export function fromActionMessage(
 
   const actionIdParts = actionIdSrc.split('#');
   const actionId = actionIdParts[0];
-
-  // const inputNames: string[] = [];
-  // const outputNames: string[] = [];
-  //
-  // for (const input of inputs) {
-  //   inputNames.push(input.name);
-  //   const parts = input.id.split('#');
-  //   inputNames.push(parts[1]);
-  // }
-  //
-  // for (const output of outputs) {
-  //   outputNames.push(output.name);
-  //   const parts = output.id.split('#');
-  //   outputNames.push(parts[1]);
-  // }
 
   const def = registry.definitions.get(message.name);
   const handler = registry.handlers.get(message.name);

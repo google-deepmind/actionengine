@@ -35,6 +35,7 @@ export class AsyncNode {
   private defaultWriter: ChunkStoreWriter | null;
 
   private writerStream: EvergreenStream | null;
+  private readonly mutex: Mutex;
 
   constructor(id: string = '', chunkStore: ChunkStore | null = null) {
     this.chunkStore = chunkStore || new LocalChunkStore();
@@ -42,6 +43,7 @@ export class AsyncNode {
     this.defaultReader = null;
     this.defaultWriter = null;
     this.writerStream = null;
+    this.mutex = new Mutex();
   }
 
   [Symbol.asyncIterator]() {
@@ -61,12 +63,11 @@ export class AsyncNode {
   }
 
   async nextNumberedChunk(): Promise<NumberedChunk | null> {
-    this.ensureReader();
+    await this.ensureReader();
     return await this.defaultReader.next();
   }
 
   async next(): Promise<Chunk | null> {
-    this.ensureReader();
     const numberedChunk = await this.nextNumberedChunk();
     if (numberedChunk === null) {
       return null;
@@ -79,19 +80,21 @@ export class AsyncNode {
     seq: number = -1,
     final: boolean = false,
   ): Promise<void> {
-    this.ensureWriter();
+    await this.ensureWriter();
     const writtenSeq = await this.defaultWriter.put(chunk, seq, final);
     if (this.writerStream !== null) {
-      this.writerStream.send({
-        nodeFragments: [
-          {
-            id: this.chunkStore.getId(),
-            chunk,
-            seq: writtenSeq,
-            continued: !final,
-          },
-        ],
-      });
+      this.writerStream
+        .send({
+          nodeFragments: [
+            {
+              id: this.chunkStore.getId(),
+              chunk,
+              seq: writtenSeq,
+              continued: !final,
+            },
+          ],
+        })
+        .then();
     }
   }
 
@@ -103,8 +106,10 @@ export class AsyncNode {
     return await this.put(chunk, seq, /*final=*/ true);
   }
 
-  bindWriterStream(stream: EvergreenStream | null = null) {
-    this.writerStream = stream;
+  async bindWriterStream(stream: EvergreenStream | null = null) {
+    await this.mutex.runExclusive(async () => {
+      this.writerStream = stream;
+    });
   }
 
   setReaderOptions(
@@ -112,28 +117,34 @@ export class AsyncNode {
     removeChunks: boolean = false,
     nChunksToBuffer: number = -1,
   ): AsyncNode {
-    this.ensureReader(ordered, removeChunks, nChunksToBuffer);
+    this.ensureReader(ordered, removeChunks, nChunksToBuffer).then();
     return this;
   }
 
-  private ensureReader(
+  private async ensureReader(
     ordered: boolean = false,
     removeChunks: boolean = false,
     nChunksToBuffer: number = -1,
   ) {
-    if (this.defaultReader === null) {
+    await this.mutex.runExclusive(() => {
+      if (this.defaultReader !== null) {
+        return;
+      }
       this.defaultReader = new ChunkStoreReader(
         this.chunkStore,
         ordered,
         removeChunks,
         nChunksToBuffer,
       );
-    }
+    });
   }
 
-  private ensureWriter() {
-    if (this.defaultWriter === null) {
+  private async ensureWriter() {
+    await this.mutex.runExclusive(() => {
+      if (this.defaultWriter !== null) {
+        return;
+      }
       this.defaultWriter = new ChunkStoreWriter(this.chunkStore);
-    }
+    });
   }
 }
