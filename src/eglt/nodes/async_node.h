@@ -59,12 +59,20 @@ class AsyncNode {
 
   template <typename T>
   auto Put(T value, int seq_id = -1, bool final = false) -> absl::Status {
-    return Put(ToChunk(std::move(value)), seq_id, final);
+    auto chunk = ToChunk(std::move(value));
+    if (!chunk.ok()) {
+      return chunk.status();
+    }
+    return Put(*std::move(chunk), seq_id, final);
   }
 
   template <typename T>
   auto PutAndClose(T value, int seq_id = -1) -> absl::Status {
-    return Put(ToChunk(std::move(value)), seq_id, /*final=*/true);
+    auto chunk = ToChunk(std::move(value));
+    if (!chunk.ok()) {
+      return chunk.status();
+    }
+    return Put(*std::move(chunk), seq_id, /*final=*/true);
   }
 
   ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mutex_);
@@ -186,7 +194,13 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
     value = std::nullopt;
     return node;
   }
-  value = FromChunkAs<T>(*std::move(chunk));
+  auto status_or_value = FromChunkAs<T>(*std::move(chunk));
+  if (!status_or_value.ok()) {
+    LOG(FATAL) << "Failed to convert chunk to value: "
+               << status_or_value.status();
+    ABSL_ASSUME(false);
+  }
+  value = std::move(status_or_value.value());
   return node;
 }
 
@@ -194,7 +208,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, T value) {
   node.EnsureWriter();
-  return node << ToChunk(std::move(value));
+  return node << *ToChunk(std::move(value));
 }
 
 // -----------------------------------------------------------------------------

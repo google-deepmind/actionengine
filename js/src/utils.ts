@@ -19,9 +19,9 @@ class Waiter {
     this.timedOut = false;
   }
 
-  async wait(timeout: number = -1): Promise<boolean> {
+  async wait(timeout: number = -1, mutex: Mutex): Promise<boolean> {
     if (timeout >= 0) {
-      this.timeout = setTimeout(() => {
+      this.timeout = setTimeout(async () => {
         this.timedOut = true;
         this.resolveInternal();
       }, timeout);
@@ -29,9 +29,11 @@ class Waiter {
 
     this.waiters.add(this);
     try {
+      mutex.release();
       await this.promise;
       return this.timedOut;
     } finally {
+      await mutex.acquire();
       this.waiters.delete(this);
     }
   }
@@ -56,27 +58,19 @@ export class CondVar {
   }
 
   async wait(mutex: Mutex) {
-    mutex.release();
     const waiter = new Waiter(this.waiters);
-    await waiter.wait();
-    await mutex.acquire();
+    await waiter.wait(-1, mutex);
   }
 
   async waitWithTimeout(mutex: Mutex, timeout: number) {
-    mutex.release();
     const waiter = new Waiter(this.waiters);
-    const timedOut = await waiter.wait(timeout);
-    await mutex.acquire();
-    return timedOut;
+    return await waiter.wait(timeout, mutex);
   }
 
   async waitWithDeadline(mutex: Mutex, deadline: DOMHighResTimeStamp) {
-    mutex.release();
-    const waiter = new Waiter(this.waiters);
     const timeout = deadline - performance.now();
-    const timedOut = await waiter.wait(timeout);
-    await mutex.acquire();
-    return timedOut;
+    const waiter = new Waiter(this.waiters);
+    return await waiter.wait(timeout, mutex);
   }
 
   notifyOne() {
@@ -176,8 +170,8 @@ export class Channel<ValueType> {
     await this.sendNowait(value);
   }
 
-  async sendNowait(value: ValueType) {
-    await this.mutex.runExclusive(() => {
+  sendNowait(value: ValueType) {
+    return this.mutex.runExclusive(() => {
       if (this.closed) {
         throw new Error('Channel closed');
       }

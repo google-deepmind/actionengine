@@ -79,26 +79,6 @@ def sync_main():
     registry = evergreen.data.get_global_serializer_registry()
 
     registry.register_serializer("text/plain", test_serialiser, str)
-    print(registry._mimetype_to_type)
-    print(registry._type_to_mimetype)
-    print(evergreen.data.get_global_serializer_registry())
-    print(evergreen.data.get_global_serializer_registry()._type_to_mimetype)
-    print(test_serialiser)
-    hello_chunk = evergreen.to_chunk("hello")
-    print(hello_chunk)
-    print("via registry:", registry.serialize("hello"))
-    registry.register_deserializer("text/plain", test_deserialiser, str)
-    print(
-        "via registry:",
-        registry.deserialize(hello_chunk.data, hello_chunk.metadata.mimetype),
-    )
-    print(evergreen.from_chunk(hello_chunk))
-    print(
-        "test via registry:",
-        registry.serialize("hello", "application/octet-stream"),
-    )
-    print(evergreen.to_chunk("hello", "application/octet-stream"))
-    print(evergreen.to_bytes("hello"))
     register_serialisers()
 
     settings = evergreen.get_global_eglt_settings()

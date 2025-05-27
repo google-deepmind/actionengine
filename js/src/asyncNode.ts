@@ -82,7 +82,7 @@ export class AsyncNode {
     this.ensureWriter();
     const writtenSeq = await this.defaultWriter.put(chunk, seq, final);
     if (this.writerStream !== null) {
-      await this.writerStream.send({
+      this.writerStream.send({
         nodeFragments: [
           {
             id: this.chunkStore.getId(),

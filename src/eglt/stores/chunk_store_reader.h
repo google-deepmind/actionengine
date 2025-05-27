@@ -94,7 +94,13 @@ class ChunkStoreReader {
     if (!chunk || chunk->IsNull()) {
       return std::nullopt;
     }
-    return FromChunkAs<T>(*std::move(chunk));
+    auto result = FromChunkAs<T>(*std::move(chunk));
+    if (!result.ok()) {
+      UpdateStatus(result.status());
+      LOG(ERROR) << "Failed to convert chunk: " << result.status();
+      return std::nullopt;
+    }
+    return std::move(*result);
   }
 
   // definitions follow in the header for some well-known types.

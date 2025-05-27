@@ -27,7 +27,7 @@ async def create_plan(action: evergreen.Action):
         "Start directly with the list, no introduction. The final item of your "
         "plan should start with 'FINALLY: ' and be a detailed instruction "
         "that describes how you will synthesise and present the final result. "
-        "Use no more than 5 steps. Make sure that the steps can be "
+        "Use no more than 4 steps. Make sure that the steps can be "
         "performed independently, because they will be performed by "
         "different agents. Reply in the same language as the input. "
     )

@@ -230,7 +230,7 @@ absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},
   SerializerRegistry* resolved_registry =
       registry ? registry : GetGlobalSerializerRegistryPtr();
 
-  return resolved_registry->DeserializeAs<T>(std::move(chunk), mimetype);
+  return resolved_registry->DeserializeAs<T>(std::move(chunk).data, mimetype);
 }
 
 inline absl::StatusOr<std::any> FromChunk(

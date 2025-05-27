@@ -65,7 +65,7 @@ export class Session {
       if (message === null) {
         break;
       }
-      await this.dispatchMessage(message);
+      this.dispatchMessage(message).then();
     }
   }
 }

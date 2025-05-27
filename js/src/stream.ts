@@ -44,40 +44,14 @@ export class EvergreenStream {
       });
     };
 
-    this.socket.onmessage = (event) => {
-      event.data.arrayBuffer().then((buffer) => {
-        const array = new Uint8Array(buffer);
-        this.channel.send(decodeSessionMessage(array));
-      });
-      // const array = new Uint8Array(await event.data.arrayBuffer());
-      // await this.channel.send(decodeSessionMessage(array));
+    this.socket.onmessage = async (event) => {
+      const array = new Uint8Array(await event.data.arrayBuffer());
+      await this.channel.sendNowait(decodeSessionMessage(array));
     };
   }
 
   async receive(): Promise<SessionMessage> {
-    await this.mutex.runExclusive(async () => {
-      while (!this.socketOpen) {
-        await this.cv.wait(this.mutex);
-      }
-    });
-
-    await this.mutex.runExclusive(async () => {
-      if (this.closed) {
-        throw new Error('Stream has been closed.');
-      }
-    });
-    const message = await this.channel.receive();
-    if (message.actions) {
-      for (const action of message.actions) {
-        console.log('dispatch action:', action);
-      }
-    }
-    if (message.nodeFragments) {
-      for (const fragment of message.nodeFragments) {
-        console.log('recv node fragment:', fragment);
-      }
-    }
-    return message;
+    return await this.channel.receive();
   }
 
   async send(message: SessionMessage) {
@@ -92,18 +66,6 @@ export class EvergreenStream {
         throw new Error('Stream has been closed.');
       }
     });
-
-    if (message.actions) {
-      for (const action of message.actions) {
-        console.log('call action:', action);
-      }
-    }
-
-    if (message.nodeFragments) {
-      for (const fragment of message.nodeFragments) {
-        console.log('send node fragment:', fragment);
-      }
-    }
 
     this.socket.send(encodeSessionMessage(message));
   }

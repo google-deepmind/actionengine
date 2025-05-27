@@ -18,6 +18,9 @@ class ProgressMessage(BaseModel):
     step: int
 
 
+LOCK = asyncio.Lock()
+
+
 def get_pipeline():
     if not hasattr(get_pipeline, "pipe"):
         device = "cpu"
@@ -27,11 +30,11 @@ def get_pipeline():
             device = "cuda"
 
         get_pipeline.pipe = StableDiffusionPipeline.from_pretrained(
-            "stable-diffusion-v1-5/stable-diffusion-v1-5",
+            "stabilityai/stable-diffusion-2-1",
             torch_dtype=torch.float32 if device == "cpu" else torch.float16,
             safety_checker=None,
             scheduler=UniPCMultistepScheduler.from_pretrained(
-                "stable-diffusion-v1-5/stable-diffusion-v1-5",
+                "stabilityai/stable-diffusion-2-1",
                 subfolder="scheduler",
             ),
             requires_safety_checker=False,
@@ -52,22 +55,25 @@ def make_progress_callback(action: evergreen.Action):
 
 async def run(action: evergreen.Action):
     request: DiffusionRequest = await action["request"].consume()
-    pipe = get_pipeline()
+
+    async with LOCK:
+        pipe = get_pipeline()
 
     generator = torch.Generator(pipe.device)
     if request.seed is not None:
         generator = generator.manual_seed(request.seed)
 
     try:
-        images = await asyncio.to_thread(
-            pipe,
-            request.prompt,
-            num_inference_steps=request.num_inference_steps,
-            height=request.height,
-            width=request.width,
-            generator=generator,
-            callback_on_step_end=make_progress_callback(action),
-        )
+        async with LOCK:
+            images = await asyncio.to_thread(
+                pipe,
+                request.prompt,
+                num_inference_steps=request.num_inference_steps,
+                height=request.height,
+                width=request.width,
+                generator=generator,
+                callback_on_step_end=make_progress_callback(action),
+            )
     finally:
         await action["progress"].finalize()
 

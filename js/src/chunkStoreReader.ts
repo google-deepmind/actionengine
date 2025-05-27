@@ -102,7 +102,7 @@ export class ChunkStoreReader {
       }
 
       if (this.removeChunks && nextSeqId >= 0) {
-        await this.chunkStore.pop(nextSeqId);
+        this.chunkStore.pop(nextSeqId);
       }
 
       if (nextChunk === null) {
