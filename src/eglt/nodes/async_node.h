@@ -50,6 +50,12 @@ class AsyncNode {
   AsyncNode& operator=(AsyncNode& other) = delete;
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
+  ~AsyncNode() {
+    concurrency::MutexLock lock(&mutex_);
+    finalized_ = true;
+    concurrency::EnsureExclusiveAccess guard(&finalization_guard_);
+  }
+
   void BindPeers(absl::flat_hash_map<std::string_view,
                                      std::shared_ptr<EvergreenWireStream>>
                      peers) {
@@ -156,6 +162,10 @@ class AsyncNode {
   std::unique_ptr<ChunkStore> chunk_store_;
 
   mutable concurrency::Mutex mutex_;
+  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
+  concurrency::ExclusiveAccessGuard finalization_guard_ ABSL_GUARDED_BY(mutex_){
+      &mutex_, &cv_};
+  bool finalized_ ABSL_GUARDED_BY(mutex_) = false;
   std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string_view, std::shared_ptr<EvergreenWireStream>>
@@ -165,9 +175,10 @@ class AsyncNode {
 template <>
 inline auto AsyncNode::Put<Chunk>(Chunk value, int seq_id, bool final)
     -> absl::Status {
-  bool continued = !final && !value.IsNull();
+  const bool continued = !final && !value.IsNull();
   return PutFragment(NodeFragment{
       .id = std::string(chunk_store_->GetId()),
+      .seq = seq_id,
       .chunk = std::move(value),
       .continued = continued,
   });

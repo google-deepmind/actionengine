@@ -44,6 +44,7 @@ class ChunkStoreWriter {
                 n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {
     accepts_puts_ = true;
   }
+
   ~ChunkStoreWriter() {
     std::unique_ptr<concurrency::Fiber> fiber;
     {
@@ -65,7 +66,11 @@ class ChunkStoreWriter {
   template <typename T>
   absl::StatusOr<int> Put(T value, int seq = -1, bool final = false)
       ABSL_LOCKS_EXCLUDED(mutex_) {
-    return Put(ToChunk(std::move(value)), seq, final);
+    auto chunk = ToChunk(std::move(value));
+    if (!chunk.ok()) {
+      return chunk.status();
+    }
+    return Put(*std::move(chunk), seq, final);
   }
 
   absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mutex_) {
@@ -75,9 +80,9 @@ class ChunkStoreWriter {
 
   template <typename T>
   friend ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, T value) {
-    Chunk chunk = ToChunk(std::move(value));
-    const bool final = chunk.IsNull();
-    writer.Put(std::move(chunk), -1, final).IgnoreError();
+    absl::StatusOr<Chunk> chunk = ToChunk(std::move(value));
+    const bool final = chunk->IsNull();
+    writer.Put(*std::move(chunk), -1, final).IgnoreError();
     return writer;
   }
 
@@ -105,9 +110,10 @@ class ChunkStoreWriter {
                                concurrency::OnCancel()}) == 1) {
         {
           concurrency::MutexLock lock(&mutex_);
-          status_ = absl::CancelledError("Cancelled.");
+          // status_ = absl::CancelledError("Cancelled.");
+          SafelyCloseBuffer();
         }
-        break;
+        // break;
       }
 
       // we only enter this case if the buffer is closed and empty,
@@ -245,8 +251,13 @@ inline absl::StatusOr<int> ChunkStoreWriter::Put(Chunk value, int seq,
 
 template <>
 inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, Chunk value) {
-  bool final = value.IsNull();
-  writer.Put(std::move(value), /*seq=*/-1, /*final=*/final).IgnoreError();
+  const bool final = value.IsNull();
+  const auto seq = writer.Put(std::move(value), /*seq=*/-1, /*final=*/final);
+  if (!seq.ok()) {
+    LOG(ERROR) << "Failed to put chunk: " << seq.status();
+    writer.UpdateStatus(seq.status());
+  }
+
   return writer;
 }
 
