@@ -155,6 +155,7 @@ void Fiber::Body() {
     // MarkFinished returns whether the fiber was detached when finished.
     // Detached fibers are self-joining.
     InternalJoin();
+    context_.detach();
     delete this;
   }
 }
@@ -222,9 +223,8 @@ void Fiber::Join() {
     CHECK(parent_ == current_fiber) << "Join() called from non-parent fiber";
   }
 
-  context_ = nullptr;
-
   InternalJoin();
+  context_->join();
 }
 
 // Update *this to a FINISHED state.  Preparing it to be Join()-ed (and

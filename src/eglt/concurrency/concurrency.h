@@ -142,9 +142,7 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
     mutex_->Unlock();
   }
 
-  void StartBlockingPendingOperation() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
-    ++pending_operations_;
-  }
+  void StartBlockingPendingOperation() { ++pending_operations_; }
 
   void FinishPendingOperation() ABSL_LOCKS_EXCLUDED(mutex_)
       ABSL_EXCLUSIVE_LOCK_FUNCTION(mutex_) {
@@ -153,7 +151,7 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
     cv_->SignalAll();
   }
 
-  void FinishBlockingPendingOperation() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+  void FinishBlockingPendingOperation() {
     --pending_operations_;
     cv_->SignalAll();
   }
@@ -163,8 +161,8 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
   friend class PreventExclusiveAccess;
 
   Mutex* absl_nonnull const mutex_;
-  CondVar* absl_nonnull const cv_ ABSL_GUARDED_BY(mutex_);
-  int pending_operations_ ABSL_GUARDED_BY(mutex_) = 0;
+  CondVar* absl_nonnull const cv_;
+  int pending_operations_ = 0;
 };
 
 class ABSL_SCOPED_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED EnsureExclusiveAccess {
@@ -242,12 +240,32 @@ inline Case OnCancel() {
   return impl::OnCancel();
 }
 
-inline int Select(const CaseArray& cases) {
+inline int Select(const CaseArray& cases) noexcept {
   return impl::Select(cases);
 }
 
-inline int SelectUntil(const absl::Time deadline, const CaseArray& cases) {
+inline int SelectWithScopedUnlock(Mutex* absl_nonnull mu,
+                                  const CaseArray& cases)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
+  mu->Unlock();
+  const int selected = concurrency::Select(cases);
+  mu->Lock();
+  return selected;
+}
+
+inline int SelectUntil(const absl::Time deadline,
+                       const CaseArray& cases) noexcept {
   return impl::SelectUntil(deadline, cases);
+}
+
+inline int SelectWithScopedUnlockUntil(Mutex* absl_nonnull mu,
+                                       const absl::Time deadline,
+                                       const CaseArray& cases)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
+  mu->Unlock();
+  const int selected = concurrency::SelectUntil(deadline, cases);
+  mu->Lock();
+  return selected;
 }
 
 inline void Detach(std::unique_ptr<Fiber> fiber) {

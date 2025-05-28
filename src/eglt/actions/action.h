@@ -333,10 +333,9 @@ class Action : public std::enable_shared_from_this<Action> {
     AsyncNode* node = node_map_->Get(GetInputId(name));
     if (stream_ != nullptr &&
         bind_stream.value_or(bind_streams_on_inputs_default_)) {
-      absl::flat_hash_map<std::string_view,
-                          std::shared_ptr<EvergreenWireStream>>
+      absl::flat_hash_map<std::string, std::shared_ptr<EvergreenWireStream>>
           peers;
-      peers.insert({stream_->GetId(), stream_});
+      peers.insert({std::string(stream_->GetId()), stream_});
       node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }
@@ -375,10 +374,9 @@ class Action : public std::enable_shared_from_this<Action> {
     AsyncNode* node = node_map_->Get(GetOutputId(name));
     if (stream_ != nullptr &&
         bind_stream.value_or(bind_streams_on_outputs_default_)) {
-      absl::flat_hash_map<std::string_view,
-                          std::shared_ptr<EvergreenWireStream>>
+      absl::flat_hash_map<std::string, std::shared_ptr<EvergreenWireStream>>
           peers;
-      peers.insert({stream_->GetId(), stream_});
+      peers.insert({std::string(stream_->GetId()), stream_});
       node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }

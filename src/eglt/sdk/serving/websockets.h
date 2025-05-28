@@ -7,6 +7,7 @@
 #define BOOST_ASIO_NO_DEPRECATED
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
@@ -87,41 +88,52 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
   }
 
   absl::Status Send(SessionMessage message) override {
-
+    auto message_bytes = cppack::Pack(std::move(message));
     concurrency::MutexLock lock(&mutex_);
     if (!status_.ok()) {
       return status_;
     }
 
-    send_pending_ = true;
-    mutex_.Unlock();
-    boost::system::error_code error;
-    stream_.binary(true);
-    RunInAsioContext(
-        [this, &error, &message]() {
-          auto message_bytes = cppack::Pack(std::move(message));
-          stream_.write(asio::buffer(message_bytes), error);
-        },
-        {concurrency::OnCancel()});
-    mutex_.Lock();
-    send_pending_ = false;
-    last_send_status_ = absl::OkStatus();
-
     if (concurrency::Cancelled()) {
-      stream_.next_layer().shutdown(asio::socket_base::shutdown_send);
+      return absl::CancelledError("Send cancelled");
+    }
+
+    while (send_pending_) {
+      cv_.Wait(&mutex_);
+    }
+    send_pending_ = true;
+    stream_.binary(true);
+
+    boost::system::error_code error;
+    concurrency::PermanentEvent write_done;
+    stream_.async_write(asio::buffer(message_bytes),
+                        [&error, &write_done, this](
+                            const boost::system::error_code& ec, std::size_t) {
+                          concurrency::MutexLock lock(&mutex_);
+                          error = ec;
+                          write_done.Notify();
+                          send_pending_ = false;
+                          cv_.SignalAll();
+                        });
+    mutex_.Unlock();
+    concurrency::Select({write_done.OnEvent(), concurrency::OnCancel()});
+    mutex_.Lock();
+
+    absl::Status status = absl::OkStatus();
+    if (concurrency::Cancelled()) {
+      stream_.next_layer().shutdown(asio::socket_base::shutdown_send, error);
       DLOG(INFO) << absl::StrFormat("WESt %s Send cancelled", id_);
-      last_send_status_ = absl::CancelledError("Send cancelled");
+      status = absl::CancelledError("Send cancelled");
     }
 
+    // send_pending_ = false;
+    // cv_.SignalAll();
     if (error) {
-      last_send_status_ = absl::InternalError(error.message());
-      DLOG(INFO) << absl::StrFormat("WESt %s Send failed: %v", id_,
-                                    last_send_status_);
+      status = absl::InternalError(error.message());
+      DLOG(INFO) << absl::StrFormat("WESt %s Send failed: %v", id_, status);
     }
 
-    cv_.SignalAll();
-
-    return last_send_status_;
+    return status;
   }
 
   std::optional<SessionMessage> Receive() override {
@@ -135,6 +147,14 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
         return std::nullopt;
       }
 
+      if (concurrency::Cancelled()) {
+        return std::nullopt;
+      }
+
+      while (recv_pending_) {
+        cv_.Wait(&mutex_);
+      }
+
       recv_pending_ = true;
       mutex_.Unlock();
       boost::system::error_code error;
@@ -144,11 +164,23 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
             stream_.read(dynamic_buffer, error);
           },
           {concurrency::OnCancel()});
+
+      if (concurrency::Cancelled()) {
+        stream_.next_layer().shutdown(asio::socket_base::shutdown_receive,
+                                      error);
+        if (error && error != asio::error::not_connected) {
+          LOG(ERROR) << absl::StrFormat(
+              "WESt %s Cannot shut down receive on socket: %v", id_,
+              error.message());
+        }
+      }
+
       mutex_.Lock();
       recv_pending_ = false;
 
+      cv_.SignalAll();
+
       if (concurrency::Cancelled()) {
-        stream_.next_layer().shutdown(asio::socket_base::shutdown_receive);
         DLOG(INFO) << absl::StrFormat("WESt %s Receive cancelled", id_);
         return std::nullopt;
       }
@@ -158,8 +190,6 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
                                       error.message());
         return std::nullopt;
       }
-
-      cv_.SignalAll();
     }
 
     if (auto unpacked = cppack::Unpack<SessionMessage>(buffer); unpacked.ok()) {
@@ -185,6 +215,7 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
               beast::http::field::server,
               "Action Engine / Evergreen Light 0.1.0 WebsocketEvergreenServer");
         }));
+    stream_.write_buffer_bytes(16);
 
     boost::system::error_code error;
 
@@ -214,7 +245,7 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
       status_ = absl::InternalError(error.message());
     }
     status_ = absl::CancelledError("Cancelled");
-    while (send_pending_ || recv_pending_) {
+    while (send_pending_) {
       cv_.Wait(&mutex_);
     }
     stream_.next_layer().wait(tcp::socket::wait_error, error);
@@ -235,7 +266,7 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
     }
   }
 
-  absl::Status GetStatus() const override { return last_send_status_; }
+  absl::Status GetStatus() const override { return status_; }
 
   [[nodiscard]] std::string_view GetId() const override { return id_; }
 
@@ -255,7 +286,6 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
   std::string id_;
 
   absl::Status status_;
-  absl::Status last_send_status_;
 
   mutable concurrency::Mutex mutex_;
   mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
@@ -317,7 +347,8 @@ class WebsocketEvergreenServer {
     concurrency::MutexLock lock(&mutex_);
     main_loop_ = concurrency::NewTree({}, [this]() {
       while (!concurrency::Cancelled()) {
-        tcp::socket socket{*GetDefaultAsioExecutionContext()};
+        tcp::socket socket{
+            asio::make_strand(*GetDefaultAsioExecutionContext())};
 
         DLOG(INFO) << "WES waiting for connection.";
         boost::system::error_code error;
@@ -498,6 +529,8 @@ MakeWebsocketEvergreenWireStream(std::string_view address = "127.0.0.1",
     ws_stream.next_layer().shutdown(tcp::socket::shutdown_both, error);
     return absl::CancelledError("Cancelled");
   }
+
+  ws_stream.write_buffer_bytes(16);
 
   if (prepare_stream) {
     if (auto status = std::move(prepare_stream)(&ws_stream); !status.ok()) {
