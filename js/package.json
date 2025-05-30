@@ -33,7 +33,7 @@
     "clean": "rimraf coverage build tmp",
     "prebuild": "npm run lint",
     "build": "tsc -p tsconfig.json",
-    "build:bundle": "esbuild --bundle index.ts --format=esm --outfile=build/actionengine.js",
+    "build:bundle": "esbuild --bundle index.ts --format=esm --outfile=build/actionengine.js && esbuild --bundle src/wsworker.ts --format=esm --outfile=build/wsworker.js",
     "build:watch": "tsc -w -p tsconfig.json",
     "build:release": "npm run clean && tsc -p tsconfig.release.json",
     "build:typings": "tsc --declaration --emitDeclarationOnly --outDir build",

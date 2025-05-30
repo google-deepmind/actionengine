@@ -3,7 +3,7 @@ import { endOfStream } from './data.js';
 import { ChunkStoreReader, NumberedChunk } from './chunkStoreReader.js';
 import { ChunkStoreWriter } from './chunkStoreWriter.js';
 import { EvergreenStream } from './stream.js';
-import { Mutex } from 'async-mutex';
+import { Mutex } from './utils.js';
 
 export class NodeMap {
   private nodes: Map<string, AsyncNode>;

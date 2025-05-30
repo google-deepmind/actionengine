@@ -1,18 +1,16 @@
-import { Encoder, Decoder } from '@msgpack/msgpack';
+import { encode, decode, decodeAsync, decodeMulti } from '@msgpack/msgpack';
 
-const encoder = new Encoder();
-const decoder = new Decoder();
-
-const encode = (value: unknown) => {
-  return encoder.encode(value);
-};
-
-const decode = (bytes: Uint8Array) => {
-  return decoder.decode(bytes);
-};
-
-const decodeMulti = (bytes: Uint8Array) => {
-  return decoder.decodeMulti(bytes);
+const rawDecode = async (blob: Blob | Uint8Array) => {
+  if (blob instanceof Blob) {
+    if (blob.stream) {
+      return await decodeAsync(blob.stream());
+    } else {
+      return await decode(await blob.arrayBuffer());
+    }
+  } else if (blob instanceof Uint8Array) {
+    return decode(blob);
+  }
+  throw new Error(`Unsupported blob type for decoding: ${blob}`);
 };
 
 export const encodeChunkMetadata = (metadata: ChunkMetadata) => {
@@ -206,8 +204,10 @@ export const encodeSessionMessage = (message: SessionMessage) => {
   return encode(packedMessage);
 };
 
-export const decodeSessionMessage = (bytes: Uint8Array): SessionMessage => {
-  const unpackedMessage = decode(bytes) as Uint8Array;
+export const decodeSessionMessage = async (
+  bytes: Blob | Uint8Array,
+): Promise<SessionMessage> => {
+  const unpackedMessage = (await rawDecode(bytes)) as Uint8Array;
   // @ts-expect-error decodeMulti is not strictly typed
   const [packedNodeFragments, packedActions]: [Uint8Array[], Uint8Array[]] =
     decodeMulti(unpackedMessage);

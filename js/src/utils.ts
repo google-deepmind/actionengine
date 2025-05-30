@@ -1,5 +1,3 @@
-import { Mutex } from 'async-mutex';
-
 class Waiter {
   private readonly promise: Promise<void>;
   private waiters: Set<Waiter>;
@@ -19,7 +17,15 @@ class Waiter {
     this.timedOut = false;
   }
 
-  async wait(timeout: number = -1, mutex: Mutex): Promise<boolean> {
+  async wait(
+    timeout: number = -1,
+    mutex: Mutex | null = null,
+  ): Promise<boolean> {
+    // precondition: if mutex is not null, it must be locked
+    if (mutex !== null && !mutex.isLocked()) {
+      throw new Error('Mutex is not locked');
+    }
+
     if (timeout >= 0) {
       this.timeout = setTimeout(async () => {
         this.timedOut = true;
@@ -29,17 +35,21 @@ class Waiter {
 
     this.waiters.add(this);
     try {
-      mutex.release();
+      if (mutex !== null) {
+        mutex.release();
+      }
       await this.promise;
       return this.timedOut;
     } finally {
       this.waiters.delete(this);
-      await mutex.acquire();
+      if (mutex !== null) {
+        await mutex.acquire();
+      }
     }
   }
 
-  cancel() {
-    this.cancelInternal(new Error('CondVar cancelled'));
+  cancel(error?: Error) {
+    this.cancelInternal(error);
   }
 
   notify() {
@@ -47,6 +57,74 @@ class Waiter {
       clearTimeout(this.timeout);
     }
     this.resolveInternal();
+  }
+}
+
+export class Mutex {
+  private _locked: boolean;
+  private readonly _waiters: Set<Waiter>;
+
+  constructor() {
+    this._locked = false;
+    this._waiters = new Set<Waiter>();
+  }
+
+  async acquire(): Promise<void> {
+    if (!this._locked) {
+      this._locked = true;
+      return;
+    }
+    while (this._locked) {
+      const waiter = new Waiter(this._waiters);
+      await waiter.wait(-1, null);
+    }
+    this._locked = true;
+  }
+
+  async runExclusive<T>(callback: () => T | Promise<T>): Promise<T> {
+    await this.acquire();
+    try {
+      return await callback();
+    } finally {
+      this.release();
+    }
+  }
+
+  isLocked(): boolean {
+    return this._locked;
+  }
+
+  async waitForUnlock(): Promise<void> {
+    if (!this._locked) {
+      return;
+    }
+    while (this._locked) {
+      const waiter = new Waiter(this._waiters);
+      await waiter.wait(-1, this);
+    }
+  }
+
+  release(): void {
+    if (!this._locked) {
+      throw new Error('Mutex is not locked');
+    }
+    this._locked = false;
+    if (this._waiters.size > 0) {
+      const waiter: Waiter = this._waiters.values().next().value;
+      if (waiter) {
+        waiter.notify();
+      }
+    }
+  }
+
+  cancel(error?: Error): void {
+    for (const waiter of this._waiters) {
+      waiter.cancel(error);
+    }
+    this._waiters.clear();
+    if (error) {
+      throw error;
+    }
   }
 }
 

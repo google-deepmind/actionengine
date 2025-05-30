@@ -1,5 +1,4 @@
-import { CondVar } from './utils.js';
-import { Mutex } from 'async-mutex';
+import { CondVar, Mutex } from './utils.js';
 
 export interface ChunkStore {
   get(seqId: number, timeout: number): Promise<Chunk>;
