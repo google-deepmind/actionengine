@@ -24,6 +24,7 @@ set(EGLT_ABSL_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/abseil-cpp)
 set(EGLT_PYBIND11_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11)
 set(EGLT_CPPITERTOOLS_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools)
 set(EGLT_GTEST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest)
+set(EGLT_LIBDATACHANNEL_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/libdatachannel)
 
 add_compile_definitions(
         BOOST_FIBERS_SPINLOCK_TTAS_FUTEX
@@ -41,6 +42,7 @@ set(
         ${EGLT_THIRD_PARTY_ROOT}/boost/libs/core/include
         ${EGLT_THIRD_PARTY_ROOT}/boost/libs/integer/include
         ${EGLT_THIRD_PARTY_ROOT}/boost/libs/intrusive/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/json/include
         ${EGLT_THIRD_PARTY_ROOT}/boost/libs/fiber/include
         ${EGLT_THIRD_PARTY_ROOT}/boost/libs/move/include
         ${EGLT_THIRD_PARTY_ROOT}/boost/libs/mp11/include
@@ -70,6 +72,7 @@ set(CMAKE_PREFIX_PATH
         ${EGLT_PYBIND11_ROOT}
         ${EGLT_CPPITERTOOLS_ROOT}
         ${EGLT_GTEST_ROOT}
+        ${EGLT_LIBDATACHANNEL_ROOT}
 )
 
 execute_process(
@@ -89,6 +92,8 @@ find_package(GTest REQUIRED)
 find_package(absl REQUIRED)
 find_package(cppitertools REQUIRED)
 find_package(GTest REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(LibDataChannel REQUIRED)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/cppack)
 
@@ -109,6 +114,7 @@ set(EGLT_THIRD_PARTY_INCLUDE_DIRS
         ${EGLT_PYBIND11_ROOT}/include
         ${EGLT_CPPITERTOOLS_ROOT}/include
         ${EGLT_GTEST_ROOT}/include
+        ${EGLT_LIBDATACHANNEL_ROOT}/include
 )
 
 enable_testing()

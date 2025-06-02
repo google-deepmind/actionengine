@@ -26,3 +26,6 @@
 [submodule "third_party/cppzmq"]
 	path = third_party/cppzmq
 	url = https://github.com/zeromq/cppzmq
+[submodule "third_party/libdatachannel"]
+	path = third_party/libdatachannel
+	url = https://github.com/paullouisageneau/libdatachannel

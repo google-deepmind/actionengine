@@ -1,6 +1,10 @@
 import { encode, decode, decodeAsync, decodeMulti } from '@msgpack/msgpack';
 
 const rawDecode = async (blob: Blob | Uint8Array) => {
+  if (blob instanceof ArrayBuffer) {
+    return decode(new Uint8Array(blob));
+  }
+
   if (blob instanceof Blob) {
     if (blob.stream) {
       return await decodeAsync(blob.stream());

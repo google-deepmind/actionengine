@@ -47,3 +47,50 @@ target_include_directories(
         eglt_sdk_serving_websockets_pybind11 PUBLIC
         ${EGLT_PYBIND11_INCLUDE_DIRS}
 )
+
+# ------------------------------------------------------------------
+
+add_library(
+        eglt_sdk_serving_webrtc STATIC
+        webrtc.h
+        webrtc.cc
+)
+add_library(eglt::sdk::serving::webrtc ALIAS eglt_sdk_serving_webrtc)
+target_include_directories(
+        eglt_sdk_serving_webrtc PUBLIC
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIR}
+        ${Boost_INCLUDE_DIRS}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+
+)
+target_link_libraries(
+        eglt_sdk_serving_webrtc PUBLIC
+        ${EGLT_ABSL_DEPENDENCIES}
+        ${EGLT_PYBIND11_DEPENDENCIES}
+        cppack
+        eglt::nodes
+        Boost::beast
+        LibDataChannel::LibDataChannel
+)
+
+# ------------------------------------------------------------------
+
+add_executable(webrtc_answerer
+        answerer.cc
+)
+
+target_include_directories(
+        webrtc_answerer PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+)
+
+target_link_libraries(
+        webrtc_answerer
+        eglt_sdk_serving_webrtc
+        LibDataChannel::LibDataChannel
+        Boost::beast
+        eglt::net
+)
