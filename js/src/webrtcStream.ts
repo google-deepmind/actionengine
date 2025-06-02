@@ -212,23 +212,11 @@ export class WebRtcEvergreenStream {
       };
 
       this.connection.oniceconnectionstatechange = () => {
-        console.log(`
-    Connection
-    state: $
-    {
-      this.connection.iceConnectionState
-    }
-    `);
+        console.log(`Connection state: ${this.connection.iceConnectionState}`);
       };
 
       this.connection.onicegatheringstatechange = () => {
-        console.log(`
-    Gathering
-    state: $
-    {
-      this.connection.iceGatheringState
-    }
-    `);
+        console.log(`Gathering state: ${this.connection.iceGatheringState}`);
       };
 
       setupDataChannel(this.rtcDataChannel, this, this.channel);
