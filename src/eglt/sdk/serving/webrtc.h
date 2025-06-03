@@ -15,8 +15,8 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
   static constexpr int kBufferSize = 256;
 
   explicit WebRtcEvergreenWireStream(
-      std::shared_ptr<rtc::PeerConnection> connection,
-      std::shared_ptr<rtc::DataChannel> data_channel)
+      std::shared_ptr<rtc::DataChannel> data_channel,
+      std::shared_ptr<rtc::PeerConnection> connection = nullptr)
       : id_(data_channel->label()),
         connection_(std::move(connection)),
         data_channel_(std::move(data_channel)) {
@@ -47,12 +47,16 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
         },
         [](const rtc::string&) {});
 
-    data_channel_->onOpen([this]() {
-      concurrency::MutexLock lock(&mutex_);
-      status_ = absl::OkStatus();
+    if (data_channel_ && data_channel_->isOpen()) {
       opened_ = true;
-      cv_.SignalAll();
-    });
+    } else {
+      data_channel_->onOpen([this]() {
+        concurrency::MutexLock lock(&mutex_);
+        status_ = absl::OkStatus();
+        opened_ = true;
+        cv_.SignalAll();
+      });
+    }
 
     data_channel_->onClosed([this]() {
       concurrency::MutexLock lock(&mutex_);
@@ -72,6 +76,14 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
     });
   }
 
+  ~WebRtcEvergreenWireStream() override {
+    data_channel_->close();
+    concurrency::MutexLock lock(&mutex_);
+    while (!closed_) {
+      cv_.Wait(&mutex_);
+    }
+  }
+
   absl::Status Send(SessionMessage message) override {
     concurrency::MutexLock lock(&mutex_);
     if (!status_.ok()) {
@@ -79,7 +91,9 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
     }
 
     while (!opened_ && !closed_) {
+      DLOG(INFO) << "cv wait";
       cv_.Wait(&mutex_);
+      DLOG(INFO) << "cv wakeup";
     }
 
     if (closed_) {
@@ -148,8 +162,11 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
 };
 
 std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
-    std::string_view address = "demos.helena.direct", uint16_t port = 19000,
-    std::string_view target = "/server", uint16_t rtc_port = 19002);
+    std::string_view address = "demos.helena.direct", uint16_t port = 19000);
+
+std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
+    std::string_view id = "client", std::string_view peer_id = "server",
+    std::string_view address = "demos.helena.direct", uint16_t port = 19000);
 
 }  // namespace eglt::sdk
 

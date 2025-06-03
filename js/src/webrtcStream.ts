@@ -95,6 +95,13 @@ const openSignaling = async (url: string, connection: RTCPeerConnection) => {
     }
 
     if (message.type === 'candidate') {
+      if (
+        connection.iceConnectionState === 'connected' ||
+        connection.iceConnectionState === 'completed' ||
+        connection.iceConnectionState === 'closed'
+      ) {
+        return;
+      }
       await connection.addIceCandidate({
         candidate: message.candidate,
         sdpMid: message.mid,
@@ -211,13 +218,9 @@ export class WebRtcEvergreenStream {
         setupDataChannel(this.rtcDataChannel, this, this.channel);
       };
 
-      this.connection.oniceconnectionstatechange = () => {
-        console.log(`Connection state: ${this.connection.iceConnectionState}`);
-      };
+      this.connection.oniceconnectionstatechange = () => {};
 
-      this.connection.onicegatheringstatechange = () => {
-        console.log(`Gathering state: ${this.connection.iceGatheringState}`);
-      };
+      this.connection.onicegatheringstatechange = () => {};
 
       setupDataChannel(this.rtcDataChannel, this, this.channel);
       await sendLocalDescription(ws, serverId, this.connection, 'offer');

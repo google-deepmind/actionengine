@@ -33,6 +33,7 @@ async def handle_websocket(connection: websockets.ServerConnection):
                 await destination_websocket.send(data)
             else:
                 print("Client {} not found".format(destination_id))
+                await connection.close(code=4000, reason="Peer not found")
 
     except Exception as e:
         print(e)
