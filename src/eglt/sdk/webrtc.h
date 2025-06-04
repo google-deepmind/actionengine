@@ -10,6 +10,21 @@
 
 namespace eglt::sdk {
 
+struct WebRtcDataChannelConnection {
+  std::shared_ptr<rtc::PeerConnection> connection;
+  std::shared_ptr<rtc::DataChannel> data_channel;
+};
+
+absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
+    std::string_view identity = "server",
+    std::string_view signalling_address = "localhost",
+    uint16_t signalling_port = 80);
+
+absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
+    std::string_view identity, std::string_view peer_identity = "server",
+    std::string_view signalling_address = "localhost",
+    uint16_t signalling_port = 80);
+
 class WebRtcEvergreenWireStream final : public EvergreenWireStream {
  public:
   static constexpr int kBufferSize = 256;
@@ -160,12 +175,37 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
   bool closed_ ABSL_GUARDED_BY(mutex_) = false;
 };
 
-std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
-    std::string_view address = "demos.helena.direct", uint16_t port = 19000);
+class WebRtcEvergreenServer {
+ public:
+  explicit WebRtcEvergreenServer(eglt::Service* absl_nonnull service,
+                                 std::string_view address = "0.0.0.0",
+                                 uint16_t port = 20000);
 
-std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
-    std::string_view id = "client", std::string_view peer_id = "server",
-    std::string_view address = "demos.helena.direct", uint16_t port = 19000);
+  ~WebRtcEvergreenServer();
+
+  void Run();
+
+  absl::Status Cancel();
+
+  absl::Status Join();
+
+ private:
+  eglt::Service* absl_nonnull const service_;
+  concurrency::Channel<WebRtcDataChannelConnection> ready_data_connections_;
+  concurrency::Mutex mutex_;
+  std::unique_ptr<concurrency::Fiber> main_loop_;
+};
+
+absl::StatusOr<std::unique_ptr<WebRtcEvergreenWireStream>>
+AcceptStreamFromSignalling(std::string_view identity = "server",
+                           std::string_view address = "localhost",
+                           uint16_t port = 80);
+
+absl::StatusOr<std::unique_ptr<WebRtcEvergreenWireStream>>
+StartStreamWithSignalling(std::string_view identity = "client",
+                          std::string_view peer_identity = "server",
+                          std::string_view address = "localhost",
+                          uint16_t port = 80);
 
 }  // namespace eglt::sdk
 

@@ -6,11 +6,15 @@
 
 void ServeHelloEvergreen() {
   while (true) {
-    auto stream = eglt::sdk::AcceptStreamFromSignalling();
-    if (!stream) {
-      LOG(ERROR) << "Failed to accept WebRTC stream.";
+    auto status_or_stream = eglt::sdk::AcceptStreamFromSignalling(
+        "server", "demos.helena.direct", 19000);
+    if (!status_or_stream.ok()) {
+      LOG(ERROR) << "Failed to accept WebRTC stream: "
+                 << status_or_stream.status().message();
       break;
     }
+
+    const auto stream = *std::move(status_or_stream);
     LOG(INFO) << "Server accepted a new WebRTC stream with ID: "
               << stream->GetId();
 
@@ -40,13 +44,17 @@ int main(int argc, char** argv) {
   eglt::concurrency::SleepFor(absl::Milliseconds(200));
 
   while (true) {
-    const auto stream =
-        eglt::sdk::StartStreamWithSignalling(eglt::GenerateUUID4());
-    if (!stream) {
-      LOG(ERROR) << "Failed to start WebRTC stream.";
+    auto status_or_stream = eglt::sdk::StartStreamWithSignalling(
+        eglt::GenerateUUID4(), "server", "demos.helena.direct", 19000);
+    if (!status_or_stream.ok()) {
+      LOG(ERROR) << "Failed to start WebRTC stream: "
+                 << status_or_stream.status().message();
       break;
     }
+
+    const auto stream = std::move(*std::move(status_or_stream));
     LOG(INFO) << "Client started a WebRTC stream with ID: " << stream->GetId();
+
     const auto message = stream->Receive();
     if (!message) {
       LOG(ERROR) << "Failed to receive message";

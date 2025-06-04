@@ -50,8 +50,8 @@ static rtc::Configuration GetDefaultRtcConfig() {
 
 class SignallingClient {
  public:
-  explicit SignallingClient(std::string_view address = "demos.helena.direct",
-                            uint16_t port = 19000)
+  explicit SignallingClient(std::string_view address = "localhost",
+                            uint16_t port = 80)
       : address_(address), port_(port) {}
 
   SignallingClient(const SignallingClient&) = delete;
@@ -233,9 +233,10 @@ class SignallingClient {
   concurrency::PermanentEvent error_event_;
 };
 
-std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
-    std::string_view address, uint16_t port) {
-  SignallingClient signalling_client{address, port};
+absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
+    std::string_view identity, std::string_view signalling_address,
+    uint16_t signalling_port) {
+  SignallingClient signalling_client{signalling_address, signalling_port};
 
   std::string client_id;
 
@@ -272,7 +273,6 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
                                     std::string_view id,
                                     const boost::json::value& message) {
     if (!client_id.empty() || client_id != id) {
-      // LOG(ERROR) << "Received candidate for unknown client: " << id;
       return;
     }
 
@@ -289,11 +289,9 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
     }
   });
 
-  if (const auto status = signalling_client.ConnectWithIdentity("server");
+  if (auto status = signalling_client.ConnectWithIdentity(identity);
       !status.ok()) {
-    LOG(ERROR) << "WebRtcEvergreenWireStream ConnectWithIdentity failed: "
-               << status;
-    return nullptr;
+    return status;
   }
 
   connection->onLocalDescription([&signalling_client, &client_id](
@@ -335,8 +333,6 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
         data_channel_event.Notify();
       });
 
-  LOG(INFO) << "WebRtcEvergreenWireStream waiting for data channel...";
-
   const int selected = concurrency::Select({data_channel_event.OnEvent(),
                                             signalling_client.OnError(),
                                             concurrency::OnCancel()});
@@ -351,23 +347,23 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
   signalling_client.Join();
 
   if (selected == 1) {
-    LOG(ERROR) << "WebRtcEvergreenWireStream connection error: "
-               << signalling_client.GetStatus().message();
-    return nullptr;
+    return signalling_client.GetStatus();
   }
   if (concurrency::Cancelled()) {
-    LOG(ERROR) << "WebRtcEvergreenWireStream connection cancelled";
-    return nullptr;
+    return absl::CancelledError(
+        "WebRtcEvergreenWireStream connection cancelled");
   }
 
-  return std::make_unique<WebRtcEvergreenWireStream>(std::move(data_channel),
-                                                     std::move(connection));
+  return WebRtcDataChannelConnection{
+      .data_channel = std::move(data_channel),
+      .connection = std::move(connection),
+  };
 }
 
-std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
-    std::string_view id, std::string_view peer_id, std::string_view address,
-    uint16_t port) {
-  SignallingClient signalling_client{address, port};
+absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
+    std::string_view identity, std::string_view peer_identity,
+    std::string_view signalling_address, uint16_t signalling_port) {
+  SignallingClient signalling_client{signalling_address, signalling_port};
 
   rtc::Configuration config = GetDefaultRtcConfig();
   config.portRangeBegin = 1025;
@@ -375,29 +371,31 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
 
   auto connection = std::make_unique<rtc::PeerConnection>(std::move(config));
 
-  signalling_client.OnAnswer([&connection, peer_id = std::string(peer_id)](
-                                 std::string_view received_peer_id,
-                                 const boost::json::value& message) {
-    if (received_peer_id != peer_id) {
-      return;
-    }
+  signalling_client.OnAnswer(
+      [&connection, peer_identity = std::string(peer_identity)](
+          std::string_view received_peer_id,
+          const boost::json::value& message) {
+        if (received_peer_id != peer_identity) {
+          return;
+        }
 
-    boost::system::error_code error;
-    if (const auto desc_ptr = message.find_pointer("/description", error);
-        desc_ptr != nullptr && !error) {
-      const auto description = desc_ptr->as_string().c_str();
-      connection->setRemoteDescription(rtc::Description(description));
-    } else {
-      LOG(ERROR) << "WebRtcEvergreenWireStream no 'description' field in "
-                    "answer: "
-                 << boost::json::serialize(message);
-    }
-  });
+        boost::system::error_code error;
+        if (const auto desc_ptr = message.find_pointer("/description", error);
+            desc_ptr != nullptr && !error) {
+          const auto description = desc_ptr->as_string().c_str();
+          connection->setRemoteDescription(rtc::Description(description));
+        } else {
+          LOG(ERROR) << "WebRtcEvergreenWireStream no 'description' field in "
+                        "answer: "
+                     << boost::json::serialize(message);
+        }
+      });
 
-  signalling_client.OnCandidate([&connection, peer_id = std::string(peer_id)](
+  signalling_client.OnCandidate([&connection,
+                                 peer_identity = std::string(peer_identity)](
                                     std::string_view received_peer_id,
                                     const boost::json::value& message) {
-    if (received_peer_id != peer_id) {
+    if (received_peer_id != peer_identity) {
       return;
     }
 
@@ -414,15 +412,13 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
     }
   });
 
-  if (const auto status = signalling_client.ConnectWithIdentity(id);
+  if (auto status = signalling_client.ConnectWithIdentity(identity);
       !status.ok()) {
-    LOG(ERROR) << "WebRtcEvergreenWireStream ConnectWithIdentity failed: "
-               << status;
-    return nullptr;
+    return status;
   }
 
   connection->onLocalCandidate(
-      [id = std::string(id), peer_id = std::string(peer_id),
+      [peer_id = std::string(peer_identity),
        &signalling_client](const rtc::Candidate& candidate) {
         const auto candidate_str = std::string(candidate);
         boost::json::object candidate_json;
@@ -441,7 +437,7 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
   auto init = rtc::DataChannelInit{};
   init.reliability.unordered = true;
   auto data_channel =
-      connection->createDataChannel(std::string(id), std::move(init));
+      connection->createDataChannel(std::string(identity), std::move(init));
 
   concurrency::PermanentEvent opened;
   data_channel->onOpen([&opened]() { opened.Notify(); });
@@ -452,26 +448,24 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
     auto sdp = description.generateSdp("\r\n");
 
     boost::json::object offer;
-    offer["id"] = peer_id;
+    offer["id"] = peer_identity;
     offer["type"] = "offer";
     offer["description"] = sdp;
     const auto message = boost::json::serialize(offer);
-    if (const auto status = signalling_client.Send(message); !status.ok()) {
+    if (auto status = signalling_client.Send(message); !status.ok()) {
       LOG(ERROR) << "WebRtcEvergreenWireStream Send offer failed: " << status;
-      return nullptr;
+      return status;
     }
   }
 
   const int selected = concurrency::Select(
       {opened.OnEvent(), signalling_client.OnError(), concurrency::OnCancel()});
   if (selected == 1) {
-    LOG(ERROR) << "WebRtcEvergreenWireStream connection error: "
-               << signalling_client.GetStatus().message();
-    return nullptr;
+    return signalling_client.GetStatus();
   }
   if (concurrency::Cancelled()) {
-    LOG(ERROR) << "WebRtcEvergreenWireStream connection cancelled";
-    return nullptr;
+    return absl::CancelledError(
+        "WebRtcEvergreenWireStream connection cancelled");
   }
 
   data_channel->onOpen({});
@@ -480,12 +474,43 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
   signalling_client.Join();
 
   if (concurrency::Cancelled()) {
-    LOG(ERROR) << "WebRtcEvergreenWireStream connection cancelled";
-    return nullptr;
+    return absl::CancelledError(
+        "WebRtcEvergreenWireStream connection cancelled");
   }
 
-  return std::make_unique<WebRtcEvergreenWireStream>(std::move(data_channel),
-                                                     std::move(connection));
+  return WebRtcDataChannelConnection{
+      .data_channel = std::move(data_channel),
+      .connection = std::move(connection),
+  };
+}
+
+absl::StatusOr<std::unique_ptr<WebRtcEvergreenWireStream>>
+AcceptStreamFromSignalling(std::string_view identity, std::string_view address,
+                           uint16_t port) {
+
+  absl::StatusOr<WebRtcDataChannelConnection> connection =
+      AcceptWebRtcDataChannel(identity, address, port);
+  if (!connection.ok()) {
+    return connection.status();
+  }
+
+  return std::make_unique<WebRtcEvergreenWireStream>(
+      std::move(connection->data_channel), std::move(connection->connection));
+}
+
+absl::StatusOr<std::unique_ptr<WebRtcEvergreenWireStream>>
+StartStreamWithSignalling(std::string_view identity,
+                          std::string_view peer_identity,
+                          std::string_view address, uint16_t port) {
+
+  absl::StatusOr<WebRtcDataChannelConnection> connection =
+      StartWebRtcDataChannel(identity, peer_identity, address, port);
+  if (!connection.ok()) {
+    return connection.status();
+  }
+
+  return std::make_unique<WebRtcEvergreenWireStream>(
+      std::move(connection->data_channel), std::move(connection->connection));
 }
 
 }  // namespace eglt::sdk

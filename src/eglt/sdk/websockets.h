@@ -230,7 +230,6 @@ class WebsocketEvergreenServer {
 
  private:
   eglt::Service* absl_nonnull const service_;
-  boost::asio::thread_pool thread_pool_;
   std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
 
   mutable concurrency::Mutex mutex_;

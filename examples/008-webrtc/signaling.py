@@ -57,10 +57,7 @@ async def main():
 
     if ssl_cert:
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ssl_context.load_cert_chain(
-            "/home/alex/demos.helena.direct/cert.pem",
-            "/home/alex/demos.helena.direct/privkey.pem",
-        )
+        ssl_context.load_cert_chain(ssl_cert)
     else:
         ssl_context = None
 
