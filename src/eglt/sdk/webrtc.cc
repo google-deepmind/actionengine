@@ -148,7 +148,6 @@ class SignallingClient {
 
       status = stream_.ReadText(&message);
       if (!status.ok()) {
-        LOG(ERROR) << "WebsocketEvergreenServer ReadText failed: " << status;
         break;
       }
 
