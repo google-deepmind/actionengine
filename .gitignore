@@ -8,6 +8,8 @@ cmake-build-relwithdebinfo/
 **/.DS_Store/
 **/.DS_Store
 **/.idea/*
+**/__pycache__/
+**/node_modules/
 
 third_party/build_deps/*
 !third_party/build_deps.sh
@@ -15,3 +17,4 @@ third_party/build_deps/*
 **/*.egg-info/
 
 **/*.so
+**/*.log
