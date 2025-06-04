@@ -61,6 +61,13 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
 
   [[nodiscard]] const void* GetImpl() const override { return &stream_; }
 
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink,
+                            const WebsocketEvergreenWireStream& stream) {
+    absl::Format(&sink, "WebsocketEvergreenWireStream(id: %s, status: %v)",
+                 stream.id_, stream.status_);
+  }
+
  private:
   FiberAwareWebsocketStream stream_;
   std::string id_;
