@@ -7,6 +7,10 @@
 void ServeHelloEvergreen() {
   while (true) {
     auto stream = eglt::sdk::AcceptStreamFromSignalling();
+    if (!stream) {
+      LOG(ERROR) << "Failed to accept WebRTC stream.";
+      break;
+    }
     LOG(INFO) << "Server accepted a new WebRTC stream with ID: "
               << stream->GetId();
 
@@ -24,7 +28,6 @@ void ServeHelloEvergreen() {
     if (auto status = stream->Send(std::move(message)); !status.ok()) {
       LOG(ERROR) << "Failed to send message: " << status.message();
     }
-    eglt::concurrency::SleepFor(absl::Milliseconds(5));
   }
 }
 
@@ -39,18 +42,19 @@ int main(int argc, char** argv) {
   while (true) {
     const auto stream =
         eglt::sdk::StartStreamWithSignalling(eglt::GenerateUUID4());
+    if (!stream) {
+      LOG(ERROR) << "Failed to start WebRTC stream.";
+      break;
+    }
     LOG(INFO) << "Client started a WebRTC stream with ID: " << stream->GetId();
     const auto message = stream->Receive();
     if (!message) {
       LOG(ERROR) << "Failed to receive message";
-      return 1;
+      break;
     }
 
     LOG(INFO) << "Received message: \n" << *message;
-    // eglt::concurrency::SleepFor(absl::Milliseconds(200));
   }
-
-  eglt::concurrency::SleepFor(absl::Milliseconds(200));
 
   server_fiber.Join();
   return 0;

@@ -22,6 +22,7 @@
 #include <boost/json/src.hpp>
 
 #include "eglt/sdk/boost_asio_utils.h"
+#include "eglt/sdk/fiber_aware_websocket_stream.h"
 #include "eglt/sdk/webrtc.h"
 
 namespace eglt::sdk {
@@ -51,39 +52,31 @@ class SignallingClient {
  public:
   explicit SignallingClient(std::string_view address = "demos.helena.direct",
                             uint16_t port = 19000)
-      : address_(address),
-        port_(port),
-        stream_(GetDefaultAsioExecutionContext()) {}
+      : address_(address), port_(port) {}
 
   SignallingClient(const SignallingClient&) = delete;
   SignallingClient& operator=(const SignallingClient&) = delete;
 
-  ~SignallingClient() {
-    concurrency::MutexLock lock(&mutex_);
-    while (write_pending_) {
-      cv_.Wait(&mutex_);
-    }
-    CloseStreamAndJoinLoop();
-  }
+  ~SignallingClient() { CloseStreamAndJoinLoop(); }
 
-  void OnOffer(PeerJsonHandler on_offer) {
-    concurrency::MutexLock lock(&mutex_);
-    on_offer_ = std::move(on_offer);
-  }
+  void OnOffer(PeerJsonHandler on_offer) { on_offer_ = std::move(on_offer); }
 
   void OnCandidate(PeerJsonHandler on_candidate) {
-    concurrency::MutexLock lock(&mutex_);
     on_candidate_ = std::move(on_candidate);
   }
 
   void OnAnswer(PeerJsonHandler on_answer) {
-    concurrency::MutexLock lock(&mutex_);
     on_answer_ = std::move(on_answer);
   }
 
-  absl::Status ConnectWithIdentity(std::string_view identity) {
-    concurrency::MutexLock lock(&mutex_);
+  concurrency::Case OnError() const { return error_event_.OnEvent(); }
 
+  absl::Status GetStatus() const {
+    concurrency::MutexLock lock(&mutex_);
+    return loop_status_;
+  }
+
+  absl::Status ConnectWithIdentity(std::string_view identity) {
     if (!on_answer_ && !on_offer_ && !on_candidate_) {
       return absl::FailedPreconditionError(
           "WebsocketEvergreenServer no handlers set: connecting in this "
@@ -92,39 +85,34 @@ class SignallingClient {
 
     identity_ = std::string(identity);
 
-    boost::system::error_code error;
-    stream_.set_option(beast::websocket::stream_base::decorator(
+    auto boost_stream = std::make_unique<BoostWebsocketStream>(
+        *GetDefaultAsioExecutionContext());
+
+    boost_stream->set_option(beast::websocket::stream_base::decorator(
         [](beast::websocket::request_type& req) {
           req.set(beast::http::field::user_agent,
                   "Action Engine / Evergreen Light 0.1.0 "
                   "WebsocketEvergreenWireStream client");
         }));
 
-    tcp::resolver resolver(*GetDefaultAsioExecutionContext());
-    const auto endpoints =
-        resolver.resolve(address_, std::to_string(port_), error);
-    if (error) {
-      return absl::InternalError(absl::StrFormat(
-          "WebsocketEvergreenServer resolve() failed: %s", error.message()));
+    absl::Status status =
+        ResolveAndConnect(boost_stream.get(), address_, port_);
+    if (!status.ok()) {
+      return status;
     }
 
-    const tcp::endpoint endpoint =
-        asio::connect(beast::get_lowest_layer(stream_), endpoints, error);
-    if (error) {
-      return absl::InternalError(absl::StrFormat(
-          "WebsocketEvergreenServer connect() failed: %s", error.message()));
-    }
+    stream_ = FiberAwareWebsocketStream(
+        std::move(boost_stream), [this](BoostWebsocketStream* stream) {
+          return DoHandshake(stream, absl::StrFormat("%s:%d", address_, port_),
+                             absl::StrFormat("/%s", identity_));
+        });
 
-    stream_.handshake(absl::StrFormat("%s:%d", address_, endpoint.port()),
-                      absl::StrFormat("/%s", identity_), error);
-
-    if (error) {
-      loop_status_ = absl::InternalError(absl::StrFormat(
-          "WebsocketEvergreenServer handshake() failed: %s", error.message()));
-    }
-    cv_.SignalAll();
-    if (loop_status_ != absl::OkStatus()) {
-      return loop_status_;
+    {
+      concurrency::MutexLock lock(&mutex_);
+      loop_status_ = stream_.Start();
+      if (!loop_status_.ok()) {
+        return loop_status_;
+      }
     }
 
     loop_ = std::make_unique<thread::Fiber>([this]() { RunLoop(); });
@@ -132,109 +120,39 @@ class SignallingClient {
   }
 
   absl::Status Send(const std::string& message) {
-    concurrency::MutexLock lock(&mutex_);
-
-    while (!stream_.is_open() && loop_status_.ok() &&
-           !concurrency::Cancelled()) {
-      cv_.Wait(&mutex_);
-    }
-    if (!loop_status_.ok()) {
-      return loop_status_;
-    }
-    if (concurrency::Cancelled()) {
-      return absl::CancelledError("WebsocketEvergreenServer Send cancelled");
-    }
-    if (!stream_.is_open()) {
-      return absl::FailedPreconditionError(
-          "WebsocketEvergreenServer stream is not open");
-    }
-
-    while (write_pending_) {
-      cv_.Wait(&mutex_);
-    }
-
-    boost::system::error_code error;
-    thread::PermanentEvent write_done;
-    write_pending_ = true;
-
-    stream_.text(true);
-    stream_.async_write(
-        asio::buffer(message),
-        [&error, &write_done, this](
-            const boost::system::error_code& async_error, std::size_t) {
-          concurrency::MutexLock lock(&mutex_);
-          error = async_error;
-          write_pending_ = false;
-          cv_.SignalAll();
-          write_done.Notify();
-        });
-
-    mutex_.Unlock();
-    thread::Select({write_done.OnEvent(), thread::OnCancel()});
-    mutex_.Lock();
-
-    if (error) {
-      return absl::InternalError(absl::StrFormat(
-          "WebsocketEvergreenServer Send failed: %s", error.message()));
-    }
-
-    return absl::OkStatus();
+    return stream_.WriteText(message);
   }
 
   void Cancel() {
     concurrency::MutexLock lock(&mutex_);
-    CloseStreamAndJoinLoop();
+    stream_.Close().IgnoreError();
+    loop_->Cancel();
     loop_status_ = absl::CancelledError("WebsocketEvergreenServer cancelled");
-    cv_.SignalAll();
   }
 
   void Join() {
-    concurrency::MutexLock lock(&mutex_);
     if (loop_ != nullptr) {
-      concurrency::Fiber* loop = loop_.get();
-      mutex_.Unlock();
-      loop->Join();
-      mutex_.Lock();
+      loop_->Join();
       loop_ = nullptr;
     }
   }
 
  private:
   void RunLoop() {
-    boost::system::error_code error;
     std::string message;
     boost::json::value parsed_message;
     absl::Status status;
 
-    concurrency::MutexLock lock(&mutex_);
-
     while (!thread::Cancelled()) {
       message.clear();
 
-      asio::dynamic_string_buffer buffer(message);
-      thread::PermanentEvent read_done;
-      stream_.async_read(
-          buffer,
-          [&error, &read_done](const boost::system::error_code& async_error,
-                               std::size_t) {
-            error = async_error;
-            read_done.Notify();
-          });
-
-      mutex_.Unlock();
-      thread::Select({read_done.OnEvent()});
-      mutex_.Lock();
-
-      if (error) {
-        if (error == beast::websocket::error::closed ||
-            error == boost::system::errc::operation_canceled) {
-          break;
-        }
-        status = absl::InternalError(absl::StrFormat(
-            "WebsocketEvergreenServer read() failed: %s", error.message()));
+      status = stream_.ReadText(&message);
+      if (!status.ok()) {
+        LOG(ERROR) << "WebsocketEvergreenServer ReadText failed: " << status;
         break;
       }
 
+      boost::system::error_code error;
       parsed_message = boost::json::parse(message, error);
       if (error) {
         LOG(ERROR) << "WebsocketEvergreenServer parse() failed: "
@@ -283,53 +201,42 @@ class SignallingClient {
         continue;
       }
     }
-    loop_status_ = status;
+    {
+      concurrency::MutexLock lock(&mutex_);
+      loop_status_ = status;
+      if (!loop_status_.ok()) {
+        error_event_.Notify();
+      }
+    }
   }
 
-  void CloseStreamAndJoinLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
-    boost::system::error_code error;
-    if (stream_.is_open()) {
-      stream_.next_layer().cancel(error);
-    }
-    if (error) {
-      LOG(ERROR) << "WebsocketEvergreenServer CloseStreamAndJoinLoop cancel "
-                    "failed: "
-                 << error.message();
-    }
+  void CloseStreamAndJoinLoop() {
+    stream_.Close().IgnoreError();
     if (loop_ != nullptr) {
       loop_->Cancel();
-      concurrency::Fiber* loop = loop_.get();
-      mutex_.Unlock();
-      loop->Join();
-      mutex_.Lock();
+      loop_->Join();
       loop_ = nullptr;
     }
   }
 
-  mutable concurrency::Mutex mutex_;
-  concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
-
-  std::string identity_ ABSL_GUARDED_BY(mutex_);
+  std::string identity_;
   const std::string address_;
   const uint16_t port_;
 
-  PeerJsonHandler on_offer_ ABSL_GUARDED_BY(mutex_);
-  PeerJsonHandler on_candidate_ ABSL_GUARDED_BY(mutex_);
-  PeerJsonHandler on_answer_ ABSL_GUARDED_BY(mutex_);
+  PeerJsonHandler on_offer_;
+  PeerJsonHandler on_candidate_;
+  PeerJsonHandler on_answer_;
 
-  beast::websocket::stream<tcp::socket> stream_ ABSL_GUARDED_BY(mutex_);
-  std::unique_ptr<thread::Fiber> loop_ ABSL_GUARDED_BY(mutex_);
+  FiberAwareWebsocketStream stream_;
+  std::unique_ptr<thread::Fiber> loop_;
   absl::Status loop_status_ ABSL_GUARDED_BY(mutex_);
-
-  bool write_pending_ ABSL_GUARDED_BY(mutex_) = false;
+  mutable concurrency::Mutex mutex_;
+  concurrency::PermanentEvent error_event_;
 };
 
 std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
     std::string_view address, uint16_t port) {
   SignallingClient signalling_client{address, port};
-
-  thread::Mutex mutex;
-  thread::CondVar cv;
 
   std::string client_id;
 
@@ -338,19 +245,72 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
   auto connection = std::make_unique<rtc::PeerConnection>(std::move(config));
 
   std::shared_ptr<rtc::DataChannel> data_channel;
+  concurrency::PermanentEvent data_channel_event;
 
-  connection->onLocalDescription(
-      [&signalling_client, &client_id](const rtc::Description& description) {
-        const std::string sdp = description.generateSdp("\r\n");
+  signalling_client.OnOffer(
+      [&connection, &client_id](std::string_view id,
+                                const boost::json::value& message) {
+        if (!client_id.empty() && client_id != id) {
+          LOG(ERROR) << "Already accepting another client: " << client_id;
+          return;
+        }
+        client_id = std::string(id);
 
-        boost::json::object answer;
-        answer["id"] = client_id;
-        answer["type"] = "answer";
-        answer["description"] = sdp;
+        boost::system::error_code error;
 
-        const auto message = boost::json::serialize(answer);
-        signalling_client.Send(message).IgnoreError();
+        if (const auto desc_ptr = message.find_pointer("/description", error);
+            desc_ptr != nullptr && !error) {
+          const auto description = desc_ptr->as_string().c_str();
+          connection->setRemoteDescription(rtc::Description(description));
+        } else {
+          LOG(ERROR) << "WebRtcEvergreenWireStream no 'description' field in "
+                        "offer: "
+                     << boost::json::serialize(message);
+        }
       });
+
+  signalling_client.OnCandidate([&connection, &client_id](
+                                    std::string_view id,
+                                    const boost::json::value& message) {
+    if (!client_id.empty() || client_id != id) {
+      // LOG(ERROR) << "Received candidate for unknown client: " << id;
+      return;
+    }
+
+    boost::system::error_code error;
+
+    if (const auto candidate_ptr = message.find_pointer("/candidate", error);
+        candidate_ptr != nullptr && !error) {
+      const auto candidate_str = candidate_ptr->as_string().c_str();
+      connection->addRemoteCandidate(rtc::Candidate(candidate_str));
+    } else {
+      LOG(ERROR) << "WebRtcEvergreenWireStream no 'candidate' field in "
+                    "candidate message: "
+                 << boost::json::serialize(message);
+    }
+  });
+
+  if (const auto status = signalling_client.ConnectWithIdentity("server");
+      !status.ok()) {
+    LOG(ERROR) << "WebRtcEvergreenWireStream ConnectWithIdentity failed: "
+               << status;
+    return nullptr;
+  }
+
+  connection->onLocalDescription([&signalling_client, &client_id](
+                                     const rtc::Description& description) {
+    const std::string sdp = description.generateSdp("\r\n");
+
+    boost::json::object answer;
+    answer["id"] = client_id;
+    answer["type"] = "answer";
+    answer["description"] = sdp;
+
+    const auto message = boost::json::serialize(answer);
+    if (const auto status = signalling_client.Send(message); !status.ok()) {
+      LOG(ERROR) << "WebRtcEvergreenWireStream Send answer failed: " << status;
+    }
+  });
 
   connection->onLocalCandidate(
       [&signalling_client, &client_id](const rtc::Candidate& candidate) {
@@ -363,74 +323,24 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
         candidate_json["mid"] = candidate.mid();
 
         const auto message = boost::json::serialize(candidate_json);
-        signalling_client.Send(message).IgnoreError();
+        if (const auto status = signalling_client.Send(message); !status.ok()) {
+          LOG(ERROR) << "WebRtcEvergreenWireStream Send candidate failed: "
+                     << status;
+        }
       });
 
   connection->onDataChannel(
-      [&data_channel, &cv,
-       &mutex](const std::shared_ptr<rtc::DataChannel>& channel) {
-        concurrency::MutexLock lock(&mutex);
+      [&data_channel,
+       &data_channel_event](const std::shared_ptr<rtc::DataChannel>& channel) {
         data_channel = channel;
-        cv.SignalAll();
+        data_channel_event.Notify();
       });
 
-  signalling_client.OnOffer(
-      [&connection, &mutex, &client_id](std::string_view id,
-                                        const boost::json::value& message) {
-        concurrency::MutexLock lock(&mutex);
+  LOG(INFO) << "WebRtcEvergreenWireStream waiting for data channel...";
 
-        if (!client_id.empty() && client_id != id) {
-          LOG(ERROR) << "Already accepting another client: " << client_id;
-          return;
-        }
-        client_id = std::string(id);
-
-        boost::system::error_code error;
-
-        if (const auto desc_ptr = message.find_pointer("/description", error);
-            desc_ptr != nullptr && !error) {
-          const auto description = desc_ptr->as_string().c_str();
-          mutex.Unlock();
-          connection->setRemoteDescription(rtc::Description(description));
-          mutex.Lock();
-        } else {
-          LOG(ERROR) << "WebRtcEvergreenWireStream no 'description' field in "
-                        "offer: "
-                     << boost::json::serialize(message);
-        }
-      });
-
-  signalling_client.OnCandidate([&connection, &mutex, &client_id](
-                                    std::string_view id,
-                                    const boost::json::value& message) {
-    concurrency::MutexLock lock(&mutex);
-
-    if (!client_id.empty() || client_id != id) {
-      // LOG(ERROR) << "Received candidate for unknown client: " << id;
-      return;
-    }
-
-    boost::system::error_code error;
-
-    if (const auto candidate_ptr = message.find_pointer("/candidate", error);
-        candidate_ptr != nullptr && !error) {
-      const auto candidate_str = candidate_ptr->as_string().c_str();
-      mutex.Unlock();
-      connection->addRemoteCandidate(rtc::Candidate(candidate_str));
-      mutex.Lock();
-    } else {
-      LOG(ERROR) << "WebRtcEvergreenWireStream no 'candidate' field in "
-                    "candidate message: "
-                 << boost::json::serialize(message);
-    }
-  });
-
-  signalling_client.ConnectWithIdentity("server").IgnoreError();
-
-  while (data_channel == nullptr && !concurrency::Cancelled()) {
-    concurrency::MutexLock lock(&mutex);
-    cv.Wait(&mutex);
-  }
+  const int selected = concurrency::Select({data_channel_event.OnEvent(),
+                                            signalling_client.OnError(),
+                                            concurrency::OnCancel()});
 
   // Callbacks need to be cleaned up before returning, because they use
   // local variables that will be destroyed when this function returns.
@@ -441,6 +351,11 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
   signalling_client.Cancel();
   signalling_client.Join();
 
+  if (selected == 1) {
+    LOG(ERROR) << "WebRtcEvergreenWireStream connection error: "
+               << signalling_client.GetStatus().message();
+    return nullptr;
+  }
   if (concurrency::Cancelled()) {
     LOG(ERROR) << "WebRtcEvergreenWireStream connection cancelled";
     return nullptr;
@@ -460,36 +375,6 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
   config.portRangeEnd = 65535;
 
   auto connection = std::make_unique<rtc::PeerConnection>(std::move(config));
-
-  connection->onLocalCandidate(
-      [id = std::string(id), peer_id = std::string(peer_id),
-       &signalling_client](const rtc::Candidate& candidate) {
-        const auto candidate_str = std::string(candidate);
-        boost::json::object candidate_json;
-        candidate_json["id"] = peer_id;
-        candidate_json["type"] = "candidate";
-        candidate_json["candidate"] = candidate_str;
-        candidate_json["mid"] = candidate.mid();
-
-        const auto message = boost::json::serialize(candidate_json);
-        signalling_client.Send(message).IgnoreError();
-      });
-
-  auto init = rtc::DataChannelInit{};
-  init.reliability.unordered = true;
-  auto data_channel =
-      connection->createDataChannel(std::string(id), std::move(init));
-
-  thread::Mutex mutex;
-  thread::CondVar cv;
-
-  bool opened = false;
-  data_channel->onOpen([&opened, &mutex, &cv]() {
-    LOG(INFO) << "WebsocketEvergreenServer data channel opened.";
-    concurrency::MutexLock lock(&mutex);
-    opened = true;
-    cv.SignalAll();
-  });
 
   signalling_client.OnAnswer([&connection, peer_id = std::string(peer_id)](
                                  std::string_view received_peer_id,
@@ -530,7 +415,37 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
     }
   });
 
-  signalling_client.ConnectWithIdentity(id).IgnoreError();
+  if (const auto status = signalling_client.ConnectWithIdentity(id);
+      !status.ok()) {
+    LOG(ERROR) << "WebRtcEvergreenWireStream ConnectWithIdentity failed: "
+               << status;
+    return nullptr;
+  }
+
+  connection->onLocalCandidate(
+      [id = std::string(id), peer_id = std::string(peer_id),
+       &signalling_client](const rtc::Candidate& candidate) {
+        const auto candidate_str = std::string(candidate);
+        boost::json::object candidate_json;
+        candidate_json["id"] = peer_id;
+        candidate_json["type"] = "candidate";
+        candidate_json["candidate"] = candidate_str;
+        candidate_json["mid"] = candidate.mid();
+
+        const auto message = boost::json::serialize(candidate_json);
+        if (const auto status = signalling_client.Send(message); !status.ok()) {
+          LOG(ERROR) << "WebRtcEvergreenWireStream Send candidate failed: "
+                     << status;
+        }
+      });
+
+  auto init = rtc::DataChannelInit{};
+  init.reliability.unordered = true;
+  auto data_channel =
+      connection->createDataChannel(std::string(id), std::move(init));
+
+  concurrency::PermanentEvent opened;
+  data_channel->onOpen([&opened]() { opened.Notify(); });
 
   // Send connection offer to the server.
   {
@@ -542,12 +457,22 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
     offer["type"] = "offer";
     offer["description"] = sdp;
     const auto message = boost::json::serialize(offer);
-    signalling_client.Send(message).IgnoreError();
+    if (const auto status = signalling_client.Send(message); !status.ok()) {
+      LOG(ERROR) << "WebRtcEvergreenWireStream Send offer failed: " << status;
+      return nullptr;
+    }
   }
 
-  concurrency::MutexLock lock(&mutex);
-  while (!opened && !concurrency::Cancelled()) {
-    cv.Wait(&mutex);
+  const int selected = concurrency::Select(
+      {opened.OnEvent(), signalling_client.OnError(), concurrency::OnCancel()});
+  if (selected == 1) {
+    LOG(ERROR) << "WebRtcEvergreenWireStream connection error: "
+               << signalling_client.GetStatus().message();
+    return nullptr;
+  }
+  if (concurrency::Cancelled()) {
+    LOG(ERROR) << "WebRtcEvergreenWireStream connection cancelled";
+    return nullptr;
   }
 
   data_channel->onOpen({});

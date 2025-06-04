@@ -29,7 +29,7 @@ absl::Status PrepareClientStream(BoostWebsocketStream* stream) {
   stream->write_buffer_bytes(16);
 
   stream->set_option(boost::beast::websocket::stream_base::timeout{
-      std::chrono::seconds(30), std::chrono::seconds(1800), false});
+      std::chrono::seconds(30), std::chrono::seconds(1800), true});
 
   boost::beast::websocket::permessage_deflate permessage_deflate_option;
   permessage_deflate_option.msg_size_threshold = 1024;  // 1 KiB
@@ -50,13 +50,38 @@ absl::Status PrepareServerStream(BoostWebsocketStream* stream) {
   stream->write_buffer_bytes(16);
 
   stream->set_option(boost::beast::websocket::stream_base::timeout{
-      std::chrono::seconds(30), std::chrono::seconds(1800), false});
+      std::chrono::seconds(30), std::chrono::seconds(1800), true});
 
   boost::beast::websocket::permessage_deflate permessage_deflate_option;
   permessage_deflate_option.msg_size_threshold = 1024;  // 1 KiB
   permessage_deflate_option.server_enable = true;
   permessage_deflate_option.client_enable = true;
   stream->set_option(permessage_deflate_option);
+
+  return absl::OkStatus();
+}
+
+static absl::Status ShutdownSocket(
+    BoostWebsocketStream* stream,
+    boost::asio::socket_base::shutdown_type shutdown_type,
+    boost::asio::socket_base::wait_type wait_type =
+        boost::asio::socket_base::wait_type::wait_error) {
+  boost::system::error_code error;
+  stream->next_layer().shutdown(shutdown_type, error);
+  if (error == boost::system::errc::not_connected ||
+      error == boost::system::errc::operation_canceled) {
+    return absl::OkStatus();
+  }
+  if (error) {
+    return absl::InternalError(error.message());
+  }
+  concurrency::PermanentEvent shutdown_done;
+  stream->next_layer().async_wait(
+      wait_type, [&error, &shutdown_done](const boost::system::error_code& ec) {
+        error = ec;
+        shutdown_done.Notify();
+      });
+  concurrency::Select({shutdown_done.OnEvent()});
 
   return absl::OkStatus();
 }
@@ -147,6 +172,16 @@ FiberAwareWebsocketStream::~FiberAwareWebsocketStream() {
     boost::system::error_code error;
     stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_both,
                                    error);
+    concurrency::PermanentEvent shutdown_done;
+    stream_->next_layer().async_wait(
+        boost::asio::ip::tcp::socket::wait_error,
+        [&error, &shutdown_done](const boost::system::error_code& ec) {
+          error = ec;
+          shutdown_done.Notify();
+        });
+    mutex_.Unlock();
+    concurrency::Select({shutdown_done.OnEvent()});
+    mutex_.Lock();
   }
 }
 
@@ -186,7 +221,58 @@ absl::Status FiberAwareWebsocketStream::Write(
       });
 
   mutex_.Unlock();
-  concurrency::Select({write_done.OnEvent(), concurrency::OnCancel()});
+  concurrency::Select({write_done.OnEvent()});
+  mutex_.Lock();
+  write_pending_ = false;
+  cv_.SignalAll();
+
+  if (concurrency::Cancelled()) {
+    stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_send,
+                                   error);
+    return absl::CancelledError("WsWrite cancelled");
+  }
+
+  if (error == boost::beast::websocket::error::closed ||
+      error == boost::system::errc::operation_canceled) {
+    return absl::CancelledError("WsWrite cancelled");
+  }
+
+  if (error) {
+    LOG(ERROR) << absl::StrFormat("Cannot write to websocket stream: %v",
+                                  error.message());
+    return absl::InternalError(error.message());
+  }
+
+  return absl::OkStatus();
+}
+
+// TODO: This is absolutely the same as the previous Write method,
+//       consider refactoring to avoid code duplication.
+absl::Status FiberAwareWebsocketStream::WriteText(
+    const std::string& message) noexcept {
+  concurrency::MutexLock lock(&mutex_);
+
+  while (write_pending_) {
+    cv_.Wait(&mutex_);
+  }
+  if (!stream_->is_open()) {
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Websocket stream is not open for writing. Message: %s", message));
+  }
+
+  write_pending_ = true;
+
+  boost::system::error_code error;
+  concurrency::PermanentEvent write_done;
+  stream_->async_write(
+      boost::asio::buffer(message),
+      [&error, &write_done](const boost::system::error_code& ec, std::size_t) {
+        error = ec;
+        write_done.Notify();
+      });
+
+  mutex_.Unlock();
+  concurrency::Select({write_done.OnEvent()});
   mutex_.Lock();
   write_pending_ = false;
   cv_.SignalAll();
@@ -216,9 +302,15 @@ absl::Status FiberAwareWebsocketStream::Close() const noexcept {
   return CloseInternal();
 }
 
-absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept {
+absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
   // TODO(hpnkv): Find out how to cancel Read to be able to close the stream
   //   w/ a graceful WebSocket close code.
+
+  // Already closed or moved
+  if (stream_ == nullptr) {
+    return absl::OkStatus();
+  }
 
   if (!stream_->is_open()) {
     return absl::OkStatus();
@@ -234,6 +326,33 @@ absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept {
     return absl::InternalError(error.message());
   }
 
+  return absl::OkStatus();
+}
+
+absl::Status ResolveAndConnect(BoostWebsocketStream* stream,
+                               std::string_view address, uint16_t port) {
+  return ResolveAndConnect(*GetDefaultAsioExecutionContext(), stream, address,
+                           port);
+}
+absl::Status DoHandshake(BoostWebsocketStream* stream, std::string_view host,
+                         std::string_view target) {
+  boost::system::error_code error;
+  concurrency::PermanentEvent handshake_done;
+  stream->async_handshake(
+      host, target,
+      [&error, &handshake_done](const boost::system::error_code& ec) {
+        error = ec;
+        handshake_done.Notify();
+      });
+
+  concurrency::Select({handshake_done.OnEvent()});
+  if (error == boost::beast::websocket::error::closed ||
+      error == boost::system::errc::operation_canceled) {
+    return absl::CancelledError("WsHandshake cancelled");
+  }
+  if (error) {
+    return absl::InternalError(error.message());
+  }
   return absl::OkStatus();
 }
 
@@ -286,7 +405,8 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
 }
 
 absl::Status FiberAwareWebsocketStream::Read(
-    std::vector<uint8_t>* absl_nonnull buffer) noexcept {
+    std::vector<uint8_t>* absl_nonnull buffer,
+    bool* absl_nullable got_text) noexcept {
   concurrency::MutexLock lock(&mutex_);
 
   while (read_pending_) {
@@ -302,7 +422,9 @@ absl::Status FiberAwareWebsocketStream::Read(
 
   boost::system::error_code error;
   concurrency::PermanentEvent read_done;
-  auto dynamic_buffer = boost::asio::dynamic_buffer(*buffer);
+  std::vector<uint8_t> temp_buffer;
+  temp_buffer.reserve(64);  // Reserve some space to avoid some reallocations
+  auto dynamic_buffer = boost::asio::dynamic_buffer(temp_buffer);
   stream_->async_read(
       dynamic_buffer,
       [&error, &read_done](const boost::system::error_code& ec, std::size_t) {
@@ -311,8 +433,9 @@ absl::Status FiberAwareWebsocketStream::Read(
       });
 
   mutex_.Unlock();
-  concurrency::Select({read_done.OnEvent(), concurrency::OnCancel()});
+  concurrency::Select({read_done.OnEvent()});
   mutex_.Lock();
+  *buffer = std::move(temp_buffer);
   read_pending_ = false;
   cv_.SignalAll();
 
@@ -326,6 +449,9 @@ absl::Status FiberAwareWebsocketStream::Read(
     return absl::CancelledError("WsRead cancelled");
   }
 
+  if (got_text != nullptr) {
+    *got_text = stream_->got_text();
+  }
   if (!error) {
     return absl::OkStatus();
   }
@@ -339,6 +465,32 @@ absl::Status FiberAwareWebsocketStream::Read(
     LOG(ERROR) << absl::StrFormat("Cannot read from websocket stream: %v",
                                   error.message());
     return absl::InternalError(error.message());
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status FiberAwareWebsocketStream::ReadText(
+    std::string* absl_nonnull buffer) noexcept {
+  bool got_text = false;
+  std::vector<uint8_t> temp_buffer;
+
+  if (absl::Status status = Read(&temp_buffer, &got_text); !status.ok()) {
+    return status;
+  }
+  if (!got_text) {
+    return absl::FailedPreconditionError(
+        "Websocket stream did not receive text data");
+  }
+
+  // Convert the received bytes to a string.
+  try {
+    *buffer = std::string(std::make_move_iterator(temp_buffer.begin()),
+                          std::make_move_iterator(temp_buffer.end()));
+  } catch (const std::exception& e) {
+    LOG(ERROR) << absl::StrFormat(
+        "Failed to convert received bytes to string: %s", e.what());
+    return absl::InternalError("Failed to convert received bytes to string");
   }
 
   return absl::OkStatus();

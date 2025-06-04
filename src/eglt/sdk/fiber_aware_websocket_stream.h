@@ -41,7 +41,7 @@ using PerformHandshakeFn = std::function<absl::Status(BoostWebsocketStream*)>;
 class FiberAwareWebsocketStream {
  public:
   explicit FiberAwareWebsocketStream(
-      std::unique_ptr<BoostWebsocketStream> stream,
+      std::unique_ptr<BoostWebsocketStream> stream = nullptr,
       PerformHandshakeFn handshake_fn = {});
 
   FiberAwareWebsocketStream(const FiberAwareWebsocketStream&) = delete;
@@ -67,9 +67,12 @@ class FiberAwareWebsocketStream {
 
   absl::Status Accept() const noexcept;
   absl::Status Close() const noexcept;
-  absl::Status Read(std::vector<uint8_t>* absl_nonnull buffer) noexcept;
+  absl::Status Read(std::vector<uint8_t>* absl_nonnull buffer,
+                    bool* absl_nullable got_text = nullptr) noexcept;
+  absl::Status ReadText(std::string* buffer) noexcept;
   absl::Status Start() const noexcept;
   absl::Status Write(const std::vector<uint8_t>& message_bytes) noexcept;
+  absl::Status WriteText(const std::string& message) noexcept;
   template <typename Sink>
   friend void AbslStringify(Sink& sink,
                             const FiberAwareWebsocketStream& stream) {
@@ -93,11 +96,9 @@ class FiberAwareWebsocketStream {
 };
 
 template <typename ExecutionContext>
-absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
-    ExecutionContext& context, std::string_view address, uint16_t port,
-    std::string_view target, PrepareStreamFn prepare_stream_fn) {
-  auto ws_stream = std::make_unique<BoostWebsocketStream>(context);
-
+absl::Status ResolveAndConnect(ExecutionContext& context,
+                               BoostWebsocketStream* absl_nonnull stream,
+                               std::string_view address, uint16_t port) {
   boost::system::error_code error;
   boost::asio::ip::tcp::resolver resolver(context);
 
@@ -117,8 +118,8 @@ absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
 
   if (concurrency::Cancelled()) {
     resolver.cancel();
-    ws_stream->next_layer().shutdown(
-        boost::asio::ip::tcp::socket::shutdown_both, error);
+    stream->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both,
+                                  error);
     return absl::CancelledError("FiberAwareWebsocketStream Connect cancelled");
   }
 
@@ -129,7 +130,7 @@ absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
   boost::asio::ip::tcp::endpoint endpoint;
   concurrency::PermanentEvent connect_done;
   boost::asio::async_connect(
-      ws_stream->next_layer(), endpoints,
+      stream->next_layer(), endpoints,
       [&error, &connect_done, &endpoint](
           const boost::system::error_code& ec,
           boost::asio::ip::tcp::endpoint async_endpoint) {
@@ -140,9 +141,9 @@ absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
   concurrency::Select({connect_done.OnEvent(), concurrency::OnCancel()});
 
   if (concurrency::Cancelled()) {
-    ws_stream->next_layer().cancel();
-    ws_stream->next_layer().shutdown(
-        boost::asio::ip::tcp::socket::shutdown_both, error);
+    stream->next_layer().cancel();
+    stream->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both,
+                                  error);
     return absl::CancelledError("FiberAwareWebsocketStream Connect cancelled");
   }
 
@@ -150,36 +151,39 @@ absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
     return absl::InternalError(error.message());
   }
 
+  return absl::OkStatus();
+}
+
+absl::Status ResolveAndConnect(BoostWebsocketStream* absl_nonnull stream,
+                               std::string_view address, uint16_t port);
+
+absl::Status DoHandshake(BoostWebsocketStream* absl_nonnull stream,
+                         std::string_view host, std::string_view target = "/");
+
+template <typename ExecutionContext>
+absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
+    ExecutionContext& context, std::string_view address, uint16_t port,
+    std::string_view target, PrepareStreamFn prepare_stream_fn) {
+  auto ws_stream = std::make_unique<BoostWebsocketStream>(context);
+
+  if (absl::Status resolve_status =
+          ResolveAndConnect(context, ws_stream.get(), address, port);
+      !resolve_status.ok()) {
+    return resolve_status;
+  }
+
   if (prepare_stream_fn) {
-    if (const absl::Status prepare_status = prepare_stream_fn(ws_stream.get());
+    if (absl::Status prepare_status =
+            std::move(prepare_stream_fn)(ws_stream.get());
         !prepare_status.ok()) {
       return prepare_status;
     }
   }
 
-  auto do_handshake = [address = std::string(address), port = endpoint.port(),
+  auto do_handshake = [host = absl::StrFormat("%s:%d", address, port),
                        target = std::string(target)](
                           BoostWebsocketStream* absl_nonnull stream) {
-    boost::system::error_code error;
-    concurrency::PermanentEvent handshake_done;
-    stream->async_handshake(
-        absl::StrFormat("%s:%d", address, port), absl::StrFormat("/%s", target),
-        [&error, &handshake_done](const boost::system::error_code& ec) {
-          error = ec;
-          handshake_done.Notify();
-        });
-
-    concurrency::Select({handshake_done.OnEvent(), concurrency::OnCancel()});
-    if (concurrency::Cancelled()) {
-      stream->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both,
-                                    error);
-      return absl::CancelledError(
-          "FiberAwareWebsocketStream handshake cancelled");
-    }
-    if (error) {
-      return absl::InternalError(error.message());
-    }
-    return absl::OkStatus();
+    return DoHandshake(stream, host, target);
   };
 
   return FiberAwareWebsocketStream(std::move(ws_stream),

@@ -128,10 +128,16 @@ class WebsocketEvergreenServer {
 
         DLOG(INFO) << "WES waiting for connection.";
         boost::system::error_code error;
+        concurrency::PermanentEvent accepted;
+        acceptor_->async_accept(
+            socket, [&error, &accepted](const boost::system::error_code& ec) {
+              error = ec;
+              accepted.Notify();
+            });
+        concurrency::Select(
+            {accepted.OnEvent(),
+             concurrency::OnCancel()});  // Wait for accept to complete.
 
-        RunInAsioContext(
-            [this, &socket, &error]() { acceptor_->accept(socket, error); },
-            {concurrency::OnCancel()});
         {
           concurrency::MutexLock cancellation_lock(&mutex_);
           cancelled_ = concurrency::Cancelled() ||
@@ -147,12 +153,8 @@ class WebsocketEvergreenServer {
         if (!error) {
           auto stream =
               std::make_unique<BoostWebsocketStream>(std::move(socket));
-          stream->write_buffer_bytes(16);
-          boost::beast::websocket::permessage_deflate permessage_deflate_option;
-          permessage_deflate_option.msg_size_threshold = 1024;  // 1 KiB
-          permessage_deflate_option.server_enable = true;
-          permessage_deflate_option.client_enable = true;
-          stream->set_option(permessage_deflate_option);
+          PrepareServerStream(stream.get()).IgnoreError();
+
           auto connection = service_->EstablishConnection(
               std::make_shared<WebsocketEvergreenWireStream>(
                   std::move(stream)));
