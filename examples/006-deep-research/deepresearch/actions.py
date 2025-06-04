@@ -12,7 +12,7 @@ from .gemini import get_gemini_client
 
 
 async def create_plan(action: evergreen.Action):
-    topic = await action.get_input("topic").consume()
+    topic = await action["topic"].consume()
 
     response_parts = []
 
@@ -32,7 +32,7 @@ async def create_plan(action: evergreen.Action):
         "different agents. Reply in the same language as the input. "
     )
 
-    api_key = await action.get_input("api_key").consume()
+    api_key = await action["api_key"].consume()
     async for response in await get_gemini_client(
         api_key
     ).models.generate_content_stream(
@@ -55,7 +55,7 @@ async def create_plan(action: evergreen.Action):
     lines = full_response.split("\n")
     lines_no_numbers = [" ".join(line.split()[1:]) for line in lines]
 
-    plan_items = action.get_output("plan_items")
+    plan_items = action["plan_items"]
     try:
         for line in lines_no_numbers:
             await plan_items.put(line)
@@ -75,10 +75,10 @@ CREATE_PLAN_SCHEMA = evergreen.ActionSchema(
 
 
 async def investigate_plan_item(action: evergreen.Action):
-    topic = await action.get_input("topic").consume()
-    brief = await action.get_input("brief").consume()
+    topic = await action["topic"].consume()
+    brief = await action["brief"].consume()
 
-    print(f"[debug] Investigating: {action.get_input('topic').get_id()}")
+    print(f"[debug] Investigating: {action["topic"].get_id()}")
 
     prompt = (
         f'As part of a bigger project that researches "{topic}", you are '
@@ -91,7 +91,7 @@ async def investigate_plan_item(action: evergreen.Action):
         "information. Respond in the same language as the input. "
     )
 
-    api_key = await action.get_input("api_key").consume()
+    api_key = await action["api_key"].consume()
     response_parts = []
     async for response in await get_gemini_client(
         api_key
@@ -147,7 +147,7 @@ async def synthesise_findings(action: evergreen.Action):
         f"reports: {'\n\n'.join(reports)}\n\n NOW, {brief}"
     )
     response_parts = []
-    api_key = await action.get_input("api_key").consume()
+    api_key = await action["api_key"].consume()
     async for response in await get_gemini_client(
         api_key
     ).models.generate_content_stream(
@@ -166,7 +166,7 @@ async def synthesise_findings(action: evergreen.Action):
                 if not part.thought:
                     response_parts.append(part)
 
-    await action.get_output("report").put_and_finalize(
+    await action["report"].put_and_finalize(
         "".join([part.text for part in response_parts])
     )
 

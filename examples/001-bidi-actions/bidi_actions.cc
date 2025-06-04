@@ -25,7 +25,7 @@
 #include <eglt/absl_headers.h>
 #include <eglt/actions/action.h>
 #include <eglt/data/eg_structs.h>
-#include <eglt/sdk/serving/websockets.h>
+#include <eglt/sdk/websockets.h>
 #include <eglt/service/service.h>
 
 ABSL_FLAG(int32_t, port, 20000, "Port to bind to.");

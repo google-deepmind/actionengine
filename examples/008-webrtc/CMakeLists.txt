@@ -1,13 +1,13 @@
 add_executable(
-        005-echo-server
+        008-webrtc
         main.cc
 )
 
 target_link_libraries(
-        005-echo-server PRIVATE
+        008-webrtc PRIVATE
         eglt::actions
         eglt::data
         eglt::nodes
         eglt::service
-        eglt::sdk::websockets
+        eglt::sdk::webrtc
 )

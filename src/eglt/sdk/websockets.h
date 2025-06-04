@@ -1,5 +1,5 @@
-#ifndef EGLT_SDK_SERVING_WEBSOCKETS_H_
-#define EGLT_SDK_SERVING_WEBSOCKETS_H_
+#ifndef EGLT_SDK_WEBSOCKETS_H_
+#define EGLT_SDK_WEBSOCKETS_H_
 
 #include <memory>
 #include <optional>
@@ -71,6 +71,8 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
       beast::websocket::stream<tcp::socket> stream, std::string_view id = "")
       : stream_(std::move(stream)),
         id_(id.empty() ? GenerateUUID4() : std::string(id)) {
+    stream_.set_option(beast::websocket::stream_base::timeout{
+        std::chrono::seconds(30), std::chrono::seconds(1800), false});
     DLOG(INFO) << absl::StrFormat("WESt %s created", id_);
   }
 
@@ -370,6 +372,12 @@ class WebsocketEvergreenServer {
 
         if (!error) {
           beast::websocket::stream<tcp::socket> stream(std::move(socket));
+          stream.write_buffer_bytes(16);
+          beast::websocket::permessage_deflate permessage_deflate_option;
+          permessage_deflate_option.msg_size_threshold = 1024;  // 1 KiB
+          permessage_deflate_option.server_enable = true;
+          permessage_deflate_option.client_enable = true;
+          stream.set_option(permessage_deflate_option);
           auto connection = service_->EstablishConnection(
               std::make_shared<WebsocketEvergreenWireStream>(
                   std::move(stream)));
@@ -531,6 +539,11 @@ MakeWebsocketEvergreenWireStream(std::string_view address = "127.0.0.1",
   }
 
   ws_stream.write_buffer_bytes(16);
+  beast::websocket::permessage_deflate permessage_deflate_option;
+  permessage_deflate_option.msg_size_threshold = 1024;  // 1 KiB
+  permessage_deflate_option.server_enable = true;
+  permessage_deflate_option.client_enable = true;
+  ws_stream.set_option(permessage_deflate_option);
 
   if (prepare_stream) {
     if (auto status = std::move(prepare_stream)(&ws_stream); !status.ok()) {
@@ -657,4 +670,4 @@ class WebsocketEvergreenClient {
 
 }  // namespace eglt::sdk
 
-#endif  // EGLT_SDK_SERVING_WEBSOCKETS_H_
+#endif  // EGLT_SDK_WEBSOCKETS_H_

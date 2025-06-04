@@ -21,7 +21,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/json/src.hpp>
 
-#include "eglt/sdk/serving/webrtc.h"
+#include "eglt/sdk/webrtc.h"
 
 namespace eglt::sdk {
 
@@ -140,9 +140,7 @@ class SignallingClient {
 
     while (!stream_.is_open() && loop_status_.ok() &&
            !concurrency::Cancelled()) {
-      DLOG(INFO) << "cv wait";
       cv_.Wait(&mutex_);
-      DLOG(INFO) << "cv wakeup";
     }
     if (!loop_status_.ok()) {
       return loop_status_;
@@ -156,9 +154,7 @@ class SignallingClient {
     }
 
     while (write_pending_) {
-      DLOG(INFO) << "cv wait";
       cv_.Wait(&mutex_);
-      DLOG(INFO) << "cv wakeup";
     }
 
     boost::system::error_code error;
@@ -341,8 +337,10 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
 
   std::string client_id;
 
-  auto connection =
-      std::make_unique<rtc::PeerConnection>(GetDefaultRtcConfig());
+  auto config = GetDefaultRtcConfig();
+  config.enableIceUdpMux = true;
+  auto connection = std::make_unique<rtc::PeerConnection>(std::move(config));
+
   std::shared_ptr<rtc::DataChannel> data_channel;
 
   connection->onLocalDescription(
@@ -435,9 +433,7 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
 
   while (data_channel == nullptr && !concurrency::Cancelled()) {
     concurrency::MutexLock lock(&mutex);
-    DLOG(INFO) << "cv wait";
     cv.Wait(&mutex);
-    DLOG(INFO) << "cv wakeup";
   }
 
   // Callbacks need to be cleaned up before returning, because they use
@@ -461,8 +457,6 @@ std::unique_ptr<WebRtcEvergreenWireStream> AcceptStreamFromSignalling(
 std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
     std::string_view id, std::string_view peer_id, std::string_view address,
     uint16_t port) {
-  boost::system::error_code error;
-
   SignallingClient signalling_client{address, port};
 
   rtc::Configuration config = GetDefaultRtcConfig();
@@ -501,30 +495,29 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
     cv.SignalAll();
   });
 
-  signalling_client.OnAnswer(
-      [&connection, peer_id = std::string(peer_id)](
-          std::string_view id, const boost::json::value& message) {
-        if (id != peer_id) {
-          return;
-        }
+  signalling_client.OnAnswer([&connection, peer_id = std::string(peer_id)](
+                                 std::string_view received_peer_id,
+                                 const boost::json::value& message) {
+    if (received_peer_id != peer_id) {
+      return;
+    }
 
-        boost::system::error_code error;
-
-        if (const auto desc_ptr = message.find_pointer("/description", error);
-            desc_ptr != nullptr && !error) {
-          const auto description = desc_ptr->as_string().c_str();
-          connection->setRemoteDescription(rtc::Description(description));
-        } else {
-          LOG(ERROR) << "WebRtcEvergreenWireStream no 'description' field in "
-                        "answer: "
-                     << boost::json::serialize(message);
-        }
-      });
+    boost::system::error_code error;
+    if (const auto desc_ptr = message.find_pointer("/description", error);
+        desc_ptr != nullptr && !error) {
+      const auto description = desc_ptr->as_string().c_str();
+      connection->setRemoteDescription(rtc::Description(description));
+    } else {
+      LOG(ERROR) << "WebRtcEvergreenWireStream no 'description' field in "
+                    "answer: "
+                 << boost::json::serialize(message);
+    }
+  });
 
   signalling_client.OnCandidate([&connection, peer_id = std::string(peer_id)](
-                                    std::string_view id,
+                                    std::string_view received_peer_id,
                                     const boost::json::value& message) {
-    if (id != peer_id) {
+    if (received_peer_id != peer_id) {
       return;
     }
 
@@ -557,11 +550,8 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
   }
 
   concurrency::MutexLock lock(&mutex);
-  LOG(INFO) << "Waiting for WebsocketEvergreenServer data channel to open...";
   while (!opened && !concurrency::Cancelled()) {
-    DLOG(INFO) << "cv wait";
     cv.Wait(&mutex);
-    DLOG(INFO) << "cv wakeup";
   }
 
   data_channel->onOpen({});
@@ -574,7 +564,6 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
     return nullptr;
   }
 
-  LOG(INFO) << "returning WebRtcEvergreenWireStream";
   return std::make_unique<WebRtcEvergreenWireStream>(std::move(data_channel),
                                                      std::move(connection));
 }

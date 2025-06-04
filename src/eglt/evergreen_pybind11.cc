@@ -18,7 +18,7 @@
 #include "eglt/data/data_pybind11.h"
 #include "eglt/nodes/nodes_pybind11.h"
 #include "eglt/pybind11_headers.h"
-#include "eglt/sdk/serving/websockets_pybind11.h"
+#include "eglt/sdk/websockets_pybind11.h"
 #include "eglt/service/service_pybind11.h"
 #include "eglt/stores/chunk_store_pybind11.h"
 

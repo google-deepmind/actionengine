@@ -1,5 +1,5 @@
-#ifndef EGLT_SDK_SERVING_WEBRTC_H_
-#define EGLT_SDK_SERVING_WEBRTC_H_
+#ifndef EGLT_SDK_WEBRTC_H_
+#define EGLT_SDK_WEBRTC_H_
 
 #include <rtc/rtc.hpp>
 
@@ -82,6 +82,7 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
     while (!closed_) {
       cv_.Wait(&mutex_);
     }
+    connection_->close();
   }
 
   absl::Status Send(SessionMessage message) override {
@@ -91,9 +92,7 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
     }
 
     while (!opened_ && !closed_) {
-      DLOG(INFO) << "cv wait";
       cv_.Wait(&mutex_);
-      DLOG(INFO) << "cv wakeup";
     }
 
     if (closed_) {
@@ -170,4 +169,4 @@ std::unique_ptr<WebRtcEvergreenWireStream> StartStreamWithSignalling(
 
 }  // namespace eglt::sdk
 
-#endif  // EGLT_SDK_SERVING_WEBRTC_H_
+#endif  // EGLT_SDK_WEBRTC_H_

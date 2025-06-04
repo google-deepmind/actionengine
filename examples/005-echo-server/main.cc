@@ -11,7 +11,7 @@
 #include <eglt/actions/action.h>
 #include <eglt/data/eg_structs.h>
 #include <eglt/nodes/async_node.h>
-#include <eglt/sdk/serving/websockets.h>
+#include <eglt/sdk/websockets.h>
 #include <eglt/service/service.h>
 
 ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");

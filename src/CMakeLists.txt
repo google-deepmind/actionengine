@@ -96,8 +96,8 @@ target_link_libraries(
         eglt::nodes
         eglt::nodes::pybind11
         ${EGLT_ABSL_DEPENDENCIES}
-        eglt::sdk::serving::websockets
-        eglt::sdk::serving::websockets::pybind11
+        eglt::sdk::websockets
+        eglt::sdk::websockets::pybind11
         eglt::util::pybind11
         ${EGLT_PYBIND11_DEPENDENCIES}
 )

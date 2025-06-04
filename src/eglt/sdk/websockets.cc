@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/sdk/serving/websockets.h"
+#include "eglt/sdk/websockets.h"

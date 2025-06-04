@@ -2,12 +2,13 @@
 #include <memory>
 
 #include "eglt/absl_headers.h"
-#include "eglt/sdk/serving/webrtc.h"
+#include "eglt/sdk/webrtc.h"
 
 void ServeHelloEvergreen() {
   while (true) {
     auto stream = eglt::sdk::AcceptStreamFromSignalling();
-    LOG(INFO) << "Accepted new stream with ID: " << stream->GetId();
+    LOG(INFO) << "Server accepted a new WebRTC stream with ID: "
+              << stream->GetId();
 
     eglt::SessionMessage message;
     message.node_fragments.push_back({
@@ -38,15 +39,15 @@ int main(int argc, char** argv) {
   while (true) {
     const auto stream =
         eglt::sdk::StartStreamWithSignalling(eglt::GenerateUUID4());
-    LOG(INFO) << "Started stream with ID: " << stream->GetId();
+    LOG(INFO) << "Client started a WebRTC stream with ID: " << stream->GetId();
     const auto message = stream->Receive();
     if (!message) {
       LOG(ERROR) << "Failed to receive message";
       return 1;
     }
 
-    LOG(INFO) << "Received message: " << *message;
-    eglt::concurrency::SleepFor(absl::Milliseconds(200));
+    LOG(INFO) << "Received message: \n" << *message;
+    // eglt::concurrency::SleepFor(absl::Milliseconds(200));
   }
 
   eglt::concurrency::SleepFor(absl::Milliseconds(200));

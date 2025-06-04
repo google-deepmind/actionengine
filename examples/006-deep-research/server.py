@@ -38,9 +38,9 @@ async def main():
             "investigate_plan_item", node_map=node_map
         )
         _ = action.run()
-        await action.get_input("api_key").put_and_finalize(API_KEY)
-        await action.get_input("topic").put_and_finalize(topic_prompt)
-        await action.get_input("brief").put_and_finalize(brief)
+        await action["api_key"].put_and_finalize(API_KEY)
+        await action["topic"].put_and_finalize(topic_prompt)
+        await action["brief"].put_and_finalize(brief)
         research_actions.append(action)
 
     print("Requesting final findings:\n")
@@ -49,9 +49,9 @@ async def main():
         "synthesise_findings", node_map=node_map
     )
     _ = synthesis_action.run()
-    await synthesis_action.get_input("api_key").put_and_finalize(API_KEY)
-    await synthesis_action.get_input("topic").put_and_finalize(topic_prompt)
-    await synthesis_action.get_input("brief").put_and_finalize(synthesis_brief)
+    await synthesis_action["api_key"].put_and_finalize(API_KEY)
+    await synthesis_action["topic"].put_and_finalize(topic_prompt)
+    await synthesis_action["brief"].put_and_finalize(synthesis_brief)
     try:
         for action in research_actions:
             report_id = action.get_output("report").get_id()
