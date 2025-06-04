@@ -1,5 +1,9 @@
 add_library(
         eglt_sdk_websockets STATIC
+        boost_asio_utils.cc
+        boost_asio_utils.h
+        fiber_aware_websocket_stream.h
+        fiber_aware_websocket_stream.cc
         websockets.h
         websockets.cc
 )

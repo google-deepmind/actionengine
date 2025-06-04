@@ -21,6 +21,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/json/src.hpp>
 
+#include "eglt/sdk/boost_asio_utils.h"
 #include "eglt/sdk/webrtc.h"
 
 namespace eglt::sdk {
@@ -36,11 +37,6 @@ using PeerJsonHandler =
 static constexpr int kMaxMessageSize = 10 * 1024 * 1024;  // 10 MiB
 static constexpr uint16_t kDefaultRtcPort = 19002;
 static constexpr auto kDefaultStunServer = "stun.l.google.com:19302";
-
-static asio::thread_pool& GetDefaultAsioExecutionContext() {
-  static auto* context = new asio::thread_pool(4);
-  return *context;
-}
 
 static rtc::Configuration GetDefaultRtcConfig() {
   rtc::Configuration config;
@@ -104,7 +100,7 @@ class SignallingClient {
                   "WebsocketEvergreenWireStream client");
         }));
 
-    tcp::resolver resolver(GetDefaultAsioExecutionContext());
+    tcp::resolver resolver(*GetDefaultAsioExecutionContext());
     const auto endpoints =
         resolver.resolve(address_, std::to_string(port_), error);
     if (error) {

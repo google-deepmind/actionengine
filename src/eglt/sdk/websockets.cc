@@ -13,3 +13,58 @@
 // limitations under the License.
 
 #include "eglt/sdk/websockets.h"
+
+namespace eglt::sdk {
+
+WebsocketEvergreenWireStream::WebsocketEvergreenWireStream(
+    std::unique_ptr<BoostWebsocketStream> stream, std::string_view id)
+    : stream_({std::move(stream)}),
+      id_(id.empty() ? GenerateUUID4() : std::string(id)) {
+  DLOG(INFO) << absl::StrFormat("WESt %s created", id_);
+}
+
+WebsocketEvergreenWireStream::WebsocketEvergreenWireStream(
+    FiberAwareWebsocketStream stream, std::string_view id)
+    : stream_(std::move(stream)),
+      id_(id.empty() ? GenerateUUID4() : std::string(id)) {}
+
+absl::Status WebsocketEvergreenWireStream::Send(SessionMessage message) {
+  const auto message_bytes = cppack::Pack(std::move(message));
+  return stream_.Write(message_bytes);
+}
+
+std::optional<SessionMessage> WebsocketEvergreenWireStream::Receive() {
+  std::vector<uint8_t> buffer;
+
+  // Receive from underlying websocket stream.
+  if (const absl::Status status = stream_.Read(&buffer); !status.ok()) {
+    DLOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_, status);
+    return std::nullopt;
+  }
+
+  // Unpack the received data into a SessionMessage.
+  if (auto unpacked = cppack::Unpack<SessionMessage>(buffer); unpacked.ok()) {
+    return *std::move(unpacked);
+  } else {
+    LOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
+                                  unpacked.status());
+  }
+
+  return std::nullopt;
+}
+
+absl::Status WebsocketEvergreenWireStream::Start() {
+  // In this case, the client EG stream is not responsible for handshaking.
+  return absl::OkStatus();
+}
+
+absl::Status WebsocketEvergreenWireStream::Accept() {
+  DLOG(INFO) << absl::StrFormat("WESt %s Accept()", id_);
+  return stream_.Accept();
+}
+
+void WebsocketEvergreenWireStream::HalfClose() {
+  stream_.Close().IgnoreError();
+}
+
+}  // namespace eglt::sdk

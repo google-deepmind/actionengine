@@ -1,3 +1,17 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef EGLT_SDK_WEBSOCKETS_H_
 #define EGLT_SDK_WEBSOCKETS_H_
 
@@ -16,257 +30,30 @@
 #include "eglt/data/eg_structs.h"
 #include "eglt/data/msgpack.h"
 #include "eglt/net/stream.h"
+#include "eglt/sdk/boost_asio_utils.h"
+#include "eglt/sdk/fiber_aware_websocket_stream.h"
 #include "eglt/service/service.h"
 #include "eglt/util/random.h"
 
 namespace eglt::sdk {
 
-namespace asio = boost::asio;
-namespace beast = boost::beast;
-using tcp = boost::asio::ip::tcp;
-
-static asio::thread_pool* GetDefaultAsioExecutionContext() {
-  static auto* context =
-      new asio::thread_pool(std::thread::hardware_concurrency() * 2);
-  return context;
-}
-
-// If fn() is void, result holder cannot be created
-template <typename Invocable, typename = std::enable_if_t<!std::is_void_v<
-                                  std::invoke_result_t<Invocable>>>>
-auto RunInAsioContext(Invocable&& fn,
-                      concurrency::impl::CaseArray additional_cases = {}) {
-  std::optional<decltype(fn())> result;
-  concurrency::PermanentEvent done;
-  asio::post(*GetDefaultAsioExecutionContext(),
-             [&done, &result, fn = std::forward<Invocable>(fn)]() {
-               result = fn();
-               done.Notify();
-             });
-
-  auto cases = std::move(additional_cases);
-  cases.push_back(done.OnEvent());
-  concurrency::Select(cases);
-
-  return *result;
-}
-
-inline auto RunInAsioContext(
-    absl::AnyInvocable<void()>&& fn,
-    concurrency::impl::CaseArray additional_cases = {}) {
-  concurrency::PermanentEvent done;
-  asio::post(*GetDefaultAsioExecutionContext(), [&done, &fn]() {
-    fn();
-    done.Notify();
-  });
-
-  auto cases = std::move(additional_cases);
-  cases.push_back(done.OnEvent());
-  concurrency::Select(cases);
-}
-
 class WebsocketEvergreenWireStream final : public EvergreenWireStream {
  public:
   explicit WebsocketEvergreenWireStream(
-      beast::websocket::stream<tcp::socket> stream, std::string_view id = "")
-      : stream_(std::move(stream)),
-        id_(id.empty() ? GenerateUUID4() : std::string(id)) {
-    stream_.set_option(beast::websocket::stream_base::timeout{
-        std::chrono::seconds(30), std::chrono::seconds(1800), false});
-    DLOG(INFO) << absl::StrFormat("WESt %s created", id_);
-  }
+      std::unique_ptr<BoostWebsocketStream> stream, std::string_view id = "");
 
-  ~WebsocketEvergreenWireStream() override {
-    DLOG(INFO) << absl::StrFormat(
-        "WebsocketEvergreenWireStream::~WebsocketEvergreenWireStream(), id=%s",
-        id_);
-    if (stream_.is_open()) {
-      HalfClose();
-    }
-    concurrency::MutexLock lock(&mutex_);
-    while (send_pending_ || recv_pending_) {
-      cv_.Wait(&mutex_);
-    }
-  }
+  explicit WebsocketEvergreenWireStream(FiberAwareWebsocketStream stream,
+                                        std::string_view id = "");
 
-  absl::Status Send(SessionMessage message) override {
-    auto message_bytes = cppack::Pack(std::move(message));
-    concurrency::MutexLock lock(&mutex_);
-    if (!status_.ok()) {
-      return status_;
-    }
+  absl::Status Send(SessionMessage message) override;
 
-    if (concurrency::Cancelled()) {
-      return absl::CancelledError("Send cancelled");
-    }
+  std::optional<SessionMessage> Receive() override;
 
-    while (send_pending_) {
-      cv_.Wait(&mutex_);
-    }
-    send_pending_ = true;
-    stream_.binary(true);
+  absl::Status Start() override;
 
-    boost::system::error_code error;
-    concurrency::PermanentEvent write_done;
-    stream_.async_write(asio::buffer(message_bytes),
-                        [&error, &write_done, this](
-                            const boost::system::error_code& ec, std::size_t) {
-                          concurrency::MutexLock lock(&mutex_);
-                          error = ec;
-                          write_done.Notify();
-                          send_pending_ = false;
-                          cv_.SignalAll();
-                        });
-    mutex_.Unlock();
-    concurrency::Select({write_done.OnEvent(), concurrency::OnCancel()});
-    mutex_.Lock();
+  absl::Status Accept() override;
 
-    absl::Status status = absl::OkStatus();
-    if (concurrency::Cancelled()) {
-      stream_.next_layer().shutdown(asio::socket_base::shutdown_send, error);
-      DLOG(INFO) << absl::StrFormat("WESt %s Send cancelled", id_);
-      status = absl::CancelledError("Send cancelled");
-    }
-
-    // send_pending_ = false;
-    // cv_.SignalAll();
-    if (error) {
-      status = absl::InternalError(error.message());
-      DLOG(INFO) << absl::StrFormat("WESt %s Send failed: %v", id_, status);
-    }
-
-    return status;
-  }
-
-  std::optional<SessionMessage> Receive() override {
-    std::vector<uint8_t> buffer;
-
-    {
-      concurrency::MutexLock lock(&mutex_);
-      if (!status_.ok()) {
-        DLOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
-                                       status_);
-        return std::nullopt;
-      }
-
-      if (concurrency::Cancelled()) {
-        return std::nullopt;
-      }
-
-      while (recv_pending_) {
-        cv_.Wait(&mutex_);
-      }
-
-      recv_pending_ = true;
-      mutex_.Unlock();
-      boost::system::error_code error;
-      RunInAsioContext(
-          [this, &buffer, &error]() {
-            auto dynamic_buffer = asio::dynamic_buffer(buffer);
-            stream_.read(dynamic_buffer, error);
-          },
-          {concurrency::OnCancel()});
-
-      if (concurrency::Cancelled()) {
-        stream_.next_layer().shutdown(asio::socket_base::shutdown_receive,
-                                      error);
-        if (error && error != asio::error::not_connected) {
-          LOG(ERROR) << absl::StrFormat(
-              "WESt %s Cannot shut down receive on socket: %v", id_,
-              error.message());
-        }
-      }
-
-      mutex_.Lock();
-      recv_pending_ = false;
-
-      cv_.SignalAll();
-
-      if (concurrency::Cancelled()) {
-        DLOG(INFO) << absl::StrFormat("WESt %s Receive cancelled", id_);
-        return std::nullopt;
-      }
-
-      if (error) {
-        LOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
-                                      error.message());
-        return std::nullopt;
-      }
-    }
-
-    if (auto unpacked = cppack::Unpack<SessionMessage>(buffer); unpacked.ok()) {
-      return *std::move(unpacked);
-    } else {
-      LOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
-                                    unpacked.status());
-    }
-
-    return std::nullopt;
-  }
-
-  absl::Status Start() override {
-    // In this case, the client EG stream is not responsible for handshaking.
-    return absl::OkStatus();
-  }
-
-  absl::Status Accept() override {
-    DLOG(INFO) << absl::StrFormat("WESt %s Accept()", id_);
-    stream_.set_option(beast::websocket::stream_base::decorator(
-        [](beast::websocket::response_type& res) {
-          res.set(
-              beast::http::field::server,
-              "Action Engine / Evergreen Light 0.1.0 WebsocketEvergreenServer");
-        }));
-    stream_.write_buffer_bytes(16);
-
-    boost::system::error_code error;
-
-    RunInAsioContext([this, &error]() { stream_.accept(error); });
-    if (error) {
-      status_ = absl::InternalError(error.message());
-      return status_;
-    }
-    DLOG(INFO) << absl::StrFormat("WESt %s Accept(): %v.", id_, status_);
-    return absl::OkStatus();
-  }
-
-  void HalfClose() override {
-    concurrency::MutexLock lock(&mutex_);
-
-    if (!stream_.is_open()) {
-      DLOG(INFO) << absl::StrFormat(
-          "WESt %s HalfClose: stream is already closed", id_);
-      return;
-    }
-
-    boost::system::error_code error;
-    stream_.next_layer().cancel(error);
-    if (error) {
-      LOG(ERROR) << absl::StrFormat("WESt %s HalfClose cancel failed: %v", id_,
-                                    error.message());
-      status_ = absl::InternalError(error.message());
-    }
-    status_ = absl::CancelledError("Cancelled");
-    while (send_pending_) {
-      cv_.Wait(&mutex_);
-    }
-    stream_.next_layer().wait(tcp::socket::wait_error, error);
-    if (stream_.is_open()) {
-      DLOG(WARNING) << absl::StrFormat(
-          "WESt %s HalfClose: stream is still open after cancelling and "
-          "waiting for error",
-          id_);
-      RunInAsioContext([this, &error]() {
-        stream_.close(beast::websocket::close_code::normal, error);
-      });
-    }
-
-    if (error) {
-      LOG(ERROR) << absl::StrFormat("WESt %s HalfClose failed: %v", id_,
-                                    error.message());
-      status_ = absl::InternalError(error.message());
-    }
-  }
+  void HalfClose() override;
 
   absl::Status GetStatus() const override { return status_; }
 
@@ -274,25 +61,11 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
 
   [[nodiscard]] const void* GetImpl() const override { return &stream_; }
 
-  template <typename Sink>
-  friend void AbslStringify(Sink& sink,
-                            const WebsocketEvergreenWireStream& stream) {
-    const auto endpoint = stream.stream_.next_layer().remote_endpoint();
-    sink.Append(absl::StrFormat("WebsocketEvergreenWireStream %s %s:%d",
-                                stream.id_, endpoint.address().to_string(),
-                                endpoint.port()));
-  }
-
  private:
-  beast::websocket::stream<tcp::socket> stream_;
+  FiberAwareWebsocketStream stream_;
   std::string id_;
 
   absl::Status status_;
-
-  mutable concurrency::Mutex mutex_;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
-  bool send_pending_ ABSL_GUARDED_BY(mutex_) = false;
-  bool recv_pending_ ABSL_GUARDED_BY(mutex_) = false;
 };
 
 class WebsocketEvergreenServer {
@@ -301,18 +74,18 @@ class WebsocketEvergreenServer {
                                     std::string_view address = "0.0.0.0",
                                     uint16_t port = 20000)
       : service_(service),
-        acceptor_(std::make_unique<tcp::acceptor>(
+        acceptor_(std::make_unique<boost::asio::ip::tcp::acceptor>(
             *GetDefaultAsioExecutionContext())) {
     boost::system::error_code error;
 
-    acceptor_->open(tcp::v4(), error);
+    acceptor_->open(boost::asio::ip::tcp::v4(), error);
     if (error) {
       status_ = absl::InternalError(error.message());
       LOG(FATAL) << "WebsocketEvergreenServer open() failed: " << status_;
       ABSL_ASSUME(false);
     }
 
-    acceptor_->set_option(tcp::no_delay(true));
+    acceptor_->set_option(boost::asio::ip::tcp::no_delay(true));
     acceptor_->set_option(boost::asio::socket_base::reuse_address(true), error);
     if (error) {
       status_ = absl::InternalError(error.message());
@@ -320,7 +93,8 @@ class WebsocketEvergreenServer {
       ABSL_ASSUME(false);
     }
 
-    acceptor_->bind(tcp::endpoint(boost::asio::ip::make_address(address), port),
+    acceptor_->bind(boost::asio::ip::tcp::endpoint(
+                        boost::asio::ip::make_address(address), port),
                     error);
     if (error) {
       status_ = absl::InternalError(error.message());
@@ -349,8 +123,8 @@ class WebsocketEvergreenServer {
     concurrency::MutexLock lock(&mutex_);
     main_loop_ = concurrency::NewTree({}, [this]() {
       while (!concurrency::Cancelled()) {
-        tcp::socket socket{
-            asio::make_strand(*GetDefaultAsioExecutionContext())};
+        boost::asio::ip::tcp::socket socket{
+            boost::asio::make_strand(*GetDefaultAsioExecutionContext())};
 
         DLOG(INFO) << "WES waiting for connection.";
         boost::system::error_code error;
@@ -371,13 +145,14 @@ class WebsocketEvergreenServer {
         }
 
         if (!error) {
-          beast::websocket::stream<tcp::socket> stream(std::move(socket));
-          stream.write_buffer_bytes(16);
-          beast::websocket::permessage_deflate permessage_deflate_option;
+          auto stream =
+              std::make_unique<BoostWebsocketStream>(std::move(socket));
+          stream->write_buffer_bytes(16);
+          boost::beast::websocket::permessage_deflate permessage_deflate_option;
           permessage_deflate_option.msg_size_threshold = 1024;  // 1 KiB
           permessage_deflate_option.server_enable = true;
           permessage_deflate_option.client_enable = true;
-          stream.set_option(permessage_deflate_option);
+          stream->set_option(permessage_deflate_option);
           auto connection = service_->EstablishConnection(
               std::make_shared<WebsocketEvergreenWireStream>(
                   std::move(stream)));
@@ -453,8 +228,8 @@ class WebsocketEvergreenServer {
 
  private:
   eglt::Service* absl_nonnull const service_;
-  asio::thread_pool thread_pool_;
-  std::unique_ptr<tcp::acceptor> acceptor_;
+  boost::asio::thread_pool thread_pool_;
+  std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
 
   mutable concurrency::Mutex mutex_;
   std::unique_ptr<concurrency::Fiber> main_loop_;
@@ -464,118 +239,29 @@ class WebsocketEvergreenServer {
   absl::Status status_;
 };
 
-using PrepareStreamFn =
-    absl::AnyInvocable<absl::Status(beast::websocket::stream<tcp::socket>*) &&>;
-
-inline void SetClientStreamOptions(
-    beast::websocket::stream<tcp::socket>* absl_nonnull ws_stream) {
-  ws_stream->set_option(beast::websocket::stream_base::decorator(
-      [](beast::websocket::request_type& req) {
-        req.set(beast::http::field::user_agent,
-                "Action Engine / Evergreen Light 0.1.0 "
-                "WebsocketEvergreenWireStream client");
-      }));
-}
-
-inline absl::Status PerformHandshake(
-    beast::websocket::stream<tcp::socket>* absl_nonnull ws_stream,
-    std::string_view address, uint16_t port, std::string_view target) {
-  boost::system::error_code error;
-  RunInAsioContext(
-      [ws_stream, &error, address, port, target]() {
-        ws_stream->handshake(absl::StrFormat("%s:%d", address, port), target,
-                             error);
-      },
-      {concurrency::OnCancel()});
-  if (error) {
-    return absl::InternalError(error.message());
-  }
-
-  return absl::OkStatus();
-}
-
 inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>>
-MakeWebsocketEvergreenWireStream(std::string_view address = "127.0.0.1",
-                                 uint16_t port = 20000,
-                                 std::string_view target = "/",
-                                 std::string_view id = "",
-                                 PrepareStreamFn prepare_stream = {}) {
-  beast::websocket::stream<tcp::socket> ws_stream(
-      *GetDefaultAsioExecutionContext());
-  boost::system::error_code error;
+MakeWebsocketEvergreenWireStream(
+    std::string_view address = "127.0.0.1", uint16_t port = 20000,
+    std::string_view target = "/", std::string_view id = "",
+    PrepareStreamFn prepare_stream = PrepareClientStream) {
 
-  tcp::resolver resolver(*GetDefaultAsioExecutionContext());
-  auto endpoints = RunInAsioContext(
-      [&resolver, &error, address, port]() {
-        return resolver.resolve(address, std::to_string(port),
-                                boost::asio::ip::resolver_query_base::flags(),
-                                error);
-      },
-      {concurrency::OnCancel()});
-  if (error) {
-    return absl::InternalError(error.message());
-  }
-  if (concurrency::Cancelled()) {
-    resolver.cancel();
-    ws_stream.next_layer().cancel();
-    ws_stream.next_layer().shutdown(tcp::socket::shutdown_both, error);
-    return absl::CancelledError("Cancelled");
+  absl::StatusOr<FiberAwareWebsocketStream> ws_stream =
+      FiberAwareWebsocketStream::Connect(*GetDefaultAsioExecutionContext(),
+                                         address, port, target,
+                                         std::move(prepare_stream));
+
+  if (!ws_stream.ok()) {
+    return ws_stream.status();
   }
 
-  const tcp::endpoint endpoint = RunInAsioContext(
-      [&ws_stream, &error, &endpoints]() {
-        return asio::connect(beast::get_lowest_layer(ws_stream), endpoints,
-                             error);
-      },
-      {concurrency::OnCancel()});
-  if (error) {
-    return absl::InternalError(error.message());
-  }
-  if (concurrency::Cancelled()) {
-    resolver.cancel();
-    ws_stream.next_layer().cancel();
-    ws_stream.next_layer().shutdown(tcp::socket::shutdown_both, error);
-    return absl::CancelledError("Cancelled");
-  }
-
-  ws_stream.write_buffer_bytes(16);
-  beast::websocket::permessage_deflate permessage_deflate_option;
-  permessage_deflate_option.msg_size_threshold = 1024;  // 1 KiB
-  permessage_deflate_option.server_enable = true;
-  permessage_deflate_option.client_enable = true;
-  ws_stream.set_option(permessage_deflate_option);
-
-  if (prepare_stream) {
-    if (auto status = std::move(prepare_stream)(&ws_stream); !status.ok()) {
-      return status;
-    }
-  } else {
-    SetClientStreamOptions(&ws_stream);
-    if (auto handshake_status =
-            PerformHandshake(&ws_stream, address, endpoint.port(), target);
-        !handshake_status.ok()) {
-      return handshake_status;
-    }
+  if (const absl::Status handshake_status = ws_stream->Start();
+      !handshake_status.ok()) {
+    return handshake_status;
   }
 
   std::string session_id = id.empty() ? GenerateUUID4() : std::string(id);
-  return std::make_unique<WebsocketEvergreenWireStream>(std::move(ws_stream),
+  return std::make_unique<WebsocketEvergreenWireStream>(*std::move(ws_stream),
                                                         session_id);
-}
-
-inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>>
-MakeWebsocketClientEvergreenWireStream(std::string_view address = "0.0.0.0",
-                                       uint16_t port = 20000,
-                                       std::string_view target = "/") {
-
-  return MakeWebsocketEvergreenWireStream(
-      address, port, target, /*id=*/GenerateUUID4(),
-      /*prepare_stream=*/
-      [address, port,
-       target](beast::websocket::stream<tcp::socket>* absl_nonnull ws_stream) {
-        SetClientStreamOptions(ws_stream);
-        return PerformHandshake(ws_stream, address, port, target);
-      });
 }
 
 class WebsocketEvergreenClient {
@@ -593,7 +279,7 @@ class WebsocketEvergreenClient {
   std::shared_ptr<StreamToSessionConnection> Connect(std::string_view address,
                                                      int32_t port) {
     if (absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>> stream =
-            MakeWebsocketClientEvergreenWireStream(address, port);
+            MakeWebsocketEvergreenWireStream(address, port);
         !stream.ok()) {
       DLOG(ERROR) << absl::StrFormat("WESt %s Connect failed: %v", address,
                                      stream.status());
