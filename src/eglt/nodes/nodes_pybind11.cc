@@ -90,6 +90,17 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           py::arg_v("chunk", Chunk()), py::arg_v("seq_id", -1),
           py::arg_v("final", false), py::call_guard<py::gil_scoped_release>())
       .def(
+          "bind_stream",
+          [](const std::shared_ptr<AsyncNode>& self,
+             const std::shared_ptr<EvergreenWireStream>& stream) {
+            absl::flat_hash_map<std::string,
+                                std::shared_ptr<EvergreenWireStream>>
+                peers;
+            peers[stream->GetId()] = stream;
+            self->BindPeers(std::move(peers));
+          },
+          py::arg("stream"))
+      .def(
           "next_chunk",
           [](const std::shared_ptr<AsyncNode>& self) {
             return self->Next<Chunk>();

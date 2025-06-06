@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EGLT_PYBIND11_EGLT_WEBSOCKETS_H_
-#define EGLT_PYBIND11_EGLT_WEBSOCKETS_H_
+#ifndef EGLT_SDK_WEBRTC_PYBIND11_H_
+#define EGLT_SDK_WEBRTC_PYBIND11_H_
 
 #include "eglt/pybind11_headers.h"
 
@@ -21,15 +21,15 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
-void BindWebsocketEvergreenWireStream(
-    py::handle scope, std::string_view name = "WebsocketEvergreenWireStream");
+void BindWebRtcEvergreenWireStream(
+    py::handle scope, std::string_view name = "WebRtcEvergreenWireStream");
 
-void BindWebsocketEvergreenServer(
-    py::handle scope, std::string_view name = "WebsocketEvergreenServer");
+void BindWebRtcEvergreenServer(py::handle scope,
+                               std::string_view name = "WebRtcEvergreenServer");
 
-py::module_ MakeWebsocketsModule(py::module_ scope,
-                                 std::string_view module_name = "websockets");
+py::module_ MakeWebRtcModule(py::module_ scope,
+                             std::string_view module_name = "webrtc");
 
 }  // namespace eglt::pybindings
 
-#endif  // EGLT_PYBIND11_EGLT_WEBSOCKETS_H_
+#endif  // EGLT_SDK_WEBRTC_PYBIND11_H_

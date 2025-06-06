@@ -1,5 +1,5 @@
 import { AsyncNode, NodeMap } from './asyncNode.js';
-import { EvergreenStream } from './stream.js';
+import { BaseEvergreenStream } from './stream.js';
 import { Session } from './session.js';
 
 export class ActionRegistry {
@@ -47,7 +47,7 @@ export class ActionRegistry {
     name: string,
     id: string,
     nodeMap: NodeMap,
-    stream: EvergreenStream,
+    stream: BaseEvergreenStream,
     session: Session | null,
   ): Action {
     const def = this.definitions.get(name);
@@ -63,7 +63,7 @@ export class Action {
   private readonly id: string;
 
   private nodeMap: NodeMap | null;
-  private stream: EvergreenStream | null;
+  private stream: BaseEvergreenStream | null;
   private session: Session | null;
 
   private bindStreamsOnInputsDefault: boolean = true;
@@ -76,7 +76,7 @@ export class Action {
     handler: ActionHandler,
     id: string = '',
     nodeMap: NodeMap | null = null,
-    stream: EvergreenStream | null = null,
+    stream: BaseEvergreenStream | null = null,
     session: Session | null = null,
   ) {
     this.definition = definition;
@@ -187,11 +187,11 @@ export class Action {
     return this.nodeMap as NodeMap;
   }
 
-  bindStream(stream: EvergreenStream) {
+  bindStream(stream: BaseEvergreenStream) {
     this.stream = stream;
   }
-  getStream(): EvergreenStream {
-    return this.stream as EvergreenStream;
+  getStream(): BaseEvergreenStream {
+    return this.stream as BaseEvergreenStream;
   }
 
   getRegistry(): ActionRegistry {
@@ -225,7 +225,7 @@ export function fromActionMessage(
   message: ActionMessage,
   registry: ActionRegistry,
   nodeMap: NodeMap,
-  stream: EvergreenStream,
+  stream: BaseEvergreenStream,
   session: Session | null = null,
 ) {
   const inputs = message.inputs;

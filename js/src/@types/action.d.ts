@@ -1,6 +1,6 @@
 type AsyncNode = import('../asyncNode.js').AsyncNode;
 type NodeMap = import('../asyncNode.js').NodeMap;
-type EvergreenStream = import('../stream.js').EvergreenStream;
+type BaseEvergreenStream = import('../stream.js').BaseEvergreenStream;
 type Session = import('../session.js').Session;
 
 declare interface ActionNode {
@@ -25,7 +25,7 @@ declare class ActionRegistry {
     name: string,
     id: string,
     nodeMap: NodeMap,
-    stream: EvergreenStream,
+    stream: BaseEvergreenStream,
     session: Session | null,
   ): Action;
 }
@@ -36,7 +36,7 @@ declare class Action {
     handler: ActionHandler,
     id: string,
     nodeMap: NodeMap,
-    stream: EvergreenStream,
+    stream: BaseEvergreenStream,
     session: Session | null,
   );
 
@@ -54,8 +54,8 @@ declare class Action {
 
   bindNodeMap(nodeMap: NodeMap): void;
   getNodeMap(): NodeMap;
-  bindStream(stream: EvergreenStream): void;
-  getStream(): EvergreenStream;
+  bindStream(stream: BaseEvergreenStream): void;
+  getStream(): BaseEvergreenStream;
   getRegistry(): ActionRegistry;
 
   bindSession(session: Session): void;

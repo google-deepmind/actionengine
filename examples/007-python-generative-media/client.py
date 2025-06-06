@@ -1,4 +1,6 @@
 import asyncio
+import uuid
+
 from tqdm.auto import tqdm
 
 import evergreen
@@ -16,8 +18,11 @@ def make_action_registry():
 async def main():
     action_registry = make_action_registry()
     node_map = evergreen.NodeMap()
-    stream = evergreen.websockets.make_websocket_evergreen_stream(
-        "localhost", "/", 20000
+    # stream = evergreen.websockets.make_websocket_evergreen_stream(
+    #     "localhost", "/", 20000
+    # )
+    stream = evergreen.webrtc.make_webrtc_evergreen_stream(
+        str(uuid.uuid4()), "demoserver", "demos.helena.direct", 19000
     )
 
     session = evergreen.Session(node_map, action_registry)

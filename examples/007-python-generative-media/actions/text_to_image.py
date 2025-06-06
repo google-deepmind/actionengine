@@ -1,4 +1,6 @@
 import asyncio
+import io
+import uuid
 
 import evergreen
 import torch
@@ -16,6 +18,11 @@ class DiffusionRequest(BaseModel):
 
 class ProgressMessage(BaseModel):
     step: int
+
+
+class ChunkyChunk(BaseModel):
+    node_id: str
+    mimetype: str
 
 
 LOCK = asyncio.Lock()
@@ -77,7 +84,34 @@ async def run(action: evergreen.Action):
     finally:
         await action["progress"].finalize()
 
-    await action["image"].put_and_finalize(images[0][0])
+    chunky_chunk_uid = str(uuid.uuid4())
+    node_map: evergreen.NodeMap = action.get_node_map()
+    chunky_node = node_map.get(chunky_chunk_uid)
+    chunky_node.bind_stream(action.get_stream())
+
+    bytes_io = io.BytesIO()
+    images[0][0].save(bytes_io, format="PNG")
+    bytes_io.seek(0)
+    image_mimetype = "image/png"
+    data = bytes_io.read()
+    split_size = 16000  # less than 16kB to avoid fragmentation issues
+    split_data = [
+        data[i : i + split_size] for i in range(0, len(data), split_size)
+    ]
+    to_put_splits = [
+        (idx, data_piece) for idx, data_piece in enumerate(split_data)
+    ]
+
+    await action["image"].put_and_finalize(
+        ChunkyChunk(node_id=chunky_chunk_uid, mimetype=image_mimetype)
+    )
+    tasks = [
+        chunky_node.put(data_piece, idx) for idx, data_piece in to_put_splits
+    ]
+    await asyncio.gather(*tasks)
+    await chunky_node.finalize()
+
+    # await action["image"].put_and_finalize(images[0][0])
 
 
 SCHEMA = evergreen.ActionSchema(

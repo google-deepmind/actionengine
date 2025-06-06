@@ -14,6 +14,8 @@
 #include <eglt/sdk/websockets.h>
 #include <eglt/service/service.h>
 
+#include "eglt/sdk/webrtc.h"
+
 ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");
 
 // Simply some type aliases to make the code more readable.
@@ -69,7 +71,10 @@ int main(int argc, char** argv) {
   const uint16_t port = absl::GetFlag(FLAGS_port);
   ActionRegistry action_registry = MakeActionRegistry();
   eglt::Service service(&action_registry);
-  eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
+  eglt::sdk::WebRtcEvergreenServer server(
+      &service, "0.0.0.0", port,
+      /*signalling_address=*/"demos.helena.direct", /*signalling_port=*/19000);
+  // eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
   server.Join().IgnoreError();
 

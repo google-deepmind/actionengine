@@ -71,7 +71,10 @@ std::unique_ptr<Action> MakeActionInConnection(
 Service::Service(ActionRegistry* absl_nullable action_registry,
                  EvergreenConnectionHandler connection_handler,
                  ChunkStoreFactory chunk_store_factory)
-    : action_registry_(std::make_unique<ActionRegistry>(*action_registry)),
+    : action_registry_(
+          action_registry == nullptr
+              ? nullptr
+              : std::make_unique<ActionRegistry>(*action_registry)),
       connection_handler_(std::move(connection_handler)),
       chunk_store_factory_(std::move(chunk_store_factory)) {}
 

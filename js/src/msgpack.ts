@@ -67,7 +67,8 @@ export interface BaseModelMessage {
 }
 
 export const decodeBaseModelChunk = (chunk: Chunk) => {
-  return decode(chunk.data) as BaseModelMessage;
+  const [model, data] = decode(chunk.data) as unknown as [string, Uint8Array];
+  return { model, data: decode(data) };
 };
 
 export const encodeBaseModelMessage = (model: string, data: unknown) => {

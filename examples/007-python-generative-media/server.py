@@ -38,7 +38,10 @@ async def sleep_forever():
 async def main():
     action_registry = make_action_registry()
     service = evergreen.Service(action_registry)
-    server = evergreen.websockets.WebsocketEvergreenServer(service)
+    # server = evergreen.websockets.WebsocketEvergreenServer(service)
+    server = evergreen.webrtc.WebRtcEvergreenServer(
+        service, "0.0.0.0", 20002, "demos.helena.direct", 19000, "demoserver"
+    )
 
     server.run()
     task = asyncio.create_task(asyncio.to_thread(server.join))

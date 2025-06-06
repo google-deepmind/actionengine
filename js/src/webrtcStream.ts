@@ -1,3 +1,4 @@
+import { BaseEvergreenStream } from './stream';
 import { v4 as uuidv4 } from 'uuid';
 import { Channel, CondVar, Mutex } from './utils';
 import { decodeSessionMessage, encodeSessionMessage } from './msgpack';
@@ -14,18 +15,23 @@ const setupDataChannel = (
   channel: RTCDataChannel,
   stream: WebRtcEvergreenStream,
   streamChannel: Channel<SessionMessage | null>,
+  socket?: WebSocket,
 ) => {
-  channel.onopen = () => {
+  channel.onopen = async () => {
     console.log(`DataChannel open`);
+    if (socket !== undefined) {
+      socket.close();
+    }
+    await stream.signalReady();
   };
   channel.onclose = async () => {
     console.log(`DataChannel closed`);
     await stream.close();
   };
   channel.onmessage = async (e) => {
-    console.log(e.data);
+    // console.log(e.data);
     const message = await decodeSessionMessage(e.data as unknown as Blob);
-    console.log(`Received message:`, message);
+    // console.log(`Received message:`, message);
 
     await streamChannel.sendNowait(message);
   };
@@ -113,6 +119,9 @@ const openSignaling = async (url: string, connection: RTCPeerConnection) => {
       console.warn(`Unknown message type: ${message.type}`);
       return;
     }
+    if (connection.connectionState === 'closed') {
+      return;
+    }
     await connection.setRemoteDescription({
       sdp: message.description,
       type: message.type,
@@ -122,9 +131,9 @@ const openSignaling = async (url: string, connection: RTCPeerConnection) => {
   return await promise;
 };
 
-export class WebRtcEvergreenStream {
+export class WebRtcEvergreenStream implements BaseEvergreenStream {
   private readonly signalingUrl: string;
-  private readonly uid: string;
+  private readonly identity: string;
   // private id: string
 
   private readonly connection: RTCPeerConnection;
@@ -135,13 +144,17 @@ export class WebRtcEvergreenStream {
   private readonly mutex: Mutex;
   private readonly cv: CondVar;
 
-  constructor(signalingUrl: string, serverId: string = 'server') {
+  constructor(
+    signalingUrl: string,
+    identity: string = '',
+    serverId: string = 'server',
+  ) {
     this.signalingUrl = signalingUrl;
 
-    this.uid = uuidv4();
+    this.identity = identity || uuidv4();
 
     this.connection = new RTCPeerConnection(kRtcConfig);
-    this.rtcDataChannel = this.connection.createDataChannel(this.uid, {
+    this.rtcDataChannel = this.connection.createDataChannel(this.identity, {
       ordered: false,
     });
     this.channel = new Channel<SessionMessage | null>();
@@ -150,7 +163,9 @@ export class WebRtcEvergreenStream {
     this.mutex = new Mutex();
     this.cv = new CondVar();
 
-    console.log(`WebRtcEvergreenStream initializing with uid: ${this.uid}`);
+    console.log(
+      `WebRtcEvergreenStream initializing with identity: ${this.identity}`,
+    );
 
     this._initialize(serverId).then();
   }
@@ -160,20 +175,41 @@ export class WebRtcEvergreenStream {
   }
 
   async send(message: SessionMessage): Promise<void> {
-    if (!this.ready) {
-      await this.cv.wait(this.mutex);
-    }
+    await this.mutex.runExclusive(async () => {
+      while (!this.ready) {
+        await this.cv.wait(this.mutex);
+      }
+    });
 
     if (!this.rtcDataChannel || this.rtcDataChannel.readyState !== 'open') {
       throw new Error('Data channel is not open');
     }
 
     this.rtcDataChannel.send(encodeSessionMessage(message));
-    console.log(`Sent message: ${message}`);
+    // console.log(`Sent message: ${message}`);
+  }
+
+  async waitUntilReady(): Promise<boolean> {
+    return await this.mutex.runExclusive(async () => {
+      while (!this.ready && !(await this.channel.isClosed())) {
+        await this.cv.wait(this.mutex);
+      }
+      return this.ready;
+    });
+  }
+
+  async signalReady(): Promise<void> {
+    await this.mutex.runExclusive(async () => {
+      this.ready = true;
+      this.cv.notifyAll();
+    });
   }
 
   async close(): Promise<void> {
     await this.mutex.runExclusive(async () => {
+      if (!this.ready) {
+        return;
+      }
       this.ready = false;
 
       this.rtcDataChannel.close();
@@ -196,7 +232,10 @@ export class WebRtcEvergreenStream {
         return;
       }
 
-      const ws = await openSignaling(this.signalingUrl, this.connection);
+      const ws = await openSignaling(
+        `${this.signalingUrl}/${this.identity}`,
+        this.connection,
+      );
       console.log('WebSocket connected, signaling ready');
 
       this.connection.onicecandidate = (e) => {
@@ -222,11 +261,11 @@ export class WebRtcEvergreenStream {
 
       this.connection.onicegatheringstatechange = () => {};
 
-      setupDataChannel(this.rtcDataChannel, this, this.channel);
+      setupDataChannel(this.rtcDataChannel, this, this.channel, ws);
       await sendLocalDescription(ws, serverId, this.connection, 'offer');
 
-      this.ready = true;
-      this.cv.notifyAll();
+      // this.ready = true;
+      // this.cv.notifyAll();
     });
   }
 }

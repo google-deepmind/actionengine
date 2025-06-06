@@ -262,7 +262,7 @@ MakeWebsocketEvergreenWireStream(
     return ws_stream.status();
   }
 
-  if (const absl::Status handshake_status = ws_stream->Start();
+  if (absl::Status handshake_status = ws_stream->Start();
       !handshake_status.ok()) {
     return handshake_status;
   }
@@ -272,9 +272,9 @@ MakeWebsocketEvergreenWireStream(
                                                         session_id);
 }
 
-class WebsocketEvergreenClient {
+class EvergreenClient {
  public:
-  explicit WebsocketEvergreenClient(
+  explicit EvergreenClient(
       EvergreenConnectionHandler connection_handler = RunSimpleEvergreenSession,
       ActionRegistry action_registry = {},
       const ChunkStoreFactory& chunk_store_factory = {})
@@ -282,19 +282,13 @@ class WebsocketEvergreenClient {
         action_registry_(std::move(action_registry)),
         node_map_(std::make_unique<NodeMap>(chunk_store_factory)) {}
 
-  ~WebsocketEvergreenClient() { Cancel(); }
-
-  std::shared_ptr<StreamToSessionConnection> Connect(std::string_view address,
-                                                     int32_t port) {
-    if (absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>> stream =
-            MakeWebsocketEvergreenWireStream(address, port);
-        !stream.ok()) {
-      DLOG(ERROR) << absl::StrFormat("WESt %s Connect failed: %v", address,
-                                     stream.status());
+  std::shared_ptr<StreamToSessionConnection> ConnectStream(
+      std::unique_ptr<EvergreenWireStream> stream) {
+    if (!stream) {
+      DLOG(ERROR) << "EvergreenClient ConnectStream called with null stream.";
       return nullptr;
-    } else {
-      eg_stream_ = std::move(stream).value();
     }
+    eg_stream_ = std::move(stream);
     session_ = std::make_unique<Session>(node_map_.get(), &action_registry_);
 
     if (const absl::Status status = eg_stream_->Start(); !status.ok()) {
@@ -329,37 +323,39 @@ class WebsocketEvergreenClient {
         });
   }
 
-  void Cancel() const {
-    if (fiber_ != nullptr) {
-      fiber_->Cancel();
-    }
-  }
-
   absl::Status GetStatus() { return status_; }
 
-  absl::Status Join() {
-    const int selected =
-        concurrency::Select({fiber_->OnJoinable(), concurrency::OnCancel()});
-    if (selected == 1) {
-      fiber_->Cancel();
+  absl::Status Cancel() const {
+    if (fiber_ == nullptr) {
+      return absl::FailedPreconditionError(
+          "EvergreenClient Cancel called on either unstarted or already "
+          "joined client.");
     }
+    fiber_->Cancel();
+    return absl::OkStatus();
+  }
+
+  absl::Status Join() {
+    if (fiber_ == nullptr) {
+      return absl::FailedPreconditionError(
+          "EvergreenClient Join called on either unstarted or already "
+          "joined client.");
+    }
+
     fiber_->Join();
     return GetStatus();
   }
 
  private:
-  std::unique_ptr<concurrency::Fiber> fiber_;
-
   EvergreenConnectionHandler connection_handler_;
   ActionRegistry action_registry_;
 
-  absl::Status status_;
-
-  std::shared_ptr<WebsocketEvergreenWireStream> eg_stream_;
   std::unique_ptr<NodeMap> node_map_;
+  std::shared_ptr<EvergreenWireStream> eg_stream_;
   std::unique_ptr<Session> session_;
 
-  StreamToSessionConnection connection_;
+  absl::Status status_;
+  std::unique_ptr<concurrency::Fiber> fiber_;
 };
 
 }  // namespace eglt::sdk

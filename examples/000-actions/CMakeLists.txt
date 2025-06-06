@@ -10,4 +10,5 @@ target_link_libraries(
         eglt::nodes
         eglt::service
         eglt::sdk::websockets
+        eglt::sdk::webrtc
 )

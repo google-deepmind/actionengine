@@ -46,6 +46,11 @@ def from_chunk(
     return data_pybind11.from_chunk(chunk, mimetype, registry)
 
 
+def bytes_to_bytes(value: bytes) -> bytes:
+    """Returns the bytes as-is."""
+    return value
+
+
 def str_to_bytes(value: str) -> bytes:
     return value.encode("utf-8")
 
@@ -76,6 +81,13 @@ if not _SERIALIZERS_REGISTERED:
     )
     registry.register_deserializer(
         "image/png", png_file_bytes_to_pil_image, Image.Image
+    )
+
+    registry.register_serializer(
+        "application/octet-stream", bytes_to_bytes, bytes
+    )
+    registry.register_deserializer(
+        "application/octet-stream", bytes_to_bytes, bytes
     )
 
     registry.register_serializer("text/plain", str_to_bytes, str)

@@ -18,6 +18,7 @@
 #include "eglt/data/data_pybind11.h"
 #include "eglt/nodes/nodes_pybind11.h"
 #include "eglt/pybind11_headers.h"
+#include "eglt/sdk/webrtc_pybind11.h"
 #include "eglt/sdk/websockets_pybind11.h"
 #include "eglt/service/service_pybind11.h"
 #include "eglt/stores/chunk_store_pybind11.h"
@@ -36,6 +37,7 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
 
   py::module_ actions = pybindings::MakeActionsModule(m, "actions");
   py::module_ service = pybindings::MakeServiceModule(m, "service");
+  py::module_ webrtc = pybindings::MakeWebRtcModule(m, "webrtc");
   py::module_ websockets = pybindings::MakeWebsocketsModule(m, "websockets");
 }
 

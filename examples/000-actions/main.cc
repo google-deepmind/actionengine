@@ -201,9 +201,15 @@ int main(int argc, char** argv) {
   eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::sdk::WebsocketEvergreenClient client(eglt::RunSimpleEvergreenSession,
-                                             action_registry);
-  auto connection = client.Connect("localhost", port);
+  eglt::sdk::EvergreenClient client(eglt::RunSimpleEvergreenSession,
+                                    action_registry);
+  auto stream = eglt::sdk::MakeWebsocketEvergreenWireStream();
+  if (!stream.ok()) {
+    LOG(ERROR) << "Failed to create WebsocketEvergreenWireStream: "
+               << stream.status();
+    return 1;
+  }
+  auto connection = client.ConnectStream(*std::move(stream));
 
   std::string text = "test text to skip the long startup logs";
   std::cout << "Sending: " << text << std::endl;
@@ -222,7 +228,7 @@ int main(int argc, char** argv) {
     std::cout << "Received: " << response << "\n" << std::endl;
   }
 
-  client.Cancel();
+  client.Cancel().IgnoreError();
   client.Join().IgnoreError();
 
   server.Cancel().IgnoreError();

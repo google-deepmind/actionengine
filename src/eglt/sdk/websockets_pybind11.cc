@@ -75,8 +75,6 @@ void BindWebsocketEvergreenServer(py::handle scope, std::string_view name) {
       .doc() = "A WebsocketEvergreenServer interface.";
 }
 
-void BindWebsocketEvergreenClient(py::handle scope, std::string_view name) {}
-
 py::module_ MakeWebsocketsModule(py::module_ scope,
                                  std::string_view module_name) {
   pybind11::module_ websockets = scope.def_submodule(

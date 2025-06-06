@@ -97,7 +97,8 @@ absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
     return absl::OkStatus();
   }
 
-  return PutChunk(std::move(*fragment.chunk), seq_id,
+  return PutChunk(std::move(*fragment.chunk),
+                  seq_id == -1 ? fragment.seq : seq_id,
                   /*final=*/!fragment.continued);
 }
 

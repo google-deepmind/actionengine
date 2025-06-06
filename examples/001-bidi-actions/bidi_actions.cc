@@ -74,9 +74,9 @@ absl::Status RunBidiEcho(const std::shared_ptr<Action>& action) {
     }
     print_input->Put(*word).IgnoreError();
 
-    double jitter = absl::Uniform(generator, -kDelayBetweenWords / 2,
-                                  kDelayBetweenWords / 2);
-    absl::SleepFor(absl::Seconds(kDelayBetweenWords + jitter));
+    const double jitter = absl::Uniform(generator, -kDelayBetweenWords / 2,
+                                        kDelayBetweenWords / 2);
+    eglt::concurrency::SleepFor(absl::Seconds(kDelayBetweenWords + jitter));
   }
   print_input->Put(eglt::EndOfStream()).IgnoreError();
 
@@ -116,9 +116,14 @@ int main(int argc, char** argv) {
   eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::sdk::WebsocketEvergreenClient client(eglt::RunSimpleEvergreenSession,
-                                             action_registry);
-  const auto connection = client.Connect("localhost", port);
+  eglt::sdk::EvergreenClient client(eglt::RunSimpleEvergreenSession,
+                                    action_registry);
+  auto stream = eglt::sdk::MakeWebsocketEvergreenWireStream("localhost", port);
+  if (!stream.ok()) {
+    LOG(FATAL) << "Failed to connect to the server: " << stream.status();
+    ABSL_ASSUME(false);
+  }
+  auto connection = client.ConnectStream(*std::move(stream));
 
   std::cout << absl::StrFormat(
       "Bidi actions. Enter a prompt, and the server will print it back with a "
@@ -155,14 +160,15 @@ int main(int argc, char** argv) {
     }
     text_input->Put(eglt::EndOfStream()).IgnoreError();
 
-    absl::SleepFor(absl::Seconds(kDelayBetweenWords * (words.size() + 2)));
+    eglt::concurrency::SleepFor(absl::Seconds(
+        kDelayBetweenWords * (static_cast<double>(words.size()) + 2.0)));
     std::cout << std::endl;
   }
 
-  client.Cancel();
-  server.Cancel().IgnoreError();
-
+  client.Cancel().IgnoreError();
   client.Join().IgnoreError();
+
+  server.Cancel().IgnoreError();
   server.Join().IgnoreError();
 
   return 0;

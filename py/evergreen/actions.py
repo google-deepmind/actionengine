@@ -208,6 +208,10 @@ class Action(actions_pybind11.Action):
         """Returns attached stream."""
         return super().get_stream()  # pytype: disable=attribute-error
 
+    def get_node_map(self) -> NodeMap:
+        """Returns the NodeMap of the action."""
+        return utils.wrap_pybind_object(NodeMap, super().get_node_map())
+
     def get_input(
         self, name: str, bind_stream: bool | None = None
     ) -> AsyncNode:

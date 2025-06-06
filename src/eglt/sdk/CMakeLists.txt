@@ -78,3 +78,31 @@ target_link_libraries(
         Boost::beast
         LibDataChannel::LibDataChannel
 )
+
+# ------------------------------------------------------------------
+
+add_library(
+        eglt_sdk_webrtc_pybind11 STATIC
+)
+add_library(
+        eglt::sdk::webrtc::pybind11 ALIAS
+        eglt_sdk_webrtc_pybind11
+)
+target_sources(
+        eglt_sdk_webrtc_pybind11 PRIVATE
+        webrtc_pybind11.cc
+)
+target_sources(
+        eglt_sdk_webrtc_pybind11 PUBLIC
+        webrtc_pybind11.h
+)
+target_link_libraries(
+        eglt_sdk_webrtc_pybind11 PUBLIC
+        eglt::sdk::webrtc
+        ${EGLT_ABSL_DEPENDENCIES}
+        ${EGLT_PYBIND11_DEPENDENCIES}
+)
+target_include_directories(
+        eglt_sdk_webrtc_pybind11 PUBLIC
+        ${EGLT_PYBIND11_INCLUDE_DIRS}
+)

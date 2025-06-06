@@ -1,11 +1,11 @@
-import { EvergreenStream } from './stream.js';
+import { BaseEvergreenStream } from './stream.js';
 import { NodeMap } from './asyncNode.js';
 import { isNullChunk } from './data.js';
 import { ActionRegistry, fromActionMessage } from './action.js';
 import { Mutex } from './utils.js';
 
 export class Session {
-  stream: EvergreenStream;
+  stream: BaseEvergreenStream;
   nodeMap: NodeMap;
   actionRegistry: ActionRegistry;
 
@@ -13,7 +13,7 @@ export class Session {
   private _mutex: Mutex;
 
   constructor(
-    stream: EvergreenStream,
+    stream: BaseEvergreenStream,
     nodeMap: NodeMap | null = null,
     actionRegistry: ActionRegistry | null = null,
   ) {
@@ -61,7 +61,7 @@ export class Session {
     });
   }
 
-  async bindStream(stream: EvergreenStream) {
+  async bindStream(stream: BaseEvergreenStream) {
     // bindStream may be called in ctor, where this.stream can be undefined
     if (this.stream !== undefined) {
       await this.stream.close();
