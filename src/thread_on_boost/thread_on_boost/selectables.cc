@@ -17,7 +17,7 @@ bool PermanentEvent::Handle(internal::CaseState* c, bool enqueue) {
   boost::fibers::detail::spinlock_lock l1(lock_);
 
   if (notified_.load(std::memory_order_relaxed)) {  // Synchronized by lock_
-    MutexLock l2(&c->sel->mu);
+    eglt::concurrency::impl::MutexLock l2(&c->sel->mu);
     // Consider that in the presence of a race with another Selectable,
     // c->Pick() may return false in this case.  This is safe as we are not
     // required to maintain an active list after notification has been
@@ -51,7 +51,7 @@ void PermanentEvent::Notify() {
   // enqueued cases.  We must be careful to synchronize against this in the
   // future in both the Handle(..., true) and Unregister cases.
   while (enqueued_list_) {
-    MutexLock l2(&enqueued_list_->sel->mu);
+    eglt::concurrency::impl::MutexLock l2(&enqueued_list_->sel->mu);
     enqueued_list_->Pick();
     // Continued storage of enqueued_list_ after Pick() is guaranteed by sel->mu
     internal::RemoveFromList(&enqueued_list_, enqueued_list_);
@@ -86,7 +86,7 @@ class AlwaysSelectable : public internal::Selectable {
 
   // Implementation of Selectable interface.
   bool Handle(internal::CaseState* c, bool enqueue) override {
-    MutexLock lock(&c->sel->mu);
+    eglt::concurrency::impl::MutexLock lock(&c->sel->mu);
     // This selectable is always ready, so ask the selector to pick it.
     // Note: it may not be picked in case another selectable has already
     // been picked.

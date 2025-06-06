@@ -4,7 +4,6 @@
 #ifndef THREAD_FIBER_CHANNEL_INTERNAL_H_
 #define THREAD_FIBER_CHANNEL_INTERNAL_H_
 
-#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -12,7 +11,7 @@
 #include <vector>
 
 #include "thread_on_boost/absl_headers.h"
-
+#include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/select-internal.h"
 #include "thread_on_boost/select.h"
 
@@ -79,7 +78,7 @@ class ChannelState final : public ChannelWaiterState {
   ~ChannelState();
 
   void Close() {
-    MutexLock l(&mu_);
+    eglt::concurrency::impl::MutexLock l(&mu_);
     DCHECK(Invariants());
     CHECK(!closed_) << "Calling Close() on closed channel";
     CHECK(waiting_writers_ == nullptr)
@@ -96,7 +95,7 @@ class ChannelState final : public ChannelWaiterState {
   }
 
   size_t Length() const {
-    MutexLock l(&mu_);
+    eglt::concurrency::impl::MutexLock l(&mu_);
     return queue_.size();
   }
 
@@ -127,7 +126,7 @@ class ChannelState final : public ChannelWaiterState {
  private:
   const size_t capacity_;  // User-supplied channel buffer size
 
-  mutable Mutex mu_;
+  mutable eglt::concurrency::impl::Mutex mu_;
   // chunked_queue doesn't work with over aligned types, so we use std::deque
   // for those.
   std::deque<T> queue_ ABSL_GUARDED_BY(mu_);
@@ -138,7 +137,7 @@ class ChannelState final : public ChannelWaiterState {
     explicit Rd(ChannelState* s) : state(s) {}
     bool Handle(CaseState* reader, bool enqueue) override;
     void Unregister(CaseState* c) override {
-      MutexLock l(&state->mu_);
+      eglt::concurrency::impl::MutexLock l(&state->mu_);
       internal::RemoveFromList(&state->waiting_readers_, c);
     }
   };
@@ -149,7 +148,7 @@ class ChannelState final : public ChannelWaiterState {
     explicit Wr(ChannelState* s) : state(s) {}
     bool Handle(CaseState* writer, bool enqueue) override;
     void Unregister(CaseState* c) override {
-      MutexLock l(&state->mu_);
+      eglt::concurrency::impl::MutexLock l(&state->mu_);
       internal::RemoveFromList(&state->waiting_writers_, c);
     }
   };
@@ -170,14 +169,15 @@ class ChannelState final : public ChannelWaiterState {
 
 template <typename T>
 ChannelState<T>::~ChannelState() {
-  MutexLock l(&mu_);  // Must synchronize with remote operations (e.g. Close()).
+  eglt::concurrency::impl::MutexLock l(
+      &mu_);  // Must synchronize with remote operations (e.g. Close()).
   DCHECK(Invariants());
 }
 
 template <typename T>
 bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
   ChannelState* ch = state;
-  MutexLock l(&ch->mu_);
+  eglt::concurrency::impl::MutexLock l(&ch->mu_);
   DCHECK(ch->Invariants());
 
   T* dst_item = reinterpret_cast<T*>(reader->params->arg1);
@@ -257,7 +257,7 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
 template <typename T>
 bool ChannelState<T>::Wr::Handle(CaseState* writer, bool enqueue) {
   ChannelState* ch = state;
-  MutexLock l(&ch->mu_);
+  eglt::concurrency::impl::MutexLock l(&ch->mu_);
   DCHECK(ch->Invariants());
   CHECK(!ch->closed_) << "Calling Write() on closed channel";
 

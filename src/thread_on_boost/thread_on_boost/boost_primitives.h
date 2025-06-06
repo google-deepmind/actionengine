@@ -7,7 +7,7 @@
 
 #include "thread_on_boost/absl_headers.h"
 
-namespace thread {
+namespace eglt::concurrency::impl {
 
 class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
  public:
@@ -120,6 +120,12 @@ class CondVar {
   boost::fibers::condition_variable_any cv_;
 };
 
-}  // namespace thread
+inline void SleepFor(absl::Duration duration) {
+  boost::fibers::context* active_ctx = boost::fibers::context::active();
+  active_ctx->wait_until(std::chrono::steady_clock::now() +
+                         absl::ToChronoNanoseconds(duration));
+}
+
+}  // namespace eglt::concurrency::impl
 
 #endif  // THREAD_ON_BOOST_BOOST_PRIMITIVES_H_

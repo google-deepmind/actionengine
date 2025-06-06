@@ -32,7 +32,7 @@ void ChannelWaiterState::CloseAndReleaseReaders() {
       next_reader = nullptr;
     }
 
-    MutexLock l2(&reader->sel->mu);
+    eglt::concurrency::impl::MutexLock l2(&reader->sel->mu);
     if (reader->sel->picked == Selector::kNonePicked) {
       // We know there was no data previously -- otherwise the reader would not
       // have been waiting -- so we return that the channel was closed.

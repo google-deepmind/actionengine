@@ -9,30 +9,20 @@
 
 namespace eglt::concurrency::impl {
 
-using Mutex = thread::Mutex;
-using MutexLock = thread::MutexLock;
-using CondVar = thread::CondVar;
-
 using PermanentEvent = thread::PermanentEvent;
 using Case = thread::Case;
 using CaseArray = thread::CaseArray;
 using TreeOptions = thread::TreeOptions;
 using Fiber = thread::Fiber;
 
-inline void SleepFor(absl::Duration duration) {
-  boost::fibers::context* active_ctx = boost::fibers::context::active();
-  active_ctx->wait_until(std::chrono::steady_clock::now() +
-                         absl::ToChronoNanoseconds(duration));
-}
-
 template <typename T>
 using Channel = thread::Channel<T>;
 
 template <typename T>
-using ChannelReader = thread::Reader<T>;
+using Reader = thread::Reader<T>;
 
 template <typename T>
-using ChannelWriter = thread::Writer<T>;
+using Writer = thread::Writer<T>;
 
 inline bool Cancelled() {
   return thread::Cancelled();

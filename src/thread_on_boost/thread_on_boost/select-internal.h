@@ -10,7 +10,6 @@
 #include <cstdint>
 
 #include "thread_on_boost/absl_headers.h"
-
 #include "thread_on_boost/boost_primitives.h"
 
 namespace thread {
@@ -20,9 +19,10 @@ namespace thread {
 // annotations may be added.
 namespace internal {
 struct Selector {
-  Mutex mu;
+  eglt::concurrency::impl::Mutex mu;
   int picked;  // kNonePicked until a case is picked, or index of picked case
-  CondVar cv;  // Select() call waits on this until picked >= 0
+  eglt::concurrency::impl::CondVar
+      cv;  // Select() call waits on this until picked >= 0
 
   // The implementation reserves picked values <0 for internal use.
   // External callers (e.g. Selectable::Handle)) may set (non-negative) picked

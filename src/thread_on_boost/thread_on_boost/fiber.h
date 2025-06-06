@@ -122,7 +122,7 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   void MarkJoined();
   void InternalJoin();
 
-  mutable Mutex mu_;
+  mutable eglt::concurrency::impl::Mutex mu_;
 
   Invocable work_;
   boost::intrusive_ptr<boost::fibers::context> context_;
@@ -171,7 +171,7 @@ template <typename F>
 
 inline void Detach(std::unique_ptr<Fiber> fiber) {
   {
-    MutexLock l(&fiber->mu_);
+    eglt::concurrency::impl::MutexLock l(&fiber->mu_);
     DCHECK(!fiber->detached_.load(std::memory_order_relaxed))
         << "Detach() called on already detached fiber, this should not be "
            "possible without calling WrapUnique or similar on a Fiber* you do "

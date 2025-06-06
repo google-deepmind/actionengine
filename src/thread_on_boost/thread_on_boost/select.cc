@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "thread_on_boost/absl_headers.h"
+#include "thread_on_boost/boost_primitives.h"
 
 namespace thread {
 
@@ -77,7 +78,7 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
   if (!ready) {
     const bool expirable = deadline != absl::InfiniteFuture();
 
-    MutexLock l(&sel.mu);
+    eglt::concurrency::impl::MutexLock l(&sel.mu);
     const bool expired = !CvBlock(deadline, &sel);
     DCHECK(expirable || !expired);
     if (expired) {

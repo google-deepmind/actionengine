@@ -33,10 +33,10 @@ using CaseArray = impl::CaseArray;
 using TreeOptions = impl::TreeOptions;
 
 template <typename T>
-using ChannelReader = impl::ChannelReader<T>;
+using Reader = impl::Reader<T>;
 
 template <typename T>
-using ChannelWriter = impl::ChannelWriter<T>;
+using Writer = impl::Writer<T>;
 
 template <typename T>
 using Channel = impl::Channel<T>;

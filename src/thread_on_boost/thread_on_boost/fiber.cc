@@ -7,6 +7,7 @@
 #include <boost/intrusive_ptr.hpp>
 
 #include "thread_on_boost/absl_headers.h"
+#include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/select.h"
 
 namespace thread {
@@ -39,7 +40,7 @@ class WorkerThreadPool {
   explicit WorkerThreadPool() = default;
 
   void Start(size_t num_threads = std::thread::hardware_concurrency()) {
-    MutexLock lock(&mutex_);
+    eglt::concurrency::impl::MutexLock lock(&mutex_);
     schedulers_.resize(num_threads);
     std::latch latch(num_threads);
     for (size_t idx = 0; idx < num_threads; ++idx) {
@@ -83,7 +84,7 @@ class WorkerThreadPool {
       schedulers_[worker_idx]->schedule(ctx);
     } else {
       {
-        MutexLock lock(&mutex_);
+        eglt::concurrency::impl::MutexLock lock(&mutex_);
         schedulers_[worker_idx]->attach_worker_context(ctx);
         schedulers_[worker_idx]->schedule_from_remote(ctx);
       }
@@ -105,7 +106,7 @@ class WorkerThreadPool {
 
   bool schedule_on_self_ = true;
 
-  Mutex mutex_;
+  eglt::concurrency::impl::Mutex mutex_;
   std::atomic<size_t> worker_idx_{0};
   absl::InlinedVector<Worker, 16> workers_;
   absl::InlinedVector<boost::fibers::scheduler*, 16> schedulers_;
@@ -120,7 +121,7 @@ static void InitWorkerThreadPool() {
 Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
     : work_(std::move(invocable)), parent_(parent) {
   // Note: We become visible to cancellation as soon as we're added to parent.
-  MutexLock l(&parent_->mu_);
+  eglt::concurrency::impl::MutexLock l(&parent_->mu_);
   CHECK_EQ(parent_->state_, RUNNING);
   parent_->children_.push_back(this);
   if (parent_->cancellation_.HasBeenNotified()) {
@@ -213,7 +214,7 @@ void Fiber::Join() {
   DCHECK(!IsFiberDetached(this)) << "Join() on detached fiber.";
 
   {
-    MutexLock l(&mu_);
+    eglt::concurrency::impl::MutexLock l(&mu_);
     CHECK(state_ != JOINED) << "Join() called on already joined fiber.";
   }
 
@@ -233,7 +234,7 @@ void Fiber::Join() {
 //
 // REQUIRES: *this has not already been marked finished.
 bool Fiber::MarkFinished() {
-  MutexLock l(&mu_);
+  eglt::concurrency::impl::MutexLock l(&mu_);
   DCHECK_EQ(state_, RUNNING);
 
   state_ = FINISHED;
@@ -259,7 +260,7 @@ void Fiber::MarkJoined() {
 
   bool has_parent;
   {
-    MutexLock l(&mu_);
+    eglt::concurrency::impl::MutexLock l(&mu_);
     DCHECK(children_.empty());
     if (state_ == JOINED)
       return;  // Already joined.
@@ -269,7 +270,7 @@ void Fiber::MarkJoined() {
     has_parent = parent_ != nullptr;
   }
   if (has_parent) {
-    MutexLock l(&parent_->mu_);
+    eglt::concurrency::impl::MutexLock l(&parent_->mu_);
     parent_->children_.erase(this);
     if (parent_->children_.empty() && parent_->state_ == FINISHED) {
       parent_->joinable_.Notify();
@@ -317,11 +318,12 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
 
       class ScopedMutexUnlocker {
        public:
-        explicit ScopedMutexUnlocker(thread::Mutex* mu) : mu_(*mu) {}
+        explicit ScopedMutexUnlocker(eglt::concurrency::impl::Mutex* mu)
+            : mu_(*mu) {}
         ~ScopedMutexUnlocker() { mu_.Unlock(); }
 
        private:
-        thread::Mutex& mu_;
+        eglt::concurrency::impl::Mutex& mu_;
       };
       ScopedMutexUnlocker unlock_mu(&fiber->mu_);
 
