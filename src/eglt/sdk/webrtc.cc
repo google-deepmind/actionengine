@@ -25,21 +25,512 @@
 #include "eglt/sdk/fiber_aware_websocket_stream.h"
 #include "eglt/sdk/webrtc.h"
 
+// TODO: split this file into multiple files for better organization.
+
 namespace eglt::sdk {
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
 
+enum WebRtcEvergreenPacketType {
+  kPlainSessionMessage = 0x00,
+  kSessionMessageChunk = 0x01,
+  kLengthSuffixedSessionMessageChunk = 0x02,
+};
+
+struct WebRtcPlainSessionMessage {
+  static constexpr uint8_t kType = 0x00;
+
+  std::vector<uint8_t> serialized_message;
+  uint64_t transient_id;
+};
+
+struct WebRtcSessionMessageChunk {
+  static constexpr uint8_t kType = 0x01;
+
+  std::vector<uint8_t> chunk;
+  int32_t seq;
+  uint64_t transient_id;
+};
+
+struct WebRtcLengthSuffixedSessionMessageChunk {
+  static constexpr uint8_t kType = 0x02;
+
+  std::vector<uint8_t> chunk;
+  int32_t length;
+  int32_t seq;
+  uint64_t transient_id;
+};
+
+using WebRtcEvergreenPacket =
+    std::variant<WebRtcPlainSessionMessage, WebRtcSessionMessageChunk,
+                 WebRtcLengthSuffixedSessionMessageChunk>;
+
+inline absl::StatusOr<WebRtcEvergreenPacket> ParseWebRtcEvergreenPacket(
+    std::vector<uint8_t>&& data) {
+  if (data.size() < sizeof(int64_t) + 1) {
+    return absl::InvalidArgumentError(
+        "WebRtcEvergreenPacket data size is less than 9 bytes. No valid packet "
+        "is less than 9 bytes.");
+  }
+
+  size_t remaining_data_size = data.size();
+
+  const uint8_t type = *data.rbegin();
+  if (type != WebRtcPlainSessionMessage::kType &&
+      type != WebRtcSessionMessageChunk::kType &&
+      type != WebRtcLengthSuffixedSessionMessageChunk::kType) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "WebRtcEvergreenPacket type %d is not supported", type));
+  }
+
+  data.pop_back();
+  remaining_data_size -= sizeof(uint8_t);
+
+  const uint64_t transient_id = *reinterpret_cast<uint64_t*>(
+      data.data() + remaining_data_size - sizeof(int64_t));
+  data.erase(data.end() - sizeof(uint64_t), data.end());
+  remaining_data_size -= sizeof(uint64_t);
+
+  // Plain SessionMessage
+  if (type == WebRtcEvergreenPacketType::kPlainSessionMessage) {
+    return WebRtcPlainSessionMessage{
+        .serialized_message = std::vector(data.begin(), data.end()),
+        .transient_id = transient_id};
+  }
+
+  const int32_t seq = *reinterpret_cast<int32_t*>(
+      data.data() + remaining_data_size - sizeof(int32_t));
+  data.erase(data.end() - sizeof(int32_t), data.end());
+  remaining_data_size -= sizeof(int32_t);
+
+  // SessionMessage Chunk
+  if (type == WebRtcEvergreenPacketType::kSessionMessageChunk) {
+    std::vector chunk(data.begin(), data.end());
+    return WebRtcSessionMessageChunk{
+        .chunk = std::move(chunk), .seq = seq, .transient_id = transient_id};
+  }
+
+  // Length Suffix SessionMessage Chunk
+  if (type == WebRtcEvergreenPacketType::kLengthSuffixedSessionMessageChunk) {
+    if (remaining_data_size < sizeof(int32_t)) {
+      return absl::InvalidArgumentError(
+          "Invalid WebRtcEvergreenPacket: marked as "
+          "LengthSuffixedSessionMessageChunk but data size is less than 13");
+    }
+
+    const int32_t length = *reinterpret_cast<int32_t*>(
+        data.data() + remaining_data_size - sizeof(int32_t));
+    data.erase(data.end() - sizeof(int32_t), data.end());
+    remaining_data_size -= sizeof(int32_t);
+
+    std::vector chunk(data.begin(), data.end());
+    return WebRtcLengthSuffixedSessionMessageChunk{
+        .chunk = std::move(chunk),
+        .length = length,
+        .seq = seq,
+        .transient_id = transient_id};
+  }
+
+  // If we reach here, it means the type is not recognized.
+  return absl::InvalidArgumentError(
+      "WebRtcEvergreenPacket type is not supported");
+}
+
+inline std::vector<WebRtcEvergreenPacket> SplitDataIntoWebRtcPackets(
+    const std::vector<uint8_t>& data, uint64_t transient_id,
+    int64_t packet_size = 16384) {
+  std::vector<WebRtcEvergreenPacket> packets;
+
+  if (data.size() <= packet_size - sizeof(int64_t) - 1) {
+    // If the data fits into a single packet, create a plain session message.
+    packets.emplace_back(WebRtcPlainSessionMessage{
+        .serialized_message = data, .transient_id = transient_id});
+    return packets;
+  }
+
+  packets.reserve((data.size() + packet_size - 1) / packet_size);
+
+  if (packet_size < 18) {
+    LOG(FATAL) << "Packet size must be at least 18 bytes to accommodate the "
+                  "header of 17 bytes.";
+    ABSL_ASSUME(false);
+  }
+
+  // If the data is larger than the packet size, split it into chunks.
+  const int64_t first_chunk_size = packet_size - 17;
+  WebRtcLengthSuffixedSessionMessageChunk first_chunk{
+      .chunk = std::vector(data.begin(), data.begin() + first_chunk_size),
+      .length = 0,  // This will be set later.
+      .seq = 0,
+      .transient_id = transient_id};
+  packets.emplace_back(std::move(first_chunk));
+
+  int32_t seq = 1;
+  int64_t offset = first_chunk_size;
+  while (offset < data.size()) {
+    int64_t remaining_size = static_cast<int64_t>(data.size()) - offset;
+    const int64_t chunk_size = std::min(packet_size - 13, remaining_size);
+    WebRtcSessionMessageChunk chunk{
+        .chunk = std::vector(data.begin() + offset,
+                             data.begin() + offset + chunk_size),
+        .seq = seq,
+        .transient_id = transient_id};
+
+    packets.emplace_back(std::move(chunk));
+    offset += chunk_size;
+    ++seq;
+  }
+
+  std::get<WebRtcLengthSuffixedSessionMessageChunk>(packets[0]).length =
+      static_cast<int32_t>(packets.size());
+
+  return packets;
+}
+
+inline uint64_t GetTransientIdFromPacket(const WebRtcEvergreenPacket& packet) {
+  if (std::holds_alternative<WebRtcPlainSessionMessage>(packet)) {
+    return std::get<WebRtcPlainSessionMessage>(packet).transient_id;
+  }
+  if (std::holds_alternative<WebRtcSessionMessageChunk>(packet)) {
+    return std::get<WebRtcSessionMessageChunk>(packet).transient_id;
+  }
+  if (std::holds_alternative<WebRtcLengthSuffixedSessionMessageChunk>(packet)) {
+    return std::get<WebRtcLengthSuffixedSessionMessageChunk>(packet)
+        .transient_id;
+  }
+  return 0;  // Default value if no transient ID is found.
+}
+
+template <typename T>
+absl::InlinedVector<uint8_t, 8> NumberToBytesBE(T number) {
+  absl::InlinedVector<uint8_t, 8> bytes;
+  bytes.reserve(sizeof(T));
+  for (int i = sizeof(T) - 1; i >= 0; --i) {
+    bytes.push_back(static_cast<uint8_t>((number >> (i * 8)) & 0xFF));
+  }
+  return bytes;
+}
+
+template <typename T>
+absl::InlinedVector<uint8_t, 8> NumberToBytesLE(T number) {
+  absl::InlinedVector<uint8_t, 8> bytes;
+  bytes.reserve(sizeof(T));
+  for (int i = 0; i < sizeof(T); ++i) {
+    bytes.push_back(static_cast<uint8_t>((number >> (i * 8)) & 0xFF));
+  }
+  return bytes;
+}
+
+inline std::vector<uint8_t> SerializeWebRtcPacket(
+    WebRtcEvergreenPacket packet) {
+  std::vector<uint8_t> bytes;
+  uint64_t transient_id = 0;
+  uint8_t type_byte = 0;
+
+  if (std::holds_alternative<WebRtcPlainSessionMessage>(packet)) {
+    auto [serialized_message, id] =
+        std::move(std::get<WebRtcPlainSessionMessage>(packet));
+    bytes = std::move(serialized_message);
+    transient_id = id;
+    type_byte = WebRtcPlainSessionMessage::kType;
+  }
+
+  if (std::holds_alternative<WebRtcSessionMessageChunk>(packet)) {
+    auto [chunk, seq, id] =
+        std::move(std::get<WebRtcSessionMessageChunk>(packet));
+    bytes = std::move(chunk);
+    transient_id = id;
+    type_byte = WebRtcSessionMessageChunk::kType;
+
+    auto seq_bytes = NumberToBytesLE(seq);
+    bytes.insert(bytes.end(), seq_bytes.begin(), seq_bytes.end());
+  }
+
+  if (std::holds_alternative<WebRtcLengthSuffixedSessionMessageChunk>(packet)) {
+    auto [chunk, length, seq, id] =
+        std::move(std::get<WebRtcLengthSuffixedSessionMessageChunk>(packet));
+    bytes = std::move(chunk);
+    transient_id = id;
+    type_byte = WebRtcLengthSuffixedSessionMessageChunk::kType;
+
+    auto length_bytes = NumberToBytesLE(length);
+    bytes.insert(bytes.end(), length_bytes.begin(), length_bytes.end());
+
+    auto seq_bytes = NumberToBytesLE(seq);
+    bytes.insert(bytes.end(), seq_bytes.begin(), seq_bytes.end());
+  }
+
+  auto transient_id_bytes = NumberToBytesLE(transient_id);
+  bytes.insert(bytes.end(), transient_id_bytes.begin(),
+               transient_id_bytes.end());
+
+  bytes.push_back(type_byte);
+
+  return bytes;
+}
+
+class ChunkedWebRtcMessage {
+ public:
+  absl::StatusOr<std::vector<uint8_t>> Consume() {
+    if (chunk_store_.Size() < total_expected_chunks_) {
+      return absl::FailedPreconditionError(
+          "Cannot consume message, not all chunks received yet");
+    }
+
+    std::vector<uint8_t> message_data;
+    message_data.reserve(total_message_size_);
+
+    for (int i = 0; i < total_expected_chunks_; ++i) {
+      absl::StatusOr<Chunk> chunk = chunk_store_.Get(i, absl::ZeroDuration());
+      if (!chunk.ok()) {
+        return chunk.status();
+      }
+      message_data.insert(message_data.end(), chunk->data.begin(),
+                          chunk->data.end());
+    }
+
+    return message_data;
+  }
+
+  absl::StatusOr<bool> FeedPacket(WebRtcEvergreenPacket packet) {
+    if (chunk_store_.Size() >= total_expected_chunks_ &&
+        total_expected_chunks_ != -1) {
+      return absl::FailedPreconditionError(
+          "Cannot feed more packets, already received all expected chunks");
+    }
+
+    if (std::holds_alternative<WebRtcPlainSessionMessage>(packet)) {
+      auto& serialized_message =
+          std::get<WebRtcPlainSessionMessage>(packet).serialized_message;
+      Chunk data_chunk{.metadata = {},
+                       .data = std::string(
+                           std::make_move_iterator(serialized_message.begin()),
+                           std::make_move_iterator(serialized_message.end()))};
+      total_message_size_ += data_chunk.data.size();
+      total_expected_chunks_ = 1;  // This is a single message, not chunked.
+      chunk_store_
+          .Put(0, std::move(data_chunk),
+               /*final=*/true)
+          .IgnoreError();
+      return true;
+    }
+
+    if (std::holds_alternative<WebRtcSessionMessageChunk>(packet)) {
+      auto& chunk = std::get<WebRtcSessionMessageChunk>(packet);
+      Chunk data_chunk{
+          .metadata = {},
+          .data = std::string(std::make_move_iterator(chunk.chunk.begin()),
+                              std::make_move_iterator(chunk.chunk.end()))};
+      total_message_size_ += data_chunk.data.size();
+      chunk_store_
+          .Put(chunk.seq, std::move(data_chunk),
+               /*final=*/
+               chunk.seq == total_expected_chunks_ - 1)
+          .IgnoreError();
+      return chunk_store_.Size() == total_expected_chunks_;
+    }
+
+    if (std::holds_alternative<WebRtcLengthSuffixedSessionMessageChunk>(
+            packet)) {
+      auto& chunk = std::get<WebRtcLengthSuffixedSessionMessageChunk>(packet);
+      if (total_expected_chunks_ != -1) {
+        return absl::InvalidArgumentError(
+            "Cannot have more than one WebRtcLengthSuffixedSessionMessageChunk "
+            "in a sequence");
+      }
+      total_message_size_ += chunk.chunk.size();
+      total_expected_chunks_ =
+          chunk.length;  // Set the total expected chunks from this packet.
+      chunk_store_
+          .Put(chunk.seq,
+               Chunk{.metadata = {},
+                     .data = std::string(
+                         std::make_move_iterator(chunk.chunk.begin()),
+                         std::make_move_iterator(chunk.chunk.end()))},
+               /*final=*/
+               chunk.seq == total_expected_chunks_ - 1)
+          .IgnoreError();
+      return chunk_store_.Size() == total_expected_chunks_;
+    }
+
+    return absl::InvalidArgumentError("Unknown WebRtcEvergreenPacket type");
+  }
+
+  absl::StatusOr<bool> FeedRawPacket(std::vector<uint8_t> data) {
+    if (chunk_store_.Size() >= total_expected_chunks_ &&
+        total_expected_chunks_ != -1) {
+      return absl::FailedPreconditionError(
+          "Cannot feed more packets, already received all expected chunks");
+    }
+
+    absl::StatusOr<WebRtcEvergreenPacket> packet =
+        ParseWebRtcEvergreenPacket(std::move(data));
+    if (!packet.ok()) {
+      return packet.status();
+    }
+
+    return FeedPacket(*std::move(packet));
+  }
+
+ private:
+  LocalChunkStore chunk_store_;
+  size_t total_message_size_ = 0;
+  int32_t total_expected_chunks_ = -1;
+};
+
+WebRtcEvergreenWireStream::WebRtcEvergreenWireStream(
+    std::shared_ptr<rtc::DataChannel> data_channel,
+    std::shared_ptr<rtc::PeerConnection> connection)
+    : id_(data_channel->label()),
+      connection_(std::move(connection)),
+      data_channel_(std::move(data_channel)) {
+
+  data_channel_->onMessage(
+      [this](rtc::binary message) {
+        const auto data = reinterpret_cast<uint8_t*>(message.data());
+        absl::StatusOr<WebRtcEvergreenPacket> packet =
+            ParseWebRtcEvergreenPacket(
+                std::vector(data, data + message.size()));
+
+        concurrency::MutexLock lock(&mutex_);
+
+        if (closed_) {
+          return;
+        }
+
+        if (!packet.ok()) {
+          CloseOnError(absl::InternalError(
+              absl::StrFormat("WebRtcEvergreenWireStream unpack failed: %s",
+                              packet.status().message())));
+          return;
+        }
+
+        uint64_t transient_id = GetTransientIdFromPacket(*packet);
+        auto& chunked_message = chunked_messages_[transient_id];
+        if (!chunked_message) {
+          chunked_message = std::make_unique<ChunkedWebRtcMessage>();
+        }
+        auto got_full_message = chunked_message->FeedPacket(*std::move(packet));
+        if (!got_full_message.ok()) {
+          CloseOnError(absl::InternalError(
+              absl::StrFormat("WebRtcEvergreenWireStream chunked message "
+                              "feed failed: %s",
+                              got_full_message.status().message())));
+          return;
+        }
+
+        if (!*got_full_message) {
+          return;  // Not all chunks received yet, wait for more.
+        }
+
+        absl::StatusOr<std::vector<uint8_t>> message_data =
+            chunked_message->Consume();
+        if (!message_data.ok()) {
+          CloseOnError(absl::InternalError(
+              absl::StrFormat("WebRtcEvergreenWireStream consume failed: %s",
+                              message_data.status().message())));
+          return;
+        }
+
+        mutex_.Unlock();
+        absl::StatusOr<SessionMessage> unpacked =
+            cppack::Unpack<SessionMessage>(
+                std::vector(*std::move(message_data)));
+        mutex_.Lock();
+
+        if (!unpacked.ok()) {
+          CloseOnError(absl::InternalError(
+              absl::StrFormat("WebRtcEvergreenWireStream unpack failed: %s",
+                              unpacked.status().message())));
+          return;
+        }
+
+        recv_channel_.writer()->WriteUnlessCancelled(*std::move(unpacked));
+        chunked_messages_.erase(transient_id);
+      },
+      [](const rtc::string&) {});
+
+  if (data_channel_ && data_channel_->isOpen()) {
+    opened_ = true;
+  } else {
+    data_channel_->onOpen([this]() {
+      concurrency::MutexLock lock(&mutex_);
+      status_ = absl::OkStatus();
+      opened_ = true;
+      cv_.SignalAll();
+    });
+  }
+
+  data_channel_->onClosed([this]() {
+    concurrency::MutexLock lock(&mutex_);
+    closed_ = true;
+    status_ = absl::CancelledError("WebRtcEvergreenWireStream closed");
+    recv_channel_.writer()->Close();
+    cv_.SignalAll();
+  });
+
+  data_channel_->onError([this](const std::string& error) {
+    concurrency::MutexLock lock(&mutex_);
+    closed_ = true;
+    status_ = absl::InternalError(
+        absl::StrFormat("WebRtcEvergreenWireStream error: %s", error));
+    recv_channel_.writer()->Close();
+    cv_.SignalAll();
+  });
+}
+
+WebRtcEvergreenWireStream::~WebRtcEvergreenWireStream() {
+  data_channel_->close();
+  concurrency::MutexLock lock(&mutex_);
+  while (!closed_) {
+    cv_.Wait(&mutex_);
+  }
+  connection_->close();
+}
+
+absl::Status WebRtcEvergreenWireStream::Send(SessionMessage message) {
+  uint64_t transient_id = 0;
+  {
+    concurrency::MutexLock lock(&mutex_);
+    if (!status_.ok()) {
+      return status_;
+    }
+
+    while (!opened_ && !closed_) {
+      cv_.Wait(&mutex_);
+    }
+
+    if (closed_) {
+      return absl::CancelledError("WebRtcEvergreenWireStream is closed");
+    }
+    transient_id = next_transient_id_++;
+  }
+
+  std::vector<uint8_t> message_uint8_t = cppack::Pack(std::move(message));
+
+  std::vector<WebRtcEvergreenPacket> packets = SplitDataIntoWebRtcPackets(
+      message_uint8_t, transient_id,
+      static_cast<int64_t>(connection_->remoteMaxMessageSize()));
+
+  absl::Status status;
+  for (const auto& packet : packets) {
+    std::vector<uint8_t> serialized_packet = SerializeWebRtcPacket(packet);
+    const rtc::byte* message_chunk_data =
+        reinterpret_cast<rtc::byte*>(serialized_packet.data());
+    rtc::binary message_chunk_bytes(
+        message_chunk_data, message_chunk_data + serialized_packet.size());
+    data_channel_->send(std::move(message_chunk_bytes));
+  }
+  return status;
+}
+
 // void(peer_id, message)
 using PeerJsonHandler =
     std::function<void(std::string_view, boost::json::value)>;
 
-// This max message size will still be subject to the underlying protocol's
-// limits. SCTP allows up to 64 KiB, and to be safe in all scenarios, this
-// should actually be 16 KiB. When sending messages, the only correct way is
-// to check the limit on the particular PeerConnection.
-static constexpr int kMaxMessageSize = 30 * 1024 * 1024;  // 30 MiB
+static constexpr int kMaxMessageSize = 16384;  // 16 KiB
 static constexpr uint16_t kDefaultRtcPort = 19002;
 static constexpr auto kDefaultStunServer = "stun.l.google.com:19302";
 

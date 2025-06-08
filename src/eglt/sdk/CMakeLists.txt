@@ -74,6 +74,7 @@ target_link_libraries(
         ${EGLT_PYBIND11_DEPENDENCIES}
         cppack
         eglt::nodes
+        eglt::stores
         eglt_sdk_websockets
         Boost::beast
         LibDataChannel::LibDataChannel
