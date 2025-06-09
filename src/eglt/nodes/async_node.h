@@ -35,9 +35,6 @@ namespace eglt {
 
 class NodeMap;
 
-absl::Status SendToStreamIfNotNullAndOpen(EvergreenWireStream* stream,
-                                          NodeFragment&& fragment);
-
 class AsyncNode {
  public:
   explicit AsyncNode(std::string_view id = "",
@@ -53,8 +50,7 @@ class AsyncNode {
   ~AsyncNode() { concurrency::MutexLock lock(&mutex_); }
 
   void BindPeers(
-      absl::flat_hash_map<std::string, std::shared_ptr<EvergreenWireStream>>
-          peers) {
+      absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers) {
     concurrency::MutexLock lock(&mutex_);
     peers_ = std::move(peers);
   }
@@ -161,7 +157,7 @@ class AsyncNode {
   mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mutex_);
-  absl::flat_hash_map<std::string, std::shared_ptr<EvergreenWireStream>> peers_
+  absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers_
       ABSL_GUARDED_BY(mutex_);
 };
 

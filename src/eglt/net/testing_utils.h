@@ -7,7 +7,7 @@
 
 namespace eglt::testing {
 
-class PairableInMemoryStream final : public EvergreenWireStream {
+class PairableInMemoryStream final : public WireStream {
  public:
   explicit PairableInMemoryStream(std::string_view id = "") : id_(id) {}
 
@@ -98,7 +98,7 @@ class PairableInMemoryStream final : public EvergreenWireStream {
     recv_queue_.writer()->Close();
   }
 
-  [[nodiscard]] std::string GetId() const override { return id_; }
+  [[nodiscard]] std::string_view GetId() const override { return id_; }
 
   [[nodiscard]] const void* GetImpl() const override { return nullptr; }
 

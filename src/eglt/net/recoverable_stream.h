@@ -8,9 +8,9 @@
 
 namespace eglt::net {
 
-using GetStreamFn = absl::AnyInvocable<EvergreenWireStream*() const>;
+using GetStreamFn = absl::AnyInvocable<WireStream*() const>;
 
-class RecoverableStream final : public eglt::EvergreenWireStream {
+class RecoverableStream final : public eglt::WireStream {
  public:
   static constexpr auto kFinalizationTimeout = absl::Seconds(5);
 
@@ -21,16 +21,15 @@ class RecoverableStream final : public eglt::EvergreenWireStream {
         timeout_(timeout),
         timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
 
-  explicit RecoverableStream(
-      std::unique_ptr<EvergreenWireStream> stream = nullptr,
-      std::string_view id = "",
-      absl::Duration timeout = absl::InfiniteDuration())
+  explicit RecoverableStream(std::unique_ptr<WireStream> stream = nullptr,
+                             std::string_view id = "",
+                             absl::Duration timeout = absl::InfiniteDuration())
       : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
         id_(!id.empty() ? id : GenerateUUID4()),
         timeout_(timeout),
         timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
 
-  explicit RecoverableStream(std::shared_ptr<EvergreenWireStream> stream,
+  explicit RecoverableStream(std::shared_ptr<WireStream> stream,
                              std::string_view id = "",
                              absl::Duration timeout = absl::InfiniteDuration())
       : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
@@ -203,14 +202,14 @@ class RecoverableStream final : public eglt::EvergreenWireStream {
   }
 
  private:
-  absl::StatusOr<EvergreenWireStream*> GetObservedStream()
+  absl::StatusOr<WireStream*> GetObservedStream()
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
     if (closed_) {
       return absl::UnavailableError("Recoverable stream is closed");
     }
 
     // get_stream_ returns a valid stream, just return it
-    EvergreenWireStream* stream = get_stream_();
+    WireStream* stream = get_stream_();
     if (stream != nullptr) {
       return stream;
     }

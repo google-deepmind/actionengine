@@ -37,9 +37,9 @@ namespace eglt {
  * stream. It is intended to be used as a base class for specific stream
  * implementations, such as WebSocket or gRPC streams.
  */
-class EvergreenWireStream {
+class WireStream {
  public:
-  virtual ~EvergreenWireStream() = default;
+  virtual ~WireStream() = default;
 
   //! Sends an Evergreen session message over the stream.
   virtual auto Send(SessionMessage message) -> absl::Status = 0;

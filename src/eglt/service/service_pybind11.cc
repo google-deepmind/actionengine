@@ -38,31 +38,30 @@ namespace py = ::pybind11;
 void BindStream(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
-  py::class_<EvergreenWireStream, std::shared_ptr<EvergreenWireStream>>(
+  py::class_<WireStream, std::shared_ptr<WireStream>>(
       scope, absl::StrCat(name, "VirtualBase").c_str())
-      .def("send", &EvergreenWireStream::Send,
+      .def("send", &WireStream::Send, py::call_guard<py::gil_scoped_release>())
+      .def("receive", &WireStream::Receive,
            py::call_guard<py::gil_scoped_release>())
-      .def("receive", &EvergreenWireStream::Receive,
-           py::call_guard<py::gil_scoped_release>())
-      .def("accept", &EvergreenWireStream::Accept)
-      .def("start", &EvergreenWireStream::Start)
-      .def("close", &EvergreenWireStream::HalfClose)
-      .def("get_status", &EvergreenWireStream::GetStatus)
-      .def("get_id", &EvergreenWireStream::GetId);
+      .def("accept", &WireStream::Accept)
+      .def("start", &WireStream::Start)
+      .def("close", &WireStream::HalfClose)
+      .def("get_status", &WireStream::GetStatus)
+      .def("get_id", &WireStream::GetId);
 
-  py::class_<PyEvergreenWireStream, EvergreenWireStream,
-             std::shared_ptr<PyEvergreenWireStream>>(scope, name_str.c_str())
+  py::class_<PyWireStream, WireStream, std::shared_ptr<PyWireStream>>(
+      scope, name_str.c_str())
       .def(py::init<>(), pybindings::keep_event_loop_memo())
-      .def(MakeSameObjectRefConstructor<PyEvergreenWireStream>())
-      .def("send", &PyEvergreenWireStream::Send, py::arg("message"),
+      .def(MakeSameObjectRefConstructor<PyWireStream>())
+      .def("send", &PyWireStream::Send, py::arg("message"),
            py::call_guard<py::gil_scoped_release>())
-      .def("receive", &PyEvergreenWireStream::Receive,
+      .def("receive", &PyWireStream::Receive,
            py::call_guard<py::gil_scoped_release>())
-      .def("accept", &PyEvergreenWireStream::Accept)
-      .def("start", &PyEvergreenWireStream::Start)
-      .def("close", &PyEvergreenWireStream::HalfClose)
-      .def("get_last_send_status", &PyEvergreenWireStream::GetStatus)
-      .def("get_id", &PyEvergreenWireStream::GetId);
+      .def("accept", &PyWireStream::Accept)
+      .def("start", &PyWireStream::Start)
+      .def("close", &PyWireStream::HalfClose)
+      .def("get_last_send_status", &PyWireStream::GetStatus)
+      .def("get_id", &PyWireStream::GetId);
 }
 
 /// @private
@@ -85,13 +84,12 @@ void BindSession(py::handle scope, std::string_view name) {
       .def(
           "dispatch_from",
           [](const std::shared_ptr<Session>& self,
-             const std::shared_ptr<EvergreenWireStream>& stream) {
+             const std::shared_ptr<WireStream>& stream) {
             self->DispatchFrom(stream);
           },
           py::keep_alive<1, 2>())
       .def("stop_dispatching_from",
-           [](const std::shared_ptr<Session>& self,
-              EvergreenWireStream* stream) {
+           [](const std::shared_ptr<Session>& self, WireStream* stream) {
              self->StopDispatchingFrom(stream);
            })
       .def("dispatch_message", &Session::DispatchMessage,
@@ -138,7 +136,7 @@ void BindService(py::handle scope, std::string_view name) {
       .def(
           "establish_connection",
           [](const std::shared_ptr<Service>& self,
-             const std::shared_ptr<PyEvergreenWireStream>& stream) {
+             const std::shared_ptr<PyWireStream>& stream) {
             return self->EstablishConnection(stream);
           },
           py::call_guard<py::gil_scoped_release>())
@@ -153,17 +151,17 @@ void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
   py::class_<StreamToSessionConnection,
              std::shared_ptr<StreamToSessionConnection>>(
       scope, std::string(name).c_str())
-      .def(py::init([](const std::shared_ptr<EvergreenWireStream>& stream,
-                       Session* session) {
-             return std::make_shared<StreamToSessionConnection>(stream,
-                                                                session);
-           }),
+      .def(py::init(
+               [](const std::shared_ptr<WireStream>& stream, Session* session) {
+                 return std::make_shared<StreamToSessionConnection>(stream,
+                                                                    session);
+               }),
            py::arg("stream"), py::arg("session"))
       .def(MakeSameObjectRefConstructor<StreamToSessionConnection>())
       .def("get_stream",
            [](const StreamToSessionConnection& self) {
              return ShareWithNoDeleter(
-                 dynamic_cast<PyEvergreenWireStream*>(self.stream.get()));
+                 dynamic_cast<PyWireStream*>(self.stream.get()));
            })
       .def("get_session",
            [](const StreamToSessionConnection& self) {
@@ -179,7 +177,7 @@ pybind11::module_ MakeServiceModule(pybind11::module_ scope,
   pybind11::module_ service = scope.def_submodule(
       std::string(module_name).c_str(), "Evergreen Service interface.");
 
-  BindStream(service, "EvergreenWireStream");
+  BindStream(service, "WireStream");
   BindSession(service, "Session");
   BindService(service, "Service");
   BindStreamToSessionConnection(service, "StreamToSessionConnection");

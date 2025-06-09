@@ -92,10 +92,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
       .def(
           "bind_stream",
           [](const std::shared_ptr<AsyncNode>& self,
-             const std::shared_ptr<EvergreenWireStream>& stream) {
-            absl::flat_hash_map<std::string,
-                                std::shared_ptr<EvergreenWireStream>>
-                peers;
+             const std::shared_ptr<WireStream>& stream) {
+            absl::flat_hash_map<std::string, std::shared_ptr<WireStream>>  peers;
             peers[stream->GetId()] = stream;
             self->BindPeers(std::move(peers));
           },

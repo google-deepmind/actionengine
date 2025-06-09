@@ -24,7 +24,7 @@ absl::Status PrepareClientStream(BoostWebsocketStream* stream) {
       [](boost::beast::websocket::request_type& req) {
         req.set(boost::beast::http::field::user_agent,
                 "Action Engine / Evergreen Light 0.1.0 "
-                "WebsocketEvergreenWireStream client");
+                "WebsocketWireStream client");
       }));
   stream->write_buffer_bytes(16);
 
@@ -45,7 +45,7 @@ absl::Status PrepareServerStream(BoostWebsocketStream* stream) {
       [](boost::beast::websocket::request_type& req) {
         req.set(boost::beast::http::field::user_agent,
                 "Action Engine / Evergreen Light 0.1.0 "
-                "WebsocketEvergreenWireStream server");
+                "WebsocketWireStream server");
       }));
   stream->write_buffer_bytes(16);
 

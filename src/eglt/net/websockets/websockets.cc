@@ -16,24 +16,24 @@
 
 namespace eglt::net {
 
-WebsocketEvergreenWireStream::WebsocketEvergreenWireStream(
+WebsocketWireStream::WebsocketWireStream(
     std::unique_ptr<BoostWebsocketStream> stream, std::string_view id)
     : stream_({std::move(stream)}),
       id_(id.empty() ? GenerateUUID4() : std::string(id)) {
   DLOG(INFO) << absl::StrFormat("WESt %s created", id_);
 }
 
-WebsocketEvergreenWireStream::WebsocketEvergreenWireStream(
-    FiberAwareWebsocketStream stream, std::string_view id)
+WebsocketWireStream::WebsocketWireStream(FiberAwareWebsocketStream stream,
+                                         std::string_view id)
     : stream_(std::move(stream)),
       id_(id.empty() ? GenerateUUID4() : std::string(id)) {}
 
-absl::Status WebsocketEvergreenWireStream::Send(SessionMessage message) {
+absl::Status WebsocketWireStream::Send(SessionMessage message) {
   const auto message_bytes = cppack::Pack(std::move(message));
   return stream_.Write(message_bytes);
 }
 
-std::optional<SessionMessage> WebsocketEvergreenWireStream::Receive() {
+std::optional<SessionMessage> WebsocketWireStream::Receive() {
   std::vector<uint8_t> buffer;
 
   // Receive from underlying websocket stream.
@@ -53,17 +53,17 @@ std::optional<SessionMessage> WebsocketEvergreenWireStream::Receive() {
   return std::nullopt;
 }
 
-absl::Status WebsocketEvergreenWireStream::Start() {
+absl::Status WebsocketWireStream::Start() {
   // In this case, the client EG stream is not responsible for handshaking.
   return absl::OkStatus();
 }
 
-absl::Status WebsocketEvergreenWireStream::Accept() {
+absl::Status WebsocketWireStream::Accept() {
   DLOG(INFO) << absl::StrFormat("WESt %s Accept()", id_);
   return stream_.Accept();
 }
 
-void WebsocketEvergreenWireStream::HalfClose() {
+void WebsocketWireStream::HalfClose() {
   stream_.Close().IgnoreError();
 }
 

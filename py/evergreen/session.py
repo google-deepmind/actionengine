@@ -43,19 +43,19 @@ class Session(service_pybind11.Session):
     async def dispatch_message(
         self,
         message: data.SessionMessage,
-        stream: eg_stream.EvergreenWireStream,
+        stream: eg_stream.WireStream,
     ):
         """Dispatches a message to the session."""
         return await asyncio.to_thread(
             super().dispatch_message, message, stream
         )  # pytype: disable=attribute-error
 
-    def dispatch_from(self, stream: eg_stream.EvergreenWireStream):
+    def dispatch_from(self, stream: eg_stream.WireStream):
         """Dispatches messages from the stream to the session."""
         super().dispatch_from(stream)  # pytype: disable=attribute-error
         self._streams.add(stream)
 
-    def stop_dispatching_from(self, stream: eg_stream.EvergreenWireStream):
+    def stop_dispatching_from(self, stream: eg_stream.WireStream):
         """Stops dispatching messages from the stream to the session."""
         self._streams.discard(stream)
         super().stop_dispatching_from(stream)  # pytype: disable=attribute-error

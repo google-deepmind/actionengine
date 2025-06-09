@@ -21,25 +21,25 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
-void BindWebsocketEvergreenWireStream(py::handle scope, std::string_view name) {
-  py::class_<net::WebsocketEvergreenWireStream, EvergreenWireStream,
-             std::shared_ptr<net::WebsocketEvergreenWireStream>>(
+void BindWebsocketWireStream(py::handle scope, std::string_view name) {
+  py::class_<net::WebsocketWireStream, WireStream,
+             std::shared_ptr<net::WebsocketWireStream>>(
       scope, std::string(name).c_str())
-      .def("send", &net::WebsocketEvergreenWireStream::Send,
+      .def("send", &net::WebsocketWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
-      .def("receive", &net::WebsocketEvergreenWireStream::Receive,
+      .def("receive", &net::WebsocketWireStream::Receive,
            py::call_guard<py::gil_scoped_release>())
-      .def("accept", &net::WebsocketEvergreenWireStream::Accept)
-      .def("start", &net::WebsocketEvergreenWireStream::Start)
-      .def("close", &net::WebsocketEvergreenWireStream::HalfClose,
+      .def("accept", &net::WebsocketWireStream::Accept)
+      .def("start", &net::WebsocketWireStream::Start)
+      .def("close", &net::WebsocketWireStream::HalfClose,
            py::call_guard<py::gil_scoped_release>())
-      .def("get_status", &net::WebsocketEvergreenWireStream::GetStatus)
-      .def("get_id", &net::WebsocketEvergreenWireStream::GetId)
+      .def("get_status", &net::WebsocketWireStream::GetStatus)
+      .def("get_id", &net::WebsocketWireStream::GetId)
       .def("__repr__",
-           [](const std::shared_ptr<net::WebsocketEvergreenWireStream>& self) {
+           [](const std::shared_ptr<net::WebsocketWireStream>& self) {
              return absl::StrFormat("%v", *self);
            })
-      .doc() = "A WebsocketEvergreenWireStream interface.";
+      .doc() = "A WebsocketWireStream interface.";
 }
 
 void BindWebsocketEvergreenServer(py::handle scope, std::string_view name) {
@@ -79,14 +79,13 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
   pybind11::module_ websockets = scope.def_submodule(
       std::string(module_name).c_str(), "Evergreen Websocket interface.");
 
-  BindWebsocketEvergreenWireStream(websockets, "WebsocketEvergreenWireStream");
+  BindWebsocketWireStream(websockets, "WebsocketWireStream");
   BindWebsocketEvergreenServer(websockets, "WebsocketEvergreenServer");
 
   websockets.def(
       "make_websocket_evergreen_stream",
       [](std::string_view address, std::string_view target, int32_t port) {
-        if (auto stream =
-                net::MakeWebsocketEvergreenWireStream(address, port, target);
+        if (auto stream = net::MakeWebsocketWireStream(address, port, target);
             !stream.ok()) {
           throw std::runtime_error(stream.status().ToString());
         } else {

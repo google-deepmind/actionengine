@@ -111,7 +111,7 @@ AsyncNode* Session::GetNode(
   return node_map_->Get(id, factory);
 }
 
-void Session::DispatchFrom(const std::shared_ptr<EvergreenWireStream>& stream) {
+void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
   concurrency::MutexLock lock(&mutex_);
 
   if (joined_) {
@@ -148,8 +148,7 @@ void Session::DispatchFrom(const std::shared_ptr<EvergreenWireStream>& stream) {
 }
 
 absl::Status Session::DispatchMessage(
-    SessionMessage message,
-    const std::shared_ptr<EvergreenWireStream>& stream) {
+    SessionMessage message, const std::shared_ptr<WireStream>& stream) {
   concurrency::MutexLock lock(&mutex_);
   if (joined_) {
     return absl::FailedPreconditionError(
@@ -180,7 +179,7 @@ absl::Status Session::DispatchMessage(
   return status;
 }
 
-void Session::StopDispatchingFrom(EvergreenWireStream* absl_nonnull stream) {
+void Session::StopDispatchingFrom(WireStream* absl_nonnull stream) {
   std::unique_ptr<concurrency::Fiber> task;
   {
     concurrency::MutexLock lock(&mutex_);

@@ -21,8 +21,8 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
-void BindWebRtcEvergreenWireStream(
-    py::handle scope, std::string_view name = "WebRtcEvergreenWireStream");
+void BindWebRtcWireStream(py::handle scope,
+                          std::string_view name = "WebRtcWireStream");
 
 void BindWebRtcEvergreenServer(py::handle scope,
                                std::string_view name = "WebRtcEvergreenServer");

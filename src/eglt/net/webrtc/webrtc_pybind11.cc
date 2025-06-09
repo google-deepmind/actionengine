@@ -21,26 +21,26 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
-void BindWebRtcEvergreenWireStream(py::handle scope, std::string_view name) {
-  py::class_<net::WebRtcEvergreenWireStream, EvergreenWireStream,
-             std::shared_ptr<net::WebRtcEvergreenWireStream>>(
+void BindWebRtcWireStream(py::handle scope, std::string_view name) {
+  py::class_<net::WebRtcWireStream, WireStream,
+             std::shared_ptr<net::WebRtcWireStream>>(
       scope, std::string(name).c_str())
-      .def("send", &net::WebRtcEvergreenWireStream::Send,
+      .def("send", &net::WebRtcWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
-      .def("receive", &net::WebRtcEvergreenWireStream::Receive,
+      .def("receive", &net::WebRtcWireStream::Receive,
            py::call_guard<py::gil_scoped_release>())
-      .def("accept", &net::WebRtcEvergreenWireStream::Accept)
-      .def("start", &net::WebRtcEvergreenWireStream::Start)
-      .def("close", &net::WebRtcEvergreenWireStream::HalfClose,
+      .def("accept", &net::WebRtcWireStream::Accept)
+      .def("start", &net::WebRtcWireStream::Start)
+      .def("close", &net::WebRtcWireStream::HalfClose,
            py::call_guard<py::gil_scoped_release>())
-      .def("get_status", &net::WebRtcEvergreenWireStream::GetStatus)
-      .def("get_id", &net::WebRtcEvergreenWireStream::GetId)
+      .def("get_status", &net::WebRtcWireStream::GetStatus)
+      .def("get_id", &net::WebRtcWireStream::GetId)
       .def("__repr__",
-           [](const std::shared_ptr<net::WebRtcEvergreenWireStream>& self) {
-             return absl::StrFormat("WebRtcEvergreenWireStream, id=%s",
+           [](const std::shared_ptr<net::WebRtcWireStream>& self) {
+             return absl::StrFormat("WebRtcWireStream, id=%s",
                                     self->GetId());
            })
-      .doc() = "A WebRtcEvergreenWireStream interface.";
+      .doc() = "A WebRtcWireStream interface.";
 }
 
 void BindWebRtcEvergreenServer(py::handle scope, std::string_view name) {
@@ -84,7 +84,7 @@ py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
   pybind11::module_ webrtc = scope.def_submodule(
       std::string(module_name).c_str(), "Evergreen WebRTC interface.");
 
-  BindWebRtcEvergreenWireStream(webrtc, "WebRtcEvergreenWireStream");
+  BindWebRtcWireStream(webrtc, "WebRtcWireStream");
   BindWebRtcEvergreenServer(webrtc, "WebRtcEvergreenServer");
 
   webrtc.def(

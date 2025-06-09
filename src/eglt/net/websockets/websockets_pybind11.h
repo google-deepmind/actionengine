@@ -21,8 +21,8 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
-void BindWebsocketEvergreenWireStream(
-    py::handle scope, std::string_view name = "WebsocketEvergreenWireStream");
+void BindWebsocketWireStream(py::handle scope,
+                             std::string_view name = "WebsocketWireStream");
 
 void BindWebsocketEvergreenServer(
     py::handle scope, std::string_view name = "WebsocketEvergreenServer");

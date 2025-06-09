@@ -23,7 +23,7 @@ struct SessionMessageWithAddress {
 
 class BackgroundReceiver {
  public:
-  explicit BackgroundReceiver(EvergreenWireStream* absl_nonnull stream,
+  explicit BackgroundReceiver(WireStream* absl_nonnull stream,
                               concurrency::Writer<SessionMessageWithAddress>*
                                   absl_nonnull receive_into) {
     receiver_fiber_ =
@@ -50,7 +50,7 @@ class BackgroundReceiver {
 
 class BufferedSender {
  public:
-  explicit BufferedSender(EvergreenWireStream* absl_nonnull stream,
+  explicit BufferedSender(WireStream* absl_nonnull stream,
                           concurrency::Reader<SessionMessage>* absl_nonnull
                               send_from)
       : writer_fiber_(
@@ -95,7 +95,7 @@ class BufferedSender {
 
 class WirePeer {
  public:
-  WirePeer(std::unique_ptr<EvergreenWireStream> stream,
+  WirePeer(std::unique_ptr<WireStream> stream,
            concurrency::Writer<SessionMessageWithAddress>* receive_into)
       : stream_(std::move(stream)),
         receiver_{stream.get(), receive_into},
@@ -115,7 +115,7 @@ class WirePeer {
   }
 
  private:
-  std::unique_ptr<EvergreenWireStream> stream_;
+  std::unique_ptr<WireStream> stream_;
   concurrency::Channel<SessionMessage> send_queue_{1024};
 
   BackgroundReceiver receiver_;

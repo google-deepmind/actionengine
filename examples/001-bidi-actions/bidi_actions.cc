@@ -38,7 +38,7 @@ using ActionRegistry = eglt::ActionRegistry;
 using Chunk = eglt::Chunk;
 using Service = eglt::Service;
 using Session = eglt::Session;
-using EvergreenWireStream = eglt::EvergreenWireStream;
+using WireStream = eglt::WireStream;
 
 std::string ToLower(std::string_view text);
 
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 
   eglt::NodeMap node_map;
   eglt::Session session(&node_map, &action_registry);
-  auto stream = eglt::net::MakeWebsocketEvergreenWireStream("localhost", port);
+  auto stream = eglt::net::MakeWebsocketWireStream("localhost", port);
   if (!stream.ok()) {
     LOG(FATAL) << "Failed to connect to the server: " << stream.status();
     ABSL_ASSUME(false);

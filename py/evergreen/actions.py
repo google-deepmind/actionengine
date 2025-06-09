@@ -128,7 +128,7 @@ class ActionRegistry(actions_pybind11.ActionRegistry):
         action_id: str = "",
         *,
         node_map: NodeMap | None = None,
-        stream: "EvergreenWireStream | None" = None,
+        stream: "WireStream | None" = None,
         session: "Session | None" = None,
     ) -> "Action":
         # pytype: enable=name-error
@@ -163,7 +163,7 @@ class Action(actions_pybind11.Action):
         action_id: str = "",
         *,
         node_map: NodeMap | None = None,
-        stream: "EvergreenWireStream | None" = None,
+        stream: "WireStream | None" = None,
         session: "Session | None" = None,
     ):
         # pytype: enable=name-error
@@ -203,7 +203,7 @@ class Action(actions_pybind11.Action):
 
     # pytype: disable=name-error
     # pylint: disable-next=[useless-parent-delegation]
-    def get_stream(self) -> "EvergreenWireStream | None":
+    def get_stream(self) -> "WireStream | None":
         # pytype: enable=name-error
         """Returns attached stream."""
         return super().get_stream()  # pytype: disable=attribute-error

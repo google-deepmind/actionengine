@@ -37,13 +37,13 @@
 
 namespace eglt::net {
 
-class WebsocketEvergreenWireStream final : public EvergreenWireStream {
+class WebsocketWireStream final : public WireStream {
  public:
-  explicit WebsocketEvergreenWireStream(
-      std::unique_ptr<BoostWebsocketStream> stream, std::string_view id = "");
+  explicit WebsocketWireStream(std::unique_ptr<BoostWebsocketStream> stream,
+                               std::string_view id = "");
 
-  explicit WebsocketEvergreenWireStream(FiberAwareWebsocketStream stream,
-                                        std::string_view id = "");
+  explicit WebsocketWireStream(FiberAwareWebsocketStream stream,
+                               std::string_view id = "");
 
   absl::Status Send(SessionMessage message) override;
 
@@ -62,10 +62,9 @@ class WebsocketEvergreenWireStream final : public EvergreenWireStream {
   [[nodiscard]] const void* GetImpl() const override { return &stream_; }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink,
-                            const WebsocketEvergreenWireStream& stream) {
-    absl::Format(&sink, "WebsocketEvergreenWireStream(id: %s, status: %v)",
-                 stream.id_, stream.status_);
+  friend void AbslStringify(Sink& sink, const WebsocketWireStream& stream) {
+    absl::Format(&sink, "WebsocketWireStream(id: %s, status: %v)", stream.id_,
+                 stream.status_);
   }
 
  private:
@@ -163,8 +162,7 @@ class WebsocketEvergreenServer {
           PrepareServerStream(stream.get()).IgnoreError();
 
           auto connection = service_->EstablishConnection(
-              std::make_shared<WebsocketEvergreenWireStream>(
-                  std::move(stream)));
+              std::make_shared<WebsocketWireStream>(std::move(stream)));
           if (!connection.ok()) {
             status_ = connection.status();
             DLOG(ERROR)
@@ -247,11 +245,11 @@ class WebsocketEvergreenServer {
   absl::Status status_;
 };
 
-inline absl::StatusOr<std::unique_ptr<WebsocketEvergreenWireStream>>
-MakeWebsocketEvergreenWireStream(
-    std::string_view address = "127.0.0.1", uint16_t port = 20000,
-    std::string_view target = "/", std::string_view id = "",
-    PrepareStreamFn prepare_stream = PrepareClientStream) {
+inline absl::StatusOr<std::unique_ptr<WebsocketWireStream>>
+MakeWebsocketWireStream(std::string_view address = "127.0.0.1",
+                        uint16_t port = 20000, std::string_view target = "/",
+                        std::string_view id = "",
+                        PrepareStreamFn prepare_stream = PrepareClientStream) {
 
   absl::StatusOr<FiberAwareWebsocketStream> ws_stream =
       FiberAwareWebsocketStream::Connect(
@@ -268,8 +266,8 @@ MakeWebsocketEvergreenWireStream(
   }
 
   std::string session_id = id.empty() ? GenerateUUID4() : std::string(id);
-  return std::make_unique<WebsocketEvergreenWireStream>(*std::move(ws_stream),
-                                                        session_id);
+  return std::make_unique<WebsocketWireStream>(*std::move(ws_stream),
+                                               session_id);
 }
 
 }  // namespace eglt::net

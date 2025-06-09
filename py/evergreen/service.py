@@ -12,13 +12,13 @@ from evergreen import utils
 from evergreen.evergreen_pybind11 import service as service_pybind11
 
 ActionRegistry = actions.ActionRegistry
-EvergreenWireStream = eg_stream.EvergreenWireStream
+WireStream = eg_stream.WireStream
 Session = eg_session.Session
 StreamToSessionConnection = service_pybind11.StreamToSessionConnection
 
 
-class EvergreenWireStream(eg_stream.EvergreenWireStream):
-    """A Pythonic wrapper for the raw pybind11 EvergreenWireStream bindings."""
+class WireStream(eg_stream.WireStream):
+    """A Pythonic wrapper for the raw pybind11 WireStream bindings."""
 
     def __init__(self, stream_id: str):
         self._stream_id = stream_id
@@ -40,10 +40,8 @@ class EvergreenWireStream(eg_stream.EvergreenWireStream):
         return self._stream_id
 
 
-AsyncConnectionHandler = Callable[
-    [EvergreenWireStream, Session], Awaitable[None]
-]
-SyncConnectionHandler = Callable[[EvergreenWireStream, Session], None]
+AsyncConnectionHandler = Callable[[WireStream, Session], Awaitable[None]]
+SyncConnectionHandler = Callable[[WireStream, Session], None]
 ConnectionHandler = SyncConnectionHandler | AsyncConnectionHandler
 
 
@@ -53,10 +51,10 @@ def wrap_async_handler(
     """Wraps the given handler to run in the event loop."""
     loop = asyncio.get_running_loop()
 
-    def sync_handler(stream: "EvergreenWireStream", session: "Session") -> None:
+    def sync_handler(stream: "WireStream", session: "Session") -> None:
         result = asyncio.run_coroutine_threadsafe(
             handler(
-                utils.wrap_pybind_object(EvergreenWireStream, stream),
+                utils.wrap_pybind_object(WireStream, stream),
                 utils.wrap_pybind_object(Session, session),
             ),
             loop,
@@ -67,9 +65,9 @@ def wrap_async_handler(
 
 
 def wrap_sync_handler(handler: SyncConnectionHandler) -> SyncConnectionHandler:
-    def sync_handler(stream: "EvergreenWireStream", session: "Session") -> None:
+    def sync_handler(stream: "WireStream", session: "Session") -> None:
         return handler(
-            utils.wrap_pybind_object(EvergreenWireStream, stream),
+            utils.wrap_pybind_object(WireStream, stream),
             utils.wrap_pybind_object(Session, session),
         )
 
@@ -99,10 +97,10 @@ class Service(service_pybind11.Service):
 class StreamToSessionConnection(StreamToSessionConnection):
     """A Pythonic wrapper for the raw pybind11 StreamToSessionConnection bindings."""
 
-    def get_stream(self) -> "EvergreenWireStream":
+    def get_stream(self) -> "WireStream":
         """Returns the stream."""
         return utils.wrap_pybind_object(
-            EvergreenWireStream,
+            WireStream,
             super().get_stream(),  # pytype: disable=attribute-error
         )
 

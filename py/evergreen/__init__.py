@@ -26,7 +26,7 @@ Chunk = data.Chunk
 ChunkMetadata = data.ChunkMetadata
 ChunkStoreFactory = data.ChunkStoreFactory
 
-EvergreenWireStream = eg_stream.EvergreenWireStream
+WireStream = eg_stream.WireStream
 
 Port = data.Port
 

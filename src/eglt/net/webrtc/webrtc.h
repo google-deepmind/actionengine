@@ -27,15 +27,15 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
 
 class ChunkedWebRtcMessage;
 
-class WebRtcEvergreenWireStream final : public EvergreenWireStream {
+class WebRtcWireStream final : public WireStream {
  public:
   static constexpr int kBufferSize = 256;
 
-  explicit WebRtcEvergreenWireStream(
+  explicit WebRtcWireStream(
       std::shared_ptr<rtc::DataChannel> data_channel,
       std::shared_ptr<rtc::PeerConnection> connection = nullptr);
 
-  ~WebRtcEvergreenWireStream() override;
+  ~WebRtcWireStream() override;
 
   absl::Status Send(SessionMessage message) override;
 
@@ -55,12 +55,12 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
     data_channel_->close();
     // concurrency::MutexLock lock(&mutex_);
     // if (closed_) {
-    //   DLOG(INFO) << "WebRtcEvergreenWireStream HalfClose: already closed";
+    //   DLOG(INFO) << "WebRtcWireStream HalfClose: already closed";
     //   return;
     // }
     // closed_ = true;
     //
-    // status_ = absl::CancelledError("WebRtcEvergreenWireStream HalfClosed");
+    // status_ = absl::CancelledError("WebRtcWireStream HalfClosed");
     // recv_channel_.writer()->Close();
     // cv_.SignalAll();
   }
@@ -78,7 +78,7 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
 
  private:
   void CloseOnError(absl::Status status) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
-    LOG(ERROR) << "WebRtcEvergreenWireStream error: " << status.message();
+    LOG(ERROR) << "WebRtcWireStream error: " << status.message();
     closed_ = true;
     status_ = std::move(status);
     recv_channel_.writer()->Close();
@@ -152,16 +152,14 @@ class WebRtcEvergreenServer {
   std::unique_ptr<concurrency::Fiber> main_loop_;
 };
 
-absl::StatusOr<std::unique_ptr<WebRtcEvergreenWireStream>>
-AcceptStreamFromSignalling(std::string_view identity = "server",
-                           std::string_view address = "localhost",
-                           uint16_t port = 80);
+absl::StatusOr<std::unique_ptr<WebRtcWireStream>> AcceptStreamFromSignalling(
+    std::string_view identity = "server",
+    std::string_view address = "localhost", uint16_t port = 80);
 
-absl::StatusOr<std::unique_ptr<WebRtcEvergreenWireStream>>
-StartStreamWithSignalling(std::string_view identity = "client",
-                          std::string_view peer_identity = "server",
-                          std::string_view address = "localhost",
-                          uint16_t port = 80);
+absl::StatusOr<std::unique_ptr<WebRtcWireStream>> StartStreamWithSignalling(
+    std::string_view identity = "client",
+    std::string_view peer_identity = "server",
+    std::string_view address = "localhost", uint16_t port = 80);
 
 }  // namespace eglt::net
 

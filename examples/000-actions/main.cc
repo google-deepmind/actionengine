@@ -29,7 +29,7 @@ using ActionRegistry = eglt::ActionRegistry;
 using Chunk = eglt::Chunk;
 using Service = eglt::Service;
 using Session = eglt::Session;
-using EvergreenWireStream = eglt::EvergreenWireStream;
+using WireStream = eglt::WireStream;
 
 // Server side implementation of the echo action. This is a simple example of
 // how to implement an action handler. Every handler must take a shared_ptr to
@@ -126,7 +126,7 @@ ActionRegistry MakeActionRegistry() {
 // just gives it back as a string, not a stream.
 // ----------------------------------------------------------------------------
 std::string CallEcho(std::string_view text, Session* absl_nonnull session,
-                     const std::shared_ptr<EvergreenWireStream>& stream) {
+                     const std::shared_ptr<WireStream>& stream) {
 
   const auto echo = session->GetActionRegistry()->MakeAction(
       /*action_key=*/"echo");
@@ -196,7 +196,7 @@ int main(int argc, char** argv) {
   // This is enough to run the server. Notice how Service is decoupled from
   // the server implementation. We could have used any other implementation,
   // such as gRPC or WebSockets, if they provide an implementation of
-  // EvergreenWireStream and (de)serialization of base types (eg_structs.h) from
+  // WireStream and (de)serialization of base types (eg_structs.h) from
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   eglt::Service service(&action_registry);
@@ -205,10 +205,9 @@ int main(int argc, char** argv) {
 
   eglt::NodeMap node_map;
   eglt::Session session(&node_map, &action_registry);
-  auto stream = eglt::net::MakeWebsocketEvergreenWireStream();
+  auto stream = eglt::net::MakeWebsocketWireStream();
   if (!stream.ok()) {
-    LOG(ERROR) << "Failed to create WebsocketEvergreenWireStream: "
-               << stream.status();
+    LOG(ERROR) << "Failed to create WebsocketWireStream: " << stream.status();
     return 1;
   }
   auto shared_stream = std::shared_ptr(*std::move(stream));
