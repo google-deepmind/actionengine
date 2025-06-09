@@ -15,12 +15,8 @@
 #define BOOST_ASIO_NO_DEPRECATED
 
 #include <thread_on_boost/fiber.h>
-#include <boost/asio/connect.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/thread_pool.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/json/src.hpp>
 
+#include "eglt/net/webrtc/signalling.h"
 #include "eglt/net/webrtc/webrtc.h"
 #include "eglt/net/websockets/fiber_aware_websocket_stream.h"
 #include "eglt/util/boost_asio_utils.h"
@@ -28,10 +24,6 @@
 // TODO: split this file into multiple files for better organization.
 
 namespace eglt::net {
-
-namespace asio = boost::asio;
-namespace beast = boost::beast;
-using tcp = boost::asio::ip::tcp;
 
 enum WebRtcEvergreenPacketType {
   kPlainSessionMessage = 0x00,
@@ -526,10 +518,6 @@ absl::Status WebRtcWireStream::Send(SessionMessage message) {
   return status;
 }
 
-// void(peer_id, message)
-using PeerJsonHandler =
-    std::function<void(std::string_view, boost::json::value)>;
-
 static constexpr int kMaxMessageSize = 16384;  // 16 KiB
 static constexpr uint16_t kDefaultRtcPort = 19002;
 static constexpr auto kDefaultStunServer = "stun.l.google.com:19302";
@@ -542,191 +530,6 @@ static rtc::Configuration GetDefaultRtcConfig() {
   config.iceServers.emplace_back(kDefaultStunServer);
   return config;
 }
-
-class SignallingClient {
- public:
-  explicit SignallingClient(std::string_view address = "localhost",
-                            uint16_t port = 80)
-      : address_(address), port_(port) {}
-
-  SignallingClient(const SignallingClient&) = delete;
-  SignallingClient& operator=(const SignallingClient&) = delete;
-
-  ~SignallingClient() { CloseStreamAndJoinLoop(); }
-
-  void OnOffer(PeerJsonHandler on_offer) { on_offer_ = std::move(on_offer); }
-
-  void OnCandidate(PeerJsonHandler on_candidate) {
-    on_candidate_ = std::move(on_candidate);
-  }
-
-  void OnAnswer(PeerJsonHandler on_answer) {
-    on_answer_ = std::move(on_answer);
-  }
-
-  concurrency::Case OnError() const { return error_event_.OnEvent(); }
-
-  absl::Status GetStatus() const {
-    concurrency::MutexLock lock(&mutex_);
-    return loop_status_;
-  }
-
-  absl::Status ConnectWithIdentity(std::string_view identity) {
-    if (!on_answer_ && !on_offer_ && !on_candidate_) {
-      return absl::FailedPreconditionError(
-          "WebsocketEvergreenServer no handlers set: connecting in this "
-          "state would lose messages");
-    }
-
-    identity_ = std::string(identity);
-
-    auto boost_stream = std::make_unique<BoostWebsocketStream>(
-        *util::GetDefaultAsioExecutionContext());
-
-    boost_stream->set_option(beast::websocket::stream_base::decorator(
-        [](beast::websocket::request_type& req) {
-          req.set(beast::http::field::user_agent,
-                  "Action Engine / Evergreen Light 0.1.0 "
-                  "WebsocketWireStream client");
-        }));
-
-    absl::Status status =
-        ResolveAndConnect(boost_stream.get(), address_, port_);
-    if (!status.ok()) {
-      return status;
-    }
-
-    stream_ = FiberAwareWebsocketStream(
-        std::move(boost_stream), [this](BoostWebsocketStream* stream) {
-          return DoHandshake(stream, absl::StrFormat("%s:%d", address_, port_),
-                             absl::StrFormat("/%s", identity_));
-        });
-
-    {
-      concurrency::MutexLock lock(&mutex_);
-      loop_status_ = stream_.Start();
-      if (!loop_status_.ok()) {
-        return loop_status_;
-      }
-    }
-
-    loop_ = std::make_unique<thread::Fiber>([this]() { RunLoop(); });
-    return absl::OkStatus();
-  }
-
-  absl::Status Send(const std::string& message) {
-    return stream_.WriteText(message);
-  }
-
-  void Cancel() {
-    concurrency::MutexLock lock(&mutex_);
-    stream_.Close().IgnoreError();
-    loop_->Cancel();
-    loop_status_ = absl::CancelledError("WebsocketEvergreenServer cancelled");
-  }
-
-  void Join() {
-    if (loop_ != nullptr) {
-      loop_->Join();
-      loop_ = nullptr;
-    }
-  }
-
- private:
-  void RunLoop() {
-    std::string message;
-    boost::json::value parsed_message;
-    absl::Status status;
-
-    while (!thread::Cancelled()) {
-      message.clear();
-
-      status = stream_.ReadText(&message);
-      if (!status.ok()) {
-        break;
-      }
-
-      boost::system::error_code error;
-      parsed_message = boost::json::parse(message, error);
-      if (error) {
-        LOG(ERROR) << "WebsocketEvergreenServer parse() failed: "
-                   << error.message();
-        continue;
-      }
-
-      std::string client_id;
-      if (auto id_ptr = parsed_message.find_pointer("/id", error);
-          id_ptr == nullptr || error) {
-        LOG(ERROR) << "WebsocketEvergreenServer no 'id' field in message: "
-                   << message;
-        continue;
-      } else {
-        client_id = id_ptr->as_string().c_str();
-      }
-
-      std::string type;
-      if (auto type_ptr = parsed_message.find_pointer("/type", error);
-          type_ptr == nullptr || error) {
-        LOG(ERROR) << "WebsocketEvergreenServer no 'type' field in message: "
-                   << message;
-        continue;
-      } else {
-        type = type_ptr->as_string().c_str();
-      }
-
-      if (type != "offer" && type != "candidate" && type != "answer") {
-        LOG(ERROR) << "WebsocketEvergreenServer unknown message type: " << type
-                   << " in message: " << message;
-        continue;
-      }
-
-      if (type == "offer" && on_offer_) {
-        on_offer_(client_id, std::move(parsed_message));
-        continue;
-      }
-
-      if (type == "candidate" && on_candidate_) {
-        on_candidate_(client_id, std::move(parsed_message));
-        continue;
-      }
-
-      if (type == "answer" && on_answer_) {
-        on_answer_(client_id, std::move(parsed_message));
-        continue;
-      }
-    }
-    {
-      concurrency::MutexLock lock(&mutex_);
-      loop_status_ = status;
-      if (!loop_status_.ok()) {
-        error_event_.Notify();
-      }
-    }
-  }
-
-  void CloseStreamAndJoinLoop() {
-    stream_.Close().IgnoreError();
-    if (loop_ != nullptr) {
-      loop_->Cancel();
-      loop_->Join();
-      loop_ = nullptr;
-    }
-  }
-
-  std::string identity_;
-  const std::string address_;
-  const uint16_t port_;
-
-  PeerJsonHandler on_offer_;
-  PeerJsonHandler on_candidate_;
-  PeerJsonHandler on_answer_;
-
-  FiberAwareWebsocketStream stream_;
-  std::unique_ptr<thread::Fiber> loop_;
-  absl::Status loop_status_ ABSL_GUARDED_BY(mutex_);
-  mutable concurrency::Mutex mutex_;
-  concurrency::PermanentEvent error_event_;
-};
 
 absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
     std::string_view identity, std::string_view signalling_address,

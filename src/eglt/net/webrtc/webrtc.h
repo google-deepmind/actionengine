@@ -51,19 +51,7 @@ class WebRtcWireStream final : public WireStream {
 
   absl::Status Accept() override { return absl::OkStatus(); }
 
-  void HalfClose() override {
-    data_channel_->close();
-    // concurrency::MutexLock lock(&mutex_);
-    // if (closed_) {
-    //   DLOG(INFO) << "WebRtcWireStream HalfClose: already closed";
-    //   return;
-    // }
-    // closed_ = true;
-    //
-    // status_ = absl::CancelledError("WebRtcWireStream HalfClosed");
-    // recv_channel_.writer()->Close();
-    // cv_.SignalAll();
-  }
+  void HalfClose() override { data_channel_->close(); }
 
   absl::Status GetStatus() const override {
     concurrency::MutexLock lock(&mutex_);

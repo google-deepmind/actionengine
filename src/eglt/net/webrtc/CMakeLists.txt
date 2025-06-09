@@ -1,5 +1,7 @@
 add_library(
         egltNetWebrtc STATIC
+        signalling.h
+        signalling.cc
         webrtc.h
         webrtc.cc
 )
@@ -20,6 +22,7 @@ target_link_libraries(
         eglt::nodes
         eglt::stores
         egltNetWebsockets
+        Boost::json
         Boost::beast
         LibDataChannel::LibDataChannel
 )
