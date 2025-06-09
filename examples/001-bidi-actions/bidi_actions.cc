@@ -37,6 +37,8 @@ using Action = eglt::Action;
 using ActionRegistry = eglt::ActionRegistry;
 using Chunk = eglt::Chunk;
 using Service = eglt::Service;
+using Session = eglt::Session;
+using EvergreenWireStream = eglt::EvergreenWireStream;
 
 std::string ToLower(std::string_view text);
 
@@ -116,14 +118,15 @@ int main(int argc, char** argv) {
   eglt::net::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::net::EvergreenClient client(eglt::RunSimpleEvergreenSession,
-                                    action_registry);
+  eglt::NodeMap node_map;
+  eglt::Session session(&node_map, &action_registry);
   auto stream = eglt::net::MakeWebsocketEvergreenWireStream("localhost", port);
   if (!stream.ok()) {
     LOG(FATAL) << "Failed to connect to the server: " << stream.status();
     ABSL_ASSUME(false);
   }
-  auto connection = client.ConnectStream(*std::move(stream));
+  auto shared_stream = std::shared_ptr(*std::move(stream));
+  session.DispatchFrom(shared_stream);
 
   std::cout << absl::StrFormat(
       "Bidi actions. Enter a prompt, and the server will print it back with a "
@@ -140,9 +143,10 @@ int main(int argc, char** argv) {
       break;
     }
 
-    const auto action =
-        eglt::MakeActionInConnection(*connection,
-                                     /*action_name=*/"bidi_echo");
+    const auto action = action_registry.MakeAction("bidi_echo");
+    action->BindNodeMap(&node_map);
+    action->BindSession(&session);
+    action->BindStream(shared_stream);
 
     if (const auto status = action->Call(); !status.ok()) {
       LOG(ERROR) << "Error: " << status << "\n";
@@ -165,8 +169,7 @@ int main(int argc, char** argv) {
     std::cout << std::endl;
   }
 
-  client.Cancel().IgnoreError();
-  client.Join().IgnoreError();
+  shared_stream->HalfClose();
 
   server.Cancel().IgnoreError();
   server.Join().IgnoreError();

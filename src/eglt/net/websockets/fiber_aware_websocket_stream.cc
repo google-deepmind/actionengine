@@ -61,31 +61,6 @@ absl::Status PrepareServerStream(BoostWebsocketStream* stream) {
   return absl::OkStatus();
 }
 
-static absl::Status ShutdownSocket(
-    BoostWebsocketStream* stream,
-    boost::asio::socket_base::shutdown_type shutdown_type,
-    boost::asio::socket_base::wait_type wait_type =
-        boost::asio::socket_base::wait_type::wait_error) {
-  boost::system::error_code error;
-  stream->next_layer().shutdown(shutdown_type, error);
-  if (error == boost::system::errc::not_connected ||
-      error == boost::system::errc::operation_canceled) {
-    return absl::OkStatus();
-  }
-  if (error) {
-    return absl::InternalError(error.message());
-  }
-  concurrency::PermanentEvent shutdown_done;
-  stream->next_layer().async_wait(
-      wait_type, [&error, &shutdown_done](const boost::system::error_code& ec) {
-        error = ec;
-        shutdown_done.Notify();
-      });
-  concurrency::Select({shutdown_done.OnEvent()});
-
-  return absl::OkStatus();
-}
-
 FiberAwareWebsocketStream::FiberAwareWebsocketStream(
     std::unique_ptr<BoostWebsocketStream> stream,
     PerformHandshakeFn handshake_fn)
@@ -168,21 +143,8 @@ FiberAwareWebsocketStream::~FiberAwareWebsocketStream() {
     return;  // Stream already closed or moved
   }
 
-  if (stream_->is_open()) {
-    boost::system::error_code error;
-    stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_both,
-                                   error);
-    concurrency::PermanentEvent shutdown_done;
-    stream_->next_layer().async_wait(
-        boost::asio::ip::tcp::socket::wait_error,
-        [&error, &shutdown_done](const boost::system::error_code& ec) {
-          error = ec;
-          shutdown_done.Notify();
-        });
-    mutex_.Unlock();
-    concurrency::Select({shutdown_done.OnEvent()});
-    mutex_.Lock();
-  }
+  CloseInternal()
+      .IgnoreError();  // Close the stream gracefully, ignoring errors
 }
 
 absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
@@ -227,8 +189,11 @@ absl::Status FiberAwareWebsocketStream::Write(
   cv_.SignalAll();
 
   if (concurrency::Cancelled()) {
-    stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_send,
-                                   error);
+    if (stream_->is_open()) {
+      stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_send,
+                                     error);
+    }
+
     return absl::CancelledError("WsWrite cancelled");
   }
 
@@ -278,8 +243,10 @@ absl::Status FiberAwareWebsocketStream::WriteText(
   cv_.SignalAll();
 
   if (concurrency::Cancelled()) {
-    stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_send,
-                                   error);
+    if (stream_->is_open()) {
+      stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_send,
+                                     error);
+    }
     return absl::CancelledError("WsWrite cancelled");
   }
 
@@ -317,14 +284,18 @@ absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept
   }
 
   boost::system::error_code error;
-  stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_both,
-                                 error);
 
-  if (error && error != boost::asio::error::not_connected) {
-    LOG(ERROR) << absl::StrFormat("Cannot shut down websocket stream: %v",
-                                  error.message());
-    return absl::InternalError(error.message());
-  }
+  concurrency::PermanentEvent close_done;
+  stream_->async_close(
+      boost::beast::websocket::close_code::normal,
+      [&error, &close_done](const boost::system::error_code& async_error) {
+        error = async_error;
+        close_done.Notify();
+      });
+
+  mutex_.Unlock();
+  concurrency::Select({close_done.OnEvent()});
+  mutex_.Lock();
 
   return absl::OkStatus();
 }
@@ -381,12 +352,16 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
   mutex_.Lock();
 
   if (concurrency::Cancelled()) {
-    stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_receive,
-                                   error);
-    if (error && error != boost::asio::error::not_connected) {
-      LOG(ERROR) << absl::StrFormat(
-          "Cannot shut down receive on websocket stream: %v", error.message());
+    if (stream_->is_open()) {
+      stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_receive,
+                                     error);
+      if (error && error != boost::asio::error::not_connected) {
+        LOG(ERROR) << absl::StrFormat(
+            "Cannot shut down receive on websocket stream: %v",
+            error.message());
+      }
     }
+
     return absl::CancelledError("WsAccept cancelled");
   }
 
@@ -440,11 +415,14 @@ absl::Status FiberAwareWebsocketStream::Read(
   cv_.SignalAll();
 
   if (concurrency::Cancelled()) {
-    stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_receive,
-                                   error);
-    if (error && error != boost::asio::error::not_connected) {
-      LOG(ERROR) << absl::StrFormat(
-          "Cannot shut down receive on websocket stream: %v", error.message());
+    if (stream_->is_open()) {
+      stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_receive,
+                                     error);
+      if (error && error != boost::asio::error::not_connected) {
+        LOG(ERROR) << absl::StrFormat(
+            "Cannot shut down receive on websocket stream: %v",
+            error.message());
+      }
     }
     return absl::CancelledError("WsRead cancelled");
   }

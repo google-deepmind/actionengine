@@ -1,5 +1,6 @@
 add_library(
-        egltNet INTERFACE
+        egltNet STATIC
+        client.cc
         testing_utils.h
         peers.h
         stream.h
@@ -7,12 +8,12 @@ add_library(
 )
 add_library(eglt::net ALIAS egltNet)
 target_include_directories(
-        egltNet INTERFACE
+        egltNet PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
 )
 target_link_libraries(
-        egltNet INTERFACE
+        egltNet PUBLIC
         ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data

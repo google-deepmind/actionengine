@@ -28,6 +28,8 @@ using Action = eglt::Action;
 using ActionRegistry = eglt::ActionRegistry;
 using Chunk = eglt::Chunk;
 using Service = eglt::Service;
+using Session = eglt::Session;
+using EvergreenWireStream = eglt::EvergreenWireStream;
 
 // Server side implementation of the echo action. This is a simple example of
 // how to implement an action handler. Every handler must take a shared_ptr to
@@ -123,13 +125,14 @@ ActionRegistry MakeActionRegistry() {
 // implements the synchronous client logic which waits for the response and
 // just gives it back as a string, not a stream.
 // ----------------------------------------------------------------------------
-std::string CallEcho(
-    std::string_view text,
-    const std::shared_ptr<eglt::StreamToSessionConnection>& connection) {
+std::string CallEcho(std::string_view text, Session* absl_nonnull session,
+                     const std::shared_ptr<EvergreenWireStream>& stream) {
 
-  auto echo = eglt::MakeActionInConnection(*connection,
-                                           /*action_name=*/"echo",
-                                           /*action_id=*/"");
+  const auto echo = session->GetActionRegistry()->MakeAction(
+      /*action_key=*/"echo");
+  echo->BindNodeMap(session->GetNodeMap());
+  echo->BindSession(session);
+  echo->BindStream(stream);
 
   // Evergreen actions are asynchronous, so we can call the action even before
   // supplying all the inputs. The server will run the action handler in a
@@ -138,11 +141,10 @@ std::string CallEcho(
   // action's logic does not depend on the input, it will be executed before
   // the input is available, no additional effort is needed, and this applies
   // per input, not all at once.
-  auto status = echo->Call();
 
   // This is NOT the way to check if the action finished successfully. This
   // status just indicates that the action was called (action message was sent).
-  if (!status.ok()) {
+  if (const auto status = echo->Call(); !status.ok()) {
     LOG(ERROR) << "Failed to call action: " << status;
     return "";
   }
@@ -201,19 +203,20 @@ int main(int argc, char** argv) {
   eglt::net::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::net::EvergreenClient client(eglt::RunSimpleEvergreenSession,
-                                    action_registry);
+  eglt::NodeMap node_map;
+  eglt::Session session(&node_map, &action_registry);
   auto stream = eglt::net::MakeWebsocketEvergreenWireStream();
   if (!stream.ok()) {
     LOG(ERROR) << "Failed to create WebsocketEvergreenWireStream: "
                << stream.status();
     return 1;
   }
-  auto connection = client.ConnectStream(*std::move(stream));
+  auto shared_stream = std::shared_ptr(*std::move(stream));
+  session.DispatchFrom(shared_stream);
 
   std::string text = "test text to skip the long startup logs";
   std::cout << "Sending: " << text << std::endl;
-  auto response = CallEcho(text, connection);
+  auto response = CallEcho(text, &session, shared_stream);
   std::cout << "Received: " << response << std::endl;
 
   std::cout << "This is an example with an Evergreen server and a client "
@@ -224,12 +227,11 @@ int main(int argc, char** argv) {
   while (text != "/quit") {
     std::cout << "Enter text: ";
     std::getline(std::cin, text);
-    response = CallEcho(text, connection);
+    response = CallEcho(text, &session, shared_stream);
     std::cout << "Received: " << response << "\n" << std::endl;
   }
 
-  client.Cancel().IgnoreError();
-  client.Join().IgnoreError();
+  shared_stream->HalfClose();
 
   server.Cancel().IgnoreError();
   server.Join().IgnoreError();

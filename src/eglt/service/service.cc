@@ -272,6 +272,7 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
     }
   }
   mutex_.Lock();
+  DLOG(INFO) << "Connections cleaned up.";
 }
 
 }  // namespace eglt
