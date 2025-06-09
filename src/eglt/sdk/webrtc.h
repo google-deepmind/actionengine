@@ -44,7 +44,6 @@ class WebRtcEvergreenWireStream final : public EvergreenWireStream {
     if (!recv_channel_.reader()->Read(&message)) {
       return std::nullopt;
     }
-    LOG(INFO) << "WebRtcEvergreenWireStream received message: " << message;
     return std::move(message);
   }
 

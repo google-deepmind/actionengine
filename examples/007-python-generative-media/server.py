@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 
 import evergreen
@@ -35,12 +36,17 @@ async def sleep_forever():
         await asyncio.sleep(1)
 
 
-async def main():
+async def main(args: argparse.Namespace):
     action_registry = make_action_registry()
     service = evergreen.Service(action_registry)
     # server = evergreen.websockets.WebsocketEvergreenServer(service)
     server = evergreen.webrtc.WebRtcEvergreenServer(
-        service, "0.0.0.0", 20002, "demos.helena.direct", 19000, "demoserver"
+        service,
+        args.host,
+        args.port,
+        args.webrtc_signalling_server,
+        args.webrtc_signalling_port,
+        args.webrtc_identity,
     )
 
     server.run()
@@ -54,10 +60,49 @@ async def main():
         await task
 
 
-def sync_main():
+def sync_main(args: argparse.Namespace):
     setup_action_engine()
-    asyncio.run(main())
+    asyncio.run(main(args))
 
 
 if __name__ == "__main__":
-    sync_main()
+    parser = argparse.ArgumentParser(
+        description="Run the Action Engine text-to-image server."
+    )
+
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="0.0.0.0",
+        help="Host address to bind the server to.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=20002,
+        help="Port to bind the server to.",
+    )
+    parser.add_argument(
+        "--webrtc-signalling-server",
+        type=str,
+        default="demos.helena.direct",
+        help=(
+            "WebRTC signalling server address. You may use demos.helena.direct "
+            "or your own server, but if you use demos.helena.direct, please "
+            "also set the identity to something unique."
+        ),
+    )
+    parser.add_argument(
+        "--webrtc-signalling-port",
+        type=int,
+        default=19000,
+        help="WebRTC signalling server port.",
+    )
+    parser.add_argument(
+        "--webrtc-identity",
+        type=str,
+        default="demoserver",
+        help="Our ID for the WebRTC signalling server.",
+    )
+
+    sync_main(parser.parse_args())
