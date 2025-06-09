@@ -12,53 +12,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/sdk/websockets_pybind11.h"
-#include "eglt/util/utils_pybind11.h"
-
-#include "eglt/sdk/websockets.h"
+#include "eglt/net/websockets/websockets_pybind11.h"
+#include "eglt/net/websockets/websockets.h"
 #include "eglt/service/service.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
 void BindWebsocketEvergreenWireStream(py::handle scope, std::string_view name) {
-  py::class_<sdk::WebsocketEvergreenWireStream, EvergreenWireStream,
-             std::shared_ptr<sdk::WebsocketEvergreenWireStream>>(
+  py::class_<net::WebsocketEvergreenWireStream, EvergreenWireStream,
+             std::shared_ptr<net::WebsocketEvergreenWireStream>>(
       scope, std::string(name).c_str())
-      .def("send", &sdk::WebsocketEvergreenWireStream::Send,
+      .def("send", &net::WebsocketEvergreenWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
-      .def("receive", &sdk::WebsocketEvergreenWireStream::Receive,
+      .def("receive", &net::WebsocketEvergreenWireStream::Receive,
            py::call_guard<py::gil_scoped_release>())
-      .def("accept", &sdk::WebsocketEvergreenWireStream::Accept)
-      .def("start", &sdk::WebsocketEvergreenWireStream::Start)
-      .def("close", &sdk::WebsocketEvergreenWireStream::HalfClose,
+      .def("accept", &net::WebsocketEvergreenWireStream::Accept)
+      .def("start", &net::WebsocketEvergreenWireStream::Start)
+      .def("close", &net::WebsocketEvergreenWireStream::HalfClose,
            py::call_guard<py::gil_scoped_release>())
-      .def("get_status", &sdk::WebsocketEvergreenWireStream::GetStatus)
-      .def("get_id", &sdk::WebsocketEvergreenWireStream::GetId)
+      .def("get_status", &net::WebsocketEvergreenWireStream::GetStatus)
+      .def("get_id", &net::WebsocketEvergreenWireStream::GetId)
       .def("__repr__",
-           [](const std::shared_ptr<sdk::WebsocketEvergreenWireStream>& self) {
+           [](const std::shared_ptr<net::WebsocketEvergreenWireStream>& self) {
              return absl::StrFormat("%v", *self);
            })
       .doc() = "A WebsocketEvergreenWireStream interface.";
 }
 
 void BindWebsocketEvergreenServer(py::handle scope, std::string_view name) {
-  py::class_<sdk::WebsocketEvergreenServer,
-             std::shared_ptr<sdk::WebsocketEvergreenServer>>(
+  py::class_<net::WebsocketEvergreenServer,
+             std::shared_ptr<net::WebsocketEvergreenServer>>(
       scope, std::string(name).c_str(), "A WebsocketEvergreenServer interface.")
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port) {
-             return std::make_shared<sdk::WebsocketEvergreenServer>(
+             return std::make_shared<net::WebsocketEvergreenServer>(
                  service, address, port);
            }),
            py::arg("service"), py::arg_v("address", "0.0.0.0"),
            py::arg_v("port", 20000), pybindings::keep_event_loop_memo())
-      .def("run", &sdk::WebsocketEvergreenServer::Run,
+      .def("run", &net::WebsocketEvergreenServer::Run,
            py::call_guard<py::gil_scoped_release>())
       .def(
           "cancel",
-          [](const std::shared_ptr<sdk::WebsocketEvergreenServer>& self) {
+          [](const std::shared_ptr<net::WebsocketEvergreenServer>& self) {
             if (const absl::Status status = self->Cancel(); !status.ok()) {
               throw std::runtime_error(status.ToString());
             }
@@ -66,7 +65,7 @@ void BindWebsocketEvergreenServer(py::handle scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>())
       .def(
           "join",
-          [](const std::shared_ptr<sdk::WebsocketEvergreenServer>& self) {
+          [](const std::shared_ptr<net::WebsocketEvergreenServer>& self) {
             if (const absl::Status status = self->Join(); !status.ok()) {
               throw std::runtime_error(status.ToString());
             }
@@ -87,7 +86,7 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
       "make_websocket_evergreen_stream",
       [](std::string_view address, std::string_view target, int32_t port) {
         if (auto stream =
-                sdk::MakeWebsocketEvergreenWireStream(address, port, target);
+                net::MakeWebsocketEvergreenWireStream(address, port, target);
             !stream.ok()) {
           throw std::runtime_error(stream.status().ToString());
         } else {

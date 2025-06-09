@@ -9,5 +9,5 @@ target_link_libraries(
         eglt::data
         eglt::nodes
         eglt::service
-        eglt::sdk::webrtc
+        eglt::net::webrtc
 )

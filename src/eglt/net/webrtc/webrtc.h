@@ -1,5 +1,5 @@
-#ifndef EGLT_SDK_WEBRTC_H_
-#define EGLT_SDK_WEBRTC_H_
+#ifndef EGLT_NET_WEBRTC_WEBRTC_H_
+#define EGLT_NET_WEBRTC_WEBRTC_H_
 
 #include <rtc/rtc.hpp>
 
@@ -8,7 +8,7 @@
 #include "eglt/net/stream.h"
 #include "eglt/service/service.h"
 
-namespace eglt::sdk {
+namespace eglt::net {
 
 struct WebRtcDataChannelConnection {
   std::shared_ptr<rtc::PeerConnection> connection;
@@ -163,6 +163,6 @@ StartStreamWithSignalling(std::string_view identity = "client",
                           std::string_view address = "localhost",
                           uint16_t port = 80);
 
-}  // namespace eglt::sdk
+}  // namespace eglt::net
 
-#endif  // EGLT_SDK_WEBRTC_H_
+#endif  // EGLT_NET_WEBRTC_WEBRTC_H_

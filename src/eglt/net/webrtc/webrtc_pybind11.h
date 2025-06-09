@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EGLT_SDK_WEBRTC_PYBIND11_H_
-#define EGLT_SDK_WEBRTC_PYBIND11_H_
+#ifndef EGLT_NET_WEBRTC_WEBRTC_PYBIND11_H_
+#define EGLT_NET_WEBRTC_WEBRTC_PYBIND11_H_
 
 #include "eglt/pybind11_headers.h"
 
@@ -32,4 +32,4 @@ py::module_ MakeWebRtcModule(py::module_ scope,
 
 }  // namespace eglt::pybindings
 
-#endif  // EGLT_SDK_WEBRTC_PYBIND11_H_
+#endif  // EGLT_NET_WEBRTC_WEBRTC_PYBIND11_H_

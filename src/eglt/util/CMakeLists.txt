@@ -1,4 +1,27 @@
 add_library(
+        egltUtilBoostAsio STATIC
+        boost_asio_utils.h
+        boost_asio_utils.cc
+)
+add_library(
+        eglt::util::boost_asio ALIAS
+        egltUtilBoostAsio
+)
+target_include_directories(
+        egltUtilBoostAsio PUBLIC
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIR}
+        ${Boost_INCLUDE_DIRS}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+)
+target_link_libraries(
+        egltUtilBoostAsio PRIVATE
+        ${EGLT_ABSL_DEPENDENCIES}
+        Boost::beast
+)
+# --------------------------------------------------------------------------
+
+add_library(
         egltUtilPybind11 STATIC
 )
 add_library(

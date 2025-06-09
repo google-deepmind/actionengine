@@ -120,7 +120,6 @@ set(EGLT_THIRD_PARTY_INCLUDE_DIRS
 enable_testing()
 include(GoogleTest)
 add_subdirectory(src)
-add_subdirectory(src/eglt/sdk)
 add_subdirectory(examples)
 
 install(

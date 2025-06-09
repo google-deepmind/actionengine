@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/sdk/boost_asio_utils.h"
+#include "eglt/util/boost_asio_utils.h"
 
-namespace eglt::sdk {
+namespace eglt::util {
 
 boost::asio::thread_pool* GetDefaultAsioExecutionContext() {
   static auto context =
@@ -28,4 +28,4 @@ void RunInAsioContext(absl::AnyInvocable<void()>&& fn,
                    std::move(additional_cases));
 }
 
-}  // namespace eglt::sdk
+}  // namespace eglt::util

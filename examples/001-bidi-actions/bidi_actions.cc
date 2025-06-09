@@ -25,7 +25,7 @@
 #include <eglt/absl_headers.h>
 #include <eglt/actions/action.h>
 #include <eglt/data/eg_structs.h>
-#include <eglt/sdk/websockets.h>
+#include <eglt/net/websockets/websockets.h>
 #include <eglt/service/service.h>
 
 ABSL_FLAG(int32_t, port, 20000, "Port to bind to.");
@@ -113,12 +113,12 @@ int main(int argc, char** argv) {
   auto action_registry = MakeActionRegistry();
 
   eglt::Service service(&action_registry);
-  eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
+  eglt::net::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::sdk::EvergreenClient client(eglt::RunSimpleEvergreenSession,
+  eglt::net::EvergreenClient client(eglt::RunSimpleEvergreenSession,
                                     action_registry);
-  auto stream = eglt::sdk::MakeWebsocketEvergreenWireStream("localhost", port);
+  auto stream = eglt::net::MakeWebsocketEvergreenWireStream("localhost", port);
   if (!stream.ok()) {
     LOG(FATAL) << "Failed to connect to the server: " << stream.status();
     ABSL_ASSUME(false);

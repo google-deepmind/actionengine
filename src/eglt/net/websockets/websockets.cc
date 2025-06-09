@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/sdk/websockets.h"
+#include "eglt/net/websockets/websockets.h"
 
-namespace eglt::sdk {
+namespace eglt::net {
 
 WebsocketEvergreenWireStream::WebsocketEvergreenWireStream(
     std::unique_ptr<BoostWebsocketStream> stream, std::string_view id)
@@ -67,4 +67,4 @@ void WebsocketEvergreenWireStream::HalfClose() {
   stream_.Close().IgnoreError();
 }
 
-}  // namespace eglt::sdk
+}  // namespace eglt::net

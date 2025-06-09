@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EGLT_SDK_FIBER_AWARE_WEBSOCKET_STREAM_H_
-#define EGLT_SDK_FIBER_AWARE_WEBSOCKET_STREAM_H_
+#ifndef EGLT_NET_WEBSOCKETS_FIBER_AWARE_WEBSOCKET_STREAM_H_
+#define EGLT_NET_WEBSOCKETS_FIBER_AWARE_WEBSOCKET_STREAM_H_
 
 #define BOOST_ASIO_NO_DEPRECATED
 
@@ -26,7 +26,7 @@
 #include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 
-namespace eglt::sdk {
+namespace eglt::net {
 
 using BoostWebsocketStream =
     boost::beast::websocket::stream<boost::asio::ip::tcp::socket>;
@@ -190,6 +190,6 @@ absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
                                    std::move(do_handshake));
 }
 
-}  // namespace eglt::sdk
+}  // namespace eglt::net
 
-#endif  // EGLT_SDK_FIBER_AWARE_WEBSOCKET_STREAM_H_
+#endif  // EGLT_NET_WEBSOCKETS_FIBER_AWARE_WEBSOCKET_STREAM_H_

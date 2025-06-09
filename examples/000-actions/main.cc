@@ -17,8 +17,8 @@
 #include <eglt/absl_headers.h>
 #include <eglt/actions/action.h>
 #include <eglt/data/eg_structs.h>
+#include <eglt/net/websockets/websockets.h>
 #include <eglt/nodes/async_node.h>
-#include <eglt/sdk/websockets.h>
 #include <eglt/service/service.h>
 
 ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");
@@ -198,12 +198,12 @@ int main(int argc, char** argv) {
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   eglt::Service service(&action_registry);
-  eglt::sdk::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
+  eglt::net::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::sdk::EvergreenClient client(eglt::RunSimpleEvergreenSession,
+  eglt::net::EvergreenClient client(eglt::RunSimpleEvergreenSession,
                                     action_registry);
-  auto stream = eglt::sdk::MakeWebsocketEvergreenWireStream();
+  auto stream = eglt::net::MakeWebsocketEvergreenWireStream();
   if (!stream.ok()) {
     LOG(ERROR) << "Failed to create WebsocketEvergreenWireStream: "
                << stream.status();

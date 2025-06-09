@@ -1,22 +1,22 @@
 #include <iostream>
 #include <memory>
 
-#include "eglt/absl_headers.h"
-#include "eglt/sdk/webrtc.h"
+#include <eglt/absl_headers.h>
+#include <eglt/net/webrtc/webrtc.h>
 
 int main(int argc, char** argv) {
   absl::InstallFailureSignalHandler({});
   absl::ParseCommandLine(argc, argv);
 
   eglt::Service service;
-  eglt::sdk::WebRtcEvergreenServer server(
+  eglt::net::WebRtcEvergreenServer server(
       &service, "0.0.0.0", 20000,
       /*signalling_address=*/"demos.helena.direct", /*signalling_port=*/19000);
   server.Run();
   eglt::concurrency::SleepFor(absl::Milliseconds(200));
 
   for (int i = 0; i < 10; ++i) {
-    auto status_or_stream = eglt::sdk::StartStreamWithSignalling(
+    auto status_or_stream = eglt::net::StartStreamWithSignalling(
         eglt::GenerateUUID4(), "server", "demos.helena.direct", 19000);
     if (!status_or_stream.ok()) {
       LOG(ERROR) << "Failed to start WebRTC stream: "

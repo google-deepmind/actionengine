@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/sdk/fiber_aware_websocket_stream.h"
-#include "eglt/sdk//boost_asio_utils.h"
+#include "eglt/net/websockets/fiber_aware_websocket_stream.h"
+#include "eglt/util/boost_asio_utils.h"
 
-namespace eglt::sdk {
+namespace eglt::net {
 
 static constexpr absl::Duration kDebugWarningTimeout = absl::Seconds(5);
 
@@ -188,7 +188,7 @@ FiberAwareWebsocketStream::~FiberAwareWebsocketStream() {
 absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
     std::string_view address, uint16_t port, std::string_view target,
     PrepareStreamFn prepare_stream_fn) {
-  return Connect(*GetDefaultAsioExecutionContext(), address, port, target,
+  return Connect(*util::GetDefaultAsioExecutionContext(), address, port, target,
                  std::move(prepare_stream_fn));
 }
 
@@ -331,8 +331,8 @@ absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept
 
 absl::Status ResolveAndConnect(BoostWebsocketStream* stream,
                                std::string_view address, uint16_t port) {
-  return ResolveAndConnect(*GetDefaultAsioExecutionContext(), stream, address,
-                           port);
+  return ResolveAndConnect(*util::GetDefaultAsioExecutionContext(), stream,
+                           address, port);
 }
 absl::Status DoHandshake(BoostWebsocketStream* stream, std::string_view host,
                          std::string_view target) {
@@ -503,4 +503,4 @@ absl::Status FiberAwareWebsocketStream::Start() const noexcept {
   return absl::OkStatus();
 }
 
-}  // namespace eglt::sdk
+}  // namespace eglt::net

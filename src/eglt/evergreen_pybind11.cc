@@ -16,10 +16,10 @@
 
 #include "eglt/actions/actions_pybind11.h"
 #include "eglt/data/data_pybind11.h"
+#include "eglt/net/webrtc/webrtc_pybind11.h"
+#include "eglt/net/websockets/websockets_pybind11.h"
 #include "eglt/nodes/nodes_pybind11.h"
 #include "eglt/pybind11_headers.h"
-#include "eglt/sdk/webrtc_pybind11.h"
-#include "eglt/sdk/websockets_pybind11.h"
 #include "eglt/service/service_pybind11.h"
 #include "eglt/stores/chunk_store_pybind11.h"
 

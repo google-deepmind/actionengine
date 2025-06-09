@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EGLT_SDK_BOOST_ASIO_UTILS_H_
-#define EGLT_SDK_BOOST_ASIO_UTILS_H_
+#ifndef EGLT_UTIL_BOOST_ASIO_UTILS_H_
+#define EGLT_UTIL_BOOST_ASIO_UTILS_H_
 
 #define BOOST_ASIO_NO_DEPRECATED
 
@@ -24,7 +24,7 @@
 
 #include "eglt/concurrency/concurrency.h"
 
-namespace eglt::sdk {
+namespace eglt::util {
 
 boost::asio::thread_pool* GetDefaultAsioExecutionContext();
 
@@ -77,6 +77,6 @@ void RunInAsioContext(ExecutionContext& context,
 void RunInAsioContext(absl::AnyInvocable<void()>&& fn,
                       concurrency::impl::CaseArray additional_cases = {});
 
-}  // namespace eglt::sdk
+}  // namespace eglt::util
 
-#endif  // EGLT_SDK_BOOST_ASIO_UTILS_H_
+#endif  // EGLT_UTIL_BOOST_ASIO_UTILS_H_

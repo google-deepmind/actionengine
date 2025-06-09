@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EGLT_SDK_WEBSOCKETS_H_
-#define EGLT_SDK_WEBSOCKETS_H_
+#ifndef EGLT_NET_WEBSOCKETS_WEBSOCKETS_H_
+#define EGLT_NET_WEBSOCKETS_WEBSOCKETS_H_
 
 #include <memory>
 #include <optional>
@@ -30,12 +30,12 @@
 #include "eglt/data/eg_structs.h"
 #include "eglt/data/msgpack.h"
 #include "eglt/net/stream.h"
-#include "eglt/sdk/boost_asio_utils.h"
-#include "eglt/sdk/fiber_aware_websocket_stream.h"
+#include "eglt/net/websockets/fiber_aware_websocket_stream.h"
 #include "eglt/service/service.h"
+#include "eglt/util/boost_asio_utils.h"
 #include "eglt/util/random.h"
 
-namespace eglt::sdk {
+namespace eglt::net {
 
 class WebsocketEvergreenWireStream final : public EvergreenWireStream {
  public:
@@ -82,7 +82,7 @@ class WebsocketEvergreenServer {
                                     uint16_t port = 20000)
       : service_(service),
         acceptor_(std::make_unique<boost::asio::ip::tcp::acceptor>(
-            *GetDefaultAsioExecutionContext())) {
+            *util::GetDefaultAsioExecutionContext())) {
     boost::system::error_code error;
 
     acceptor_->open(boost::asio::ip::tcp::v4(), error);
@@ -131,7 +131,7 @@ class WebsocketEvergreenServer {
     main_loop_ = concurrency::NewTree({}, [this]() {
       while (!concurrency::Cancelled()) {
         boost::asio::ip::tcp::socket socket{
-            boost::asio::make_strand(*GetDefaultAsioExecutionContext())};
+            boost::asio::make_strand(*util::GetDefaultAsioExecutionContext())};
 
         DLOG(INFO) << "WES waiting for connection.";
         boost::system::error_code error;
@@ -201,7 +201,7 @@ class WebsocketEvergreenServer {
     DLOG(INFO) << "WebsocketEvergreenServer Cancel()";
     boost::system::error_code error;
     acceptor_->close();
-    GetDefaultAsioExecutionContext()->stop();
+    util::GetDefaultAsioExecutionContext()->stop();
     main_loop_->Cancel();
 
     if (error) {
@@ -254,9 +254,9 @@ MakeWebsocketEvergreenWireStream(
     PrepareStreamFn prepare_stream = PrepareClientStream) {
 
   absl::StatusOr<FiberAwareWebsocketStream> ws_stream =
-      FiberAwareWebsocketStream::Connect(*GetDefaultAsioExecutionContext(),
-                                         address, port, target,
-                                         std::move(prepare_stream));
+      FiberAwareWebsocketStream::Connect(
+          *util::GetDefaultAsioExecutionContext(), address, port, target,
+          std::move(prepare_stream));
 
   if (!ws_stream.ok()) {
     return ws_stream.status();
@@ -358,6 +358,6 @@ class EvergreenClient {
   std::unique_ptr<concurrency::Fiber> fiber_;
 };
 
-}  // namespace eglt::sdk
+}  // namespace eglt::net
 
-#endif  // EGLT_SDK_WEBSOCKETS_H_
+#endif  // EGLT_NET_WEBSOCKETS_WEBSOCKETS_H_

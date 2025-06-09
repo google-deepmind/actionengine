@@ -21,13 +21,13 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/json/src.hpp>
 
-#include "eglt/sdk/boost_asio_utils.h"
-#include "eglt/sdk/fiber_aware_websocket_stream.h"
-#include "eglt/sdk/webrtc.h"
+#include "eglt/net/webrtc/webrtc.h"
+#include "eglt/net/websockets/fiber_aware_websocket_stream.h"
+#include "eglt/util/boost_asio_utils.h"
 
 // TODO: split this file into multiple files for better organization.
 
-namespace eglt::sdk {
+namespace eglt::net {
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
@@ -581,7 +581,7 @@ class SignallingClient {
     identity_ = std::string(identity);
 
     auto boost_stream = std::make_unique<BoostWebsocketStream>(
-        *GetDefaultAsioExecutionContext());
+        *util::GetDefaultAsioExecutionContext());
 
     boost_stream->set_option(beast::websocket::stream_base::decorator(
         [](beast::websocket::request_type& req) {
@@ -1275,4 +1275,4 @@ StartStreamWithSignalling(std::string_view identity,
       std::move(connection->data_channel), std::move(connection->connection));
 }
 
-}  // namespace eglt::sdk
+}  // namespace eglt::net

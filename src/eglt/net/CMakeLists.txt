@@ -80,3 +80,6 @@ install(
         LIBRARY DESTINATION lib/eglt
         ARCHIVE DESTINATION lib/eglt
 )
+
+add_subdirectory(webrtc)
+add_subdirectory(websockets)
