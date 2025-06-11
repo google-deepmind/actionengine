@@ -1,5 +1,7 @@
 add_library(
         egltStores STATIC
+        byte_chunking.cc
+        byte_chunking.h
         chunk_store.h
         chunk_store_io.h
         chunk_store_reader.h

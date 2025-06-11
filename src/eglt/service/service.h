@@ -119,6 +119,13 @@ class Service : public std::enable_shared_from_this<Service> {
   auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
       -> absl::Status;
 
+  void CloseStreams() ABSL_LOCKS_EXCLUDED(mutex_) {
+    concurrency::MutexLock lock(&mutex_);
+    for (const auto& [_, stream] : streams_) {
+      stream->HalfClose();
+    }
+  }
+
   auto SetActionRegistry(const ActionRegistry& action_registry) const -> void;
 
  private:

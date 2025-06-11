@@ -591,10 +591,18 @@ class Unpacker {
 
   std::error_code GetErrorCode() const { return error_code_; }
 
+  const uint8_t* GetDataPtr() const {
+    if (data_pointer < data_end) {
+      return data_pointer;
+    }
+    error_code_ = UnpackerError::OutOfRange;
+    return nullptr;
+  }
+
  private:
   const uint8_t* data_pointer;
   const uint8_t* data_end;
-  std::error_code error_code_{};
+  mutable std::error_code error_code_{};
 
   uint8_t safe_data() {
     if (data_pointer < data_end)

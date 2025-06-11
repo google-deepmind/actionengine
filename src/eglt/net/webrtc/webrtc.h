@@ -7,6 +7,7 @@
 #include "eglt/data/msgpack.h"
 #include "eglt/net/stream.h"
 #include "eglt/service/service.h"
+#include "eglt/stores/byte_chunking.h"
 
 namespace eglt::net {
 
@@ -24,8 +25,6 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     std::string_view identity, std::string_view peer_identity = "server",
     std::string_view signalling_address = "localhost",
     uint16_t signalling_port = 80);
-
-class ChunkedWebRtcMessage;
 
 class WebRtcWireStream final : public WireStream {
  public:
@@ -83,7 +82,7 @@ class WebRtcWireStream final : public WireStream {
   std::shared_ptr<rtc::DataChannel> data_channel_;
   concurrency::Channel<SessionMessage> recv_channel_{kBufferSize};
 
-  absl::flat_hash_map<uint64_t, std::unique_ptr<ChunkedWebRtcMessage>>
+  absl::flat_hash_map<uint64_t, std::unique_ptr<data::ChunkedBytes>>
       chunked_messages_ ABSL_GUARDED_BY(mutex_) = {};
   uint64_t next_transient_id_ ABSL_GUARDED_BY(mutex_) = 0;
 

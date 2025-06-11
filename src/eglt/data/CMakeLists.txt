@@ -20,8 +20,9 @@ target_include_directories(
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
-        egltData PRIVATE
+        egltData PUBLIC
         cppack
+        eglt::msgpack
         ${EGLT_ABSL_DEPENDENCIES}
 )
 

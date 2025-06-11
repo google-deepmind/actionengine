@@ -78,6 +78,7 @@ Service::Service(ActionRegistry* absl_nullable action_registry,
       chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 Service::~Service() {
+  CloseStreams();
   JoinConnectionsAndCleanUp(/*cancel=*/true);
 }
 
@@ -263,13 +264,13 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
   }
 
   DLOG(INFO) << "Cleaning up connections.";
-  mutex_.Unlock();
   for (const auto& [_, fiber] : fibers) {
     if (fiber != nullptr) {
+      mutex_.Unlock();
       fiber->Join();
+      mutex_.Lock();
     }
   }
-  mutex_.Lock();
   DLOG(INFO) << "Connections cleaned up.";
 }
 

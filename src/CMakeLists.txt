@@ -64,6 +64,7 @@ target_include_directories(
 add_subdirectory(eglt/actions)
 add_subdirectory(eglt/concurrency)
 add_subdirectory(eglt/data)
+add_subdirectory(eglt/msgpack)
 add_subdirectory(eglt/net)
 add_subdirectory(eglt/nodes)
 add_subdirectory(eglt/service)

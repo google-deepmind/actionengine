@@ -27,6 +27,9 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
                 "Action Engine / Evergreen Light 0.1.0 "
                 "WebsocketWireStream client");
       }));
+  boost_stream->set_option(boost::beast::websocket::stream_base::timeout(
+      boost::beast::websocket::stream_base::timeout::suggested(
+          boost::beast::role_type::server)));
 
   absl::Status status = ResolveAndConnect(boost_stream.get(), address_, port_);
   if (!status.ok()) {
