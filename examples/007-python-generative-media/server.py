@@ -11,6 +11,11 @@ def make_action_registry():
 
     registry.register("echo", actions.echo.SCHEMA, actions.echo.run)
     registry.register(
+        "generate_content",
+        actions.gemini.GENERATE_CONTENT_SCHEMA,
+        actions.gemini.generate_content,
+    )
+    registry.register(
         "text_to_image", actions.text_to_image.SCHEMA, actions.text_to_image.run
     )
 

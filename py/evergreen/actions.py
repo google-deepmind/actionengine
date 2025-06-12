@@ -279,7 +279,7 @@ class Action(actions_pybind11.Action):
             # pytype: disable=attribute-error
         )
 
-    def run(self) -> Awaitable[None]:
+    def run(self) -> asyncio.Task:
         """Runs the action."""
         background_task = utils.schedule_global_task(
             asyncio.to_thread(super().run)
