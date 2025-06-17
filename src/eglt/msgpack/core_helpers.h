@@ -72,6 +72,11 @@ SerializedBytesVector ToBigEndianBytes(const T& value, uint8_t pad = 0) {
   return bytes;
 }
 
+#if __STDCPP_FLOAT32_T__ != 1
+using float32_t = float;
+using float64_t = double;
+#endif
+
 template <>
 inline SerializedBytesVector ToBigEndianBytes<float32_t>(const float32_t& value,
                                                          uint8_t pad) {
@@ -184,12 +189,6 @@ absl::StatusOr<uint32_t> GetExtent(Byte* absl_nonnull pos,
 }
 
 template <typename T>
-absl::Status Serialize(T&& value, SerializedBytesVector* absl_nonnull output) {
-  return EgltMsgpackSerialize(std::forward<T>(value),
-                              InsertInfo{output, output->end()});
-}
-
-template <typename T>
 absl::StatusOr<SerializedBytesVector> Serialize(T&& value) {
   SerializedBytesVector output;
   auto status = EgltMsgpackSerialize(std::forward<T>(value),
@@ -206,8 +205,16 @@ absl::Status Serialize(T&& value, const InsertInfo& insert) {
 }
 
 template <typename T>
+concept HasDefinedGetExtent = requires(T t) {
+  {
+    EgltMsgpackGetExtent(std::declval<LookupPointer>(), std::declval<T*>())
+  } -> std::same_as<absl::StatusOr<uint32_t>>;
+};
+
+template <typename T>
 absl::StatusOr<uint32_t> Deserialize(const LookupPointer& data,
-                                     T* absl_nonnull output) {
+                                     T* absl_nonnull output)
+    requires(!HasDefinedGetExtent<T>) {
   const auto [pos, end, _] = data;
   if (pos >= end) {
     return absl::InvalidArgumentError(
@@ -218,45 +225,62 @@ absl::StatusOr<uint32_t> Deserialize(const LookupPointer& data,
     return absl::InvalidArgumentError(
         "FormatSignature::kNeverUsed is not a valid format signature.");
   }
-  const auto expected_extent = GetExtent<T>(pos, end);
+
+  auto extent = EgltMsgpackDeserialize(LookupPointer(pos, end), output);
+  if (!extent.ok()) {
+    return extent.status();
+  }
+  return *extent;
+}
+
+template <typename T>
+absl::StatusOr<uint32_t> Deserialize(const LookupPointer& data,
+                                     T* absl_nonnull output)
+    requires(HasDefinedGetExtent<T>) {
+  const auto [pos, end, _] = data;
+  if (pos >= end) {
+    return absl::InvalidArgumentError(
+        "Position is not within the bounds of the data.");
+  }
+
+  if (*pos == FormatSignature::kNeverUsed) {
+    return absl::InvalidArgumentError(
+        "FormatSignature::kNeverUsed is not a valid format signature.");
+  }
+
+#ifndef NDEBUG
+  absl::StatusOr<uint32_t> expected_extent = GetExtent<T>(pos, end);
   if (!expected_extent.ok()) {
     return expected_extent.status();
   }
+#endif  // NDEBUG
 
-  if (auto status = EgltMsgpackDeserialize(LookupPointer(pos, end), output);
-      !status.ok()) {
-    return status;
+  auto actual_extent = EgltMsgpackDeserialize(LookupPointer(pos, end), output);
+  if (!actual_extent.ok()) {
+    return actual_extent.status();
   }
-  return *expected_extent;
+
+#ifndef NDEBUG
+  if (*expected_extent != *actual_extent) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Expected extent: %d, actual extent: %d at position %s",
+        *expected_extent, *actual_extent, GetPositionString(pos, data.begin)));
+  }
+#endif  // NDEBUG
+
+  return *actual_extent;
 }
 
 template <typename T>
 absl::StatusOr<Deserialized<T>> Deserialize(const LookupPointer& data) {
-  const auto [pos, end, _] = data;
-  if (pos >= end) {
-    return absl::InvalidArgumentError(
-        "Position is not within the bounds of the data.");
+  Deserialized<T> deserialized;
+  deserialized.extent = 0;
+  auto status_or_extent = Deserialize(data, &deserialized.value);
+  if (!status_or_extent.ok()) {
+    return status_or_extent.status();
   }
-
-  if (*pos == FormatSignature::kNeverUsed) {
-    return absl::InvalidArgumentError(
-        "FormatSignature::kNeverUsed is not a valid format signature.");
-  }
-
-  const auto expected_extent = GetExtent<T>(pos, end);
-  if (!expected_extent.ok()) {
-    return expected_extent.status();
-  }
-
-  T result;
-  auto actual_extent = EgltMsgpackDeserialize(LookupPointer(pos, end), &result);
-  if (!actual_extent.ok()) {
-    return actual_extent.status();
-  }
-  DCHECK(*expected_extent == *actual_extent)
-      << "Expected extent: " << *expected_extent
-      << ", actual extent: " << *actual_extent;
-  return Deserialized{result, *actual_extent};
+  deserialized.extent = *status_or_extent;
+  return deserialized;
 }
 
 // These are unimplemented functions that should be defined on platforms

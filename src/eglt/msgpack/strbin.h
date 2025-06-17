@@ -67,11 +67,11 @@ inline absl::StatusOr<uint32_t> GetStrOrBinExtent(
     return 5 + length;
   }
 
-  return GetInvalidFormatSignatureError(pos, type_for_error, end);
+  return GetInvalidFormatSignatureError(pos, type_for_error, data.begin);
 }
 
 inline absl::StatusOr<uint32_t> EgltMsgpackGetExtent(
-    const LookupPointer& data, absl_nullable std::string*) {
+    const LookupPointer& data, std::string* absl_nullable) {
   return GetStrOrBinExtent(data, "std::string");
 }
 
@@ -170,7 +170,7 @@ inline absl::StatusOr<uint32_t> EgltMsgpackDeserialize(
 }
 
 inline absl::StatusOr<uint32_t> EgltMsgpackGetExtent(
-    const LookupPointer& data, absl_nullable std::vector<Byte>*) {
+    const LookupPointer& data, std::vector<Byte>* absl_nullable) {
   return GetStrOrBinExtent(data, "std::vector<uint8_t>");
 }
 

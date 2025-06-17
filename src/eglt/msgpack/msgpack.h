@@ -44,16 +44,11 @@ class Packer {
     }
     const auto pos = bytes_.data() + offset_;
     const auto end = bytes_.data() + bytes_.size();
-    auto expected_extent = GetExtent<T>(pos, end);
-    if (!expected_extent.ok()) {
-      return expected_extent.status();
-    }
     auto deserialized_extent =
         Deserialize<T>(LookupPointer(pos, end), &destination);
     if (!deserialized_extent.ok()) {
       return deserialized_extent.status();
     }
-    DCHECK(*expected_extent == *deserialized_extent);
     offset_ += *deserialized_extent;
     return absl::OkStatus();
   }

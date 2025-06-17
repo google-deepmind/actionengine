@@ -21,7 +21,7 @@ namespace eglt::msgpack {
 
 template <typename T>
 absl::StatusOr<uint32_t> EgltMsgpackGetExtent(const LookupPointer& data,
-                                              absl_nullable std::vector<T>*) {
+                                              std::vector<T>* absl_nullable) {
   const auto [pos, end, _] = data;
 
   uint32_t extent = 0;
@@ -53,7 +53,7 @@ absl::StatusOr<uint32_t> EgltMsgpackGetExtent(const LookupPointer& data,
   }
 
   if (length == -1) {
-    return GetInvalidFormatSignatureError(pos, "std::vector<T>", end);
+    return GetInvalidFormatSignatureError(pos, "std::vector<T>", data.begin);
   }
 
   if (elements_pos >= end) {
@@ -139,7 +139,7 @@ absl::StatusOr<uint32_t> EgltMsgpackDeserialize(
   }
 
   if (length == -1) {
-    return GetInvalidFormatSignatureError(pos, "std::vector<T>", end);
+    return GetInvalidFormatSignatureError(pos, "std::vector<T>", data.begin);
   }
 
   if (elements_pos >= end) {
@@ -151,7 +151,9 @@ absl::StatusOr<uint32_t> EgltMsgpackDeserialize(
     if (elements_pos >= end) {
       return GetInsufficientDataError(data, "std::vector<T> elements");
     }
-    auto expected_element_extent = GetExtent<T>(elements_pos, end);
+    auto expected_element_extent =
+        EgltMsgpackGetExtent(LookupPointer(elements_pos, end),
+                             static_cast<std::vector<T>*>(nullptr));
     if (!expected_element_extent.ok()) {
       return expected_element_extent.status();
     }

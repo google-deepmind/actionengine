@@ -22,7 +22,7 @@
 namespace eglt::msgpack {
 
 inline absl::StatusOr<uint32_t> EgltMsgpackGetExtent(const LookupPointer& data,
-                                                     absl_nullable float32_t*) {
+                                                     float32_t* absl_nullable) {
   const auto [pos, end, _] = data;
   if (*pos == FormatSignature::kFloat32) {
     if (end - pos < 5) {
@@ -41,7 +41,7 @@ inline absl::StatusOr<uint32_t> EgltMsgpackGetExtent(const LookupPointer& data,
     return uint64_extent;
   }
 
-  return GetInvalidFormatSignatureError(pos, "float32_t", end);
+  return GetInvalidFormatSignatureError(pos, "float32_t", data.begin);
 }
 
 inline absl::Status EgltMsgpackSerialize(float32_t value,
@@ -84,11 +84,11 @@ inline absl::StatusOr<uint32_t> EgltMsgpackDeserialize(
     return deserialized->extent;
   }
 
-  return GetInvalidFormatSignatureError(pos, "float32_t", end);
+  return GetInvalidFormatSignatureError(pos, "float32_t", data.begin);
 }
 
 inline absl::StatusOr<uint32_t> EgltMsgpackGetExtent(const LookupPointer& data,
-                                                     absl_nullable float64_t*) {
+                                                     float64_t* absl_nullable) {
   const auto [pos, end, _] = data;
   if (*pos == FormatSignature::kFloat64) {
     if (end - pos < 9) {
@@ -112,7 +112,7 @@ inline absl::StatusOr<uint32_t> EgltMsgpackGetExtent(const LookupPointer& data,
     return uint64_extent;
   }
 
-  return GetInvalidFormatSignatureError(pos, "float64_t", end);
+  return GetInvalidFormatSignatureError(pos, "float64_t", data.begin);
 }
 
 inline absl::Status EgltMsgpackSerialize(float64_t value,
@@ -155,7 +155,7 @@ inline absl::StatusOr<uint32_t> EgltMsgpackDeserialize(
     return deserialized->extent;
   }
 
-  return GetInvalidFormatSignatureError(pos, "float64_t", end);
+  return GetInvalidFormatSignatureError(pos, "float64_t", data.begin);
 }
 
 }  // namespace eglt::msgpack
