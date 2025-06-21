@@ -82,7 +82,10 @@ class ChunkStoreReader {
           absl::FailedPreconditionError("ChunkStoreReader is already running.");
     } else {
       status_ = absl::OkStatus();
-      fiber_ = concurrency::NewTree({}, [this] { RunPrefetchLoop(); });
+      fiber_ = concurrency::NewTree({}, [this] {
+        concurrency::MutexLock lock(&mu_);
+        RunPrefetchLoop();
+      });
     }
 
     return status_;
@@ -114,7 +117,8 @@ class ChunkStoreReader {
   }
 
  private:
-  absl::StatusOr<std::optional<std::pair<int, Chunk>>> NextInternal() const {
+  absl::StatusOr<std::optional<std::pair<int, Chunk>>> NextInternal() const
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     const int next_read_offset = total_chunks_read_;
 
     // if (const int final_seq_id = chunk_store_->GetFinalSeqId();
@@ -122,8 +126,11 @@ class ChunkStoreReader {
     //   return std::nullopt;
     // }
 
+    mu_.Unlock();
     auto chunk_or_status =
         chunk_store_->GetByArrivalOrder(next_read_offset, kNoTimeout);
+    mu_.Lock();
+
     if (!chunk_or_status.ok()) {
       return chunk_or_status.status();
     }
@@ -131,27 +138,32 @@ class ChunkStoreReader {
     const auto chunk = *chunk_or_status;
     const int seq_id = chunk_store_->GetSeqIdForArrivalOffset(next_read_offset);
     if (chunk.get().IsNull()) {
+      mu_.Unlock();
       chunk_store_->Pop(seq_id);
+      mu_.Lock();
       return std::nullopt;
     }
 
     return std::pair(seq_id, chunk.get());
   }
 
-  void RunPrefetchLoop() {
+  void RunPrefetchLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     while (!concurrency::Cancelled()) {
-      const auto final_seq_id = chunk_store_->GetFinalSeqId();
-      if (final_seq_id >= 0 && total_chunks_read_ > final_seq_id) {
-        UpdateStatus(absl::OkStatus());
+      if (const auto final_seq_id = chunk_store_->GetFinalSeqId();
+          final_seq_id >= 0 && total_chunks_read_ > final_seq_id) {
+        status_ = absl::OkStatus();
         break;
       }
 
       std::optional<Chunk> next_chunk;
       int next_seq_id = -1;
       if (ordered_) {
+        mu_.Unlock();
         auto chunk = chunk_store_->Get(total_chunks_read_, timeout_);
+        mu_.Lock();
+
         if (!chunk.ok()) {
-          UpdateStatus(chunk.status());
+          status_ = chunk.status();
           return;
         }
         next_chunk = chunk.value();
@@ -159,11 +171,11 @@ class ChunkStoreReader {
       } else {
         auto next_chunk_or_status = NextInternal();
         if (!next_chunk_or_status.ok()) {
-          UpdateStatus(next_chunk_or_status.status());
+          status_ = next_chunk_or_status.status();
           return;
         }
-        auto next_seq_and_chunk = next_chunk_or_status.value();
-        if (next_seq_and_chunk.has_value()) {
+        if (auto next_seq_and_chunk = next_chunk_or_status.value();
+            next_seq_and_chunk.has_value()) {
           std::tie(next_seq_id, next_chunk) = std::move(*next_seq_and_chunk);
           if (next_seq_id == -1) {
             next_seq_id = 0;
@@ -172,21 +184,22 @@ class ChunkStoreReader {
       }
 
       if (remove_chunks_ && next_seq_id >= 0) {
+        mu_.Unlock();
         chunk_store_->Pop(next_seq_id);
+        mu_.Lock();
       }
 
       total_chunks_read_++;
 
       // on an std::nullopt, we are done and can close the buffer.
       if (!next_chunk.has_value()) {
-        UpdateStatus(absl::OkStatus());
+        status_ = absl::OkStatus();
         break;
       }
 
       buffer_.writer()->Write(
           std::make_pair(next_seq_id, std::move(*next_chunk)));
     }
-    // concurrency::MutexLock lock(&mu_);
     buffer_.writer()->Close();
   }
 
@@ -213,26 +226,30 @@ class ChunkStoreReader {
 };
 
 template <>
-inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next() {
+inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next()
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (fiber_ == nullptr) {
     Run().IgnoreError();
   }
   std::optional<std::pair<int, Chunk>> seq_and_chunk;
   bool ok;
+  mu_.Unlock();
   const int selected = concurrency::SelectUntil(
       absl::Now() + timeout_,
       {buffer_.reader()->OnRead(&seq_and_chunk, &ok), concurrency::OnCancel()});
+  mu_.Lock();
+
   if (selected == -1) {
-    UpdateStatus(absl::DeadlineExceededError("Timed out waiting for chunk."));
+    status_ = absl::DeadlineExceededError("Timed out waiting for chunk.");
     DLOG(INFO) << "Timed out waiting for chunk.";
     return std::nullopt;
   }
   if (selected == 1) {
-    UpdateStatus(absl::CancelledError("Cancelled waiting for chunk."));
+    status_ = absl::CancelledError("Cancelled waiting for chunk.");
     DLOG(INFO) << "Cancelled waiting for chunk.";
     return std::nullopt;
   }
-  UpdateStatus(absl::OkStatus());
+  status_ = absl::OkStatus();
   if (!ok) {
     return std::nullopt;
   }
@@ -243,7 +260,8 @@ inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next() {
 }
 
 template <>
-inline std::optional<Chunk> ChunkStoreReader::Next() {
+inline std::optional<Chunk> ChunkStoreReader::Next() ABSL_LOCKS_EXCLUDED(mu_) {
+  concurrency::MutexLock lock(&mu_);
   auto seq_and_chunk = Next<std::pair<int, Chunk>>();
 
   if (!seq_and_chunk.has_value()) {
