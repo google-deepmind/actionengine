@@ -126,7 +126,7 @@ class WebsocketEvergreenServer {
   }
 
   void Run() {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     main_loop_ = concurrency::NewTree({}, [this]() {
       while (!concurrency::Cancelled()) {
         boost::asio::ip::tcp::socket socket{
@@ -145,7 +145,7 @@ class WebsocketEvergreenServer {
              concurrency::OnCancel()});  // Wait for accept to complete.
 
         {
-          concurrency::MutexLock cancellation_lock(&mutex_);
+          concurrency::MutexLock cancellation_lock(&mu_);
           cancelled_ = concurrency::Cancelled() ||
                        error == boost::system::errc::operation_canceled ||
                        cancelled_;
@@ -191,7 +191,7 @@ class WebsocketEvergreenServer {
   }
 
   absl::Status Cancel() {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     if (cancelled_) {
       return absl::OkStatus();
     }
@@ -212,9 +212,9 @@ class WebsocketEvergreenServer {
 
   absl::Status Join() {
     {
-      concurrency::MutexLock lock(&mutex_);
+      concurrency::MutexLock lock(&mu_);
       while (joining_) {
-        join_cv_.Wait(&mutex_);
+        join_cv_.Wait(&mu_);
       }
       if (main_loop_ == nullptr) {
         return status_;
@@ -223,7 +223,7 @@ class WebsocketEvergreenServer {
     }
     main_loop_->Join();
     {
-      concurrency::MutexLock lock(&mutex_);
+      concurrency::MutexLock lock(&mu_);
       main_loop_ = nullptr;
       joining_ = false;
       join_cv_.SignalAll();
@@ -237,11 +237,11 @@ class WebsocketEvergreenServer {
   eglt::Service* absl_nonnull const service_;
   std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
 
-  mutable concurrency::Mutex mutex_;
+  mutable concurrency::Mutex mu_;
   std::unique_ptr<concurrency::Fiber> main_loop_;
-  bool cancelled_ ABSL_GUARDED_BY(mutex_) = false;
-  concurrency::CondVar join_cv_ ABSL_GUARDED_BY(mutex_);
-  bool joining_ ABSL_GUARDED_BY(mutex_) = false;
+  bool cancelled_ ABSL_GUARDED_BY(mu_) = false;
+  concurrency::CondVar join_cv_ ABSL_GUARDED_BY(mu_);
+  bool joining_ ABSL_GUARDED_BY(mu_) = false;
   absl::Status status_;
 };
 

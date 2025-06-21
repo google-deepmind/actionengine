@@ -60,7 +60,7 @@ class BufferedSender {
                 if (!send_from->Read(&message)) {
                   break;
                 }
-                concurrency::MutexLock lock(&mutex_);
+                concurrency::MutexLock lock(&mu_);
                 status_ = stream->Send(std::move(message));
                 if (!status_.ok()) {
                   failed_event_.Notify();
@@ -81,7 +81,7 @@ class BufferedSender {
   concurrency::Case OnFailed() const { return failed_event_.OnEvent(); }
 
   absl::Status GetStatus() const {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return status_;
   }
 
@@ -90,7 +90,7 @@ class BufferedSender {
   absl::Status status_;
   concurrency::PermanentEvent failed_event_{};
 
-  mutable concurrency::Mutex mutex_;
+  mutable concurrency::Mutex mu_;
 };
 
 class WirePeer {
@@ -133,11 +133,11 @@ class OutboundPeerGroup {
   }
 
   OutboundPeerGroup(const OutboundPeerGroup& other) {
-    concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+    concurrency::TwoMutexLock lock(&mu_, &other.mu_);
     peers_ = other.peers_;
   }
   OutboundPeerGroup(OutboundPeerGroup&& other) noexcept {
-    concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+    concurrency::TwoMutexLock lock(&mu_, &other.mu_);
     peers_ = std::move(other.peers_);
   }
 
@@ -145,7 +145,7 @@ class OutboundPeerGroup {
     if (this == &other) {
       return *this;
     }
-    concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+    concurrency::TwoMutexLock lock(&mu_, &other.mu_);
     peers_ = other.peers_;
     return *this;
   }
@@ -154,26 +154,26 @@ class OutboundPeerGroup {
     if (this == &other) {
       return *this;
     }
-    concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+    concurrency::TwoMutexLock lock(&mu_, &other.mu_);
     peers_ = std::move(other.peers_);
     return *this;
   }
 
   ~OutboundPeerGroup() = default;
 
-  void AddPeer(std::shared_ptr<WirePeer> peer) {
-    concurrency::MutexLock lock(&mutex_);
-    peers_.emplace(peer->GetId(), std::move(peer));
+  void AddPeer(const std::shared_ptr<WirePeer>& peer) {
+    concurrency::MutexLock lock(&mu_);
+    peers_.emplace(peer->GetId(), peer);
   }
 
   void RemovePeer(const std::shared_ptr<WirePeer>& peer) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     peers_.erase(peer->GetId());
   }
 
   std::vector<std::pair<std::string_view, absl::Status>> Send(
       const SessionMessage& message) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     std::vector<std::pair<std::string_view, absl::Status>> statuses;
     for (const auto& [peer_id, peer] : peers_) {
       statuses.emplace_back(peer_id, peer->Send(message));
@@ -182,14 +182,14 @@ class OutboundPeerGroup {
   }
 
   size_t Size() const {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return peers_.size();
   }
 
  private:
   absl::flat_hash_map<std::string_view, std::shared_ptr<WirePeer>> peers_
-      ABSL_GUARDED_BY(mutex_);
-  mutable concurrency::Mutex mutex_;
+      ABSL_GUARDED_BY(mu_);
+  mutable concurrency::Mutex mu_;
 };
 
 }  // namespace eglt::net

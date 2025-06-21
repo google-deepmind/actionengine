@@ -39,7 +39,7 @@ WebRtcWireStream::WebRtcWireStream(
         absl::StatusOr<data::BytePacket> packet =
             data::ParseBytePacket(std::vector(data, data + message.size()));
 
-        concurrency::MutexLock lock(&mutex_);
+        concurrency::MutexLock lock(&mu_);
 
         if (closed_) {
           return;
@@ -79,11 +79,11 @@ WebRtcWireStream::WebRtcWireStream(
           return;
         }
 
-        mutex_.Unlock();
+        mu_.Unlock();
         absl::StatusOr<SessionMessage> unpacked =
             cppack::Unpack<SessionMessage>(
                 std::vector(*std::move(message_data)));
-        mutex_.Lock();
+        mu_.Lock();
 
         if (!unpacked.ok()) {
           CloseOnError(absl::InternalError(
@@ -101,7 +101,7 @@ WebRtcWireStream::WebRtcWireStream(
     opened_ = true;
   } else {
     data_channel_->onOpen([this]() {
-      concurrency::MutexLock lock(&mutex_);
+      concurrency::MutexLock lock(&mu_);
       status_ = absl::OkStatus();
       opened_ = true;
       cv_.SignalAll();
@@ -109,7 +109,7 @@ WebRtcWireStream::WebRtcWireStream(
   }
 
   data_channel_->onClosed([this]() {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     closed_ = true;
     status_ = absl::CancelledError("WebRtcWireStream closed");
     recv_channel_.writer()->Close();
@@ -117,7 +117,7 @@ WebRtcWireStream::WebRtcWireStream(
   });
 
   data_channel_->onError([this](const std::string& error) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     closed_ = true;
     status_ = absl::InternalError(
         absl::StrFormat("WebRtcWireStream error: %s", error));
@@ -128,9 +128,9 @@ WebRtcWireStream::WebRtcWireStream(
 
 WebRtcWireStream::~WebRtcWireStream() {
   data_channel_->close();
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   while (!closed_) {
-    cv_.Wait(&mutex_);
+    cv_.Wait(&mu_);
   }
   connection_->close();
 }
@@ -138,13 +138,13 @@ WebRtcWireStream::~WebRtcWireStream() {
 absl::Status WebRtcWireStream::Send(SessionMessage message) {
   uint64_t transient_id = 0;
   {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     if (!status_.ok()) {
       return status_;
     }
 
     while (!opened_ && !closed_) {
-      cv_.Wait(&mutex_);
+      cv_.Wait(&mu_);
     }
 
     if (closed_) {
@@ -443,18 +443,18 @@ WebRtcEvergreenServer::WebRtcEvergreenServer(
       ready_data_connections_(32) {}
 
 WebRtcEvergreenServer::~WebRtcEvergreenServer() {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   CancelInternal().IgnoreError();
   JoinInternal().IgnoreError();
 }
 
 void WebRtcEvergreenServer::Run() {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   main_loop_ = concurrency::NewTree({}, [this]() { RunLoop(); });
 }
 
 absl::Status WebRtcEvergreenServer::CancelInternal()
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (main_loop_ == nullptr) {
     return absl::FailedPreconditionError(
         "WebRtcEvergreenServer Cancel called on either unstarted or already "
@@ -466,7 +466,7 @@ absl::Status WebRtcEvergreenServer::CancelInternal()
 }
 
 absl::Status WebRtcEvergreenServer::JoinInternal()
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (main_loop_ == nullptr) {
     return absl::FailedPreconditionError(
         "WebRtcEvergreenServer Join called on either unstarted or already "
@@ -476,9 +476,9 @@ absl::Status WebRtcEvergreenServer::JoinInternal()
   const std::unique_ptr<concurrency::Fiber> main_loop = std::move(main_loop_);
   main_loop_ = nullptr;
 
-  mutex_.Unlock();
+  mu_.Unlock();
   main_loop->Join();
-  mutex_.Lock();
+  mu_.Lock();
 
   return absl::OkStatus();
 }
@@ -489,7 +489,7 @@ void WebRtcEvergreenServer::RunLoop() {
   auto signalling_client =
       InitSignallingClient(signalling_address_, signalling_port_, &connections);
 
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (const auto status =
           signalling_client->ConnectWithIdentity(signalling_identity_);
       !status.ok()) {
@@ -509,11 +509,11 @@ void WebRtcEvergreenServer::RunLoop() {
 
     DLOG(INFO) << "WebRtcEvergreenServer RunLoop waiting for new "
                   "connections.";
-    mutex_.Unlock();
+    mu_.Unlock();
     const int selected = concurrency::Select(
         {channel_reader->OnRead(&next_connection, &channel_open),
          signalling_client->OnError(), concurrency::OnCancel()});
-    mutex_.Lock();
+    mu_.Lock();
 
     // Check if our fiber has been cancelled, which means we should stop.
     if (concurrency::Cancelled()) {
@@ -533,9 +533,9 @@ void WebRtcEvergreenServer::RunLoop() {
       LOG(ERROR) << "WebRtcEvergreenServer signalling client error: "
                  << signalling_client->GetStatus()
                  << ". Restarting in 0.5 seconds.";
-      mutex_.Unlock();
+      mu_.Unlock();
       concurrency::SleepFor(absl::Seconds(0.5));
-      mutex_.Lock();
+      mu_.Lock();
       signalling_client = InitSignallingClient(signalling_address_,
                                                signalling_port_, &connections);
       if (const auto status =
@@ -648,7 +648,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
     connection->onDataChannel(
         [this, peer_id = std::string(peer_id),
          connections](std::shared_ptr<rtc::DataChannel> dc) {
-          concurrency::MutexLock lock(&mutex_);
+          concurrency::MutexLock lock(&mu_);
           const auto map_node = connections->extract(peer_id);
           CHECK(!map_node.empty())
               << "WebRtcEvergreenServer no connection for peer: " << peer_id;
@@ -661,7 +661,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
               std::move(connection_from_map));
         });
 
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     connections->emplace(peer_id, WebRtcDataChannelConnection{
                                       .connection = std::move(connection),
                                       .data_channel = nullptr});

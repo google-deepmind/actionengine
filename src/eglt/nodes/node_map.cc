@@ -27,7 +27,7 @@ NodeMap::NodeMap(ChunkStoreFactory chunk_store_factory)
     : chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 NodeMap::NodeMap(NodeMap&& other) noexcept {
-  concurrency::MutexLock lock(&other.mutex_);
+  concurrency::MutexLock lock(&other.mu_);
 
   nodes_ = std::move(other.nodes_);
   chunk_store_factory_ = std::move(other.chunk_store_factory_);
@@ -38,7 +38,7 @@ NodeMap& NodeMap::operator=(NodeMap&& other) noexcept {
     return *this;
   }
 
-  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+  concurrency::TwoMutexLock lock(&mu_, &other.mu_);
   nodes_ = std::move(other.nodes_);
   chunk_store_factory_ = std::move(other.chunk_store_factory_);
 
@@ -47,7 +47,7 @@ NodeMap& NodeMap::operator=(NodeMap&& other) noexcept {
 
 AsyncNode* NodeMap::Get(std::string_view id,
                         const ChunkStoreFactory& chunk_store_factory) {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (!nodes_.contains(id)) {
     nodes_.emplace(id, std::make_unique<AsyncNode>(
                            id, this, MakeChunkStore(chunk_store_factory)));
@@ -58,7 +58,7 @@ AsyncNode* NodeMap::Get(std::string_view id,
 std::vector<AsyncNode*> NodeMap::Get(
     const std::vector<std::string_view>& ids,
     const ChunkStoreFactory& chunk_store_factory) {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
 
   std::vector<AsyncNode*> nodes;
   nodes.reserve(ids.size());
@@ -76,7 +76,7 @@ std::vector<AsyncNode*> NodeMap::Get(
 }
 
 AsyncNode* NodeMap::operator[](std::string_view id) {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (!nodes_.contains(id)) {
     nodes_.emplace(id, std::make_unique<AsyncNode>(
                            id, this, MakeChunkStore(chunk_store_factory_)));
@@ -85,13 +85,13 @@ AsyncNode* NodeMap::operator[](std::string_view id) {
 }
 
 AsyncNode& NodeMap::insert(std::string_view id, AsyncNode&& node) {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   nodes_[id] = std::make_unique<AsyncNode>(std::move(node));
   return *nodes_[id];
 }
 
 bool NodeMap::contains(std::string_view id) {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   return nodes_.contains(id);
 }
 

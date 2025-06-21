@@ -60,7 +60,7 @@ class NodeMap {
   [[nodiscard]] std::unique_ptr<AsyncNode> Extract(std::string_view id) {
     std::unique_ptr<AsyncNode> node;
     {
-      concurrency::MutexLock lock(&mutex_);
+      concurrency::MutexLock lock(&mu_);
       if (const auto map_node = nodes_.extract(id); !map_node.empty()) {
         node = std::move(map_node.mapped());
       }
@@ -74,9 +74,9 @@ class NodeMap {
   bool contains(std::string_view id);
 
  private:
-  concurrency::Mutex mutex_;
+  concurrency::Mutex mu_;
   absl::flat_hash_map<std::string, std::unique_ptr<AsyncNode>> nodes_
-      ABSL_GUARDED_BY(mutex_){};
+      ABSL_GUARDED_BY(mu_){};
 
   ChunkStoreFactory chunk_store_factory_;
 

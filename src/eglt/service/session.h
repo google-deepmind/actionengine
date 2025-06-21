@@ -43,34 +43,34 @@ class ActionContext {
   ~ActionContext();
 
   absl::Status Dispatch(std::shared_ptr<Action> action);
-  void CancelContext() ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  void CancelContext() ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     CancelContextImpl();
   }
 
-  void WaitForActionsToDetach() ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  void WaitForActionsToDetach() ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     WaitForActionsToDetachImpl();
   }
 
  private:
-  void CancelContextImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void CancelContextImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   std::unique_ptr<concurrency::Fiber> ExtractActionFiber(Action* action)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     const auto map_node = running_actions_.extract(action);
     CHECK(!map_node.empty())
         << "Running action not found in session it was created in.";
     return std::move(map_node.mapped());
   }
 
-  void WaitForActionsToDetachImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+  void WaitForActionsToDetachImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     const absl::Time now = absl::Now();
     const absl::Time fiber_cancel_by = now + kFiberCancellationTimeout;
     const absl::Time expect_actions_to_detach_by = now + kActionDetachTimeout;
 
     while (!running_actions_.empty()) {
-      if (cv_.WaitWithDeadline(&mutex_, fiber_cancel_by)) {
+      if (cv_.WaitWithDeadline(&mu_, fiber_cancel_by)) {
         break;
       }
     }
@@ -86,18 +86,18 @@ class ActionContext {
     DLOG(INFO) << "Some actions are still running, waiting for them to detach.";
 
     while (!running_actions_.empty()) {
-      if (cv_.WaitWithDeadline(&mutex_, expect_actions_to_detach_by)) {
+      if (cv_.WaitWithDeadline(&mu_, expect_actions_to_detach_by)) {
         break;
       }
     }
   }
 
-  concurrency::Mutex mutex_;
+  concurrency::Mutex mu_;
   absl::flat_hash_map<Action*, std::unique_ptr<concurrency::Fiber>>
-      running_actions_ ABSL_GUARDED_BY(mutex_);
+      running_actions_ ABSL_GUARDED_BY(mu_);
   concurrency::PermanentEvent cancellation_;
   bool cancelled_;
-  concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
+  concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
 };
 
 /**
@@ -142,13 +142,12 @@ class Session {
   }
 
  private:
-  void JoinDispatchers(bool cancel = false)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void JoinDispatchers(bool cancel = false) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  concurrency::Mutex mutex_{};
-  bool joined_ ABSL_GUARDED_BY(mutex_) = false;
+  concurrency::Mutex mu_{};
+  bool joined_ ABSL_GUARDED_BY(mu_) = false;
   absl::flat_hash_map<WireStream*, std::unique_ptr<concurrency::Fiber>>
-      dispatch_tasks_ ABSL_GUARDED_BY(mutex_){};
+      dispatch_tasks_ ABSL_GUARDED_BY(mu_){};
 
   NodeMap* absl_nonnull const node_map_;
   ActionRegistry* absl_nullable action_registry_ = nullptr;

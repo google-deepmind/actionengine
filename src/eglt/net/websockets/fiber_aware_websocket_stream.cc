@@ -68,11 +68,11 @@ FiberAwareWebsocketStream::FiberAwareWebsocketStream(
 
 FiberAwareWebsocketStream::FiberAwareWebsocketStream(
     FiberAwareWebsocketStream&& other) noexcept {
-  concurrency::MutexLock lock(&other.mutex_);
+  concurrency::MutexLock lock(&other.mu_);
 
   bool debug_warning_logged = false;
   while (other.write_pending_ || other.read_pending_) {
-    other.cv_.WaitWithTimeout(&other.mutex_, kDebugWarningTimeout);
+    other.cv_.WaitWithTimeout(&other.mu_, kDebugWarningTimeout);
     if (!debug_warning_logged) {
       LOG(WARNING) << "FiberAwareWebsocketStream move constructor waiting for "
                       "pending operations to finish. You should not move a "
@@ -90,11 +90,11 @@ FiberAwareWebsocketStream& FiberAwareWebsocketStream::operator=(
     return *this;  // Handle self-assignment
   }
 
-  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+  concurrency::TwoMutexLock lock(&mu_, &other.mu_);
 
   bool other_debug_warning_logged = false;
   while (other.write_pending_ || other.read_pending_) {
-    other.cv_.WaitWithTimeout(&other.mutex_, kDebugWarningTimeout);
+    other.cv_.WaitWithTimeout(&other.mu_, kDebugWarningTimeout);
     if (!other_debug_warning_logged) {
       LOG(WARNING)
           << "FiberAwareWebsocketStream move assignment waiting for "
@@ -108,7 +108,7 @@ FiberAwareWebsocketStream& FiberAwareWebsocketStream::operator=(
 
   bool debug_warning_logged = false;
   while (write_pending_ || read_pending_) {
-    cv_.WaitWithTimeout(&mutex_, kDebugWarningTimeout);
+    cv_.WaitWithTimeout(&mu_, kDebugWarningTimeout);
     if (!debug_warning_logged) {
       LOG(WARNING)
           << "FiberAwareWebsocketStream move assignment waiting for "
@@ -126,12 +126,12 @@ FiberAwareWebsocketStream& FiberAwareWebsocketStream::operator=(
 }
 
 FiberAwareWebsocketStream::~FiberAwareWebsocketStream() {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
 
   bool timeout_logged = false;
   while (write_pending_ || read_pending_) {
-    cv_.WaitWithTimeout(&mutex_, kDebugWarningTimeout);
-    if (!timeout_logged) {
+    cv_.WaitWithTimeout(&mu_, kDebugWarningTimeout);
+    if ((write_pending_ || read_pending_) && !timeout_logged) {
       LOG(WARNING) << "FiberAwareWebsocketStream destructor waiting for "
                       "pending operations to finish. You may have "
                       "forgotten to call Close() on the stream.";
@@ -160,10 +160,10 @@ BoostWebsocketStream& FiberAwareWebsocketStream::GetStream() const {
 
 absl::Status FiberAwareWebsocketStream::Write(
     const std::vector<uint8_t>& message_bytes) noexcept {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
 
   while (write_pending_) {
-    cv_.Wait(&mutex_);
+    cv_.Wait(&mu_);
   }
   if (!stream_->is_open()) {
     return absl::FailedPreconditionError(
@@ -182,9 +182,9 @@ absl::Status FiberAwareWebsocketStream::Write(
         write_done.Notify();
       });
 
-  mutex_.Unlock();
+  mu_.Unlock();
   concurrency::Select({write_done.OnEvent()});
-  mutex_.Lock();
+  mu_.Lock();
   write_pending_ = false;
   cv_.SignalAll();
 
@@ -215,10 +215,10 @@ absl::Status FiberAwareWebsocketStream::Write(
 //       consider refactoring to avoid code duplication.
 absl::Status FiberAwareWebsocketStream::WriteText(
     const std::string& message) noexcept {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
 
   while (write_pending_) {
-    cv_.Wait(&mutex_);
+    cv_.Wait(&mu_);
   }
   if (!stream_->is_open()) {
     return absl::FailedPreconditionError(absl::StrFormat(
@@ -236,9 +236,9 @@ absl::Status FiberAwareWebsocketStream::WriteText(
         write_done.Notify();
       });
 
-  mutex_.Unlock();
+  mu_.Unlock();
   concurrency::Select({write_done.OnEvent()});
-  mutex_.Lock();
+  mu_.Lock();
   write_pending_ = false;
   cv_.SignalAll();
 
@@ -265,12 +265,12 @@ absl::Status FiberAwareWebsocketStream::WriteText(
 }
 
 absl::Status FiberAwareWebsocketStream::Close() const noexcept {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   return CloseInternal();
 }
 
 absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   // TODO(hpnkv): Find out how to cancel Read to be able to close the stream
   //   w/ a graceful WebSocket close code.
 
@@ -293,9 +293,9 @@ absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept
         close_done.Notify();
       });
 
-  mutex_.Unlock();
+  mu_.Unlock();
   concurrency::Select({close_done.OnEvent()});
-  mutex_.Lock();
+  mu_.Lock();
 
   return absl::OkStatus();
 }
@@ -305,6 +305,7 @@ absl::Status ResolveAndConnect(BoostWebsocketStream* stream,
   return ResolveAndConnect(*util::GetDefaultAsioExecutionContext(), stream,
                            address, port);
 }
+
 absl::Status DoHandshake(BoostWebsocketStream* stream, std::string_view host,
                          std::string_view target) {
   boost::system::error_code error;
@@ -328,7 +329,7 @@ absl::Status DoHandshake(BoostWebsocketStream* stream, std::string_view host,
 }
 
 absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
 
   stream_->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::response_type& res) {
@@ -347,9 +348,9 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
         accept_done.Notify();
       });
 
-  mutex_.Unlock();
+  mu_.Unlock();
   concurrency::Select({accept_done.OnEvent(), concurrency::OnCancel()});
-  mutex_.Lock();
+  mu_.Lock();
 
   if (concurrency::Cancelled()) {
     if (stream_->is_open()) {
@@ -382,10 +383,10 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
 absl::Status FiberAwareWebsocketStream::Read(
     std::vector<uint8_t>* absl_nonnull buffer,
     bool* absl_nullable got_text) noexcept {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
 
   while (read_pending_) {
-    cv_.Wait(&mutex_);
+    cv_.Wait(&mu_);
   }
 
   if (!stream_->is_open()) {
@@ -407,9 +408,9 @@ absl::Status FiberAwareWebsocketStream::Read(
         read_done.Notify();
       });
 
-  mutex_.Unlock();
+  mu_.Unlock();
   concurrency::Select({read_done.OnEvent()});
-  mutex_.Lock();
+  mu_.Lock();
   *buffer = std::move(temp_buffer);
   read_pending_ = false;
   cv_.SignalAll();

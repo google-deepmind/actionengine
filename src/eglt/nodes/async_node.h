@@ -47,11 +47,11 @@ class AsyncNode {
   AsyncNode& operator=(AsyncNode& other) = delete;
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
-  ~AsyncNode() { concurrency::MutexLock lock(&mutex_); }
+  ~AsyncNode() { concurrency::MutexLock lock(&mu_); }
 
   void BindPeers(
       absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     peers_ = std::move(peers);
   }
 
@@ -73,7 +73,7 @@ class AsyncNode {
     return Put(*std::move(chunk), seq_id, /*final=*/true);
   }
 
-  ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mutex_);
+  ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mu_);
   auto GetWriterStatus() const -> absl::Status;
 
   [[nodiscard]] auto GetId() const -> std::string {
@@ -124,7 +124,7 @@ class AsyncNode {
     return *std::move(status_or_item);
   }
 
-  ChunkStoreReader& GetReader() ABSL_LOCKS_EXCLUDED(mutex_);
+  ChunkStoreReader& GetReader() ABSL_LOCKS_EXCLUDED(mu_);
   auto GetReaderStatus() const -> absl::Status;
   [[nodiscard]] auto MakeReader(bool ordered = false,
                                 bool remove_chunks = false,
@@ -153,12 +153,12 @@ class AsyncNode {
   NodeMap* absl_nullable node_map_ = nullptr;
   std::unique_ptr<ChunkStore> chunk_store_;
 
-  mutable concurrency::Mutex mutex_;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
-  std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mutex_);
-  std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mutex_);
+  mutable concurrency::Mutex mu_;
+  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
+  std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mu_);
+  std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers_
-      ABSL_GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mu_);
 };
 
 template <>

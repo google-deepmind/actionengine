@@ -53,7 +53,7 @@ class WebRtcWireStream final : public WireStream {
   void HalfClose() override { data_channel_->close(); }
 
   absl::Status GetStatus() const override {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return status_;
   }
 
@@ -64,7 +64,7 @@ class WebRtcWireStream final : public WireStream {
   }
 
  private:
-  void CloseOnError(absl::Status status) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+  void CloseOnError(absl::Status status) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     LOG(ERROR) << "WebRtcWireStream error: " << status.message();
     closed_ = true;
     status_ = std::move(status);
@@ -72,10 +72,10 @@ class WebRtcWireStream final : public WireStream {
     cv_.SignalAll();
   }
 
-  mutable concurrency::Mutex mutex_;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
+  mutable concurrency::Mutex mu_;
+  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
 
-  absl::Status status_ ABSL_GUARDED_BY(mutex_);
+  absl::Status status_ ABSL_GUARDED_BY(mu_);
 
   const std::string id_;
   std::shared_ptr<rtc::PeerConnection> connection_;
@@ -83,11 +83,11 @@ class WebRtcWireStream final : public WireStream {
   concurrency::Channel<SessionMessage> recv_channel_{kBufferSize};
 
   absl::flat_hash_map<uint64_t, std::unique_ptr<data::ChunkedBytes>>
-      chunked_messages_ ABSL_GUARDED_BY(mutex_) = {};
-  uint64_t next_transient_id_ ABSL_GUARDED_BY(mutex_) = 0;
+      chunked_messages_ ABSL_GUARDED_BY(mu_) = {};
+  uint64_t next_transient_id_ ABSL_GUARDED_BY(mu_) = 0;
 
-  bool opened_ ABSL_GUARDED_BY(mutex_) = false;
-  bool closed_ ABSL_GUARDED_BY(mutex_) = false;
+  bool opened_ ABSL_GUARDED_BY(mu_) = false;
+  bool closed_ ABSL_GUARDED_BY(mu_) = false;
 };
 
 class SignallingClient;
@@ -105,12 +105,12 @@ class WebRtcEvergreenServer {
   void Run();
 
   absl::Status Cancel() {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return CancelInternal();
   }
 
   absl::Status Join() {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return JoinInternal();
   }
 
@@ -119,8 +119,8 @@ class WebRtcEvergreenServer {
       absl::flat_hash_map<std::string, WebRtcDataChannelConnection>;
   void RunLoop();
 
-  absl::Status CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  absl::Status JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  absl::Status CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  absl::Status JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   std::shared_ptr<SignallingClient> InitSignallingClient(
       std::string_view signalling_address, uint16_t signalling_port,
@@ -135,7 +135,7 @@ class WebRtcEvergreenServer {
   const std::string signalling_identity_;
 
   concurrency::Channel<WebRtcDataChannelConnection> ready_data_connections_;
-  concurrency::Mutex mutex_;
+  concurrency::Mutex mu_;
   std::unique_ptr<concurrency::Fiber> main_loop_;
 };
 

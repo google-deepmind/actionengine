@@ -51,30 +51,31 @@ class ChunkStoreReader {
         remove_chunks_(remove_chunks),
         n_chunks_to_buffer_(n_chunks_to_buffer),
         timeout_(timeout),
-        buffer_(std::make_unique<
-                concurrency::Channel<std::optional<std::pair<int, Chunk>>>>(
+        buffer_(concurrency::Channel<std::optional<std::pair<int, Chunk>>>(
             n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {}
 
+  // This class is not copyable or movable.
+  ChunkStoreReader(const ChunkStoreReader&) = delete;
+  ChunkStoreReader& operator=(const ChunkStoreReader&) = delete;
+
   ~ChunkStoreReader() {
-    std::unique_ptr<concurrency::Fiber> fiber;
-    {
-      concurrency::MutexLock lock(&mutex_);
-      if (fiber_ == nullptr) {
-        return;
-      }
-      fiber = std::move(fiber_);
-      fiber_ = nullptr;
+    concurrency::MutexLock lock(&mu_);
+    if (fiber_ == nullptr) {
+      return;
     }
+
+    const std::unique_ptr<concurrency::Fiber> fiber = std::move(fiber_);
+    fiber_ = nullptr;
+
     fiber->Cancel();
+
+    mu_.Unlock();
     fiber->Join();
+    mu_.Lock();
   }
 
-  // This class is not copyable or movable.
-  ChunkStoreReader(const ChunkStoreReader& other) = delete;
-  ChunkStoreReader& operator=(const ChunkStoreReader& other) = delete;
-
   absl::Status Run() {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
 
     if (fiber_ != nullptr) {
       status_ =
@@ -107,8 +108,8 @@ class ChunkStoreReader {
   template <typename T>
   friend ChunkStoreReader& operator>>(ChunkStoreReader& reader, T& value);
 
-  absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     return status_;
   }
 
@@ -127,7 +128,7 @@ class ChunkStoreReader {
       return chunk_or_status.status();
     }
 
-    auto chunk = *chunk_or_status;
+    const auto chunk = *chunk_or_status;
     const int seq_id = chunk_store_->GetSeqIdForArrivalOffset(next_read_offset);
     if (chunk.get().IsNull()) {
       chunk_store_->Pop(seq_id);
@@ -182,17 +183,17 @@ class ChunkStoreReader {
         break;
       }
 
-      buffer_->writer()->Write(
+      buffer_.writer()->Write(
           std::make_pair(next_seq_id, std::move(*next_chunk)));
     }
-    // concurrency::MutexLock lock(&mutex_);
-    buffer_->writer()->Close();
+    // concurrency::MutexLock lock(&mu_);
+    buffer_.writer()->Close();
   }
 
   // This is primarily used by the prefetch loop to update the status of the
   // reader to avoid scoped locks in multiple places.
-  void UpdateStatus(const absl::Status& status) ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  void UpdateStatus(const absl::Status& status) ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     status_ = status;
   }
 
@@ -203,13 +204,12 @@ class ChunkStoreReader {
   const absl::Duration timeout_;
 
   std::unique_ptr<concurrency::Fiber> fiber_;
-  std::unique_ptr<concurrency::Channel<std::optional<std::pair<int, Chunk>>>>
-      buffer_;
+  concurrency::Channel<std::optional<std::pair<int, Chunk>>> buffer_;
   bool buffer_closed_ = false;
   int total_chunks_read_ = 0;
 
   absl::Status status_;
-  mutable concurrency::Mutex mutex_;
+  mutable concurrency::Mutex mu_;
 };
 
 template <>
@@ -220,8 +220,8 @@ inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next() {
   std::optional<std::pair<int, Chunk>> seq_and_chunk;
   bool ok;
   const int selected = concurrency::SelectUntil(
-      absl::Now() + timeout_, {buffer_->reader()->OnRead(&seq_and_chunk, &ok),
-                               concurrency::OnCancel()});
+      absl::Now() + timeout_,
+      {buffer_.reader()->OnRead(&seq_and_chunk, &ok), concurrency::OnCancel()});
   if (selected == -1) {
     UpdateStatus(absl::DeadlineExceededError("Timed out waiting for chunk."));
     DLOG(INFO) << "Timed out waiting for chunk.";

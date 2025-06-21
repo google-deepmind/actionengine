@@ -53,12 +53,12 @@ class RecoverableStream final : public eglt::WireStream {
   }
 
   [[nodiscard]] concurrency::Case OnTimeout() const {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return timeout_event_->OnEvent();
   }
 
   void RecoverAndNotify(GetStreamFn new_get_stream = {}) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     if (new_get_stream) {
       get_stream_ = std::move(new_get_stream);
     }
@@ -68,17 +68,17 @@ class RecoverableStream final : public eglt::WireStream {
   }
 
   [[nodiscard]] bool IsClosed() const {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return closed_;
   }
 
   [[nodiscard]] bool IsLost() const {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return lost_;
   }
 
   void CloseAndNotify(bool ignore_lost = false) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     CHECK(!closed_) << "Cannot close stream, it is already closed";
     if (!half_closed_) {
       if (get_stream_() != nullptr) {
@@ -100,7 +100,7 @@ class RecoverableStream final : public eglt::WireStream {
   }
 
   absl::Status Send(SessionMessage message) override {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       return stream.status();
@@ -117,7 +117,7 @@ class RecoverableStream final : public eglt::WireStream {
   }
 
   std::optional<SessionMessage> Receive() override {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       return std::nullopt;
@@ -128,7 +128,7 @@ class RecoverableStream final : public eglt::WireStream {
   }
 
   absl::Status Accept() override {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       return stream.status();
@@ -139,7 +139,7 @@ class RecoverableStream final : public eglt::WireStream {
   }
 
   absl::Status Start() override {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
 
     auto stream = GetObservedStream();
     if (!stream.ok()) {
@@ -151,7 +151,7 @@ class RecoverableStream final : public eglt::WireStream {
   }
 
   void HalfClose() override {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
 
     auto stream = GetObservedStream();
     if (!stream.ok()) {
@@ -164,7 +164,7 @@ class RecoverableStream final : public eglt::WireStream {
   }
 
   [[nodiscard]] absl::Status GetStatus() const override {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     if (closed_) {
       return absl::UnavailableError("Recoverable stream is closed.");
     }
@@ -193,7 +193,7 @@ class RecoverableStream final : public eglt::WireStream {
   [[nodiscard]] const void* GetImpl() const override {
     // TODO: determine whether this method should return observed stream or
     //   (observed stream)->GetImpl(). For now, we return the latter.
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     const auto stream = get_stream_();
     if (stream == nullptr) {
       return nullptr;
@@ -203,7 +203,7 @@ class RecoverableStream final : public eglt::WireStream {
 
  private:
   absl::StatusOr<WireStream*> GetObservedStream()
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (closed_) {
       return absl::UnavailableError("Recoverable stream is closed");
     }
@@ -216,7 +216,7 @@ class RecoverableStream final : public eglt::WireStream {
 
     // wait for the stream to be available
     lost_ = true;
-    if (cv_.WaitWithTimeout(&mutex_, timeout_)) {
+    if (cv_.WaitWithTimeout(&mu_, timeout_)) {
       timeout_event_->Notify();
     }
 
@@ -232,19 +232,19 @@ class RecoverableStream final : public eglt::WireStream {
     return stream;
   }
 
-  GetStreamFn get_stream_ ABSL_GUARDED_BY(mutex_);
+  GetStreamFn get_stream_ ABSL_GUARDED_BY(mu_);
   const std::string id_;
   const absl::Duration timeout_{absl::InfiniteDuration()};
 
-  bool half_closed_ ABSL_GUARDED_BY(mutex_){false};
-  bool closed_ ABSL_GUARDED_BY(mutex_){false};
-  bool lost_ ABSL_GUARDED_BY(mutex_){false};
+  bool half_closed_ ABSL_GUARDED_BY(mu_){false};
+  bool closed_ ABSL_GUARDED_BY(mu_){false};
+  bool lost_ ABSL_GUARDED_BY(mu_){false};
   std::unique_ptr<concurrency::PermanentEvent> timeout_event_
-      ABSL_GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mu_);
 
-  mutable concurrency::Mutex mutex_;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
-  concurrency::ExclusiveAccessGuard finalization_guard_{&mutex_, &cv_};
+  mutable concurrency::Mutex mu_;
+  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
+  concurrency::ExclusiveAccessGuard finalization_guard_{&mu_, &cv_};
 };
 
 }  // namespace eglt::net

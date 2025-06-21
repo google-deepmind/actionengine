@@ -84,15 +84,15 @@ class FiberAwareWebsocketStream {
 
  private:
   absl::Status CloseInternal() const noexcept
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   std::unique_ptr<BoostWebsocketStream> stream_;
   PerformHandshakeFn handshake_fn_;
 
-  mutable concurrency::Mutex mutex_;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mutex_);
-  bool write_pending_ ABSL_GUARDED_BY(mutex_) = false;
-  bool read_pending_ ABSL_GUARDED_BY(mutex_) = false;
+  mutable concurrency::Mutex mu_;
+  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
+  bool write_pending_ ABSL_GUARDED_BY(mu_) = false;
+  bool read_pending_ ABSL_GUARDED_BY(mu_) = false;
 };
 
 template <typename ExecutionContext>

@@ -43,7 +43,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
       });
 
   {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     loop_status_ = stream_.Start();
     if (!loop_status_.ok()) {
       return loop_status_;
@@ -117,7 +117,7 @@ void SignallingClient::RunLoop() {
     }
   }
   {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     loop_status_ = status;
     if (!loop_status_.ok()) {
       error_event_.Notify();

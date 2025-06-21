@@ -119,8 +119,8 @@ class Service : public std::enable_shared_from_this<Service> {
   auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
       -> absl::Status;
 
-  void CloseStreams() ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  void CloseStreams() ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     for (const auto& [_, stream] : streams_) {
       stream->HalfClose();
     }
@@ -129,11 +129,10 @@ class Service : public std::enable_shared_from_this<Service> {
   auto SetActionRegistry(const ActionRegistry& action_registry) const -> void;
 
  private:
-  void JoinConnectionsAndCleanUp(bool cancel = false)
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  void JoinConnectionsAndCleanUp(bool cancel = false) ABSL_LOCKS_EXCLUDED(mu_);
 
   void CleanupConnection(const StreamToSessionConnection& connection)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     connections_.erase(connection.stream_id);
 
     std::shared_ptr<net::RecoverableStream> extracted_stream = nullptr;
@@ -180,23 +179,23 @@ class Service : public std::enable_shared_from_this<Service> {
   EvergreenConnectionHandler connection_handler_;
   ChunkStoreFactory chunk_store_factory_;
 
-  mutable concurrency::Mutex mutex_;
+  mutable concurrency::Mutex mu_;
   absl::flat_hash_map<std::string, std::shared_ptr<net::RecoverableStream>>
-      streams_ ABSL_GUARDED_BY(mutex_);
+      streams_ ABSL_GUARDED_BY(mu_);
   // for now, we only support one-to-one session-stream mapping, therefore we
   // use the stream id as the session id.
   absl::flat_hash_map<std::string, std::unique_ptr<NodeMap>> node_maps_
-      ABSL_GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, std::unique_ptr<Session>> sessions_
-      ABSL_GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, std::shared_ptr<StreamToSessionConnection>>
-      connections_ ABSL_GUARDED_BY(mutex_);
+      connections_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>>
-      streams_per_session_ ABSL_GUARDED_BY(mutex_);
+      streams_per_session_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, std::unique_ptr<concurrency::Fiber>>
-      connection_fibers_ ABSL_GUARDED_BY(mutex_);
+      connection_fibers_ ABSL_GUARDED_BY(mu_);
 
-  bool cleanup_started_ ABSL_GUARDED_BY(mutex_) = false;
+  bool cleanup_started_ ABSL_GUARDED_BY(mu_) = false;
   concurrency::PermanentEvent cleanup_done_;
 };
 

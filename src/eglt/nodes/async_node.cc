@@ -44,7 +44,7 @@ AsyncNode::AsyncNode(std::string_view id, NodeMap* absl_nullable node_map,
 }
 
 AsyncNode::AsyncNode(AsyncNode&& other) noexcept {
-  concurrency::MutexLock lock(&other.mutex_);
+  concurrency::MutexLock lock(&other.mu_);
   node_map_ = other.node_map_;
   chunk_store_ = std::move(other.chunk_store_);
   default_reader_ = std::move(other.default_reader_);
@@ -61,7 +61,7 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
     return *this;
   }
 
-  concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+  concurrency::TwoMutexLock lock(&mu_, &other.mu_);
 
   node_map_ = other.node_map_;
   chunk_store_ = std::move(other.chunk_store_);
@@ -79,7 +79,7 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
 
 absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
   {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     const std::string node_id(chunk_store_->GetId());
     if (!fragment.id.empty()) {
       if (fragment.id != node_id) {
@@ -103,7 +103,7 @@ absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
 }
 
 absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   ChunkStoreWriter* writer = EnsureWriter();
 
   SessionMessage message_for_peers;
@@ -135,25 +135,25 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
   return absl::OkStatus();
 }
 
-ChunkStoreWriter& AsyncNode::GetWriter() ABSL_LOCKS_EXCLUDED(mutex_) {
+ChunkStoreWriter& AsyncNode::GetWriter() ABSL_LOCKS_EXCLUDED(mu_) {
   return *EnsureWriter();
 }
 
 absl::Status AsyncNode::GetWriterStatus() const {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (default_writer_ == nullptr) {
     return absl::OkStatus();
   }
   return default_writer_->GetStatus();
 }
 
-ChunkStoreReader& AsyncNode::GetReader() ABSL_LOCKS_EXCLUDED(mutex_) {
-  concurrency::MutexLock lock(&mutex_);
+ChunkStoreReader& AsyncNode::GetReader() ABSL_LOCKS_EXCLUDED(mu_) {
+  concurrency::MutexLock lock(&mu_);
   return *EnsureReader();
 }
 
 absl::Status AsyncNode::GetReaderStatus() const {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (default_reader_ == nullptr) {
     return absl::FailedPreconditionError("Reader is not initialized.");
   }
@@ -169,7 +169,7 @@ std::unique_ptr<ChunkStoreReader> AsyncNode::MakeReader(
 AsyncNode& AsyncNode::SetReaderOptions(bool ordered, bool remove_chunks,
                                        int n_chunks_to_buffer) {
 
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (default_reader_ != nullptr) {
     LOG(WARNING)
         << "Reader already exists on the node, changes to reader "
@@ -180,14 +180,14 @@ AsyncNode& AsyncNode::SetReaderOptions(bool ordered, bool remove_chunks,
 }
 
 AsyncNode& AsyncNode::ResetReader() {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   default_reader_ = nullptr;
   return *this;
 }
 
 ChunkStoreReader* AsyncNode::EnsureReader(bool ordered, bool remove_chunks,
                                           int n_chunks_to_buffer)
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (default_reader_ == nullptr) {
     default_reader_ = std::make_unique<ChunkStoreReader>(
         chunk_store_.get(), ordered, remove_chunks, n_chunks_to_buffer);
@@ -196,7 +196,7 @@ ChunkStoreReader* AsyncNode::EnsureReader(bool ordered, bool remove_chunks,
 }
 
 ChunkStoreWriter* AsyncNode::EnsureWriter(int n_chunks_to_buffer)
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (default_writer_ == nullptr) {
     default_writer_ = std::make_unique<ChunkStoreWriter>(chunk_store_.get(),
                                                          n_chunks_to_buffer);

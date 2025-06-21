@@ -40,7 +40,7 @@ class WorkerThreadPool {
   explicit WorkerThreadPool() = default;
 
   void Start(size_t num_threads = std::thread::hardware_concurrency()) {
-    eglt::concurrency::impl::MutexLock lock(&mutex_);
+    eglt::concurrency::impl::MutexLock lock(&mu_);
     schedulers_.resize(num_threads);
     std::latch latch(num_threads);
     for (size_t idx = 0; idx < num_threads; ++idx) {
@@ -84,7 +84,7 @@ class WorkerThreadPool {
       schedulers_[worker_idx]->schedule(ctx);
     } else {
       {
-        eglt::concurrency::impl::MutexLock lock(&mutex_);
+        eglt::concurrency::impl::MutexLock lock(&mu_);
         schedulers_[worker_idx]->attach_worker_context(ctx);
         schedulers_[worker_idx]->schedule_from_remote(ctx);
       }
@@ -106,7 +106,7 @@ class WorkerThreadPool {
 
   bool schedule_on_self_ = true;
 
-  eglt::concurrency::impl::Mutex mutex_;
+  eglt::concurrency::impl::Mutex mu_;
   std::atomic<size_t> worker_idx_{0};
   absl::InlinedVector<Worker, 16> workers_;
   absl::InlinedVector<boost::fibers::scheduler*, 16> schedulers_;

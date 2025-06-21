@@ -36,7 +36,7 @@ class SignallingClient {
   concurrency::Case OnError() const { return error_event_.OnEvent(); }
 
   absl::Status GetStatus() const {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     return loop_status_;
   }
 
@@ -47,7 +47,7 @@ class SignallingClient {
   }
 
   void Cancel() {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     stream_.Close().IgnoreError();
     loop_->Cancel();
     loop_status_ = absl::CancelledError("WebsocketEvergreenServer cancelled");
@@ -63,7 +63,7 @@ class SignallingClient {
  private:
   void RunLoop();
 
-  void CloseStreamAndJoinLoop() ABSL_LOCKS_EXCLUDED(mutex_);
+  void CloseStreamAndJoinLoop() ABSL_LOCKS_EXCLUDED(mu_);
 
   std::string identity_;
   const std::string address_;
@@ -75,8 +75,8 @@ class SignallingClient {
 
   FiberAwareWebsocketStream stream_;
   std::unique_ptr<thread::Fiber> loop_;
-  absl::Status loop_status_ ABSL_GUARDED_BY(mutex_);
-  mutable concurrency::Mutex mutex_;
+  absl::Status loop_status_ ABSL_GUARDED_BY(mu_);
+  mutable concurrency::Mutex mu_;
   concurrency::PermanentEvent error_event_;
 };
 

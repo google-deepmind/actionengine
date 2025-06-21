@@ -216,7 +216,7 @@ class Action : public std::enable_shared_from_this<Action> {
     if (this == &other) {
       return *this;
     }
-    concurrency::TwoMutexLock lock(&mutex_, &other.mutex_);
+    concurrency::TwoMutexLock lock(&mu_, &other.mu_);
 
     CHECK(!other.has_been_run_)
         << "Cannot move an action that has been run. Handlers rely on the "
@@ -239,8 +239,8 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   ~Action() {
-    concurrency::MutexLock lock(&mutex_);
-    if (!has_been_run_ && node_map_ != nullptr) {
+    concurrency::MutexLock lock(&mu_);
+    if (node_map_ != nullptr) {
       ResetIoNodes();
     }
   }
@@ -315,7 +315,7 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   AsyncNode* GetInput(std::string_view name,
                       const std::optional<bool> bind_stream = std::nullopt) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     if (node_map_ == nullptr) {
       LOG(FATAL) << absl::StrFormat(
           "No node map is bound to action %s with id=%s. Cannot get input %s",
@@ -355,7 +355,7 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   AsyncNode* GetOutput(std::string_view name,
                        const std::optional<bool> bind_stream = std::nullopt) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     if (node_map_ == nullptr) {
       LOG(FATAL) << absl::StrFormat(
           "No node map is bound to action %s with id=%s. Cannot get input %s",
@@ -389,37 +389,35 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   void BindHandler(ActionHandler handler) { handler_ = std::move(handler); }
 
-  void BindNodeMap(NodeMap* absl_nullable node_map)
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  void BindNodeMap(NodeMap* absl_nullable node_map) ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     node_map_ = node_map;
   }
 
   /// Returns the node map associated with the action.
-  [[nodiscard]] NodeMap* GetNodeMap() const ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  [[nodiscard]] NodeMap* GetNodeMap() const ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     return node_map_;
   }
 
-  void BindStream(std::shared_ptr<WireStream> stream)
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  void BindStream(std::shared_ptr<WireStream> stream) ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     stream_ = std::move(stream);
   }
 
   /// Returns the stream associated with the action.
-  [[nodiscard]] WireStream* GetStream() const ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  [[nodiscard]] WireStream* GetStream() const ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     return stream_.get();
   }
 
-  void BindSession(Session* absl_nullable session) ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  void BindSession(Session* absl_nullable session) ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     session_ = session;
   }
 
-  [[nodiscard]] Session* GetSession() const ABSL_LOCKS_EXCLUDED(mutex_) {
-    concurrency::MutexLock lock(&mutex_);
+  [[nodiscard]] Session* GetSession() const ABSL_LOCKS_EXCLUDED(mu_) {
+    concurrency::MutexLock lock(&mu_);
     return session_;
   }
 
@@ -442,7 +440,7 @@ class Action : public std::enable_shared_from_this<Action> {
       const std::string_view name,
       const std::string_view action_id = "") const {
     auto action = GetRegistry()->MakeAction(name, action_id);
-    concurrency::TwoMutexLock lock(&mutex_, &action->mutex_);
+    concurrency::TwoMutexLock lock(&mu_, &action->mu_);
     action->node_map_ = node_map_;
     action->stream_ = stream_;
     action->session_ = session_;
@@ -470,7 +468,7 @@ class Action : public std::enable_shared_from_this<Action> {
    *   The status of sending the action call message.
    */
   absl::Status Call() {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     bind_streams_on_inputs_default_ = true;
     bind_streams_on_outputs_default_ = false;
 
@@ -490,27 +488,27 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   absl::Status Run(concurrency::PermanentEvent* absl_nullable
                        cancelled_externally = nullptr) {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     bind_streams_on_inputs_default_ = false;
     bind_streams_on_outputs_default_ = true;
 
     cancelled_externally_ = cancelled_externally;
     has_been_run_ = true;
 
-    mutex_.Unlock();
+    mu_.Unlock();
     auto status = handler_(shared_from_this());
-    mutex_.Lock();
+    mu_.Lock();
 
     UnbindStreams();
-    if (node_map_ != nullptr) {
-      ResetIoNodes();
-    }
+    // if (node_map_ != nullptr) {
+    //   ResetIoNodes();
+    // }
 
     return status;
   }
 
   void Cancel() const {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     if (cancelled_->HasBeenNotified()) {
       return;
     }
@@ -528,7 +526,7 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   bool Cancelled() const {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     bool result = cancelled_->HasBeenNotified();
     if (cancelled_externally_ != nullptr) {
       result = result || cancelled_externally_->HasBeenNotified();
@@ -545,7 +543,7 @@ class Action : public std::enable_shared_from_this<Action> {
     return absl::StrCat(id_, "#", name);
   }
 
-  void UnbindStreams() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+  void UnbindStreams() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     for (const auto& node : nodes_with_bound_streams_) {
       if (node == nullptr) {
         continue;
@@ -555,7 +553,7 @@ class Action : public std::enable_shared_from_this<Action> {
     nodes_with_bound_streams_.clear();
   }
 
-  void ResetIoNodes() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+  void ResetIoNodes() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     for (const auto& [input_name, input_id] : input_name_to_id_) {
       node_map_->Extract(input_id).reset();
     }
@@ -564,24 +562,24 @@ class Action : public std::enable_shared_from_this<Action> {
     }
   }
 
-  mutable concurrency::Mutex mutex_{};
+  mutable concurrency::Mutex mu_{};
 
   ActionSchema schema_;
   absl::flat_hash_map<std::string, std::string> input_name_to_id_;
   absl::flat_hash_map<std::string, std::string> output_name_to_id_;
 
   ActionHandler handler_;
-  bool has_been_run_ ABSL_GUARDED_BY(mutex_) = false;
+  bool has_been_run_ ABSL_GUARDED_BY(mu_) = false;
   std::string id_;
 
-  NodeMap* node_map_ ABSL_GUARDED_BY(mutex_) = nullptr;
-  std::shared_ptr<WireStream> stream_ ABSL_GUARDED_BY(mutex_) = nullptr;
-  Session* session_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  NodeMap* node_map_ ABSL_GUARDED_BY(mu_) = nullptr;
+  std::shared_ptr<WireStream> stream_ ABSL_GUARDED_BY(mu_) = nullptr;
+  Session* session_ ABSL_GUARDED_BY(mu_) = nullptr;
 
   bool bind_streams_on_inputs_default_ = true;
   bool bind_streams_on_outputs_default_ = false;
   absl::flat_hash_set<AsyncNode*> nodes_with_bound_streams_
-      ABSL_GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mu_);
 
   std::unique_ptr<concurrency::PermanentEvent> cancelled_;
   concurrency::PermanentEvent* absl_nullable cancelled_externally_ = nullptr;

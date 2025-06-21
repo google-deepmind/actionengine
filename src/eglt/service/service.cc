@@ -83,7 +83,7 @@ Service::~Service() {
 }
 
 WireStream* Service::GetStream(std::string_view stream_id) const {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (connections_.contains(stream_id)) {
     return connections_.at(stream_id)->stream.get();
   }
@@ -91,7 +91,7 @@ WireStream* Service::GetStream(std::string_view stream_id) const {
 }
 
 Session* Service::GetSession(std::string_view session_id) const {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (sessions_.contains(session_id)) {
     return sessions_.at(session_id).get();
   }
@@ -99,7 +99,7 @@ Session* Service::GetSession(std::string_view session_id) const {
 }
 
 std::vector<std::string> Service::GetSessionKeys() const {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   std::vector<std::string> keys;
   keys.reserve(sessions_.size());
   for (const auto& [key, _] : sessions_) {
@@ -119,7 +119,7 @@ Service::EstablishConnection(std::shared_ptr<WireStream>&& stream,
 absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
 Service::EstablishConnection(net::GetStreamFn get_stream,
                              EvergreenConnectionHandler connection_handler) {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
 
   std::string stream_id;
   if (const WireStream* raw_stream = get_stream(); raw_stream == nullptr) {
@@ -193,7 +193,7 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
       [this, resolved_handler = std::move(resolved_handler), connection]() {
         connection->status =
             resolved_handler(connection->stream, connection->session);
-        concurrency::MutexLock cleanup_lock(&mutex_);
+        concurrency::MutexLock cleanup_lock(&mu_);
         CleanupConnection(*connection);
       });
 
@@ -207,7 +207,7 @@ absl::Status Service::JoinConnection(
   // Extract connection and fiber from the map, so we can join them outside
   // the lock with a guarantee that they are not modified while we are trying.
   {
-    concurrency::MutexLock lock(&mutex_);
+    concurrency::MutexLock lock(&mu_);
     if (const auto node = connections_.extract(connection->stream_id);
         !node.empty()) {
       std::shared_ptr<StreamToSessionConnection> service_owned_connection =
@@ -232,16 +232,16 @@ absl::Status Service::JoinConnection(
 }
 
 void Service::SetActionRegistry(const ActionRegistry& action_registry) const {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   *action_registry_ = action_registry;
 }
 
 void Service::JoinConnectionsAndCleanUp(bool cancel) {
-  concurrency::MutexLock lock(&mutex_);
+  concurrency::MutexLock lock(&mu_);
   if (cleanup_started_) {
-    mutex_.Unlock();
+    mu_.Unlock();
     concurrency::Select({cleanup_done_.OnEvent()});
-    mutex_.Lock();
+    mu_.Lock();
     return;
   }
 
@@ -266,9 +266,9 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
   DLOG(INFO) << "Cleaning up connections.";
   for (const auto& [_, fiber] : fibers) {
     if (fiber != nullptr) {
-      mutex_.Unlock();
+      mu_.Unlock();
       fiber->Join();
-      mutex_.Lock();
+      mu_.Lock();
     }
   }
   DLOG(INFO) << "Connections cleaned up.";
