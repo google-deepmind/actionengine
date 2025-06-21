@@ -449,8 +449,11 @@ WebRtcEvergreenServer::~WebRtcEvergreenServer() {
 }
 
 void WebRtcEvergreenServer::Run() {
-  concurrency::MutexLock lock(&mu_);
-  main_loop_ = concurrency::NewTree({}, [this]() { RunLoop(); });
+  concurrency::MutexLock l(&mu_);
+  main_loop_ = concurrency::NewTree({}, [this]() {
+    concurrency::MutexLock lock(&mu_);
+    RunLoop();
+  });
 }
 
 absl::Status WebRtcEvergreenServer::CancelInternal()
@@ -483,13 +486,12 @@ absl::Status WebRtcEvergreenServer::JoinInternal()
   return absl::OkStatus();
 }
 
-void WebRtcEvergreenServer::RunLoop() {
+void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   DLOG(INFO) << "WebRtcEvergreenServer RunLoop starting.";
   DataChannelConnectionMap connections;
   auto signalling_client =
       InitSignallingClient(signalling_address_, signalling_port_, &connections);
 
-  concurrency::MutexLock lock(&mu_);
   if (const auto status =
           signalling_client->ConnectWithIdentity(signalling_identity_);
       !status.ok()) {

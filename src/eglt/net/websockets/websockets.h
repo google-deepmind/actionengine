@@ -59,7 +59,9 @@ class WebsocketWireStream final : public WireStream {
 
   [[nodiscard]] std::string_view GetId() const override { return id_; }
 
-  [[nodiscard]] const void* GetImpl() const override { return &stream_; }
+  [[nodiscard]] const void* absl_nonnull GetImpl() const override {
+    return &stream_;
+  }
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const WebsocketWireStream& stream) {

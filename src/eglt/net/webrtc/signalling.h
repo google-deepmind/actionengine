@@ -18,6 +18,7 @@ class SignallingClient {
   explicit SignallingClient(std::string_view address = "localhost",
                             uint16_t port = 80);
 
+  // This class is not copyable or movable
   SignallingClient(const SignallingClient&) = delete;
   SignallingClient& operator=(const SignallingClient&) = delete;
 
@@ -61,7 +62,7 @@ class SignallingClient {
   }
 
  private:
-  void RunLoop();
+  void RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   void CloseStreamAndJoinLoop() ABSL_LOCKS_EXCLUDED(mu_);
 

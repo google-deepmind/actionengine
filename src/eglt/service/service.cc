@@ -82,7 +82,7 @@ Service::~Service() {
   JoinConnectionsAndCleanUp(/*cancel=*/true);
 }
 
-WireStream* Service::GetStream(std::string_view stream_id) const {
+WireStream* absl_nullable Service::GetStream(std::string_view stream_id) const {
   concurrency::MutexLock lock(&mu_);
   if (connections_.contains(stream_id)) {
     return connections_.at(stream_id)->stream.get();
@@ -90,7 +90,7 @@ WireStream* Service::GetStream(std::string_view stream_id) const {
   return nullptr;
 }
 
-Session* Service::GetSession(std::string_view session_id) const {
+Session* absl_nullable Service::GetSession(std::string_view session_id) const {
   concurrency::MutexLock lock(&mu_);
   if (sessions_.contains(session_id)) {
     return sessions_.at(session_id).get();

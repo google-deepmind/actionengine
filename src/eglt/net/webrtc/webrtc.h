@@ -117,7 +117,7 @@ class WebRtcEvergreenServer {
  private:
   using DataChannelConnectionMap =
       absl::flat_hash_map<std::string, WebRtcDataChannelConnection>;
-  void RunLoop();
+  void RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Status CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   absl::Status JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);

@@ -308,7 +308,7 @@ inline AsyncNode& operator<<(AsyncNode& node, std::pair<Chunk, int> value) {
 // of action->GetOutput("text"))
 /// @private
 template <typename T>
-AsyncNode* operator<<(AsyncNode* absl_nonnull node, T value) {
+AsyncNode* absl_nonnull operator<<(AsyncNode* absl_nonnull node, T value) {
   *node << std::move(value);
   return node;
 }

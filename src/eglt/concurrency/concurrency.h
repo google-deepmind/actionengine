@@ -52,6 +52,19 @@ inline void SleepFor(absl::Duration duration) {
   impl::SleepFor(duration);
 }
 
+class ScopedUnlock {
+ public:
+  explicit ScopedUnlock(Mutex* absl_nonnull mu) : mu_(mu) { mu_->Unlock(); }
+
+  ScopedUnlock(const ScopedUnlock&) = delete;
+  ScopedUnlock& operator=(const ScopedUnlock&) = delete;
+
+  ~ScopedUnlock() { mu_->Lock(); }
+
+ private:
+  Mutex* absl_nonnull const mu_;
+};
+
 class ABSL_SCOPED_LOCKABLE TwoMutexLock {
  public:
   explicit TwoMutexLock(Mutex* absl_nonnull mu1, Mutex* absl_nonnull mu2)

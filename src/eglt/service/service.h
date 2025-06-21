@@ -104,8 +104,8 @@ class Service : public std::enable_shared_from_this<Service> {
   Service(const Service& other) = delete;
   Service& operator=(const Service& other) = delete;
 
-  auto GetStream(std::string_view stream_id) const -> WireStream*;
-  auto GetSession(std::string_view session_id) const -> Session*;
+  auto GetStream(std::string_view stream_id) const -> WireStream* absl_nullable;
+  auto GetSession(std::string_view session_id) const -> Session* absl_nullable;
   auto GetSessionKeys() const -> std::vector<std::string>;
 
   auto EstablishConnection(

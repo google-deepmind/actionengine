@@ -50,8 +50,9 @@ class NodeMap {
   NodeMap& operator=(NodeMap&& other) noexcept;
 
   auto Get(std::string_view id,
-           const ChunkStoreFactory& chunk_store_factory = {}) -> AsyncNode*;
-  auto operator[](std::string_view id) -> AsyncNode*;
+           const ChunkStoreFactory& chunk_store_factory = {})
+      -> AsyncNode* absl_nonnull;
+  auto operator[](std::string_view id) -> AsyncNode* absl_nonnull;
 
   auto Get(const std::vector<std::string_view>& ids,
            const ChunkStoreFactory& chunk_store_factory = {})

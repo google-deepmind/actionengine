@@ -287,7 +287,7 @@ class Action : public std::enable_shared_from_this<Action> {
    * @return
    *   A pointer to the AsyncNode with the given \p id.
    */
-  AsyncNode* GetNode(std::string_view id) {
+  AsyncNode* absl_nonnull GetNode(std::string_view id) {
     if (input_name_to_id_.contains(id)) {
       return GetInput(id);
     }
@@ -313,8 +313,9 @@ class Action : public std::enable_shared_from_this<Action> {
    *   A pointer to the AsyncNode of the input with the given name, or nullptr
    *   if not on ActionSchema.
    */
-  AsyncNode* GetInput(std::string_view name,
-                      const std::optional<bool> bind_stream = std::nullopt) {
+  AsyncNode* absl_nonnull
+  GetInput(std::string_view name,
+           const std::optional<bool> bind_stream = std::nullopt) {
     concurrency::MutexLock lock(&mu_);
     if (node_map_ == nullptr) {
       LOG(FATAL) << absl::StrFormat(
@@ -353,8 +354,9 @@ class Action : public std::enable_shared_from_this<Action> {
    *   A pointer to the AsyncNode of the output with the given name, or nullptr
    *   if not on ActionSchema.
    */
-  AsyncNode* GetOutput(std::string_view name,
-                       const std::optional<bool> bind_stream = std::nullopt) {
+  AsyncNode* absl_nonnull
+  GetOutput(std::string_view name,
+            const std::optional<bool> bind_stream = std::nullopt) {
     concurrency::MutexLock lock(&mu_);
     if (node_map_ == nullptr) {
       LOG(FATAL) << absl::StrFormat(
@@ -395,7 +397,8 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   /// Returns the node map associated with the action.
-  [[nodiscard]] NodeMap* GetNodeMap() const ABSL_LOCKS_EXCLUDED(mu_) {
+  [[nodiscard]] NodeMap* absl_nullable GetNodeMap() const
+      ABSL_LOCKS_EXCLUDED(mu_) {
     concurrency::MutexLock lock(&mu_);
     return node_map_;
   }
@@ -406,7 +409,8 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   /// Returns the stream associated with the action.
-  [[nodiscard]] WireStream* GetStream() const ABSL_LOCKS_EXCLUDED(mu_) {
+  [[nodiscard]] WireStream* absl_nullable GetStream() const
+      ABSL_LOCKS_EXCLUDED(mu_) {
     concurrency::MutexLock lock(&mu_);
     return stream_.get();
   }
@@ -416,7 +420,8 @@ class Action : public std::enable_shared_from_this<Action> {
     session_ = session;
   }
 
-  [[nodiscard]] Session* GetSession() const ABSL_LOCKS_EXCLUDED(mu_) {
+  [[nodiscard]] Session* absl_nullable GetSession() const
+      ABSL_LOCKS_EXCLUDED(mu_) {
     concurrency::MutexLock lock(&mu_);
     return session_;
   }
@@ -448,7 +453,7 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   /// Returns the action registry from the session.
-  [[nodiscard]] ActionRegistry* GetRegistry() const;
+  [[nodiscard]] ActionRegistry* absl_nullable GetRegistry() const;
 
   /// Returns the action's identifier.
   [[nodiscard]] std::string GetId() const { return id_; }
@@ -572,9 +577,9 @@ class Action : public std::enable_shared_from_this<Action> {
   bool has_been_run_ ABSL_GUARDED_BY(mu_) = false;
   std::string id_;
 
-  NodeMap* node_map_ ABSL_GUARDED_BY(mu_) = nullptr;
+  NodeMap* absl_nullable node_map_ ABSL_GUARDED_BY(mu_) = nullptr;
   std::shared_ptr<WireStream> stream_ ABSL_GUARDED_BY(mu_) = nullptr;
-  Session* session_ ABSL_GUARDED_BY(mu_) = nullptr;
+  Session* absl_nullable session_ ABSL_GUARDED_BY(mu_) = nullptr;
 
   bool bind_streams_on_inputs_default_ = true;
   bool bind_streams_on_outputs_default_ = false;

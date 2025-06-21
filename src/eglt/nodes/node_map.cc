@@ -45,8 +45,8 @@ NodeMap& NodeMap::operator=(NodeMap&& other) noexcept {
   return *this;
 }
 
-AsyncNode* NodeMap::Get(std::string_view id,
-                        const ChunkStoreFactory& chunk_store_factory) {
+AsyncNode* absl_nonnull NodeMap::Get(
+    std::string_view id, const ChunkStoreFactory& chunk_store_factory) {
   concurrency::MutexLock lock(&mu_);
   if (!nodes_.contains(id)) {
     nodes_.emplace(id, std::make_unique<AsyncNode>(
@@ -75,7 +75,7 @@ std::vector<AsyncNode*> NodeMap::Get(
   return nodes;
 }
 
-AsyncNode* NodeMap::operator[](std::string_view id) {
+AsyncNode* absl_nonnull NodeMap::operator[](std::string_view id) {
   concurrency::MutexLock lock(&mu_);
   if (!nodes_.contains(id)) {
     nodes_.emplace(id, std::make_unique<AsyncNode>(

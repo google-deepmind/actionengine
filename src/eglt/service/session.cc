@@ -59,18 +59,16 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
     return absl::CancelledError("Action context is cancelled.");
   }
 
-  Action* action_ptr = action.get();
-
-  running_actions_[action_ptr] =
+  running_actions_[action.get()] =
       concurrency::NewTree({}, [action = std::move(action), this]() mutable {
         if (const auto run_status = action->Run(&cancellation_);
             !run_status.ok()) {
           LOG(ERROR) << "Failed to run action: " << run_status;
         }
         concurrency::MutexLock cleanup_lock(&mu_);
-        Action* action_ptr = action.get();
+        Action* self_ptr = action.get();
         action = nullptr;
-        concurrency::Detach(ExtractActionFiber(action_ptr));
+        concurrency::Detach(ExtractActionFiber(self_ptr));
         cv_.SignalAll();
       });
 
@@ -101,9 +99,9 @@ Session::~Session() {
   JoinDispatchers(/*cancel=*/true);
 }
 
-AsyncNode* Session::GetNode(
-    const std::string_view id,
-    const ChunkStoreFactory& chunk_store_factory) const {
+AsyncNode* absl_nonnull
+Session::GetNode(const std::string_view id,
+                 const ChunkStoreFactory& chunk_store_factory) const {
   ChunkStoreFactory factory = chunk_store_factory;
   if (factory == nullptr) {
     factory = chunk_store_factory_;

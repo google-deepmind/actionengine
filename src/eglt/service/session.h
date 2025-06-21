@@ -56,8 +56,8 @@ class ActionContext {
  private:
   void CancelContextImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  std::unique_ptr<concurrency::Fiber> ExtractActionFiber(Action* action)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  std::unique_ptr<concurrency::Fiber> ExtractActionFiber(
+      Action* absl_nonnull action) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     const auto map_node = running_actions_.extract(action);
     CHECK(!map_node.empty())
         << "Running action not found in session it was created in.";
@@ -119,9 +119,9 @@ class Session {
   Session(const Session& other) = delete;
   Session& operator=(const Session& other) = delete;
 
-  [[nodiscard]] AsyncNode* GetNode(
-      std::string_view id,
-      const ChunkStoreFactory& chunk_store_factory = {}) const;
+  [[nodiscard]] AsyncNode* absl_nonnull
+  GetNode(std::string_view id,
+          const ChunkStoreFactory& chunk_store_factory = {}) const;
 
   void DispatchFrom(const std::shared_ptr<WireStream>& stream);
   absl::Status DispatchMessage(
@@ -131,13 +131,13 @@ class Session {
   void StopDispatchingFrom(WireStream* absl_nonnull stream);
   void StopDispatchingFromAll();
 
-  [[nodiscard]] NodeMap* GetNodeMap() const { return node_map_; }
+  [[nodiscard]] NodeMap* absl_nullable GetNodeMap() const { return node_map_; }
 
-  [[nodiscard]] ActionRegistry* GetActionRegistry() const {
+  [[nodiscard]] ActionRegistry* absl_nullable GetActionRegistry() const {
     return action_registry_;
   }
 
-  void SetActionRegistry(ActionRegistry* action_registry) {
+  void SetActionRegistry(ActionRegistry* absl_nullable action_registry) {
     action_registry_ = action_registry;
   }
 
