@@ -141,10 +141,13 @@ class AsyncNode {
   friend AsyncNode& operator<<(AsyncNode& node, T value);
 
  private:
-  auto EnsureReader(bool ordered = false, bool remove_chunks = false,
-                    int n_chunks_to_buffer = -1) -> ChunkStoreReader*;
+  ChunkStoreReader* absl_nonnull EnsureReader(bool ordered = false,
+                                              bool remove_chunks = false,
+                                              int n_chunks_to_buffer = -1)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  auto EnsureWriter(int n_chunks_to_buffer = -1) -> ChunkStoreWriter*;
+  ChunkStoreWriter* absl_nonnull EnsureWriter(int n_chunks_to_buffer = -1)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   auto PutFragment(NodeFragment fragment, int seq_id = -1) -> absl::Status;
   auto PutChunk(Chunk chunk, int seq_id = -1, bool final = false)

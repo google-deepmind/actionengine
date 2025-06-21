@@ -74,23 +74,6 @@ class ChunkStoreReader {
     mu_.Lock();
   }
 
-  absl::Status Run() {
-    concurrency::MutexLock lock(&mu_);
-
-    if (fiber_ != nullptr) {
-      status_ =
-          absl::FailedPreconditionError("ChunkStoreReader is already running.");
-    } else {
-      status_ = absl::OkStatus();
-      fiber_ = concurrency::NewTree({}, [this] {
-        concurrency::MutexLock lock(&mu_);
-        RunPrefetchLoop();
-      });
-    }
-
-    return status_;
-  }
-
   template <typename T>
   std::optional<T> Next() {
     auto chunk = Next<Chunk>();
@@ -117,6 +100,21 @@ class ChunkStoreReader {
   }
 
  private:
+  absl::Status Run() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    if (fiber_ != nullptr) {
+      status_ =
+          absl::FailedPreconditionError("ChunkStoreReader is already running.");
+    } else {
+      status_ = absl::OkStatus();
+      fiber_ = concurrency::NewTree({}, [this] {
+        concurrency::MutexLock lock(&mu_);
+        RunPrefetchLoop();
+      });
+    }
+
+    return status_;
+  }
+
   absl::StatusOr<std::optional<std::pair<int, Chunk>>> NextInternal() const
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     const int next_read_offset = total_chunks_read_;

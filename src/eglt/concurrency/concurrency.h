@@ -72,9 +72,7 @@ class ABSL_SCOPED_LOCKABLE TwoMutexLock {
   }
 
   TwoMutexLock(const TwoMutexLock&) = delete;  // NOLINT(runtime/mutex)
-  TwoMutexLock(TwoMutexLock&&) = delete;       // NOLINT(runtime/mutex)
   TwoMutexLock& operator=(const TwoMutexLock&) = delete;
-  TwoMutexLock& operator=(TwoMutexLock&&) = delete;
 
   ~TwoMutexLock() ABSL_UNLOCK_FUNCTION() {
     if (ABSL_PREDICT_FALSE(mu1_ == mu2_)) {
@@ -101,6 +99,9 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
   ExclusiveAccessGuard(Mutex* absl_nonnull mutex, CondVar* absl_nonnull cv)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex)
       : mu_(mutex), cv_(cv) {}
+
+  ExclusiveAccessGuard(const ExclusiveAccessGuard&) = delete;
+  ExclusiveAccessGuard& operator=(const ExclusiveAccessGuard&) = delete;
 
   ~ExclusiveAccessGuard() {
     CHECK(pending_operations_ == 0) << "FinalizationGuard destroyed with "
@@ -177,6 +178,11 @@ class ABSL_SCOPED_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED EnsureExclusiveAccess {
     timed_out_ = guard_->WaitWithDeadline(deadline);
   }
 
+  EnsureExclusiveAccess(const EnsureExclusiveAccess&) = delete;
+  EnsureExclusiveAccess& operator=(const EnsureExclusiveAccess&) = delete;
+
+  ~EnsureExclusiveAccess() ABSL_UNLOCK_FUNCTION() { guard_->cv_->SignalAll(); }
+
   static EnsureExclusiveAccess WithDeadline(
       ExclusiveAccessGuard* absl_nonnull guard,
       absl::Time deadline) ABSL_NO_THREAD_SAFETY_ANALYSIS {
@@ -188,8 +194,6 @@ class ABSL_SCOPED_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED EnsureExclusiveAccess {
       absl::Duration timeout) ABSL_NO_THREAD_SAFETY_ANALYSIS {
     return EnsureExclusiveAccess(guard, absl::Now() + timeout);
   }
-
-  ~EnsureExclusiveAccess() ABSL_UNLOCK_FUNCTION() { guard_->cv_->SignalAll(); }
 
   [[nodiscard]] bool TimedOut() const { return timed_out_; }
 
@@ -210,6 +214,9 @@ class ABSL_SCOPED_LOCKABLE PreventExclusiveAccess {
       guard_->StartPendingOperation();
     }
   }
+
+  PreventExclusiveAccess(const PreventExclusiveAccess&) = delete;
+  PreventExclusiveAccess& operator=(const PreventExclusiveAccess&) = delete;
 
   ~PreventExclusiveAccess() ABSL_UNLOCK_FUNCTION() {
     if (retain_lock_) {

@@ -120,14 +120,18 @@ class WebsocketEvergreenServer {
   }
 
   ~WebsocketEvergreenServer() {
-    Cancel().IgnoreError();
-    Join().IgnoreError();
+    concurrency::MutexLock lock(&mu_);
+    CancelInternal().IgnoreError();
+    JoinInternal().IgnoreError();
     DLOG(INFO) << "WebsocketEvergreenServer::~WebsocketEvergreenServer()";
   }
 
   void Run() {
-    concurrency::MutexLock lock(&mu_);
+    concurrency::MutexLock l(&mu_);
+
     main_loop_ = concurrency::NewTree({}, [this]() {
+      concurrency::MutexLock lock(&mu_);
+
       while (!concurrency::Cancelled()) {
         boost::asio::ip::tcp::socket socket{
             boost::asio::make_strand(*util::GetDefaultAsioExecutionContext())};
@@ -140,37 +144,23 @@ class WebsocketEvergreenServer {
               error = ec;
               accepted.Notify();
             });
+
+        mu_.Unlock();
         concurrency::Select(
             {accepted.OnEvent(),
              concurrency::OnCancel()});  // Wait for accept to complete.
+        mu_.Lock();
 
-        {
-          concurrency::MutexLock cancellation_lock(&mu_);
-          cancelled_ = concurrency::Cancelled() ||
-                       error == boost::system::errc::operation_canceled ||
-                       cancelled_;
-          if (cancelled_) {
-            DLOG(INFO) << "WebsocketEvergreenServer canceled and is exiting "
-                          "its main loop";
-            break;
-          }
+        cancelled_ = concurrency::Cancelled() ||
+                     error == boost::system::errc::operation_canceled ||
+                     cancelled_;
+        if (cancelled_) {
+          DLOG(INFO) << "WebsocketEvergreenServer canceled and is exiting "
+                        "its main loop";
+          break;
         }
 
-        if (!error) {
-          auto stream =
-              std::make_unique<BoostWebsocketStream>(std::move(socket));
-          PrepareServerStream(stream.get()).IgnoreError();
-
-          auto connection = service_->EstablishConnection(
-              std::make_shared<WebsocketWireStream>(std::move(stream)));
-          if (!connection.ok()) {
-            status_ = connection.status();
-            DLOG(ERROR)
-                << "WebsocketEvergreenServer EstablishConnection failed: "
-                << status_;
-            // continuing here
-          }
-        } else {
+        if (error) {
           DLOG(ERROR) << "WebsocketEvergreenServer accept() failed: "
                       << error.message();
           switch (error.value()) {
@@ -185,6 +175,20 @@ class WebsocketEvergreenServer {
           // Any code reaching here means the service is shutting down.
           break;
         }
+
+        mu_.Unlock();
+        auto stream = std::make_unique<BoostWebsocketStream>(std::move(socket));
+        PrepareServerStream(stream.get()).IgnoreError();
+        auto connection = service_->EstablishConnection(
+            std::make_shared<WebsocketWireStream>(std::move(stream)));
+        mu_.Lock();
+
+        if (!connection.ok()) {
+          status_ = connection.status();
+          DLOG(ERROR) << "WebsocketEvergreenServer EstablishConnection failed: "
+                      << status_;
+          // continuing here
+        }
       }
       acceptor_->close();
     });
@@ -192,48 +196,53 @@ class WebsocketEvergreenServer {
 
   absl::Status Cancel() {
     concurrency::MutexLock lock(&mu_);
+    return CancelInternal();
+  }
+
+  absl::Status Join() {
+    concurrency::MutexLock lock(&mu_);
+    return JoinInternal();
+  }
+
+ private:
+  absl::Status CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (cancelled_) {
       return absl::OkStatus();
     }
     cancelled_ = true;
     DLOG(INFO) << "WebsocketEvergreenServer Cancel()";
-    boost::system::error_code error;
     acceptor_->close();
-    util::GetDefaultAsioExecutionContext()->stop();
+    // util::GetDefaultAsioExecutionContext()->stop();
     main_loop_->Cancel();
 
-    if (error) {
+    if (boost::system::error_code error; error) {
       status_ = absl::InternalError(error.message());
       return status_;
     }
 
     return absl::OkStatus();
   }
+  absl::Status JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    while (joining_) {
+      join_cv_.Wait(&mu_);
+    }
+    if (main_loop_ == nullptr) {
+      return status_;
+    }
+    joining_ = true;
 
-  absl::Status Join() {
-    {
-      concurrency::MutexLock lock(&mu_);
-      while (joining_) {
-        join_cv_.Wait(&mu_);
-      }
-      if (main_loop_ == nullptr) {
-        return status_;
-      }
-      joining_ = true;
-    }
+    mu_.Unlock();
     main_loop_->Join();
-    {
-      concurrency::MutexLock lock(&mu_);
-      main_loop_ = nullptr;
-      joining_ = false;
-      join_cv_.SignalAll();
-    }
+    mu_.Lock();
+
+    main_loop_ = nullptr;
+    joining_ = false;
+    join_cv_.SignalAll();
 
     DLOG(INFO) << "WebsocketEvergreenServer main_loop_ joined";
     return status_;
   }
 
- private:
   eglt::Service* absl_nonnull const service_;
   std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
 

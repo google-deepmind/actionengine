@@ -136,6 +136,7 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
 }
 
 ChunkStoreWriter& AsyncNode::GetWriter() ABSL_LOCKS_EXCLUDED(mu_) {
+  concurrency::MutexLock lock(&mu_);
   return *EnsureWriter();
 }
 

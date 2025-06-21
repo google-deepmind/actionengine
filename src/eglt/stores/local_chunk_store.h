@@ -16,7 +16,6 @@
 #define EGLT_STORES_LOCAL_CHUNK_STORE_H_
 
 #include <cstddef>
-#include <memory>
 
 #include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"

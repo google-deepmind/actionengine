@@ -91,7 +91,10 @@ class ChunkStoreWriter {
  private:
   void EnsureWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (fiber_ == nullptr && accepts_puts_) {
-      fiber_ = concurrency::NewTree({}, [this] { RunWriteLoop(); });
+      fiber_ = concurrency::NewTree({}, [this] {
+        concurrency::MutexLock lock(&mu_);
+        RunWriteLoop();
+      });
     }
   }
 
@@ -103,86 +106,65 @@ class ChunkStoreWriter {
     }
   }
 
-  void RunWriteLoop() {
+  void RunWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     while (!concurrency::Cancelled()) {
       std::optional<NodeFragment> next_fragment;
       bool ok;
 
-      if (concurrency::Select({buffer_.reader()->OnRead(&next_fragment, &ok),
-                               concurrency::OnCancel()}) == 1) {
-        {
-          concurrency::MutexLock lock(&mu_);
-          // status_ = absl::CancelledError("Cancelled.");
-          SafelyCloseBuffer();
-        }
-        // break;
+      mu_.Unlock();
+      concurrency::Select({buffer_.reader()->OnRead(&next_fragment, &ok),
+                           concurrency::OnCancel()});
+      mu_.Lock();
+
+      if (concurrency::Cancelled()) {
+        SafelyCloseBuffer();
       }
 
       // we only enter this case if the buffer is closed and empty,
       // so we're done.
       if (!ok) {
-        {
-          concurrency::MutexLock lock(&mu_);
-          status_ = absl::OkStatus();
-        }
+        status_ = absl::OkStatus();
         break;
       }
 
       // if we receive a nullopt, then we are done and can communicate this to
       // the fragment store and close writes to the buffer.
       if (!next_fragment.has_value()) {
-        {
-          concurrency::MutexLock lock(&mu_);
-          SafelyCloseBuffer();
-          status_ = absl::OkStatus();
-        }
+        SafelyCloseBuffer();
+        status_ = absl::OkStatus();
         break;
       }
 
-      if (!GetStatus().ok()) {
+      if (!status_.ok()) {
         break;
       }
 
+      mu_.Unlock();
       auto status = chunk_store_->Put(/*seq_id=*/next_fragment->seq,
                                       /*chunk=*/
                                       std::move(*next_fragment->chunk),
                                       /*final=*/
                                       !next_fragment->continued);
+      mu_.Lock();
+
       if (!status.ok()) {
-        {
-          concurrency::MutexLock lock(&mu_);
-          status_ = status;
-        }
+        status_ = status;
         break;
       }
 
       ++total_chunks_written_;
-      int final_seq_id;
-      {
-        concurrency::MutexLock lock(&mu_);
-        final_seq_id = final_seq_id_;
-      }
-      if (final_seq_id >= 0 && total_chunks_written_ > final_seq_id) {
-        {
-          concurrency::MutexLock lock(&mu_);
-          if (!buffer_writer_closed_) {
-            buffer_.writer()->WriteUnlessCancelled(std::nullopt);
-          }
+      if (final_seq_id_ >= 0 && total_chunks_written_ > final_seq_id_) {
+        if (!buffer_writer_closed_) {
+          buffer_.writer()->WriteUnlessCancelled(std::nullopt);
         }
       }
 
-      if (!GetStatus().ok()) {
+      if (!status_.ok()) {
         break;
       }
     }
-    concurrency::MutexLock lock(&mu_);
     accepts_puts_ = false;
     chunk_store_->NoFurtherPuts();
-  }
-
-  void UpdateStatus(const absl::Status& status) ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
-    status_ = status;
   }
 
   ChunkStore* absl_nonnull const chunk_store_ = nullptr;
@@ -255,10 +237,10 @@ template <>
 inline ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, Chunk value) {
   const bool final = value.IsNull();
   const auto seq = writer.Put(std::move(value), /*seq=*/-1, /*final=*/final);
-  if (!seq.ok()) {
-    LOG(ERROR) << "Failed to put chunk: " << seq.status();
-    writer.UpdateStatus(seq.status());
-  }
+  // if (!seq.ok()) {
+  //   LOG(ERROR) << "Failed to put chunk: " << seq.status();
+  //   writer.UpdateStatus(seq.status());
+  // }
 
   return writer;
 }

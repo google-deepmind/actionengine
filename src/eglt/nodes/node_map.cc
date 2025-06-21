@@ -90,7 +90,7 @@ AsyncNode& NodeMap::insert(std::string_view id, AsyncNode&& node) {
   return *nodes_[id];
 }
 
-bool NodeMap::contains(std::string_view id) {
+bool NodeMap::contains(std::string_view id) const {
   concurrency::MutexLock lock(&mu_);
   return nodes_.contains(id);
 }
