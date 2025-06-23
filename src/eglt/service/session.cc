@@ -54,21 +54,25 @@ ActionContext::~ActionContext() {
 }
 
 absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
-  concurrency::MutexLock lock(&mu_);
+  concurrency::MutexLock l(&mu_);
   if (cancelled_) {
     return absl::CancelledError("Action context is cancelled.");
   }
 
-  running_actions_[action.get()] =
+  Action* absl_nonnull action_ptr = action.get();
+  running_actions_[action_ptr] =
       concurrency::NewTree({}, [action = std::move(action), this]() mutable {
-        if (const auto run_status = action->Run(&cancellation_);
-            !run_status.ok()) {
-          LOG(ERROR) << "Failed to run action: " << run_status;
+        concurrency::MutexLock lock(&mu_);
+
+        {
+          concurrency::ScopedUnlock unlock(&mu_);
+          if (const auto run_status = action->Run(&cancellation_);
+              !run_status.ok()) {
+            LOG(ERROR) << "Failed to run action: " << run_status;
+          }
         }
-        concurrency::MutexLock cleanup_lock(&mu_);
-        Action* self_ptr = action.get();
-        action = nullptr;
-        concurrency::Detach(ExtractActionFiber(self_ptr));
+
+        concurrency::Detach(ExtractActionFiber(action.get()));
         cv_.SignalAll();
       });
 
