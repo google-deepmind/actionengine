@@ -52,7 +52,7 @@ WebRtcWireStream::WebRtcWireStream(
           return;
         }
 
-        uint64_t transient_id = GetTransientIdFromPacket(*packet);
+        const uint64_t transient_id = GetTransientIdFromPacket(*packet);
         auto& chunked_message = chunked_messages_[transient_id];
         if (!chunked_message) {
           chunked_message = std::make_unique<data::ChunkedBytes>();

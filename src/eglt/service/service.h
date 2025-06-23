@@ -122,7 +122,9 @@ class Service : public std::enable_shared_from_this<Service> {
   void CloseStreams() ABSL_LOCKS_EXCLUDED(mu_) {
     concurrency::MutexLock lock(&mu_);
     for (const auto& [_, stream] : streams_) {
-      stream->HalfClose();
+      if (const auto status = stream->HalfClose(); !status.ok()) {
+        DLOG(ERROR) << "Error while half-closing stream: " << status.message();
+      }
     }
   }
 
@@ -164,7 +166,9 @@ class Service : public std::enable_shared_from_this<Service> {
     }
 
     if (extracted_stream != nullptr) {
-      extracted_stream->HalfClose();
+      if (const auto status = extracted_stream->HalfClose(); !status.ok()) {
+        DLOG(ERROR) << "Error while closing stream: " << status.message();
+      }
     }
     // extracted_stream.reset();
 

@@ -129,9 +129,12 @@ class PyWireStream final : public WireStream {
     return absl::OkStatus();
   }
 
-  void HalfClose() override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyWireStream, "close", Close, );
+  absl::Status HalfClose() override {
+    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyWireStream, "close",
+                                HalfClose, );
   }
+
+  void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override {}
 
   absl::Status GetStatus() const override {
     PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyWireStream, "get_status",

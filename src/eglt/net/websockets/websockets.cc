@@ -63,8 +63,8 @@ absl::Status WebsocketWireStream::Accept() {
   return stream_.Accept();
 }
 
-void WebsocketWireStream::HalfClose() {
-  stream_.Close().IgnoreError();
+absl::Status WebsocketWireStream::HalfClose() {
+  return stream_.Close();
 }
 
 }  // namespace eglt::net

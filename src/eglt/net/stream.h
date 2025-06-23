@@ -52,7 +52,14 @@ class WireStream {
   virtual auto Start() -> absl::Status = 0;
   //! Initiates a graceful shutdown of the stream. Should be called from the
   //! client first.
-  virtual auto HalfClose() -> void = 0;
+  virtual auto HalfClose() -> absl::Status = 0;
+
+  //! Registers a callback to be called when the stream is half-closed by the
+  //! other end. This callback will be invoked with a pointer to the WireStream
+  //! that was half-closed. This callback must NOT call HalfClose() on the
+  /// stream itself.
+  virtual auto OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn)
+      -> void = 0;
 
   //! Returns the status of the last send operation.
   virtual auto GetStatus() const -> absl::Status = 0;

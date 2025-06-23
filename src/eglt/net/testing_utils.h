@@ -75,8 +75,9 @@ class PairableInMemoryStream final : public WireStream {
     return partner_->AcknowledgeAccept();
   }
 
-  void HalfClose() override {
+  absl::Status HalfClose() override {
     PairableInMemoryStream* partner = nullptr;
+    absl::Status status;
     {
       concurrency::MutexLock lock(&mu_);
       partner = partner_;
@@ -92,10 +93,11 @@ class PairableInMemoryStream final : public WireStream {
         concurrency::TwoMutexLock lock(&mu_, &partner->mu_);
         partner->partner_ = nullptr;
       }
-      partner->HalfClose();
+      status = partner->HalfClose();
     }
 
     recv_queue_.writer()->Close();
+    return status;
   }
 
   [[nodiscard]] std::string_view GetId() const override { return id_; }

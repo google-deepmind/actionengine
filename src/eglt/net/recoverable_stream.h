@@ -150,17 +150,36 @@ class RecoverableStream final : public eglt::WireStream {
     return (*stream)->Start();
   }
 
-  void HalfClose() override {
+  absl::Status HalfClose() override {
     concurrency::MutexLock lock(&mu_);
 
     auto stream = GetObservedStream();
     if (!stream.ok()) {
       LOG(ERROR) << "Trying to half-close unavailable stream: "
                  << stream.status();
+      return stream.status();
+    }
+    if (auto s = (*stream)->HalfClose(); !s.ok()) {
+      return s;
+    }
+    half_closed_ = true;
+    return absl::OkStatus();
+  }
+
+  void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override {
+    concurrency::MutexLock lock(&mu_);
+
+    auto stream = GetObservedStream();
+    if (!stream.ok()) {
+      LOG(ERROR) << "Trying to set half-close callback on unavailable stream: "
+                 << stream.status();
       return;
     }
-    (*stream)->HalfClose();
-    half_closed_ = true;
+
+    CHECK(*stream != nullptr)
+        << "Cannot set half-close callback on a null stream";
+
+    (*stream)->OnHalfClose(std::move(fn));
   }
 
   [[nodiscard]] absl::Status GetStatus() const override {

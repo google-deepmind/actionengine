@@ -53,7 +53,11 @@ class WebsocketWireStream final : public WireStream {
 
   absl::Status Accept() override;
 
-  void HalfClose() override;
+  absl::Status HalfClose() override;
+
+  void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override {
+    half_close_callback_ = std::move(fn);
+  }
 
   absl::Status GetStatus() const override { return status_; }
 
@@ -74,6 +78,8 @@ class WebsocketWireStream final : public WireStream {
   std::string id_;
 
   absl::Status status_;
+  absl::AnyInvocable<void(WireStream*)> half_close_callback_ = [](WireStream*) {
+  };
 };
 
 class WebsocketEvergreenServer {

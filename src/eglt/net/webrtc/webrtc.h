@@ -29,6 +29,7 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
 class WebRtcWireStream final : public WireStream {
  public:
   static constexpr int kBufferSize = 256;
+  static constexpr absl::Duration kHalfCloseTimeout = absl::Seconds(5);
 
   explicit WebRtcWireStream(
       std::shared_ptr<rtc::DataChannel> data_channel,
@@ -39,10 +40,62 @@ class WebRtcWireStream final : public WireStream {
   absl::Status Send(SessionMessage message) override;
 
   std::optional<SessionMessage> Receive() override {
+    const absl::Time now = absl::Now();
+    concurrency::MutexLock lock(&mu_);
+
+    const absl::Time deadline =
+        !half_closed_ ? absl::InfiniteFuture() : now + kHalfCloseTimeout;
+
     SessionMessage message;
-    if (!recv_channel_.reader()->Read(&message)) {
+    bool ok;
+
+    mu_.Unlock();
+    const int selected = concurrency::SelectUntil(
+        deadline, {recv_channel_.reader()->OnRead(&message, &ok)});
+    mu_.Lock();
+
+    if (selected == 0 && !ok) {
       return std::nullopt;
     }
+
+    if (message.actions.empty() && message.node_fragments.empty() ||
+        selected == -1) {
+      // If the message is empty, it means the stream was half-closed by the
+      // other end, or the other end has acknowledged our half-close.
+
+      if (selected == -1 && half_closed_) {
+        LOG(INFO) << "No acknowledgement received for a previous half-close "
+                     "message within the timeout period. ";
+      }
+
+      // Check this because we might have already closed the channel due to
+      // an error or onClosed() for the underlying data channel.
+      if (!closed_) {
+        CHECK(recv_channel_.length() == 0)
+            << "WebRtcWireStream received a half-close message, but there are "
+               "still messages in the receive channel. This should not happen.";
+        recv_channel_.writer()->Close();
+      }
+
+      if (half_closed_) {
+        // We initiated the half-close, so we don't need to call the
+        // half-close callback, only to acknowledge
+        return std::nullopt;
+      }
+
+      auto half_close_callback = std::move(half_close_callback_);
+      mu_.Unlock();
+      half_close_callback(this);
+      mu_.Lock();
+
+      if (const auto status = HalfCloseInternal(); !status.ok()) {
+        LOG(ERROR) << "WebRtcWireStream HalfCloseInternal failed: "
+                   << status.message();
+      }
+
+      return std::nullopt;
+    }
+
     return std::move(message);
   }
 
@@ -50,7 +103,18 @@ class WebRtcWireStream final : public WireStream {
 
   absl::Status Accept() override { return absl::OkStatus(); }
 
-  void HalfClose() override { data_channel_->close(); }
+  absl::Status HalfClose() override {
+    concurrency::MutexLock lock(&mu_);
+    return HalfCloseInternal();
+  }
+
+  void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override {
+    concurrency::MutexLock lock(&mu_);
+    CHECK(!half_closed_)
+        << "WebRtcWireStream::OnHalfClose called after the stream was already "
+           "half-closed";
+    half_close_callback_ = std::move(fn);
+  }
 
   absl::Status GetStatus() const override {
     concurrency::MutexLock lock(&mu_);
@@ -64,6 +128,16 @@ class WebRtcWireStream final : public WireStream {
   }
 
  private:
+  absl::Status HalfCloseInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    if (half_closed_) {
+      return absl::FailedPreconditionError(
+          "WebRtcWireStream already half-closed");
+    }
+
+    half_closed_ = true;
+    return absl::OkStatus();
+  }
+
   void CloseOnError(absl::Status status) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     LOG(ERROR) << "WebRtcWireStream error: " << status.message();
     closed_ = true;
@@ -88,6 +162,10 @@ class WebRtcWireStream final : public WireStream {
 
   bool opened_ ABSL_GUARDED_BY(mu_) = false;
   bool closed_ ABSL_GUARDED_BY(mu_) = false;
+
+  bool half_closed_ ABSL_GUARDED_BY(mu_) = false;
+  absl::AnyInvocable<void(WireStream*)> half_close_callback_ = [](WireStream*) {
+  };
 };
 
 class SignallingClient;

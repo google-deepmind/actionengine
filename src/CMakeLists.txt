@@ -1,3 +1,5 @@
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness")
+
 set(
         EGLT_ABSL_DEPENDENCIES
         absl::base
