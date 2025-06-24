@@ -181,7 +181,7 @@ class Action : public std::enable_shared_from_this<Action> {
                   std::vector<Port> inputs = {}, std::vector<Port> outputs = {})
       : schema_(std::move(schema)),
         id_(id.empty() ? GenerateUUID4() : std::string(id)),
-        cancelled_(std::make_unique<concurrency::PermanentEvent>()) {
+        cancelled_(std::make_unique<thread::PermanentEvent>()) {
     ActionMessage message = schema_.GetActionMessage(id_);
 
     std::vector<Port>& input_parameters =
@@ -491,8 +491,8 @@ class Action : public std::enable_shared_from_this<Action> {
    * @return
    *   The status returned by the action handler.
    */
-  absl::Status Run(concurrency::PermanentEvent* absl_nullable
-                       cancelled_externally = nullptr) {
+  absl::Status Run(
+      thread::PermanentEvent* absl_nullable cancelled_externally = nullptr) {
     concurrency::MutexLock lock(&mu_);
     bind_streams_on_inputs_default_ = false;
     bind_streams_on_outputs_default_ = true;
@@ -521,9 +521,9 @@ class Action : public std::enable_shared_from_this<Action> {
     cancelled_->Notify();
   }
 
-  concurrency::Case OnCancel() const { return cancelled_->OnEvent(); }
+  thread::Case OnCancel() const { return cancelled_->OnEvent(); }
 
-  concurrency::Case OnExternalCancel() const {
+  thread::Case OnExternalCancel() const {
     if (cancelled_externally_ == nullptr) {
       return concurrency::NonSelectableCase();
     }
@@ -586,8 +586,8 @@ class Action : public std::enable_shared_from_this<Action> {
   absl::flat_hash_set<AsyncNode*> nodes_with_bound_streams_
       ABSL_GUARDED_BY(mu_);
 
-  std::unique_ptr<concurrency::PermanentEvent> cancelled_;
-  concurrency::PermanentEvent* absl_nullable cancelled_externally_ = nullptr;
+  std::unique_ptr<thread::PermanentEvent> cancelled_;
+  thread::PermanentEvent* absl_nullable cancelled_externally_ = nullptr;
 };
 
 inline std::unique_ptr<Action> ActionRegistry::MakeAction(

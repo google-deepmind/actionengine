@@ -23,21 +23,20 @@ struct SessionMessageWithAddress {
 
 class BackgroundReceiver {
  public:
-  explicit BackgroundReceiver(WireStream* absl_nonnull stream,
-                              concurrency::Writer<SessionMessageWithAddress>*
-                                  absl_nonnull receive_into) {
-    receiver_fiber_ =
-        std::make_unique<concurrency::Fiber>([stream, receive_into]() {
-          while (!concurrency::Cancelled()) {
-            std::optional<SessionMessage> message = stream->Receive();
-            const bool is_null = !message.has_value();
-            receive_into->WriteUnlessCancelled(
-                {.message = std::move(message), .sender_id = stream->GetId()});
-            if (is_null) {
-              break;
-            }
-          }
-        });
+  explicit BackgroundReceiver(
+      WireStream* absl_nonnull stream,
+      thread::Writer<SessionMessageWithAddress>* absl_nonnull receive_into) {
+    receiver_fiber_ = std::make_unique<thread::Fiber>([stream, receive_into]() {
+      while (!thread::Cancelled()) {
+        std::optional<SessionMessage> message = stream->Receive();
+        const bool is_null = !message.has_value();
+        receive_into->WriteUnlessCancelled(
+            {.message = std::move(message), .sender_id = stream->GetId()});
+        if (is_null) {
+          break;
+        }
+      }
+    });
   }
   ~BackgroundReceiver() {
     receiver_fiber_->Cancel();
@@ -45,17 +44,17 @@ class BackgroundReceiver {
   }
 
  private:
-  std::unique_ptr<concurrency::Fiber> receiver_fiber_;
+  std::unique_ptr<thread::Fiber> receiver_fiber_;
 };
 
 class BufferedSender {
  public:
   explicit BufferedSender(WireStream* absl_nonnull stream,
-                          concurrency::Reader<SessionMessage>* absl_nonnull
+                          thread::Reader<SessionMessage>* absl_nonnull
                               send_from)
       : writer_fiber_(
-            std::make_unique<concurrency::Fiber>([stream, send_from, this]() {
-              while (!concurrency::Cancelled()) {
+            std::make_unique<thread::Fiber>([stream, send_from, this]() {
+              while (!thread::Cancelled()) {
                 SessionMessage message;
                 if (!send_from->Read(&message)) {
                   break;
@@ -78,7 +77,7 @@ class BufferedSender {
     writer_fiber_->Join();
   }
 
-  concurrency::Case OnFailed() const { return failed_event_.OnEvent(); }
+  thread::Case OnFailed() const { return failed_event_.OnEvent(); }
 
   absl::Status GetStatus() const {
     concurrency::MutexLock lock(&mu_);
@@ -86,9 +85,9 @@ class BufferedSender {
   }
 
  private:
-  std::unique_ptr<concurrency::Fiber> writer_fiber_;
+  std::unique_ptr<thread::Fiber> writer_fiber_;
   absl::Status status_;
-  concurrency::PermanentEvent failed_event_{};
+  thread::PermanentEvent failed_event_{};
 
   mutable concurrency::Mutex mu_;
 };
@@ -116,7 +115,7 @@ class WirePeer {
 
  private:
   std::unique_ptr<WireStream> stream_;
-  concurrency::Channel<SessionMessage> send_queue_{1024};
+  thread::Channel<SessionMessage> send_queue_{1024};
 
   BackgroundReceiver receiver_;
   BufferedSender sender_;

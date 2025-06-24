@@ -68,13 +68,13 @@ class LocalChunkStore final : public ChunkStore {
 
     absl::Status status;
     while (!chunks_.contains(seq_id) && !no_further_puts_ &&
-           !concurrency::Cancelled()) {
+           !thread::Cancelled()) {
       if (cv_.WaitWithTimeout(&mu_, timeout)) {
         status = absl::DeadlineExceededError(
             absl::StrCat("Timed out waiting for seq_id: ", seq_id));
         break;
       }
-      if (concurrency::Cancelled()) {
+      if (thread::Cancelled()) {
         status = absl::CancelledError(
             absl::StrCat("Cancelled waiting for seq_id: ", seq_id));
         break;
@@ -110,14 +110,14 @@ class LocalChunkStore final : public ChunkStore {
 
     absl::Status status;
     while (!arrival_order_to_seq_id_.contains(arrival_offset) &&
-           !no_further_puts_ && !concurrency::Cancelled()) {
+           !no_further_puts_ && !thread::Cancelled()) {
 
       if (cv_.WaitWithTimeout(&mu_, timeout)) {
         status = absl::DeadlineExceededError(absl::StrCat(
             "Timed out waiting for arrival offset: ", arrival_offset));
         break;
       }
-      if (concurrency::Cancelled()) {
+      if (thread::Cancelled()) {
         status = absl::CancelledError(absl::StrCat(
             "Cancelled waiting for arrival offset: ", arrival_offset));
         break;

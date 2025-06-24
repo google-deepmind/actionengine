@@ -35,7 +35,7 @@ template <typename Invocable, typename ExecutionContext,
 auto RunInAsioContext(ExecutionContext& context, Invocable&& fn,
                       concurrency::impl::CaseArray additional_cases = {}) {
   std::optional<decltype(fn())> result;
-  concurrency::PermanentEvent done;
+  thread::PermanentEvent done;
   boost::asio::post(context,
                     [&done, &result, fn = std::forward<Invocable>(fn)]() {
                       result = fn();
@@ -44,7 +44,7 @@ auto RunInAsioContext(ExecutionContext& context, Invocable&& fn,
 
   auto cases = std::move(additional_cases);
   cases.push_back(done.OnEvent());
-  concurrency::Select(cases);
+  thread::Select(cases);
 
   return *result;
 }
@@ -63,7 +63,7 @@ template <typename ExecutionContext>
 void RunInAsioContext(ExecutionContext& context,
                       absl::AnyInvocable<void()>&& fn,
                       concurrency::impl::CaseArray additional_cases = {}) {
-  concurrency::PermanentEvent done;
+  thread::PermanentEvent done;
   boost::asio::post(context, [&done, &fn]() {
     fn();
     done.Notify();
@@ -71,7 +71,7 @@ void RunInAsioContext(ExecutionContext& context,
 
   auto cases = std::move(additional_cases);
   cases.push_back(done.OnEvent());
-  concurrency::Select(cases);
+  thread::Select(cases);
 }
 
 void RunInAsioContext(absl::AnyInvocable<void()>&& fn,

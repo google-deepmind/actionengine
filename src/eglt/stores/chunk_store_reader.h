@@ -51,7 +51,7 @@ class ChunkStoreReader {
         remove_chunks_(remove_chunks),
         n_chunks_to_buffer_(n_chunks_to_buffer),
         timeout_(timeout),
-        buffer_(concurrency::Channel<std::optional<std::pair<int, Chunk>>>(
+        buffer_(thread::Channel<std::optional<std::pair<int, Chunk>>>(
             n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {}
 
   // This class is not copyable or movable.
@@ -64,7 +64,7 @@ class ChunkStoreReader {
       return;
     }
 
-    const std::unique_ptr<concurrency::Fiber> fiber = std::move(fiber_);
+    const std::unique_ptr<thread::Fiber> fiber = std::move(fiber_);
     fiber_ = nullptr;
 
     fiber->Cancel();
@@ -146,7 +146,7 @@ class ChunkStoreReader {
   }
 
   void RunPrefetchLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    while (!concurrency::Cancelled()) {
+    while (!thread::Cancelled()) {
       if (const auto final_seq_id = chunk_store_->GetFinalSeqId();
           final_seq_id >= 0 && total_chunks_read_ > final_seq_id) {
         status_ = absl::OkStatus();
@@ -214,8 +214,8 @@ class ChunkStoreReader {
   const int n_chunks_to_buffer_;
   const absl::Duration timeout_;
 
-  std::unique_ptr<concurrency::Fiber> fiber_;
-  concurrency::Channel<std::optional<std::pair<int, Chunk>>> buffer_;
+  std::unique_ptr<thread::Fiber> fiber_;
+  thread::Channel<std::optional<std::pair<int, Chunk>>> buffer_;
   bool buffer_closed_ = false;
   int total_chunks_read_ = 0;
 
@@ -232,7 +232,7 @@ inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next()
   std::optional<std::pair<int, Chunk>> seq_and_chunk;
   bool ok;
   mu_.Unlock();
-  const int selected = concurrency::SelectUntil(
+  const int selected = thread::SelectUntil(
       absl::Now() + timeout_,
       {buffer_.reader()->OnRead(&seq_and_chunk, &ok), concurrency::OnCancel()});
   mu_.Lock();

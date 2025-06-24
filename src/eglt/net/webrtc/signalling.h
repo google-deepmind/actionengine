@@ -34,7 +34,7 @@ class SignallingClient {
     on_answer_ = std::move(on_answer);
   }
 
-  concurrency::Case OnError() const { return error_event_.OnEvent(); }
+  thread::Case OnError() const { return error_event_.OnEvent(); }
 
   absl::Status GetStatus() const {
     concurrency::MutexLock lock(&mu_);
@@ -78,7 +78,7 @@ class SignallingClient {
   std::unique_ptr<thread::Fiber> loop_;
   absl::Status loop_status_ ABSL_GUARDED_BY(mu_);
   mutable concurrency::Mutex mu_;
-  concurrency::PermanentEvent error_event_;
+  thread::PermanentEvent error_event_;
 };
 
 }  // namespace eglt::net

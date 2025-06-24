@@ -72,7 +72,7 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
           }
         }
 
-        concurrency::Detach(ExtractActionFiber(action.get()));
+        thread::Detach(ExtractActionFiber(action.get()));
         cv_.SignalAll();
       });
 
@@ -134,7 +134,7 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
           }
         }
 
-        std::unique_ptr<concurrency::Fiber> dispatcher_fiber;
+        std::unique_ptr<thread::Fiber> dispatcher_fiber;
         {
           concurrency::MutexLock cleanup_lock(&mu_);
           if (const auto node = dispatch_tasks_.extract(stream.get());
@@ -145,7 +145,7 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
         if (dispatcher_fiber == nullptr) {
           return;
         }
-        concurrency::Detach(std::move(dispatcher_fiber));
+        thread::Detach(std::move(dispatcher_fiber));
       }));
 }
 
@@ -182,7 +182,7 @@ absl::Status Session::DispatchMessage(
 }
 
 void Session::StopDispatchingFrom(WireStream* absl_nonnull stream) {
-  std::unique_ptr<concurrency::Fiber> task;
+  std::unique_ptr<thread::Fiber> task;
   {
     concurrency::MutexLock lock(&mu_);
     if (const auto node = dispatch_tasks_.extract(stream); !node.empty()) {
@@ -206,7 +206,7 @@ void Session::StopDispatchingFromAll() {
 void Session::JoinDispatchers(bool cancel) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   joined_ = true;
 
-  std::vector<std::unique_ptr<concurrency::Fiber>> tasks_to_join;
+  std::vector<std::unique_ptr<thread::Fiber>> tasks_to_join;
   for (auto& [_, task] : dispatch_tasks_) {
     tasks_to_join.push_back(std::move(task));
   }

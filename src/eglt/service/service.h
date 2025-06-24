@@ -175,7 +175,7 @@ class Service : public std::enable_shared_from_this<Service> {
     extracted_node_map.reset();
     auto fiber = connection_fibers_.extract(connection.stream_id);
     if (!fiber.empty() && fiber.mapped() != nullptr) {
-      concurrency::Detach(std::move(fiber.mapped()));
+      thread::Detach(std::move(fiber.mapped()));
     }
   }
 
@@ -196,11 +196,11 @@ class Service : public std::enable_shared_from_this<Service> {
       connections_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>>
       streams_per_session_ ABSL_GUARDED_BY(mu_);
-  absl::flat_hash_map<std::string, std::unique_ptr<concurrency::Fiber>>
+  absl::flat_hash_map<std::string, std::unique_ptr<thread::Fiber>>
       connection_fibers_ ABSL_GUARDED_BY(mu_);
 
   bool cleanup_started_ ABSL_GUARDED_BY(mu_) = false;
-  concurrency::PermanentEvent cleanup_done_;
+  thread::PermanentEvent cleanup_done_;
 };
 
 }  // namespace eglt

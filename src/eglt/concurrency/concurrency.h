@@ -267,7 +267,7 @@ inline int SelectWithScopedUnlock(Mutex* absl_nonnull mu,
                                   const CaseArray& cases)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
   mu->Unlock();
-  const int selected = concurrency::Select(cases);
+  const int selected = thread::Select(cases);
   mu->Lock();
   return selected;
 }
@@ -282,7 +282,7 @@ inline int SelectWithScopedUnlockUntil(Mutex* absl_nonnull mu,
                                        const CaseArray& cases)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
   mu->Unlock();
-  const int selected = concurrency::SelectUntil(deadline, cases);
+  const int selected = thread::SelectUntil(deadline, cases);
   mu->Lock();
   return selected;
 }

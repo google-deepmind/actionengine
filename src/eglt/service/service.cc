@@ -33,7 +33,7 @@ absl::Status RunSimpleEvergreenSession(
     const std::shared_ptr<WireStream>& stream, Session* absl_nonnull session) {
   const auto owned_stream = stream;
   absl::Status status;
-  while (!concurrency::Cancelled()) {
+  while (!thread::Cancelled()) {
     std::optional<SessionMessage> message = owned_stream->Receive();
     if (!message.has_value()) {
       break;
@@ -41,7 +41,7 @@ absl::Status RunSimpleEvergreenSession(
     status = session->DispatchMessage(message.value(), owned_stream);
   }
 
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     status = absl::CancelledError("Service is shutting down.");
   }
 
@@ -202,7 +202,7 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
 
 absl::Status Service::JoinConnection(
     StreamToSessionConnection* absl_nonnull connection) {
-  std::unique_ptr<concurrency::Fiber> fiber(nullptr);
+  std::unique_ptr<thread::Fiber> fiber(nullptr);
 
   // Extract connection and fiber from the map, so we can join them outside
   // the lock with a guarantee that they are not modified while we are trying.
@@ -240,14 +240,14 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
   concurrency::MutexLock lock(&mu_);
   if (cleanup_started_) {
     mu_.Unlock();
-    concurrency::Select({cleanup_done_.OnEvent()});
+    thread::Select({cleanup_done_.OnEvent()});
     mu_.Lock();
     return;
   }
 
   cleanup_started_ = true;
 
-  absl::flat_hash_map<std::string, std::unique_ptr<concurrency::Fiber>> fibers =
+  absl::flat_hash_map<std::string, std::unique_ptr<thread::Fiber>> fibers =
       std::move(connection_fibers_);
   connection_fibers_.clear();
 

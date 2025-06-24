@@ -155,16 +155,16 @@ TEST(RecoverableStreamTest, SendingWaitsForRecovery) {
 
   // Try to send a message while the stream is unavailable. This should
   // block until the stream is recovered.
-  eglt::concurrency::PermanentEvent sent;
-  eglt::concurrency::Fiber fiber([&stream2_recoverable, &message, &sent]() {
+  thread::PermanentEvent sent;
+  thread::Fiber fiber([&stream2_recoverable, &message, &sent]() {
     EXPECT_OK(stream2_recoverable.Send(message));
     sent.Notify();
   });
 
   // Wait for a short time to check that the send operation is blocked.
   // Status should be unavailable and IsLost should be true.
-  int selected = eglt::concurrency::SelectUntil(
-      absl::Now() + absl::Seconds(0.01), {sent.OnEvent()});
+  int selected =
+      thread::SelectUntil(absl::Now() + absl::Seconds(0.01), {sent.OnEvent()});
   EXPECT_THAT(selected, Eq(-1));  // No event should be selected yet because
                                   // stream2 is unavailable.
   EXPECT_THAT(stream2_recoverable.GetStatus(),
@@ -176,8 +176,8 @@ TEST(RecoverableStreamTest, SendingWaitsForRecovery) {
   stream2_recoverable.RecoverAndNotify();
   EXPECT_OK(stream2_recoverable.GetStatus());
   EXPECT_FALSE(stream2_recoverable.IsLost());
-  selected = eglt::concurrency::SelectUntil(absl::Now() + absl::Seconds(0.01),
-                                            {sent.OnEvent()});
+  selected =
+      thread::SelectUntil(absl::Now() + absl::Seconds(0.01), {sent.OnEvent()});
   EXPECT_TRUE(selected == 0);  // The send operation should complete now.
   fiber.Join();
 
@@ -221,15 +221,15 @@ TEST(RecoverableStreamTest, SendingFailsOnTimeout) {
   // Try to send a message while the stream is unavailable. This should
   // block until the stream is recovered.
   absl::Status send_status;
-  auto fiber = std::make_unique<eglt::concurrency::Fiber>(
+  auto fiber = std::make_unique<thread::Fiber>(
       [&stream2_recoverable, &message, &send_status]() {
         send_status = stream2_recoverable.Send(message);
       });
 
   // Wait for twice the timeout to check that the send operation is completed
   // with a timeout.
-  int selected = eglt::concurrency::SelectUntil(absl::Now() + 2 * timeout,
-                                                {fiber->OnJoinable()});
+  int selected =
+      thread::SelectUntil(absl::Now() + 2 * timeout, {fiber->OnJoinable()});
   EXPECT_THAT(selected, Eq(0));  // operation should be completed
   EXPECT_TRUE(stream2_recoverable.IsLost());
   EXPECT_THAT(send_status, StatusIs(absl::StatusCode::kDeadlineExceeded));
@@ -240,12 +240,11 @@ TEST(RecoverableStreamTest, SendingFailsOnTimeout) {
   stream2_recoverable.RecoverAndNotify();
   EXPECT_OK(stream2_recoverable.GetStatus());
   EXPECT_FALSE(stream2_recoverable.IsLost());
-  fiber = std::make_unique<eglt::concurrency::Fiber>(
+  fiber = std::make_unique<thread::Fiber>(
       [&stream2_recoverable, &message, &send_status]() {
         send_status = stream2_recoverable.Send(message);
       });
-  selected = eglt::concurrency::SelectUntil(absl::Now() + timeout,
-                                            {fiber->OnJoinable()});
+  selected = thread::SelectUntil(absl::Now() + timeout, {fiber->OnJoinable()});
   EXPECT_TRUE(selected == 0);  // operation should be completed
   EXPECT_OK(send_status);
   EXPECT_OK(stream2_recoverable.GetStatus());
@@ -295,15 +294,15 @@ TEST(RecoverableStreamTest, TimeoutEventFires) {
   // Try to send a message while the stream is unavailable. This should
   // block until the stream is recovered.
   absl::Status send_status;
-  auto fiber = std::make_unique<eglt::concurrency::Fiber>(
+  auto fiber = std::make_unique<thread::Fiber>(
       [&stream2_recoverable, &message, &send_status]() {
         send_status = stream2_recoverable.Send(message);
       });
 
   // Wait for twice the timeout to check that the send operation is completed
   // with a timeout.
-  int selected = eglt::concurrency::SelectUntil(
-      absl::Now() + 2 * timeout, {stream2_recoverable.OnTimeout()});
+  int selected = thread::SelectUntil(absl::Now() + 2 * timeout,
+                                     {stream2_recoverable.OnTimeout()});
 
   EXPECT_THAT(selected, Eq(0));  // timeout event should be selected
 

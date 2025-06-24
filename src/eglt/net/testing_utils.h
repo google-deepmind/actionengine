@@ -138,7 +138,7 @@ class PairableInMemoryStream final : public WireStream {
   PairableInMemoryStream* partner_ ABSL_GUARDED_BY(mu_){nullptr};
 
   bool half_closed_ ABSL_GUARDED_BY(mu_){false};
-  concurrency::Channel<SessionMessage> recv_queue_{128};
+  thread::Channel<SessionMessage> recv_queue_{128};
 };
 
 }  // namespace eglt::testing

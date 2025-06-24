@@ -102,7 +102,7 @@ absl::Status ResolveAndConnect(ExecutionContext& context,
   boost::system::error_code error;
   boost::asio::ip::tcp::resolver resolver(context);
 
-  concurrency::PermanentEvent resolve_done;
+  thread::PermanentEvent resolve_done;
   boost::asio::ip::tcp::resolver::results_type endpoints;
   resolver.async_resolve(
       address, std::to_string(port),
@@ -114,9 +114,9 @@ absl::Status ResolveAndConnect(ExecutionContext& context,
         endpoints = std::move(async_results);
         resolve_done.Notify();
       });
-  concurrency::Select({resolve_done.OnEvent(), concurrency::OnCancel()});
+  thread::Select({resolve_done.OnEvent(), thread::OnCancel()});
 
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     resolver.cancel();
     stream->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both,
                                   error);
@@ -128,7 +128,7 @@ absl::Status ResolveAndConnect(ExecutionContext& context,
   }
 
   boost::asio::ip::tcp::endpoint endpoint;
-  concurrency::PermanentEvent connect_done;
+  thread::PermanentEvent connect_done;
   boost::asio::async_connect(
       stream->next_layer(), endpoints,
       [&error, &connect_done, &endpoint](
@@ -138,9 +138,9 @@ absl::Status ResolveAndConnect(ExecutionContext& context,
         endpoint = std::move(async_endpoint);
         connect_done.Notify();
       });
-  concurrency::Select({connect_done.OnEvent(), concurrency::OnCancel()});
+  thread::Select({connect_done.OnEvent(), concurrency::OnCancel()});
 
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     stream->next_layer().cancel();
     stream->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both,
                                   error);

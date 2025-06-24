@@ -196,7 +196,7 @@ absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
   auto connection = std::make_unique<rtc::PeerConnection>(std::move(config));
 
   std::shared_ptr<rtc::DataChannel> data_channel;
-  concurrency::PermanentEvent data_channel_event;
+  thread::PermanentEvent data_channel_event;
 
   signalling_client.OnOffer(
       [&connection, &client_id](std::string_view id,
@@ -283,9 +283,9 @@ absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
         data_channel_event.Notify();
       });
 
-  const int selected = concurrency::Select({data_channel_event.OnEvent(),
-                                            signalling_client.OnError(),
-                                            concurrency::OnCancel()});
+  const int selected =
+      thread::Select({data_channel_event.OnEvent(), signalling_client.OnError(),
+                      concurrency::OnCancel()});
 
   // Callbacks need to be cleaned up before returning, because they use
   // local variables that will be destroyed when this function returns.
@@ -299,7 +299,7 @@ absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
   if (selected == 1) {
     return signalling_client.GetStatus();
   }
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     return absl::CancelledError("WebRtcWireStream connection cancelled");
   }
 
@@ -387,7 +387,7 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
   auto data_channel =
       connection->createDataChannel(std::string(identity), std::move(init));
 
-  concurrency::PermanentEvent opened;
+  thread::PermanentEvent opened;
   data_channel->onOpen([&opened]() { opened.Notify(); });
 
   // Send connection offer to the server.
@@ -406,12 +406,12 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     }
   }
 
-  const int selected = concurrency::Select(
+  const int selected = thread::Select(
       {opened.OnEvent(), signalling_client.OnError(), concurrency::OnCancel()});
   if (selected == 1) {
     return signalling_client.GetStatus();
   }
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     return absl::CancelledError("WebRtcWireStream connection cancelled");
   }
 
@@ -420,7 +420,7 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
   signalling_client.Cancel();
   signalling_client.Join();
 
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     return absl::CancelledError("WebRtcWireStream connection cancelled");
   }
 
@@ -476,7 +476,7 @@ absl::Status WebRtcEvergreenServer::JoinInternal()
         "joined server.");
   }
 
-  const std::unique_ptr<concurrency::Fiber> main_loop = std::move(main_loop_);
+  const std::unique_ptr<thread::Fiber> main_loop = std::move(main_loop_);
   main_loop_ = nullptr;
 
   mu_.Unlock();
@@ -512,13 +512,13 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     DLOG(INFO) << "WebRtcEvergreenServer RunLoop waiting for new "
                   "connections.";
     mu_.Unlock();
-    const int selected = concurrency::Select(
-        {channel_reader->OnRead(&next_connection, &channel_open),
-         signalling_client->OnError(), concurrency::OnCancel()});
+    const int selected =
+        thread::Select({channel_reader->OnRead(&next_connection, &channel_open),
+                        signalling_client->OnError(), concurrency::OnCancel()});
     mu_.Lock();
 
     // Check if our fiber has been cancelled, which means we should stop.
-    if (concurrency::Cancelled()) {
+    if (thread::Cancelled()) {
       LOG(INFO) << "WebRtcEvergreenServer RunLoop cancelled.";
       break;
     }

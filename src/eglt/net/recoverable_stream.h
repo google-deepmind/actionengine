@@ -19,7 +19,7 @@ class RecoverableStream final : public eglt::WireStream {
       : get_stream_(std::move(get_stream)),
         id_(!id.empty() ? id : GenerateUUID4()),
         timeout_(timeout),
-        timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
+        timeout_event_(std::make_unique<thread::PermanentEvent>()) {}
 
   explicit RecoverableStream(std::unique_ptr<WireStream> stream = nullptr,
                              std::string_view id = "",
@@ -27,7 +27,7 @@ class RecoverableStream final : public eglt::WireStream {
       : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
         id_(!id.empty() ? id : GenerateUUID4()),
         timeout_(timeout),
-        timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
+        timeout_event_(std::make_unique<thread::PermanentEvent>()) {}
 
   explicit RecoverableStream(std::shared_ptr<WireStream> stream,
                              std::string_view id = "",
@@ -35,7 +35,7 @@ class RecoverableStream final : public eglt::WireStream {
       : get_stream_([stream = std::move(stream)]() { return stream.get(); }),
         id_(!id.empty() ? id : GenerateUUID4()),
         timeout_(timeout),
-        timeout_event_(std::make_unique<concurrency::PermanentEvent>()) {}
+        timeout_event_(std::make_unique<thread::PermanentEvent>()) {}
 
   ~RecoverableStream() override {
     CloseAndNotify(/*ignore_lost=*/false);
@@ -52,7 +52,7 @@ class RecoverableStream final : public eglt::WireStream {
         << "Recoverable stream is not closed after waiting for pending IO";
   }
 
-  [[nodiscard]] concurrency::Case OnTimeout() const {
+  [[nodiscard]] thread::Case OnTimeout() const {
     concurrency::MutexLock lock(&mu_);
     return timeout_event_->OnEvent();
   }
@@ -63,7 +63,7 @@ class RecoverableStream final : public eglt::WireStream {
       get_stream_ = std::move(new_get_stream);
     }
     lost_ = false;
-    timeout_event_ = std::make_unique<concurrency::PermanentEvent>();
+    timeout_event_ = std::make_unique<thread::PermanentEvent>();
     cv_.SignalAll();
   }
 
@@ -258,8 +258,7 @@ class RecoverableStream final : public eglt::WireStream {
   bool half_closed_ ABSL_GUARDED_BY(mu_){false};
   bool closed_ ABSL_GUARDED_BY(mu_){false};
   bool lost_ ABSL_GUARDED_BY(mu_){false};
-  std::unique_ptr<concurrency::PermanentEvent> timeout_event_
-      ABSL_GUARDED_BY(mu_);
+  std::unique_ptr<thread::PermanentEvent> timeout_event_ ABSL_GUARDED_BY(mu_);
 
   mutable concurrency::Mutex mu_;
   mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);

@@ -50,7 +50,7 @@ class WebRtcWireStream final : public WireStream {
     bool ok;
 
     mu_.Unlock();
-    const int selected = concurrency::SelectUntil(
+    const int selected = thread::SelectUntil(
         deadline, {recv_channel_.reader()->OnRead(&message, &ok)});
     mu_.Lock();
 
@@ -154,7 +154,7 @@ class WebRtcWireStream final : public WireStream {
   const std::string id_;
   std::shared_ptr<rtc::PeerConnection> connection_;
   std::shared_ptr<rtc::DataChannel> data_channel_;
-  concurrency::Channel<SessionMessage> recv_channel_{kBufferSize};
+  thread::Channel<SessionMessage> recv_channel_{kBufferSize};
 
   absl::flat_hash_map<uint64_t, std::unique_ptr<data::ChunkedBytes>>
       chunked_messages_ ABSL_GUARDED_BY(mu_) = {};
@@ -212,9 +212,9 @@ class WebRtcEvergreenServer {
   const uint16_t signalling_port_;
   const std::string signalling_identity_;
 
-  concurrency::Channel<WebRtcDataChannelConnection> ready_data_connections_;
+  thread::Channel<WebRtcDataChannelConnection> ready_data_connections_;
   concurrency::Mutex mu_;
-  std::unique_ptr<concurrency::Fiber> main_loop_;
+  std::unique_ptr<thread::Fiber> main_loop_;
 };
 
 absl::StatusOr<std::unique_ptr<WebRtcWireStream>> AcceptStreamFromSignalling(

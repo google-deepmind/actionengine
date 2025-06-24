@@ -56,8 +56,8 @@ class ActionContext {
  private:
   void CancelContextImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  std::unique_ptr<concurrency::Fiber> ExtractActionFiber(
-      Action* absl_nonnull action) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  std::unique_ptr<thread::Fiber> ExtractActionFiber(Action* absl_nonnull action)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     const auto map_node = running_actions_.extract(action);
     CHECK(!map_node.empty())
         << "Running action not found in session it was created in.";
@@ -93,9 +93,9 @@ class ActionContext {
   }
 
   concurrency::Mutex mu_;
-  absl::flat_hash_map<Action*, std::unique_ptr<concurrency::Fiber>>
-      running_actions_ ABSL_GUARDED_BY(mu_);
-  concurrency::PermanentEvent cancellation_;
+  absl::flat_hash_map<Action*, std::unique_ptr<thread::Fiber>> running_actions_
+      ABSL_GUARDED_BY(mu_);
+  thread::PermanentEvent cancellation_;
   bool cancelled_;
   concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
 };
@@ -146,7 +146,7 @@ class Session {
 
   concurrency::Mutex mu_{};
   bool joined_ ABSL_GUARDED_BY(mu_) = false;
-  absl::flat_hash_map<WireStream*, std::unique_ptr<concurrency::Fiber>>
+  absl::flat_hash_map<WireStream*, std::unique_ptr<thread::Fiber>>
       dispatch_tasks_ ABSL_GUARDED_BY(mu_){};
 
   NodeMap* absl_nonnull const node_map_;

@@ -207,7 +207,7 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
 TEST(ChunkStoreTest, OrderedReaderBlocksUntilChunksArrive) {
   eglt::LocalChunkStore chunk_store;
 
-  eglt::concurrency::Fiber::Current();
+  thread::Fiber::Current();
 
   auto writer = std::make_unique<eglt::ChunkStoreWriter>(&chunk_store);
   auto reader = std::make_unique<eglt::ChunkStoreReader>(

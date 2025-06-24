@@ -173,7 +173,7 @@ absl::Status FiberAwareWebsocketStream::Write(
   write_pending_ = true;
 
   boost::system::error_code error;
-  concurrency::PermanentEvent write_done;
+  thread::PermanentEvent write_done;
   stream_->binary(true);
   stream_->async_write(
       boost::asio::buffer(message_bytes),
@@ -183,12 +183,12 @@ absl::Status FiberAwareWebsocketStream::Write(
       });
 
   mu_.Unlock();
-  concurrency::Select({write_done.OnEvent()});
+  thread::Select({write_done.OnEvent()});
   mu_.Lock();
   write_pending_ = false;
   cv_.SignalAll();
 
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     if (stream_->is_open()) {
       stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_send,
                                      error);
@@ -228,7 +228,7 @@ absl::Status FiberAwareWebsocketStream::WriteText(
   write_pending_ = true;
 
   boost::system::error_code error;
-  concurrency::PermanentEvent write_done;
+  thread::PermanentEvent write_done;
   stream_->async_write(
       boost::asio::buffer(message),
       [&error, &write_done](const boost::system::error_code& ec, std::size_t) {
@@ -237,12 +237,12 @@ absl::Status FiberAwareWebsocketStream::WriteText(
       });
 
   mu_.Unlock();
-  concurrency::Select({write_done.OnEvent()});
+  thread::Select({write_done.OnEvent()});
   mu_.Lock();
   write_pending_ = false;
   cv_.SignalAll();
 
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     if (stream_->is_open()) {
       stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_send,
                                      error);
@@ -285,7 +285,7 @@ absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept
 
   boost::system::error_code error;
 
-  concurrency::PermanentEvent close_done;
+  thread::PermanentEvent close_done;
   stream_->async_close(
       boost::beast::websocket::close_code::normal,
       [&error, &close_done](const boost::system::error_code& async_error) {
@@ -294,7 +294,7 @@ absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept
       });
 
   mu_.Unlock();
-  concurrency::Select({close_done.OnEvent()});
+  thread::Select({close_done.OnEvent()});
   mu_.Lock();
 
   return absl::OkStatus();
@@ -309,7 +309,7 @@ absl::Status ResolveAndConnect(BoostWebsocketStream* stream,
 absl::Status DoHandshake(BoostWebsocketStream* stream, std::string_view host,
                          std::string_view target) {
   boost::system::error_code error;
-  concurrency::PermanentEvent handshake_done;
+  thread::PermanentEvent handshake_done;
   stream->async_handshake(
       host, target,
       [&error, &handshake_done](const boost::system::error_code& ec) {
@@ -317,7 +317,7 @@ absl::Status DoHandshake(BoostWebsocketStream* stream, std::string_view host,
         handshake_done.Notify();
       });
 
-  concurrency::Select({handshake_done.OnEvent()});
+  thread::Select({handshake_done.OnEvent()});
   if (error == boost::beast::websocket::error::closed ||
       error == boost::system::errc::operation_canceled) {
     return absl::CancelledError("WsHandshake cancelled");
@@ -340,7 +340,7 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
   stream_->write_buffer_bytes(16);
 
   boost::system::error_code error;
-  concurrency::PermanentEvent accept_done;
+  thread::PermanentEvent accept_done;
 
   stream_->async_accept(
       [&error, &accept_done](const boost::system::error_code& ec) {
@@ -349,10 +349,10 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
       });
 
   mu_.Unlock();
-  concurrency::Select({accept_done.OnEvent(), concurrency::OnCancel()});
+  thread::Select({accept_done.OnEvent(), concurrency::OnCancel()});
   mu_.Lock();
 
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     if (stream_->is_open()) {
       stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_receive,
                                      error);
@@ -397,7 +397,7 @@ absl::Status FiberAwareWebsocketStream::Read(
   read_pending_ = true;
 
   boost::system::error_code error;
-  concurrency::PermanentEvent read_done;
+  thread::PermanentEvent read_done;
   std::vector<uint8_t> temp_buffer;
   temp_buffer.reserve(64);  // Reserve some space to avoid some reallocations
   auto dynamic_buffer = boost::asio::dynamic_buffer(temp_buffer);
@@ -409,13 +409,13 @@ absl::Status FiberAwareWebsocketStream::Read(
       });
 
   mu_.Unlock();
-  concurrency::Select({read_done.OnEvent()});
+  thread::Select({read_done.OnEvent()});
   mu_.Lock();
   *buffer = std::move(temp_buffer);
   read_pending_ = false;
   cv_.SignalAll();
 
-  if (concurrency::Cancelled()) {
+  if (thread::Cancelled()) {
     if (stream_->is_open()) {
       stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_receive,
                                      error);

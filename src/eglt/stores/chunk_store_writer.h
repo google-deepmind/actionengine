@@ -39,7 +39,7 @@ class ChunkStoreWriter {
                             int n_chunks_to_buffer = -1)
       : chunk_store_(chunk_store),
         n_chunks_to_buffer_(n_chunks_to_buffer),
-        buffer_(concurrency::Channel<std::optional<NodeFragment>>(
+        buffer_(thread::Channel<std::optional<NodeFragment>>(
             n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {
     accepts_puts_ = true;
   }
@@ -55,7 +55,7 @@ class ChunkStoreWriter {
     if (fiber_ == nullptr) {
       return;
     }
-    const std::unique_ptr<concurrency::Fiber> fiber = std::move(fiber_);
+    const std::unique_ptr<thread::Fiber> fiber = std::move(fiber_);
     fiber_ = nullptr;
 
     fiber->Cancel();
@@ -107,16 +107,16 @@ class ChunkStoreWriter {
   }
 
   void RunWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    while (!concurrency::Cancelled()) {
+    while (!thread::Cancelled()) {
       std::optional<NodeFragment> next_fragment;
       bool ok;
 
       mu_.Unlock();
-      concurrency::Select({buffer_.reader()->OnRead(&next_fragment, &ok),
-                           concurrency::OnCancel()});
+      thread::Select({buffer_.reader()->OnRead(&next_fragment, &ok),
+                      concurrency::OnCancel()});
       mu_.Lock();
 
-      if (concurrency::Cancelled()) {
+      if (thread::Cancelled()) {
         SafelyCloseBuffer();
       }
 
@@ -178,8 +178,8 @@ class ChunkStoreWriter {
 
   int total_chunks_written_ = 0;
 
-  std::unique_ptr<concurrency::Fiber> fiber_ ABSL_GUARDED_BY(mu_);
-  concurrency::Channel<std::optional<NodeFragment>> buffer_;
+  std::unique_ptr<thread::Fiber> fiber_ ABSL_GUARDED_BY(mu_);
+  thread::Channel<std::optional<NodeFragment>> buffer_;
   absl::Status status_ ABSL_GUARDED_BY(mu_);
 
   mutable concurrency::Mutex mu_;
