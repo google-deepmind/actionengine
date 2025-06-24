@@ -40,10 +40,10 @@ struct ChannelWaiterState {
   // are guaranteed to be pickable.
   // Returns false with no side effects otherwise.
   // REQUIRES: reader != nullptr, writer != nullptr
-  bool GetMatchingReader(CaseState* writer, CaseState** reader) const
+  bool GetMatchingReader(const CaseState* writer, CaseState** reader) const
       ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*reader)->sel->mu,
                                       writer->sel->mu);
-  bool GetMatchingWriter(CaseState* reader, CaseState** writer) const
+  bool GetMatchingWriter(const CaseState* reader, CaseState** writer) const
       ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->sel->mu,
                                       (*writer)->sel->mu);
 

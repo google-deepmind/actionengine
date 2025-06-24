@@ -59,7 +59,7 @@ void ChannelWaiterState::CloseAndReleaseReaders() {
 // true with both selectors held if both cases are eligible for selection and
 // belong to different Select statements. Returns false with no locks held
 // otherwise.
-static bool StartTransfer(CaseState* reader, CaseState* writer)
+static bool StartTransfer(const CaseState* reader, const CaseState* writer)
     ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->sel->mu, writer->sel->mu) {
   if (writer->sel == reader->sel) {
     // Cannot transfer if both reader and writer are part of
@@ -68,10 +68,10 @@ static bool StartTransfer(CaseState* reader, CaseState* writer)
   }
 
   // Order the selector locks by address and grab both.
-  internal::Selector* s1;
-  internal::Selector* s2;
-  s1 = (reader->sel < writer->sel ? reader->sel : writer->sel);
-  s2 = (reader->sel < writer->sel ? writer->sel : reader->sel);
+  internal::Selector* s1 =
+      (reader->sel < writer->sel ? reader->sel : writer->sel);
+  internal::Selector* s2 =
+      (reader->sel < writer->sel ? writer->sel : reader->sel);
 
   s1->mu.Lock();
   if (s1->picked == Selector::kNonePicked) {
@@ -97,7 +97,7 @@ void ChannelWaiterState::UnlockAndReleaseWriter(CaseState* writer)
   writer->sel->mu.Unlock();
 }
 
-bool ChannelWaiterState::GetMatchingReader(CaseState* writer,
+bool ChannelWaiterState::GetMatchingReader(const CaseState* writer,
                                            CaseState** reader) const {
   if (CaseState* current_reader = waiting_readers_; current_reader != nullptr) {
     do {
@@ -112,7 +112,7 @@ bool ChannelWaiterState::GetMatchingReader(CaseState* writer,
   return false;
 }
 
-bool ChannelWaiterState::GetMatchingWriter(CaseState* reader,
+bool ChannelWaiterState::GetMatchingWriter(const CaseState* reader,
                                            CaseState** writer) const {
   if (CaseState* current_writer = waiting_writers_; current_writer != nullptr) {
     do {

@@ -30,6 +30,8 @@ target_sources(
         thread_on_boost/select.cc
         thread_on_boost/select-internal.h
         thread_on_boost/selectables.cc
+        thread_on_boost/thread_pool.cc
+        thread_on_boost/thread_pool.h
         thread_on_boost/util.cc
 )
 target_sources(

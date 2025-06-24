@@ -16,6 +16,7 @@
 #define THREAD_FIBER_FIBER_H_
 
 #include <atomic>
+#include <concepts>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
@@ -31,34 +32,17 @@ namespace thread {
 
 class TreeOptions {};
 
-// The basic unit of work.
-using Invocable = absl::AnyInvocable<void() &&>;
+using InvocableWork = absl::AnyInvocable<void() &&>;
 
-// Creates an Invocable, checking that it actually returns void.
-template <typename F, typename = std::invoke_result_t<F>>
-Invocable MakeInvocable(F&& f) {
-  static_assert(std::is_void_v<std::invoke_result_t<std::decay_t<F>>>,
-                "Functions passed to MakeInvocable must return void.");
-  return Invocable(std::forward<F>(f));
-}
+template <typename F>
+concept InvocableWithNoArgsAndReturnsVoid =
+    std::is_invocable_v<std::decay_t<F>> &&
+    std::is_same_v<std::invoke_result_t<F>, void>;
 
-// A private scope to ensure that only Fiber internals can access the intrusive
-// cancellation list.
-class CancellationList {
-  struct Tag {};
-
-  friend class Fiber;
-};
-
-template <typename Algo, typename... Args>
-static void EnsureThreadHasScheduler(Args&&... args) {
-  thread_local bool kThreadHasScheduler = false;
-  if (kThreadHasScheduler) {
-    return;
-  }
-
-  boost::fibers::use_scheduling_algorithm<Algo>(std::forward<Args>(args)...);
-  kThreadHasScheduler = true;
+template <typename F>
+InvocableWork MakeInvocable(F&& f) requires
+    InvocableWithNoArgsAndReturnsVoid<F> {
+  return InvocableWork(std::forward<F>(f));
 }
 
 class Fiber;
@@ -77,18 +61,16 @@ class FiberProperties final : public boost::fibers::fiber_properties {
 };
 
 namespace internal {
-std::unique_ptr<Fiber> CreateTree(Invocable f, TreeOptions&& tree_options);
+std::unique_ptr<Fiber> CreateTree(InvocableWork f, TreeOptions&& tree_options);
 }
 
 Fiber* GetPerThreadFiberPtr();
 
 class Fiber {
  public:
-  template <typename F,
-            // Avoid binding Fiber(const Fiber&) or Fiber(Fiber):
-            typename = std::invoke_result_t<F>>
-  explicit Fiber(F&& f)
-      : Fiber(Unstarted{}, MakeInvocable(std::forward<F>(f))) {
+  template <typename F>
+  explicit Fiber(F&& f) requires InvocableWithNoArgsAndReturnsVoid<F>
+      : Fiber(Unstarted{}, {std::forward<F>(f)}) {
     Start();
   }
 
@@ -101,15 +83,8 @@ class Fiber {
   // Return a pointer to the currently running fiber.
   static Fiber* Current();
 
-  // Wait until *this and all of its descendants have finished running. When a
-  // fiber is created with one of the constructors above, its Join() method must
-  // be called before it may be destructed. Second and further calls to Join()
-  // are no-ops.
-  //
-  // REQUIRES: Must be called by the parent, unless this is a root fiber.
-  void Join();
-
   void Cancel();
+  void Join();
 
   bool Cancelled() const { return cancellation_.HasBeenNotified(); }
   Case OnCancel() const { return cancellation_.OnEvent(); }
@@ -121,14 +96,13 @@ class Fiber {
   // to call Start() on the fiber.
   struct Unstarted {};
 
-  // Internal c'tor for Fibers.
-  explicit Fiber(Unstarted, Invocable invocable,
+  // Internal constructor for root fibers.
+  explicit Fiber(Unstarted, InvocableWork work, TreeOptions&& tree_options);
+  // Internal constructor for child fibers.
+  explicit Fiber(Unstarted, InvocableWork work,
                  Fiber* absl_nonnull parent = Current());
-  // Internal c'tor for root fibers.
-  explicit Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options);
 
   void Start();
-  void Body();
   bool MarkFinished();
   void MarkJoined();
   void InternalJoin();
@@ -163,7 +137,7 @@ class Fiber {
 
   mutable eglt::concurrency::impl::Mutex mu_;
 
-  Invocable work_;
+  InvocableWork work_;
   boost::intrusive_ptr<boost::fibers::context> context_;
 
   // Whether this Fiber is self-joining. This is always set under lock, but is
@@ -183,7 +157,7 @@ class Fiber {
   PermanentEvent joinable_;
 
   friend std::unique_ptr<Fiber> internal::CreateTree(
-      Invocable f, TreeOptions&& tree_options);
+      InvocableWork f, TreeOptions&& tree_options);
 
   friend struct PerThreadDynamicFiber;
   friend bool IsFiberDetached(const Fiber* fiber);
@@ -191,7 +165,7 @@ class Fiber {
 };
 
 namespace internal {
-inline std::unique_ptr<Fiber> CreateTree(Invocable f,
+inline std::unique_ptr<Fiber> CreateTree(InvocableWork f,
                                          TreeOptions&& tree_options) {
   const auto fiber =
       new Fiber(Fiber::Unstarted{}, std::move(f), std::move(tree_options));

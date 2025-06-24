@@ -27,12 +27,12 @@ namespace thread {
 // annotations may be added.
 namespace internal {
 struct Selector {
-  eglt::concurrency::impl::Mutex mu;
   int picked;  // kNonePicked until a case is picked, or index of picked case
-  eglt::concurrency::impl::CondVar
-      cv;  // Select() call waits on this until picked >= 0
 
-  // The implementation reserves picked values <0 for internal use.
+  eglt::concurrency::impl::Mutex mu;
+  eglt::concurrency::impl::CondVar cv
+      ABSL_GUARDED_BY(mu);  // Select() call waits on this until picked >= 0
+
   // External callers (e.g. Selectable::Handle)) may set (non-negative) picked
   // iff
   //  i. mu is held
@@ -47,7 +47,7 @@ class Selectable;
 // and untyped arguments for it specific to this case. Not in the internal
 // namespace since callers can pass around and copy objects of this type, though
 // they are not allowed to assume anything about its internals.
-struct ABSL_MUST_USE_RESULT Case {
+struct [[nodiscard]] Case {
   internal::Selectable* event;
   intptr_t arg1;  // Optional
   intptr_t arg2;  // Optional
@@ -60,6 +60,7 @@ struct ABSL_MUST_USE_RESULT Case {
   Case& operator=(const Case&) = default;
 
   // Disallow casting from bool
+  // ReSharper disable once CppNonExplicitConvertingConstructor
   Case(bool, intptr_t = 0, intptr_t = 0) = delete;
 };
 
@@ -68,6 +69,16 @@ struct ABSL_MUST_USE_RESULT Case {
 typedef absl::InlinedVector<Case, 4> CaseArray;
 
 namespace internal {
+
+inline bool Pick(Selector* sel, int index)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(sel->mu) {
+  if (sel->picked != Selector::kNonePicked) {
+    return false;  // Already picked.
+  }
+  sel->picked = index;
+  sel->cv.Signal();
+  return true;
+}
 
 // A CaseState is the encapsulation of a Case that is passed back to
 // Selectable::Handle(...) from Select (specifically, the selectable identified
@@ -82,10 +93,11 @@ namespace internal {
 // notes on Selectable::Handle below. Once enqueued, the Selectable is
 // responsible for synchronizing any modifications.
 struct CaseState {
-  const Case* params;       // Initialized by Select()
-  int index;                // Provided by Select(): index in parameter list.
-  internal::Selector* sel;  // Provided by Select(): owning selector.
-  CaseState* prev;          // Initialized by Select(), nullptr -> not on list.
+  const Case* params;  // Initialized by Select()
+  int index;           // Provided by Select(): index in parameter list.
+  internal::Selector* absl_nonnull
+      sel;          // Provided by Select(): owning selector.
+  CaseState* prev;  // Initialized by Select(), nullptr -> not on list.
   CaseState* next;
 
   // Attempt to cause the owning Selector to choose this case. Returns true if
@@ -94,15 +106,8 @@ struct CaseState {
   //
   // After the caller releases sel->mu, this object is no longer guaranteed to
   // continue to exist.
-  bool Pick() ABSL_EXCLUSIVE_LOCKS_REQUIRED(sel->mu) {
-    DCHECK(sel != nullptr);
-    if (sel->picked != internal::Selector::kNonePicked) {
-      return false;
-    }
-
-    sel->picked = index;
-    sel->cv.Signal();
-    return true;
+  bool Pick() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(sel->mu) {
+    return internal::Pick(sel, index);
   }
 };
 

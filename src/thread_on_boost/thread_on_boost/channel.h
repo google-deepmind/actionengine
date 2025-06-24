@@ -24,16 +24,13 @@
 namespace thread {
 
 template <class T>
-class Channel;
+requires std::is_move_assignable_v<T> class Channel;
 
 template <class T>
 class Reader {
  public:
-  // This type is neither copyable nor movable.
   Reader(const Reader&) = delete;
   Reader& operator=(const Reader&) = delete;
-
-  typedef T ValueType;
 
   // Block until either
   // (a) the next item has been read into *item; returns true.
@@ -63,11 +60,8 @@ class Reader {
 template <class T>
 class Writer {
  public:
-  // This type is neither copyable nor movable.
   Writer(const Writer&) = delete;
   Writer& operator=(const Writer&) = delete;
-
-  typedef T ValueType;
 
   // Blocks until the channel is able to accept a value (for a description of
   // buffering see Channel()) and writes "item" to the channel.
@@ -138,21 +132,8 @@ class Writer {
 };
 
 template <class T>
-class Channel {
-  // Check that the type is a complete type. `std::is_move_assignable` will
-  // always fail for incomplete types, so the following `static_assert` will
-  // always fail when this assert fails. This assert exists simply to provide a
-  // better error message.
-  static_assert(sizeof(T), "Channel<T> must have a complete type T.");
-  // Check the type requirements documented at the top of this file.
-  static_assert(std::is_move_assignable_v<T>,
-                "Channel<T> requires T to be MoveAssignable.");
-
+requires std::is_move_assignable_v<T> class Channel {
  public:
-  typedef Reader<T> ReaderType;
-  typedef Writer<T> WriterType;
-  typedef T ValueType;
-
   // Buffered channels ("buffer_capacity" > 0) behave like a producer-consumer
   // queue into which up to "buffer_capacity" items may be queued. Memory
   // usage is proportional to the number of items buffered, not the capacity.

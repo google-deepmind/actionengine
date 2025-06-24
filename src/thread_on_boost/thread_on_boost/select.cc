@@ -23,20 +23,9 @@
 
 namespace thread {
 
-// Block until a case has been picked or the deadline passes. If deadline is
-// a nullptr, block until a case has been picked. Returns whether a case
-// was picked before the deadline passed.
-//
-// This blocking is handled using sel's internal condition variable.
-// Note that we always use this path when the Select call is non-expiring.
 inline bool CvBlock(absl::Time deadline, internal::Selector* sel)
     ABSL_SHARED_LOCKS_REQUIRED(sel->mu) {
-  // We must first check that no notification occurred between registration
-  // with Handle and reaching here.
   while (sel->picked == internal::Selector::kNonePicked) {
-    // Note that implementations of WaitGeneric below are allowed to return
-    // true (indicating timeout) when racing with Signal().  To handle this we
-    // re-check against sel.picked before returning expiring_index.
     if (sel->cv.WaitWithDeadline(&sel->mu, deadline) &&
         sel->picked == internal::Selector::kNonePicked) {
       return false;
@@ -64,22 +53,22 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
     case_states[swap].index = i;
   }
 
-  const bool blocking = deadline != absl::InfinitePast();
+  const bool need_to_block = deadline != absl::InfinitePast();
   bool ready = false;
   int registered_limit;
-  for (registered_limit = 0; registered_limit < num_cases; registered_limit++) {
+  for (registered_limit = 0; registered_limit < num_cases; ++registered_limit) {
     internal::CaseState* case_state = &case_states[registered_limit];
     const Case* assoc_case = &cases[case_state->index];
     case_state->params = assoc_case;
     case_state->prev = nullptr;  // Not on any list.
     case_state->sel = &sel;
-    if (assoc_case->event->Handle(case_state, /*enqueue=*/blocking)) {
+    if (assoc_case->event->Handle(case_state, /*enqueue=*/need_to_block)) {
       ready = true;
       break;
     }
   }
 
-  if (!blocking) {
+  if (!need_to_block) {
     // Do not wait. Also, no need to Unregister() any cases since
     // we passed enqueue=false to each Handle() above.
     const int picked = ready ? sel.picked : -1;
@@ -102,8 +91,8 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
   // there was no non-blocking index and that we attempted to enqueue against
   // all cases with index smaller than registered_limit.
   for (int i = 0; i < registered_limit; i++) {
-    internal::CaseState* case_state = &case_states[i];
-    if (case_state->index != sel.picked) {
+    if (internal::CaseState* case_state = &case_states[i];
+        case_state->index != sel.picked) {
       // sel.picked was unregistered by the notifier.
       case_state->params->event->Unregister(case_state);
     }

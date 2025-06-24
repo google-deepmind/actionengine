@@ -23,11 +23,10 @@
 #include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/select.h"
-#include "thread_on_boost/util.h"
+#include "thread_on_boost/thread_pool.h"
 
 namespace thread {
 
-// static
 bool IsFiberDetached(const Fiber* fiber) {
   return ABSL_TS_UNCHECKED_READ(fiber->detached_)
       .load(std::memory_order_relaxed);
@@ -50,91 +49,8 @@ struct PerThreadDynamicFiber {
 
 static thread_local PerThreadDynamicFiber kPerThreadDynamicFiber;
 
-class WorkerThreadPool {
- public:
-  explicit WorkerThreadPool() = default;
-
-  void Start(size_t num_threads = std::thread::hardware_concurrency()) {
-    eglt::concurrency::impl::MutexLock lock(&mu_);
-    schedulers_.resize(num_threads);
-    std::latch latch(num_threads);
-    for (size_t idx = 0; idx < num_threads; ++idx) {
-      Worker worker{
-          .thread = std::thread([this, idx, &latch] {
-            EnsureThreadHasScheduler<boost::fibers::algo::shared_work>(
-                /*suspend=*/true);
-            schedulers_[idx] =
-                boost::fibers::context::active()->get_scheduler();
-            latch.count_down();
-            // TODO: cancellation
-            while (!Cancelled()) {
-              boost::fibers::context::active()->suspend();
-            }
-            DLOG(INFO) << absl::StrFormat("Worker %zu exiting.", idx);
-          }),
-      };
-      workers_.push_back(std::move(worker));
-    }
-    latch.wait();
-
-    for (auto& [thread] : workers_) {
-      thread.detach();
-    }
-  }
-
-  void Schedule(boost::fibers::context* ctx) {
-    size_t worker_idx =
-        worker_idx_.fetch_add(1, std::memory_order_relaxed) % workers_.size();
-
-    const auto active_ctx = boost::fibers::context::active();
-
-    if (!schedule_on_self_) {
-      while (schedulers_[worker_idx] == active_ctx->get_scheduler()) {
-        worker_idx = Rand32() % workers_.size();
-      }
-    }
-
-    if (schedulers_[worker_idx] == active_ctx->get_scheduler()) {
-      active_ctx->attach(ctx);
-      schedulers_[worker_idx]->schedule(ctx);
-    } else {
-      {
-        eglt::concurrency::impl::MutexLock lock(&mu_);
-        schedulers_[worker_idx]->attach_worker_context(ctx);
-        schedulers_[worker_idx]->schedule_from_remote(ctx);
-      }
-    }
-  }
-
-  static WorkerThreadPool& Instance() {
-    static WorkerThreadPool instance;
-    if (instance.workers_.empty()) {
-      instance.Start();
-    }
-    return instance;
-  }
-
- private:
-  struct Worker {
-    std::thread thread;
-  };
-
-  bool schedule_on_self_ = true;
-
-  eglt::concurrency::impl::Mutex mu_;
-  std::atomic<size_t> worker_idx_{0};
-  absl::InlinedVector<Worker, 16> workers_;
-  absl::InlinedVector<boost::fibers::scheduler*, 16> schedulers_;
-};
-
-static absl::once_flag kInitWorkerThreadPoolFlag;
-
-static void InitWorkerThreadPool() {
-  WorkerThreadPool::Instance();
-}
-
-Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
-    : work_(std::move(invocable)),
+Fiber::Fiber(Unstarted, InvocableWork work, Fiber* parent)
+    : work_(std::move(work)),
       parent_(parent),
       next_sibling_(this),
       prev_sibling_(this) {
@@ -149,15 +65,29 @@ Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
   }
 }
 
-Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
-    : work_(std::move(invocable)),
+Fiber::Fiber(Unstarted, InvocableWork work, TreeOptions&& tree_options)
+    : work_(std::move(work)),
       parent_(nullptr),
       next_sibling_(this),
       prev_sibling_(this) {}
 
 void Fiber::Start() {
-  absl::call_once(kInitWorkerThreadPoolFlag, InitWorkerThreadPool);
+  EnsureWorkerThreadPool();
   EnsureThreadHasScheduler<boost::fibers::algo::round_robin>();
+
+  auto body = [this]() {
+    std::move(work_)();
+    work_ = nullptr;
+
+    if (MarkFinished()) {
+      // MarkFinished returns whether the fiber was detached when finished.
+      // Detached fibers are self-joining.
+      InternalJoin();
+      context_.detach();
+      delete this;
+    }
+  };
+
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.
@@ -165,21 +95,8 @@ void Fiber::Start() {
       boost::fibers::launch::post, new FiberProperties(this),
       boost::fibers::make_stack_allocator_wrapper<
           boost::fibers::pooled_fixedsize_stack>(),
-      absl::bind_front(&Fiber::Body, this));
+      std::move(body));
   WorkerThreadPool::Instance().Schedule(context_.get());
-}
-
-void Fiber::Body() {
-  std::move(work_)();
-  work_ = nullptr;
-
-  if (MarkFinished()) {
-    // MarkFinished returns whether the fiber was detached when finished.
-    // Detached fibers are self-joining.
-    InternalJoin();
-    context_.detach();
-    delete this;
-  }
 }
 
 Fiber::~Fiber() {
@@ -221,7 +138,8 @@ Fiber* Fiber::Current() {
 
   // We only reach here if we're 1) not under any Fiber, 2) this thread does not
   // yet have a thread-local fiber. We can (and should) create and return it.
-  kPerThreadDynamicFiber.f = new Fiber(Unstarted{}, Invocable(), TreeOptions{});
+  kPerThreadDynamicFiber.f =
+      new Fiber(Unstarted{}, InvocableWork(), TreeOptions{});
   DVLOG(2) << "Current() called (new static thread-local fiber created): "
            << kPerThreadDynamicFiber.f;
 
@@ -239,7 +157,7 @@ void Fiber::Join() {
     CHECK(state_ != JOINED) << "Join() called on already joined fiber.";
   }
 
-  Fiber* current_fiber = GetPerThreadFiberPtr();
+  const Fiber* current_fiber = GetPerThreadFiberPtr();
   CHECK(this != current_fiber) << "Fiber trying to join itself!";
   if (parent_ != nullptr) {
     CHECK(parent_ == current_fiber) << "Join() called from non-parent fiber";
@@ -309,32 +227,32 @@ void Fiber::InternalJoin() {
 }
 
 void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  Fiber* fiber = this;
+  auto current = this;
   while (true) {
-    DCHECK(fiber != nullptr);
+    DCHECK(current != nullptr);
     // We visit nodes in post-order, traversing each child sub-tree by sibling
     // position before operating on the parent.  We hold all "mu_"s up to and
     // including the initiating parent fiber node.
-    fiber->mu_.Lock();
+    current->mu_.Lock();
 
     // Check whether the fiber we're currently visiting has already been
     // cancelled.
-    bool cancelled = fiber->cancellation_.HasBeenNotified();
+    bool cancelled = current->cancellation_.HasBeenNotified();
 
     // If we have children, and we're already cancelled, then they must be also.
     // We don't need to re-walk our children as future descendants will be
     // spawned into a cancelled state.
     // If we have children, and we're not cancelled, we must visit them before
     // operating on "fiber".
-    if (!cancelled && fiber->first_child_ != nullptr) {
+    if (!cancelled && current->first_child_ != nullptr) {
       // Equivalent recursion note: recursive call.
-      fiber = fiber->first_child_;
+      current = current->first_child_;
       continue;
     }
 
     while (true) {
       if (!cancelled) {
-        fiber->cancellation_.Notify();
+        current->cancellation_.Notify();
       }
 
       class ScopedMutexUnlocker {
@@ -346,19 +264,19 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
        private:
         eglt::concurrency::impl::Mutex& mu_;
       };
-      ScopedMutexUnlocker unlock_mu(&fiber->mu_);
+      ScopedMutexUnlocker unlock_mu(&current->mu_);
 
       // Once we reach the fiber (*this) parenting cancellation, we're finished.
-      if (fiber == this)
+      if (current == this)
         return;
 
-      DCHECK(fiber->parent_ != nullptr);
-      DCHECK(fiber->parent_->first_child_ != nullptr);
+      DCHECK(current->parent_ != nullptr);
+      DCHECK(current->parent_->first_child_ != nullptr);
 
       // If there is an unvisited sibling, we go there to process it.
       // Equivalent recursion note: recursive call return and recursive call.
-      if (fiber->next_sibling_ != fiber) {
-        fiber = fiber->next_sibling_;
+      if (current->next_sibling_ != current) {
+        current = current->next_sibling_;
         break;
       }
 
@@ -366,7 +284,7 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
       // from our parent, who has no more unvisited children and is next in the
       // traversal order.
       // Equivalent recursion note: recursive call return.
-      fiber = fiber->parent_;
+      current = current->parent_;
 
       // Reached child => traversal spans our parent, which must need
       // cancellation.
