@@ -1,5 +1,16 @@
-// Copyright 2012 Google Inc. All Rights Reserved.
-// Author: sanjay@google.com (Sanjay Ghemawat)
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "thread_on_boost/absl_headers.h"
 
@@ -87,7 +98,7 @@ void ChannelWaiterState::UnlockAndReleaseWriter(CaseState* writer)
 }
 
 bool ChannelWaiterState::GetMatchingReader(CaseState* writer,
-                                           CaseState** reader) {
+                                           CaseState** reader) const {
   if (CaseState* current_reader = waiting_readers_; current_reader != nullptr) {
     do {
       if (StartTransfer(current_reader, writer)) {
@@ -102,7 +113,7 @@ bool ChannelWaiterState::GetMatchingReader(CaseState* writer,
 }
 
 bool ChannelWaiterState::GetMatchingWriter(CaseState* reader,
-                                           CaseState** writer) {
+                                           CaseState** writer) const {
   if (CaseState* current_writer = waiting_writers_; current_writer != nullptr) {
     do {
       if (StartTransfer(reader, current_writer)) {
@@ -116,7 +127,7 @@ bool ChannelWaiterState::GetMatchingWriter(CaseState* reader,
   return false;
 }
 
-bool ChannelWaiterState::GetWaitingWriter(CaseState** writer) {
+bool ChannelWaiterState::GetWaitingWriter(CaseState** writer) const {
   if (CaseState* current_writer = waiting_writers_; current_writer != nullptr) {
     do {
       current_writer->sel->mu.Lock();

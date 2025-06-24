@@ -1,3 +1,17 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "thread_on_boost/fiber.h"
 
 #include <latch>
@@ -9,6 +23,7 @@
 #include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/select.h"
+#include "thread_on_boost/util.h"
 
 namespace thread {
 
@@ -119,11 +134,14 @@ static void InitWorkerThreadPool() {
 }
 
 Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
-    : work_(std::move(invocable)), parent_(parent) {
+    : work_(std::move(invocable)),
+      parent_(parent),
+      next_sibling_(this),
+      prev_sibling_(this) {
   // Note: We become visible to cancellation as soon as we're added to parent.
   eglt::concurrency::impl::MutexLock l(&parent_->mu_);
   CHECK_EQ(parent_->state_, RUNNING);
-  parent_->children_.push_back(this);
+  parent->PushChildAtFront(this);
   if (parent_->cancellation_.HasBeenNotified()) {
     // Fibers adjoined to a cancelled tree inherit implicit cancellation.
     DVLOG(2) << "F " << this << " joining cancelled sub-tree.";
@@ -132,7 +150,10 @@ Fiber::Fiber(Unstarted, Invocable invocable, Fiber* parent)
 }
 
 Fiber::Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options)
-    : work_(std::move(invocable)), parent_(nullptr) {}
+    : work_(std::move(invocable)),
+      parent_(nullptr),
+      next_sibling_(this),
+      prev_sibling_(this) {}
 
 void Fiber::Start() {
   absl::call_once(kInitWorkerThreadPoolFlag, InitWorkerThreadPool);
@@ -165,7 +186,7 @@ Fiber::~Fiber() {
   CHECK_EQ(JOINED, state_) << "F " << this << " attempting to destroy an "
                            << "unjoined Fiber.  (Did you forget to Join() "
                            << "on a child?)";
-  DCHECK(children_.empty());
+  DCHECK(first_child_ == nullptr);
 
   DVLOG(2) << "F " << this << " destroyed";
 }
@@ -240,7 +261,7 @@ bool Fiber::MarkFinished() {
   state_ = FINISHED;
 
   // Any fiber can have detached children.
-  if (children_.empty()) {
+  if (first_child_ == nullptr) {
     joinable_.Notify();
     // Although joinable_ is true, any foreign call to Join() also needs to
     // acquire mu_, thus we can't be deleted yet.
@@ -261,7 +282,7 @@ void Fiber::MarkJoined() {
   bool has_parent;
   {
     eglt::concurrency::impl::MutexLock l(&mu_);
-    DCHECK(children_.empty());
+    DCHECK(first_child_ == nullptr);
     if (state_ == JOINED)
       return;  // Already joined.
     DCHECK_EQ(state_, FINISHED);
@@ -271,8 +292,8 @@ void Fiber::MarkJoined() {
   }
   if (has_parent) {
     eglt::concurrency::impl::MutexLock l(&parent_->mu_);
-    parent_->children_.erase(this);
-    if (parent_->children_.empty() && parent_->state_ == FINISHED) {
+    parent_->UnlinkChild(this);
+    if (parent_->first_child_ == nullptr && parent_->state_ == FINISHED) {
       parent_->joinable_.Notify();
     }
   } else {
@@ -305,9 +326,9 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
     // spawned into a cancelled state.
     // If we have children, and we're not cancelled, we must visit them before
     // operating on "fiber".
-    if (!cancelled && !fiber->children_.empty()) {
+    if (!cancelled && fiber->first_child_ != nullptr) {
       // Equivalent recursion note: recursive call.
-      fiber = &fiber->children_.front();
+      fiber = fiber->first_child_;
       continue;
     }
 
@@ -332,21 +353,17 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
         return;
 
       DCHECK(fiber->parent_ != nullptr);
-      DCHECK(!fiber->parent_->children_.empty());
+      DCHECK(fiber->parent_->first_child_ != nullptr);
 
-      // Construct an iterator to the child list this is a part of.
-      gtl::intrusive_list<Fiber, CancellationList::Tag>::iterator it(fiber);
-      ++it;
-
-      // If there is a unvisited sibling, we go there to process it.
+      // If there is an unvisited sibling, we go there to process it.
       // Equivalent recursion note: recursive call return and recursive call.
-      if (it != fiber->parent_->children_.end()) {
-        fiber = &*it;
+      if (fiber->next_sibling_ != fiber) {
+        fiber = fiber->next_sibling_;
         break;
       }
 
       // We've reached the final sibling in this subtree.  Continue traversing
-      // from our parent, whom has no more unvisited children and is next in the
+      // from our parent, who has no more unvisited children and is next in the
       // traversal order.
       // Equivalent recursion note: recursive call return.
       fiber = fiber->parent_;

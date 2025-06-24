@@ -1,5 +1,16 @@
-// Copyright 2012 Google Inc. All Rights Reserved.
-// Author: sanjay@google.com (Sanjay Ghemawat)
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #ifndef THREAD_FIBER_CHANNEL_INTERNAL_H_
 #define THREAD_FIBER_CHANNEL_INTERNAL_H_
@@ -10,7 +21,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/boost_primitives.h"
 #include "thread_on_boost/select-internal.h"
 #include "thread_on_boost/select.h"
@@ -30,10 +40,10 @@ struct ChannelWaiterState {
   // are guaranteed to be pickable.
   // Returns false with no side effects otherwise.
   // REQUIRES: reader != nullptr, writer != nullptr
-  bool GetMatchingReader(CaseState* writer, CaseState** reader)
+  bool GetMatchingReader(CaseState* writer, CaseState** reader) const
       ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*reader)->sel->mu,
                                       writer->sel->mu);
-  bool GetMatchingWriter(CaseState* reader, CaseState** writer)
+  bool GetMatchingWriter(CaseState* reader, CaseState** writer) const
       ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->sel->mu,
                                       (*writer)->sel->mu);
 
@@ -44,7 +54,7 @@ struct ChannelWaiterState {
   // Returns true, and updates *writer, if a suitable waiter exists.  *writer is
   // returned with selector mutex held and guaranteed pickable.
   // Returns false with no side effects otherwise.
-  bool GetWaitingWriter(CaseState** writer)
+  bool GetWaitingWriter(CaseState** writer) const
       ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*writer)->sel->mu);
 
   // Unlock (and mark selected) the passed reader/writer respectively.
@@ -100,7 +110,7 @@ class ChannelState final : public ChannelWaiterState {
   }
 
   Case OnRead(T* dst, bool* ok) {
-    Case c = {
+    const Case c = {
         &rd_,
         reinterpret_cast<intptr_t>(dst),
         reinterpret_cast<intptr_t>(ok),

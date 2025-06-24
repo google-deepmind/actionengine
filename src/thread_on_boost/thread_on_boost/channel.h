@@ -1,10 +1,20 @@
-// Copyright 2012 Google Inc. All Rights Reserved.
-// Author: sanjay@google.com (Sanjay Ghemawat)
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #ifndef THREAD_FIBER_CHANNEL_H_
 #define THREAD_FIBER_CHANNEL_H_
 
-#include <cstddef>
 #include <type_traits>
 
 #include "thread_on_boost/channel-internal.h"
@@ -174,108 +184,6 @@ class Channel {
   Reader<T> reader_;
   Writer<T> writer_;
 };
-
-// Holds a scoped reference to the Writer<T> endpoint of a Channel.  On
-// destruction, the hosted Channel will be automatically closed unless release()
-// has been called.
-//
-//     void WriteValues(thread::Writer<int>* values) {
-//       thread::WriterCloser<int> closer(values);
-//       ...
-//       if (error_condition) {
-//         return; // Channel will be closed
-//       }
-//       ...
-//       WriteValuesSomeOtherWay(closer.release());  // Channel won't be closed
-//     }
-//
-// This can also be used to document in the type system that a function accepts
-// responsibility for closing a channel, much the same way that accepting
-// std::unique_ptr documents accepting ownership:
-//
-//     // Write values to the supplied channel. It goes without saying that this
-//     // function will close the channel when it's done producing values.
-//     void ProduceValues(thread::WriterCloser<int> values) {
-//       values->Write(1);
-//       values->Write(2);
-//       values->Write(3);
-//     }
-//
-template <typename T>
-class WriterCloser {
- public:
-  WriterCloser() = default;
-  explicit WriterCloser(thread::Writer<T>* const writer) : writer_(writer) {}
-
-  WriterCloser(WriterCloser&& that) noexcept : writer_(that.writer_) {
-    that.writer_ = nullptr;
-  }
-  WriterCloser& operator=(WriterCloser&& that) noexcept {
-    reset(that.release());
-    return *this;
-  }
-  WriterCloser& operator=(std::nullptr_t) {
-    reset(nullptr);
-    return *this;
-  }
-
-  ~WriterCloser() { reset(); }
-
-  // Return a pointer to the writer, for use in calling APIs that write to but
-  // don't close the channel:
-  //
-  //    void WriteToAndCloseChannel(thread::WriterCloser<int> values) [
-  //      WriteSomeValues(values.get());
-  //      WriteOtherValues(values.get());
-  //    }
-  //
-  Writer<T>* get() const { return writer_; }
-
-  // Allow direct use of the writer via the writer closer using -> syntax:
-  //
-  //    void WriteToAndCloseChannel(thread::WriterCloser<int> values) [
-  //      values->Write(1);
-  //      values->Write(2);
-  //      values->Write(3);
-  //
-  //      thread::Select({
-  //        values->OnWrite(4),
-  //        thread::OnCancel(),
-  //      });
-  //    }
-  //
-  Writer<T>* operator->() const { return get(); }
-
-  // Change the writer held, closing the previous one if it was present.
-  void reset(thread::Writer<T>* const writer = nullptr) {
-    if (writer_) {
-      writer_->Close();
-    }
-
-    writer_ = writer;
-  }
-
-  // Release "writer". Its Channel will not be closed when *this is destroyed.
-  // Returns "writer", or nullptr if release() has already been called.
-  Writer<T>* release() {
-    auto tmp = writer_;
-    writer_ = nullptr;
-    return tmp;
-  }
-
- private:
-  Writer<T>* writer_ = nullptr;
-};
-
-// This allows us to create a WriterCloser without having to figure out its
-// type, simply by writing:
-//
-//   auto closer = thread::MakeWriterCloser(writer);
-//
-template <typename T>
-ABSL_MUST_USE_RESULT WriterCloser<T> MakeWriterCloser(Writer<T>* writer) {
-  return WriterCloser<T>(writer);
-}
 
 }  // namespace thread
 

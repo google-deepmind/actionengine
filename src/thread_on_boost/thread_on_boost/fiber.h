@@ -1,6 +1,16 @@
-// Copyright 2012 Google Inc. All Rights Reserved.
-// Author: sanjay@google.com (Sanjay Ghemawat)
-// Author: pjt@google.com (Paul Turner)
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #ifndef THREAD_FIBER_FIBER_H_
 #define THREAD_FIBER_FIBER_H_
@@ -15,7 +25,6 @@
 
 #include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/boost_primitives.h"
-#include "thread_on_boost/intrusive_list.h"
 #include "thread_on_boost/selectables.h"
 
 namespace thread {
@@ -37,6 +46,7 @@ Invocable MakeInvocable(F&& f) {
 // cancellation list.
 class CancellationList {
   struct Tag {};
+
   friend class Fiber;
 };
 
@@ -72,7 +82,7 @@ std::unique_ptr<Fiber> CreateTree(Invocable f, TreeOptions&& tree_options);
 
 Fiber* GetPerThreadFiberPtr();
 
-class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
+class Fiber {
  public:
   template <typename F,
             // Avoid binding Fiber(const Fiber&) or Fiber(Fiber):
@@ -112,7 +122,8 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   struct Unstarted {};
 
   // Internal c'tor for Fibers.
-  explicit Fiber(Unstarted, Invocable invocable, Fiber* parent = Current());
+  explicit Fiber(Unstarted, Invocable invocable,
+                 Fiber* absl_nonnull parent = Current());
   // Internal c'tor for root fibers.
   explicit Fiber(Unstarted, Invocable invocable, TreeOptions&& tree_options);
 
@@ -121,6 +132,34 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   bool MarkFinished();
   void MarkJoined();
   void InternalJoin();
+
+  void PushChildAtFront(Fiber* absl_nonnull child)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    if (first_child_ == nullptr) {
+      first_child_ = child;
+    } else {
+      child->prev_sibling_ = child;
+      child->next_sibling_ = first_child_;
+      first_child_->prev_sibling_ = child;
+    }
+  }
+
+  void UnlinkChild(const Fiber* absl_nonnull child)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    if (child->next_sibling_ == child) {
+      DCHECK(first_child_ == child)
+          << "Unlinking a child that's the \"only\" sibling on its level, but "
+             "is not the first child.";
+      first_child_ = nullptr;
+      return;
+    }
+
+    child->next_sibling_->prev_sibling_ = child->prev_sibling_;
+    child->prev_sibling_->next_sibling_ = child->next_sibling_;
+    if (first_child_ == child) {
+      first_child_ = child->next_sibling_;
+    }
+  }
 
   mutable eglt::concurrency::impl::Mutex mu_;
 
@@ -136,9 +175,9 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
   State state_ ABSL_GUARDED_BY(mu_) = RUNNING;
 
   Fiber* const parent_;
-  // List of child fibers.
-  gtl::intrusive_list<Fiber, CancellationList::Tag> children_
-      ABSL_GUARDED_BY(mu_);
+  Fiber* first_child_ ABSL_GUARDED_BY(mu_) = nullptr;
+  Fiber* absl_nonnull next_sibling_;
+  Fiber* absl_nonnull prev_sibling_;
 
   PermanentEvent cancellation_;
   PermanentEvent joinable_;
@@ -148,8 +187,6 @@ class Fiber : gtl::intrusive_link<Fiber, CancellationList::Tag> {
 
   friend struct PerThreadDynamicFiber;
   friend bool IsFiberDetached(const Fiber* fiber);
-  friend class gtl::intrusive_list<Fiber, CancellationList::Tag>;
-  friend class gtl::intrusive_link<Fiber, CancellationList::Tag>;
   friend void Detach(std::unique_ptr<Fiber> fiber);
 };
 
