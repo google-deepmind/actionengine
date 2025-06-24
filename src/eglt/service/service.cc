@@ -83,7 +83,7 @@ Service::~Service() {
 }
 
 WireStream* absl_nullable Service::GetStream(std::string_view stream_id) const {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   if (connections_.contains(stream_id)) {
     return connections_.at(stream_id)->stream.get();
   }
@@ -91,7 +91,7 @@ WireStream* absl_nullable Service::GetStream(std::string_view stream_id) const {
 }
 
 Session* absl_nullable Service::GetSession(std::string_view session_id) const {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   if (sessions_.contains(session_id)) {
     return sessions_.at(session_id).get();
   }
@@ -99,7 +99,7 @@ Session* absl_nullable Service::GetSession(std::string_view session_id) const {
 }
 
 std::vector<std::string> Service::GetSessionKeys() const {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   std::vector<std::string> keys;
   keys.reserve(sessions_.size());
   for (const auto& [key, _] : sessions_) {
@@ -119,7 +119,7 @@ Service::EstablishConnection(std::shared_ptr<WireStream>&& stream,
 absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
 Service::EstablishConnection(net::GetStreamFn get_stream,
                              EvergreenConnectionHandler connection_handler) {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
 
   std::string stream_id;
   if (const WireStream* raw_stream = get_stream(); raw_stream == nullptr) {
@@ -188,12 +188,12 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
     return status;
   }
 
-  connection_fibers_[stream_id] = concurrency::NewTree(
-      concurrency::TreeOptions(),
+  connection_fibers_[stream_id] = thread::NewTree(
+      thread::TreeOptions(),
       [this, resolved_handler = std::move(resolved_handler), connection]() {
         connection->status =
             resolved_handler(connection->stream, connection->session);
-        concurrency::MutexLock cleanup_lock(&mu_);
+        eglt::MutexLock cleanup_lock(&mu_);
         CleanupConnection(*connection);
       });
 
@@ -207,7 +207,7 @@ absl::Status Service::JoinConnection(
   // Extract connection and fiber from the map, so we can join them outside
   // the lock with a guarantee that they are not modified while we are trying.
   {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (const auto node = connections_.extract(connection->stream_id);
         !node.empty()) {
       std::shared_ptr<StreamToSessionConnection> service_owned_connection =
@@ -232,12 +232,12 @@ absl::Status Service::JoinConnection(
 }
 
 void Service::SetActionRegistry(const ActionRegistry& action_registry) const {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   *action_registry_ = action_registry;
 }
 
 void Service::JoinConnectionsAndCleanUp(bool cancel) {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   if (cleanup_started_) {
     mu_.Unlock();
     thread::Select({cleanup_done_.OnEvent()});

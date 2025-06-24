@@ -59,7 +59,7 @@ class BufferedSender {
                 if (!send_from->Read(&message)) {
                   break;
                 }
-                concurrency::MutexLock lock(&mu_);
+                eglt::MutexLock lock(&mu_);
                 status_ = stream->Send(std::move(message));
                 if (!status_.ok()) {
                   failed_event_.Notify();
@@ -80,7 +80,7 @@ class BufferedSender {
   thread::Case OnFailed() const { return failed_event_.OnEvent(); }
 
   absl::Status GetStatus() const {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return status_;
   }
 
@@ -89,13 +89,13 @@ class BufferedSender {
   absl::Status status_;
   thread::PermanentEvent failed_event_{};
 
-  mutable concurrency::Mutex mu_;
+  mutable eglt::Mutex mu_;
 };
 
 class WirePeer {
  public:
   WirePeer(std::unique_ptr<WireStream> stream,
-           concurrency::Writer<SessionMessageWithAddress>* receive_into)
+           thread::Writer<SessionMessageWithAddress>* receive_into)
       : stream_(std::move(stream)),
         receiver_{stream.get(), receive_into},
         sender_{stream_.get(), send_queue_.reader()} {}
@@ -161,18 +161,18 @@ class OutboundPeerGroup {
   ~OutboundPeerGroup() = default;
 
   void AddPeer(const std::shared_ptr<WirePeer>& peer) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     peers_.emplace(peer->GetId(), peer);
   }
 
   void RemovePeer(const std::shared_ptr<WirePeer>& peer) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     peers_.erase(peer->GetId());
   }
 
   std::vector<std::pair<std::string_view, absl::Status>> Send(
       const SessionMessage& message) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     std::vector<std::pair<std::string_view, absl::Status>> statuses;
     for (const auto& [peer_id, peer] : peers_) {
       statuses.emplace_back(peer_id, peer->Send(message));
@@ -181,14 +181,14 @@ class OutboundPeerGroup {
   }
 
   size_t Size() const {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return peers_.size();
   }
 
  private:
   absl::flat_hash_map<std::string_view, std::shared_ptr<WirePeer>> peers_
       ABSL_GUARDED_BY(mu_);
-  mutable concurrency::Mutex mu_;
+  mutable eglt::Mutex mu_;
 };
 
 }  // namespace eglt::net

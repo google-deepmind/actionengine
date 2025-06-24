@@ -44,12 +44,12 @@ class ActionContext {
 
   absl::Status Dispatch(std::shared_ptr<Action> action);
   void CancelContext() ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     CancelContextImpl();
   }
 
   void WaitForActionsToDetach() ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     WaitForActionsToDetachImpl();
   }
 
@@ -92,12 +92,12 @@ class ActionContext {
     }
   }
 
-  concurrency::Mutex mu_;
+  eglt::Mutex mu_;
   absl::flat_hash_map<Action*, std::unique_ptr<thread::Fiber>> running_actions_
       ABSL_GUARDED_BY(mu_);
   thread::PermanentEvent cancellation_;
   bool cancelled_;
-  concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
+  eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
 };
 
 /**
@@ -144,7 +144,7 @@ class Session {
  private:
   void JoinDispatchers(bool cancel = false) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  concurrency::Mutex mu_{};
+  eglt::Mutex mu_{};
   bool joined_ ABSL_GUARDED_BY(mu_) = false;
   absl::flat_hash_map<WireStream*, std::unique_ptr<thread::Fiber>>
       dispatch_tasks_ ABSL_GUARDED_BY(mu_){};

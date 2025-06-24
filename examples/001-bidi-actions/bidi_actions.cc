@@ -78,7 +78,7 @@ absl::Status RunBidiEcho(const std::shared_ptr<Action>& action) {
 
     const double jitter = absl::Uniform(generator, -kDelayBetweenWords / 2,
                                         kDelayBetweenWords / 2);
-    eglt::concurrency::SleepFor(absl::Seconds(kDelayBetweenWords + jitter));
+    eglt::SleepFor(absl::Seconds(kDelayBetweenWords + jitter));
   }
   print_input->Put(eglt::EndOfStream()).IgnoreError();
 
@@ -164,8 +164,8 @@ int main(int argc, char** argv) {
     }
     text_input->Put(eglt::EndOfStream()).IgnoreError();
 
-    eglt::concurrency::SleepFor(absl::Seconds(
-        kDelayBetweenWords * (static_cast<double>(words.size()) + 2.0)));
+    eglt::SleepFor(absl::Seconds(kDelayBetweenWords *
+                                 (static_cast<double>(words.size()) + 2.0)));
     std::cout << std::endl;
   }
 

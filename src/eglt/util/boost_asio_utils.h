@@ -33,7 +33,7 @@ template <typename Invocable, typename ExecutionContext,
           typename = std::enable_if_t<
               !std::is_void_v<std::invoke_result_t<Invocable>>>>
 auto RunInAsioContext(ExecutionContext& context, Invocable&& fn,
-                      concurrency::impl::CaseArray additional_cases = {}) {
+                      thread::CaseArray additional_cases = {}) {
   std::optional<decltype(fn())> result;
   thread::PermanentEvent done;
   boost::asio::post(context,
@@ -52,8 +52,7 @@ auto RunInAsioContext(ExecutionContext& context, Invocable&& fn,
 // If fn() is void, result holder cannot be created
 template <typename Invocable, typename = std::enable_if_t<!std::is_void_v<
                                   std::invoke_result_t<Invocable>>>>
-auto RunInAsioContext(Invocable&& fn,
-                      concurrency::impl::CaseArray additional_cases = {}) {
+auto RunInAsioContext(Invocable&& fn, thread::CaseArray additional_cases = {}) {
   return RunInAsioContext(*GetDefaultAsioExecutionContext(),
                           std::forward<Invocable>(fn),
                           std::move(additional_cases));
@@ -62,7 +61,7 @@ auto RunInAsioContext(Invocable&& fn,
 template <typename ExecutionContext>
 void RunInAsioContext(ExecutionContext& context,
                       absl::AnyInvocable<void()>&& fn,
-                      concurrency::impl::CaseArray additional_cases = {}) {
+                      thread::CaseArray additional_cases = {}) {
   thread::PermanentEvent done;
   boost::asio::post(context, [&done, &fn]() {
     fn();
@@ -75,7 +74,7 @@ void RunInAsioContext(ExecutionContext& context,
 }
 
 void RunInAsioContext(absl::AnyInvocable<void()>&& fn,
-                      concurrency::impl::CaseArray additional_cases = {});
+                      thread::CaseArray additional_cases = {});
 
 }  // namespace eglt::util
 

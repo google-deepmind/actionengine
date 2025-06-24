@@ -25,25 +25,23 @@
 #ifndef EGLT_CONCURRENCY_CONCURRENCY_H_
 #define EGLT_CONCURRENCY_CONCURRENCY_H_
 
+#if GOOGLE3
+#include "eglt/google3_concurrency_headers.h"
+#else
 #include "thread_on_boost/concurrency.h"
+#endif  // GOOGLE3
 
 namespace eglt::concurrency {
-using Case = impl::Case;
-using CaseArray = impl::CaseArray;
-using TreeOptions = impl::TreeOptions;
 
-template <typename T>
-using Reader = impl::Reader<T>;
+#if GOOGLE3
+using CondVar = absl::CondVar;
+using Mutex = absl::Mutex;
+using MutexLock = absl::MutexLock;
 
-template <typename T>
-using Writer = impl::Writer<T>;
-
-template <typename T>
-using Channel = impl::Channel<T>;
-
-using Fiber = impl::Fiber;
-using PermanentEvent = impl::PermanentEvent;
-
+inline void SleepFor(absl::Duration duration) {
+  absl::SleepFor(duration);
+}
+#else
 using CondVar = impl::CondVar;
 using Mutex = impl::Mutex;
 using MutexLock = impl::MutexLock;
@@ -51,6 +49,7 @@ using MutexLock = impl::MutexLock;
 inline void SleepFor(absl::Duration duration) {
   impl::SleepFor(duration);
 }
+#endif  // GOOGLE3
 
 class ScopedUnlock {
  public:
@@ -244,86 +243,33 @@ class ABSL_SCOPED_LOCKABLE PreventExclusiveAccess {
   bool retain_lock_;
 };
 
-inline bool Cancelled() {
-  return impl::Cancelled();
-}
-
-/**
- * @brief Gets the current fiber's cancellation case.
- *
- * This case can be passed to Select() to wait for cancellation.
- *
- * @return The cancellation case.
- */
-inline Case OnCancel() {
-  return impl::OnCancel();
-}
-
-inline int Select(const CaseArray& cases) noexcept {
-  return impl::Select(cases);
-}
-
-inline int SelectWithScopedUnlock(Mutex* absl_nonnull mu,
-                                  const CaseArray& cases)
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
-  mu->Unlock();
-  const int selected = thread::Select(cases);
-  mu->Lock();
-  return selected;
-}
-
-inline int SelectUntil(const absl::Time deadline,
-                       const CaseArray& cases) noexcept {
-  return impl::SelectUntil(deadline, cases);
-}
-
-inline int SelectWithScopedUnlockUntil(Mutex* absl_nonnull mu,
-                                       const absl::Time deadline,
-                                       const CaseArray& cases)
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
-  mu->Unlock();
-  const int selected = thread::SelectUntil(deadline, cases);
-  mu->Lock();
-  return selected;
-}
-
-inline void Detach(std::unique_ptr<Fiber> fiber) {
-  impl::Detach(std::move(fiber));
-}
-
-inline void Detach(const TreeOptions& options,
-                   absl::AnyInvocable<void()>&& fn) {
-  impl::Detach(options, std::move(fn));
-}
-
-inline std::unique_ptr<Fiber> NewTree(const TreeOptions& options,
-                                      absl::AnyInvocable<void()>&& fn) {
-  return impl::NewTree(options, std::move(fn));
-}
-
-inline Case NonSelectableCase() {
-  return impl::NonSelectableCase();
-}
-
-inline Case AlwaysSelectableCase() {
-  return impl::AlwaysSelectableCase();
-}
-
 // If fn() is void, result holder cannot be created
 template <typename Invocable, typename = std::enable_if_t<!std::is_void_v<
                                   std::invoke_result_t<Invocable>>>>
 auto RunInFiber(Invocable&& fn) {
   decltype(fn()) result;
-  auto fiber = Fiber(
+  auto fiber = thread::Fiber(
       [&result, fn = std::forward<Invocable>(fn)]() mutable { result = fn(); });
   fiber.Join();
   return result;
 }
 
 inline auto RunInFiber(absl::AnyInvocable<void()>&& fn) {
-  auto fiber = Fiber(std::move(fn));
+  auto fiber = thread::Fiber(std::move(fn));
   fiber.Join();
 }
 }  // namespace eglt::concurrency
+
+namespace eglt {
+
+using concurrency::CondVar;
+using concurrency::Mutex;
+using concurrency::MutexLock;
+
+inline void SleepFor(absl::Duration duration) {
+  concurrency::SleepFor(duration);
+}
+
+}  // namespace eglt
 
 #endif  // EGLT_CONCURRENCY_CONCURRENCY_H_

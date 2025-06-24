@@ -59,7 +59,7 @@ class ChunkStoreReader {
   ChunkStoreReader& operator=(const ChunkStoreReader&) = delete;
 
   ~ChunkStoreReader() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (fiber_ == nullptr) {
       return;
     }
@@ -95,7 +95,7 @@ class ChunkStoreReader {
   friend ChunkStoreReader& operator>>(ChunkStoreReader& reader, T& value);
 
   absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return status_;
   }
 
@@ -106,8 +106,8 @@ class ChunkStoreReader {
           absl::FailedPreconditionError("ChunkStoreReader is already running.");
     } else {
       status_ = absl::OkStatus();
-      fiber_ = concurrency::NewTree({}, [this] {
-        concurrency::MutexLock lock(&mu_);
+      fiber_ = thread::NewTree({}, [this] {
+        eglt::MutexLock lock(&mu_);
         RunPrefetchLoop();
       });
     }
@@ -204,7 +204,7 @@ class ChunkStoreReader {
   // This is primarily used by the prefetch loop to update the status of the
   // reader to avoid scoped locks in multiple places.
   void UpdateStatus(const absl::Status& status) ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     status_ = status;
   }
 
@@ -220,7 +220,7 @@ class ChunkStoreReader {
   int total_chunks_read_ = 0;
 
   absl::Status status_;
-  mutable concurrency::Mutex mu_;
+  mutable eglt::Mutex mu_;
 };
 
 template <>
@@ -234,7 +234,7 @@ inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next()
   mu_.Unlock();
   const int selected = thread::SelectUntil(
       absl::Now() + timeout_,
-      {buffer_.reader()->OnRead(&seq_and_chunk, &ok), concurrency::OnCancel()});
+      {buffer_.reader()->OnRead(&seq_and_chunk, &ok), thread::OnCancel()});
   mu_.Lock();
 
   if (selected == -1) {
@@ -259,7 +259,7 @@ inline std::optional<std::pair<int, Chunk>> ChunkStoreReader::Next()
 
 template <>
 inline std::optional<Chunk> ChunkStoreReader::Next() ABSL_LOCKS_EXCLUDED(mu_) {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   auto seq_and_chunk = Next<std::pair<int, Chunk>>();
 
   if (!seq_and_chunk.has_value()) {

@@ -53,7 +53,7 @@ class LocalChunkStore final : public ChunkStore {
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> Get(
       int seq_id, absl::Duration timeout) const override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     concurrency::PreventExclusiveAccess pending(&finalization_guard_,
                                                 /*retain_lock=*/true);
     if (chunks_.contains(seq_id)) {
@@ -94,7 +94,7 @@ class LocalChunkStore final : public ChunkStore {
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetByArrivalOrder(
       int arrival_offset, absl::Duration timeout) const override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     concurrency::PreventExclusiveAccess pending(&finalization_guard_,
                                                 /*retain_lock=*/true);
     if (arrival_order_to_seq_id_.contains(arrival_offset)) {
@@ -138,7 +138,7 @@ class LocalChunkStore final : public ChunkStore {
   }
 
   std::optional<Chunk> Pop(int seq_id) override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (const auto map_node = chunks_.extract(seq_id); map_node) {
       const int arrival_order = seq_id_to_arrival_order_[seq_id];
       seq_id_to_arrival_order_.erase(seq_id);
@@ -150,7 +150,7 @@ class LocalChunkStore final : public ChunkStore {
   }
 
   absl::Status Put(int seq_id, Chunk chunk, bool final) override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
 
     if (no_further_puts_) {
       return absl::FailedPreconditionError(
@@ -170,7 +170,7 @@ class LocalChunkStore final : public ChunkStore {
   }
 
   void NoFurtherPuts() override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
 
     no_further_puts_ = true;
     if (max_seq_id_ != -1) {
@@ -181,12 +181,12 @@ class LocalChunkStore final : public ChunkStore {
   }
 
   size_t Size() override ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return chunks_.size();
   }
 
   bool Contains(int seq_id) override ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return chunks_.contains(seq_id);
   }
 
@@ -194,7 +194,7 @@ class LocalChunkStore final : public ChunkStore {
   std::string_view GetId() const override { return id_; }
 
   int GetSeqIdForArrivalOffset(int arrival_offset) override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (!arrival_order_to_seq_id_.contains(arrival_offset)) {
       return -1;
     }
@@ -202,13 +202,13 @@ class LocalChunkStore final : public ChunkStore {
   }
 
   int GetFinalSeqId() override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return final_seq_id_;
   }
 
  private:
   void ClosePutsAndAwaitPendingOperations() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
 
     no_further_puts_ = true;
     // Notify all waiters because they will not be able to get any more chunks.
@@ -217,7 +217,7 @@ class LocalChunkStore final : public ChunkStore {
     concurrency::EnsureExclusiveAccess waiter(&finalization_guard_);
   }
 
-  mutable concurrency::Mutex mu_;
+  mutable eglt::Mutex mu_;
 
   std::string id_;
 
@@ -230,7 +230,7 @@ class LocalChunkStore final : public ChunkStore {
   int total_chunks_put_ ABSL_GUARDED_BY(mu_) = 0;
 
   bool no_further_puts_ ABSL_GUARDED_BY(mu_) = false;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
+  mutable eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
   mutable concurrency::ExclusiveAccessGuard finalization_guard_{&mu_, &cv_};
 };
 

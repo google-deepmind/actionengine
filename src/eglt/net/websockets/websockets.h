@@ -128,17 +128,17 @@ class WebsocketEvergreenServer {
   }
 
   ~WebsocketEvergreenServer() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     CancelInternal().IgnoreError();
     JoinInternal().IgnoreError();
     DLOG(INFO) << "WebsocketEvergreenServer::~WebsocketEvergreenServer()";
   }
 
   void Run() {
-    concurrency::MutexLock l(&mu_);
+    eglt::MutexLock l(&mu_);
 
-    main_loop_ = concurrency::NewTree({}, [this]() {
-      concurrency::MutexLock lock(&mu_);
+    main_loop_ = thread::NewTree({}, [this]() {
+      eglt::MutexLock lock(&mu_);
 
       while (!thread::Cancelled()) {
         boost::asio::ip::tcp::socket socket{
@@ -154,9 +154,8 @@ class WebsocketEvergreenServer {
             });
 
         mu_.Unlock();
-        thread::Select(
-            {accepted.OnEvent(),
-             concurrency::OnCancel()});  // Wait for accept to complete.
+        thread::Select({accepted.OnEvent(),
+                        thread::OnCancel()});  // Wait for accept to complete.
         mu_.Lock();
 
         cancelled_ = thread::Cancelled() ||
@@ -203,12 +202,12 @@ class WebsocketEvergreenServer {
   }
 
   absl::Status Cancel() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return CancelInternal();
   }
 
   absl::Status Join() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return JoinInternal();
   }
 
@@ -254,10 +253,10 @@ class WebsocketEvergreenServer {
   eglt::Service* absl_nonnull const service_;
   std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
 
-  mutable concurrency::Mutex mu_;
+  mutable eglt::Mutex mu_;
   std::unique_ptr<thread::Fiber> main_loop_;
   bool cancelled_ ABSL_GUARDED_BY(mu_) = false;
-  concurrency::CondVar join_cv_ ABSL_GUARDED_BY(mu_);
+  eglt::CondVar join_cv_ ABSL_GUARDED_BY(mu_);
   bool joining_ ABSL_GUARDED_BY(mu_) = false;
   absl::Status status_;
 };

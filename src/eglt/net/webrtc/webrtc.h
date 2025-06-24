@@ -41,7 +41,7 @@ class WebRtcWireStream final : public WireStream {
 
   std::optional<SessionMessage> Receive() override {
     const absl::Time now = absl::Now();
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
 
     const absl::Time deadline =
         !half_closed_ ? absl::InfiniteFuture() : now + kHalfCloseTimeout;
@@ -104,12 +104,12 @@ class WebRtcWireStream final : public WireStream {
   absl::Status Accept() override { return absl::OkStatus(); }
 
   absl::Status HalfClose() override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return HalfCloseInternal();
   }
 
   void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     CHECK(!half_closed_)
         << "WebRtcWireStream::OnHalfClose called after the stream was already "
            "half-closed";
@@ -117,7 +117,7 @@ class WebRtcWireStream final : public WireStream {
   }
 
   absl::Status GetStatus() const override {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return status_;
   }
 
@@ -146,8 +146,8 @@ class WebRtcWireStream final : public WireStream {
     cv_.SignalAll();
   }
 
-  mutable concurrency::Mutex mu_;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
+  mutable eglt::Mutex mu_;
+  mutable eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
 
   absl::Status status_ ABSL_GUARDED_BY(mu_);
 
@@ -183,12 +183,12 @@ class WebRtcEvergreenServer {
   void Run();
 
   absl::Status Cancel() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return CancelInternal();
   }
 
   absl::Status Join() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return JoinInternal();
   }
 
@@ -213,7 +213,7 @@ class WebRtcEvergreenServer {
   const std::string signalling_identity_;
 
   thread::Channel<WebRtcDataChannelConnection> ready_data_connections_;
-  concurrency::Mutex mu_;
+  eglt::Mutex mu_;
   std::unique_ptr<thread::Fiber> main_loop_;
 };
 

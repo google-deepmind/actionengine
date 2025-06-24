@@ -89,8 +89,8 @@ class FiberAwareWebsocketStream {
   std::unique_ptr<BoostWebsocketStream> stream_;
   PerformHandshakeFn handshake_fn_;
 
-  mutable concurrency::Mutex mu_;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
+  mutable eglt::Mutex mu_;
+  mutable eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
   bool write_pending_ ABSL_GUARDED_BY(mu_) = false;
   bool read_pending_ ABSL_GUARDED_BY(mu_) = false;
 };
@@ -138,7 +138,7 @@ absl::Status ResolveAndConnect(ExecutionContext& context,
         endpoint = std::move(async_endpoint);
         connect_done.Notify();
       });
-  thread::Select({connect_done.OnEvent(), concurrency::OnCancel()});
+  thread::Select({connect_done.OnEvent(), thread::OnCancel()});
 
   if (thread::Cancelled()) {
     stream->next_layer().cancel();

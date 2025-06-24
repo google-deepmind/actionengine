@@ -10,7 +10,7 @@ SignallingClient::~SignallingClient() {
 }
 
 absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
-  concurrency::MutexLock l(&mu_);
+  eglt::MutexLock l(&mu_);
 
   if (!on_answer_ && !on_offer_ && !on_candidate_) {
     return absl::FailedPreconditionError(
@@ -55,7 +55,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
   }
 
   loop_ = std::make_unique<thread::Fiber>([this]() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     RunLoop();
   });
 

@@ -44,7 +44,7 @@ TEST(ChunkStoreTest, CanWriteChunks) {
     writer << "Hello" << "World"
            << std::pair("!", true);  // true is for final chunk
 
-    eglt::concurrency::SleepFor(absl::Seconds(
+    eglt::SleepFor(absl::Seconds(
         0.001));  // TODO(hpnkv): add a method to wait for finalisation
 
     EXPECT_THAT(chunk_store.Size(), Eq(3));
@@ -189,7 +189,7 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
     writer << "Hello" << "World"
            << std::pair("!", true);  // true is for final chunk
 
-    eglt::concurrency::SleepFor(absl::Seconds(0.001));
+    eglt::SleepFor(absl::Seconds(0.001));
 
     EXPECT_THAT(chunk_store.Size(), Eq(3));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));

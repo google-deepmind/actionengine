@@ -31,7 +31,7 @@
 namespace eglt {
 
 ActionContext::~ActionContext() {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   DLOG(INFO) << "ActionContext::~ActionContext()";
 
   if (!cancelled_) {
@@ -54,15 +54,15 @@ ActionContext::~ActionContext() {
 }
 
 absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
-  concurrency::MutexLock l(&mu_);
+  eglt::MutexLock l(&mu_);
   if (cancelled_) {
     return absl::CancelledError("Action context is cancelled.");
   }
 
   Action* absl_nonnull action_ptr = action.get();
   running_actions_[action_ptr] =
-      concurrency::NewTree({}, [action = std::move(action), this]() mutable {
-        concurrency::MutexLock lock(&mu_);
+      thread::NewTree({}, [action = std::move(action), this]() mutable {
+        eglt::MutexLock lock(&mu_);
 
         {
           concurrency::ScopedUnlock unlock(&mu_);
@@ -96,7 +96,7 @@ Session::Session(NodeMap* absl_nonnull node_map,
       action_context_(std::make_unique<ActionContext>()) {}
 
 Session::~Session() {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   DLOG(INFO) << "Session::~Session()";
   action_context_->CancelContext();
   action_context_->WaitForActionsToDetach();
@@ -114,7 +114,7 @@ Session::GetNode(const std::string_view id,
 }
 
 void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
 
   if (joined_) {
     return;
@@ -125,7 +125,7 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
   }
 
   dispatch_tasks_.emplace(
-      stream.get(), concurrency::NewTree({}, [this, stream]() {
+      stream.get(), thread::NewTree({}, [this, stream]() {
         while (true) {
           if (auto message = stream->Receive(); message.has_value()) {
             DispatchMessage(std::move(*message), stream).IgnoreError();
@@ -136,7 +136,7 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
 
         std::unique_ptr<thread::Fiber> dispatcher_fiber;
         {
-          concurrency::MutexLock cleanup_lock(&mu_);
+          eglt::MutexLock cleanup_lock(&mu_);
           if (const auto node = dispatch_tasks_.extract(stream.get());
               !node.empty()) {
             dispatcher_fiber = std::move(node.mapped());
@@ -151,7 +151,7 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
 
 absl::Status Session::DispatchMessage(
     SessionMessage message, const std::shared_ptr<WireStream>& stream) {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   if (joined_) {
     return absl::FailedPreconditionError(
         "Session has been joined, cannot dispatch messages.");
@@ -184,7 +184,7 @@ absl::Status Session::DispatchMessage(
 void Session::StopDispatchingFrom(WireStream* absl_nonnull stream) {
   std::unique_ptr<thread::Fiber> task;
   {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (const auto node = dispatch_tasks_.extract(stream); !node.empty()) {
       task = std::move(node.mapped());
     }
@@ -199,7 +199,7 @@ void Session::StopDispatchingFrom(WireStream* absl_nonnull stream) {
 }
 
 void Session::StopDispatchingFromAll() {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   JoinDispatchers(/*cancel=*/true);
 }
 
@@ -224,7 +224,7 @@ void Session::JoinDispatchers(bool cancel) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 }
 
 ActionRegistry* Action::GetRegistry() const {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   return session_->GetActionRegistry();
 }
 

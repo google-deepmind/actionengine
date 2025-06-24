@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
       &service, "0.0.0.0", 20000,
       /*signalling_address=*/"demos.helena.direct", /*signalling_port=*/19000);
   server.Run();
-  eglt::concurrency::SleepFor(absl::Milliseconds(200));
+  eglt::SleepFor(absl::Milliseconds(200));
 
   for (int i = 0; i < 10; ++i) {
     auto status_or_stream = eglt::net::StartStreamWithSignalling(
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     });
 
     stream->Send(std::move(session_message)).IgnoreError();
-    // eglt::concurrency::SleepFor(absl::Seconds(0.5));
+    // eglt::SleepFor(absl::Seconds(0.5));
   }
 
   return 0;

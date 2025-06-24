@@ -49,7 +49,7 @@ class ChunkStoreWriter {
   ChunkStoreWriter& operator=(const ChunkStoreWriter&) = delete;
 
   ~ChunkStoreWriter() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
 
     accepts_puts_ = false;
     if (fiber_ == nullptr) {
@@ -76,7 +76,7 @@ class ChunkStoreWriter {
   }
 
   absl::Status GetStatus() const ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return status_;
   }
 
@@ -91,8 +91,8 @@ class ChunkStoreWriter {
  private:
   void EnsureWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (fiber_ == nullptr && accepts_puts_) {
-      fiber_ = concurrency::NewTree({}, [this] {
-        concurrency::MutexLock lock(&mu_);
+      fiber_ = thread::NewTree({}, [this] {
+        eglt::MutexLock lock(&mu_);
         RunWriteLoop();
       });
     }
@@ -112,8 +112,8 @@ class ChunkStoreWriter {
       bool ok;
 
       mu_.Unlock();
-      thread::Select({buffer_.reader()->OnRead(&next_fragment, &ok),
-                      concurrency::OnCancel()});
+      thread::Select(
+          {buffer_.reader()->OnRead(&next_fragment, &ok), thread::OnCancel()});
       mu_.Lock();
 
       if (thread::Cancelled()) {
@@ -182,14 +182,14 @@ class ChunkStoreWriter {
   thread::Channel<std::optional<NodeFragment>> buffer_;
   absl::Status status_ ABSL_GUARDED_BY(mu_);
 
-  mutable concurrency::Mutex mu_;
+  mutable eglt::Mutex mu_;
 };
 
 template <>
 inline absl::StatusOr<int> ChunkStoreWriter::Put(Chunk value, int seq,
                                                  bool final)
     ABSL_LOCKS_EXCLUDED(mu_) {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   if (!accepts_puts_) {
     DLOG(ERROR)
         << "Put was called on a writer that is not accepting more puts.";

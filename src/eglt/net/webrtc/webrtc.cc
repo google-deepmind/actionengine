@@ -39,7 +39,7 @@ WebRtcWireStream::WebRtcWireStream(
         absl::StatusOr<data::BytePacket> packet =
             data::ParseBytePacket(std::vector(data, data + message.size()));
 
-        concurrency::MutexLock lock(&mu_);
+        eglt::MutexLock lock(&mu_);
 
         if (closed_) {
           return;
@@ -101,7 +101,7 @@ WebRtcWireStream::WebRtcWireStream(
     opened_ = true;
   } else {
     data_channel_->onOpen([this]() {
-      concurrency::MutexLock lock(&mu_);
+      eglt::MutexLock lock(&mu_);
       status_ = absl::OkStatus();
       opened_ = true;
       cv_.SignalAll();
@@ -109,7 +109,7 @@ WebRtcWireStream::WebRtcWireStream(
   }
 
   data_channel_->onClosed([this]() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     closed_ = true;
     status_ = absl::CancelledError("WebRtcWireStream closed");
     recv_channel_.writer()->Close();
@@ -117,7 +117,7 @@ WebRtcWireStream::WebRtcWireStream(
   });
 
   data_channel_->onError([this](const std::string& error) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     closed_ = true;
     status_ = absl::InternalError(
         absl::StrFormat("WebRtcWireStream error: %s", error));
@@ -128,7 +128,7 @@ WebRtcWireStream::WebRtcWireStream(
 
 WebRtcWireStream::~WebRtcWireStream() {
   data_channel_->close();
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   while (!closed_) {
     cv_.Wait(&mu_);
   }
@@ -138,7 +138,7 @@ WebRtcWireStream::~WebRtcWireStream() {
 absl::Status WebRtcWireStream::Send(SessionMessage message) {
   uint64_t transient_id = 0;
   {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (!status_.ok()) {
       return status_;
     }
@@ -285,7 +285,7 @@ absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
 
   const int selected =
       thread::Select({data_channel_event.OnEvent(), signalling_client.OnError(),
-                      concurrency::OnCancel()});
+                      thread::OnCancel()});
 
   // Callbacks need to be cleaned up before returning, because they use
   // local variables that will be destroyed when this function returns.
@@ -407,7 +407,7 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
   }
 
   const int selected = thread::Select(
-      {opened.OnEvent(), signalling_client.OnError(), concurrency::OnCancel()});
+      {opened.OnEvent(), signalling_client.OnError(), thread::OnCancel()});
   if (selected == 1) {
     return signalling_client.GetStatus();
   }
@@ -443,15 +443,15 @@ WebRtcEvergreenServer::WebRtcEvergreenServer(
       ready_data_connections_(32) {}
 
 WebRtcEvergreenServer::~WebRtcEvergreenServer() {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   CancelInternal().IgnoreError();
   JoinInternal().IgnoreError();
 }
 
 void WebRtcEvergreenServer::Run() {
-  concurrency::MutexLock l(&mu_);
-  main_loop_ = concurrency::NewTree({}, [this]() {
-    concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock l(&mu_);
+  main_loop_ = thread::NewTree({}, [this]() {
+    eglt::MutexLock lock(&mu_);
     RunLoop();
   });
 }
@@ -514,7 +514,7 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     mu_.Unlock();
     const int selected =
         thread::Select({channel_reader->OnRead(&next_connection, &channel_open),
-                        signalling_client->OnError(), concurrency::OnCancel()});
+                        signalling_client->OnError(), thread::OnCancel()});
     mu_.Lock();
 
     // Check if our fiber has been cancelled, which means we should stop.
@@ -536,7 +536,7 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
                  << signalling_client->GetStatus()
                  << ". Restarting in 0.5 seconds.";
       mu_.Unlock();
-      concurrency::SleepFor(absl::Seconds(0.5));
+      eglt::SleepFor(absl::Seconds(0.5));
       mu_.Lock();
       signalling_client = InitSignallingClient(signalling_address_,
                                                signalling_port_, &connections);
@@ -650,7 +650,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
     connection->onDataChannel(
         [this, peer_id = std::string(peer_id),
          connections](std::shared_ptr<rtc::DataChannel> dc) {
-          concurrency::MutexLock lock(&mu_);
+          eglt::MutexLock lock(&mu_);
           const auto map_node = connections->extract(peer_id);
           CHECK(!map_node.empty())
               << "WebRtcEvergreenServer no connection for peer: " << peer_id;
@@ -663,7 +663,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
               std::move(connection_from_map));
         });
 
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     connections->emplace(peer_id, WebRtcDataChannelConnection{
                                       .connection = std::move(connection),
                                       .data_channel = nullptr});

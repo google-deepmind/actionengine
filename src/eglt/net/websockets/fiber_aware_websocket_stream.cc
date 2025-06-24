@@ -68,7 +68,7 @@ FiberAwareWebsocketStream::FiberAwareWebsocketStream(
 
 FiberAwareWebsocketStream::FiberAwareWebsocketStream(
     FiberAwareWebsocketStream&& other) noexcept {
-  concurrency::MutexLock lock(&other.mu_);
+  eglt::MutexLock lock(&other.mu_);
 
   bool debug_warning_logged = false;
   while (other.write_pending_ || other.read_pending_) {
@@ -126,7 +126,7 @@ FiberAwareWebsocketStream& FiberAwareWebsocketStream::operator=(
 }
 
 FiberAwareWebsocketStream::~FiberAwareWebsocketStream() {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
 
   bool timeout_logged = false;
   while (write_pending_ || read_pending_) {
@@ -160,7 +160,7 @@ BoostWebsocketStream& FiberAwareWebsocketStream::GetStream() const {
 
 absl::Status FiberAwareWebsocketStream::Write(
     const std::vector<uint8_t>& message_bytes) noexcept {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
 
   while (write_pending_) {
     cv_.Wait(&mu_);
@@ -215,7 +215,7 @@ absl::Status FiberAwareWebsocketStream::Write(
 //       consider refactoring to avoid code duplication.
 absl::Status FiberAwareWebsocketStream::WriteText(
     const std::string& message) noexcept {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
 
   while (write_pending_) {
     cv_.Wait(&mu_);
@@ -265,7 +265,7 @@ absl::Status FiberAwareWebsocketStream::WriteText(
 }
 
 absl::Status FiberAwareWebsocketStream::Close() const noexcept {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
   return CloseInternal();
 }
 
@@ -329,7 +329,7 @@ absl::Status DoHandshake(BoostWebsocketStream* stream, std::string_view host,
 }
 
 absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
 
   stream_->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::response_type& res) {
@@ -349,7 +349,7 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
       });
 
   mu_.Unlock();
-  thread::Select({accept_done.OnEvent(), concurrency::OnCancel()});
+  thread::Select({accept_done.OnEvent(), thread::OnCancel()});
   mu_.Lock();
 
   if (thread::Cancelled()) {
@@ -383,7 +383,7 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
 absl::Status FiberAwareWebsocketStream::Read(
     std::vector<uint8_t>* absl_nonnull buffer,
     bool* absl_nullable got_text) noexcept {
-  concurrency::MutexLock lock(&mu_);
+  eglt::MutexLock lock(&mu_);
 
   while (read_pending_) {
     cv_.Wait(&mu_);

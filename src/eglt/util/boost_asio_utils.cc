@@ -23,7 +23,7 @@ boost::asio::thread_pool* GetDefaultAsioExecutionContext() {
 }
 
 void RunInAsioContext(absl::AnyInvocable<void()>&& fn,
-                      concurrency::impl::CaseArray additional_cases) {
+                      thread::CaseArray additional_cases) {
   RunInAsioContext(*GetDefaultAsioExecutionContext(), std::move(fn),
                    std::move(additional_cases));
 }

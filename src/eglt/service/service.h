@@ -120,7 +120,7 @@ class Service : public std::enable_shared_from_this<Service> {
       -> absl::Status;
 
   void CloseStreams() ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     for (const auto& [_, stream] : streams_) {
       if (const auto status = stream->HalfClose(); !status.ok()) {
         DLOG(ERROR) << "Error while half-closing stream: " << status.message();
@@ -183,7 +183,7 @@ class Service : public std::enable_shared_from_this<Service> {
   EvergreenConnectionHandler connection_handler_;
   ChunkStoreFactory chunk_store_factory_;
 
-  mutable concurrency::Mutex mu_;
+  mutable eglt::Mutex mu_;
   absl::flat_hash_map<std::string, std::shared_ptr<net::RecoverableStream>>
       streams_ ABSL_GUARDED_BY(mu_);
   // for now, we only support one-to-one session-stream mapping, therefore we

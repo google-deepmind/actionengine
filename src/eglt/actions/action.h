@@ -239,7 +239,7 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   ~Action() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (node_map_ != nullptr) {
       ResetIoNodes();
     }
@@ -316,7 +316,7 @@ class Action : public std::enable_shared_from_this<Action> {
   AsyncNode* absl_nonnull
   GetInput(std::string_view name,
            const std::optional<bool> bind_stream = std::nullopt) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (node_map_ == nullptr) {
       LOG(FATAL) << absl::StrFormat(
           "No node map is bound to action %s with id=%s. Cannot get input %s",
@@ -357,7 +357,7 @@ class Action : public std::enable_shared_from_this<Action> {
   AsyncNode* absl_nonnull
   GetOutput(std::string_view name,
             const std::optional<bool> bind_stream = std::nullopt) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (node_map_ == nullptr) {
       LOG(FATAL) << absl::StrFormat(
           "No node map is bound to action %s with id=%s. Cannot get input %s",
@@ -392,37 +392,37 @@ class Action : public std::enable_shared_from_this<Action> {
   void BindHandler(ActionHandler handler) { handler_ = std::move(handler); }
 
   void BindNodeMap(NodeMap* absl_nullable node_map) ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     node_map_ = node_map;
   }
 
   /// Returns the node map associated with the action.
   [[nodiscard]] NodeMap* absl_nullable GetNodeMap() const
       ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return node_map_;
   }
 
   void BindStream(std::shared_ptr<WireStream> stream) ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     stream_ = std::move(stream);
   }
 
   /// Returns the stream associated with the action.
   [[nodiscard]] WireStream* absl_nullable GetStream() const
       ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return stream_.get();
   }
 
   void BindSession(Session* absl_nullable session) ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     session_ = session;
   }
 
   [[nodiscard]] Session* absl_nullable GetSession() const
       ABSL_LOCKS_EXCLUDED(mu_) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     return session_;
   }
 
@@ -473,7 +473,7 @@ class Action : public std::enable_shared_from_this<Action> {
    *   The status of sending the action call message.
    */
   absl::Status Call() {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     bind_streams_on_inputs_default_ = true;
     bind_streams_on_outputs_default_ = false;
 
@@ -493,7 +493,7 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   absl::Status Run(
       thread::PermanentEvent* absl_nullable cancelled_externally = nullptr) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     bind_streams_on_inputs_default_ = false;
     bind_streams_on_outputs_default_ = true;
 
@@ -513,7 +513,7 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   void Cancel() const {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     if (cancelled_->HasBeenNotified()) {
       return;
     }
@@ -525,13 +525,13 @@ class Action : public std::enable_shared_from_this<Action> {
 
   thread::Case OnExternalCancel() const {
     if (cancelled_externally_ == nullptr) {
-      return concurrency::NonSelectableCase();
+      return thread::NonSelectableCase();
     }
     return cancelled_externally_->OnEvent();
   }
 
   bool Cancelled() const {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     bool result = cancelled_->HasBeenNotified();
     if (cancelled_externally_ != nullptr) {
       result = result || cancelled_externally_->HasBeenNotified();
@@ -567,7 +567,7 @@ class Action : public std::enable_shared_from_this<Action> {
     }
   }
 
-  mutable concurrency::Mutex mu_{};
+  mutable eglt::Mutex mu_{};
 
   ActionSchema schema_;
   absl::flat_hash_map<std::string, std::string> input_name_to_id_;

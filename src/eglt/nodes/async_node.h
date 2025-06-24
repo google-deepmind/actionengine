@@ -47,11 +47,11 @@ class AsyncNode {
   AsyncNode& operator=(AsyncNode& other) = delete;
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
-  ~AsyncNode() { concurrency::MutexLock lock(&mu_); }
+  ~AsyncNode() { eglt::MutexLock lock(&mu_); }
 
   void BindPeers(
       absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers) {
-    concurrency::MutexLock lock(&mu_);
+    eglt::MutexLock lock(&mu_);
     peers_ = std::move(peers);
   }
 
@@ -156,8 +156,8 @@ class AsyncNode {
   NodeMap* absl_nullable node_map_ = nullptr;
   std::unique_ptr<ChunkStore> chunk_store_;
 
-  mutable concurrency::Mutex mu_;
-  mutable concurrency::CondVar cv_ ABSL_GUARDED_BY(mu_);
+  mutable eglt::Mutex mu_;
+  mutable eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers_
