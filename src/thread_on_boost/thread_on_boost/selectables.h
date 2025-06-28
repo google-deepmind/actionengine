@@ -34,25 +34,6 @@ namespace thread {
 // action taken by X before it calls `Notify()` is visible to thread Y after:
 //  * Y selects OnEvent(), or
 //  * Y receives a `true` return value from `HasBeenNotified()`
-//
-// Example usage:
-//     void ProduceValues(thread::Channel<int>* queue,
-//                        thread::PermanentEvent* quit) {
-//       int i = 0;
-//       while (true) {
-//         switch (thread::Select({ queue->writer()->OnWrite(i),
-//                                  quit->OnEvent() })) {
-//           case 0: {
-//             ++i;  // Prepare next write
-//             break;
-//           }
-//           case 1: {
-//             ...  // quit was signalled, stop producing
-//             return;
-//           }
-//         }
-//       }
-//     }
 class PermanentEvent final : public internal::Selectable {
  public:
   PermanentEvent() = default;

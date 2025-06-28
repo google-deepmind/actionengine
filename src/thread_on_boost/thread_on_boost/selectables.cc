@@ -74,7 +74,7 @@ bool PermanentEvent::HasBeenNotified() const {
 }
 
 // NonSelectable: an ironic implementation of a Selectable.
-class NonSelectable : public internal::Selectable {
+class NonSelectable final : public internal::Selectable {
  public:
   NonSelectable() = default;
   ~NonSelectable() override = default;

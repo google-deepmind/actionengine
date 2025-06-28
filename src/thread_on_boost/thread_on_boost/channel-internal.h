@@ -15,7 +15,6 @@
 #ifndef THREAD_FIBER_CHANNEL_INTERNAL_H_
 #define THREAD_FIBER_CHANNEL_INTERNAL_H_
 
-#include <cstdint>
 #include <deque>
 #include <memory>
 #include <type_traits>
@@ -26,6 +25,14 @@
 #include "thread_on_boost/select.h"
 
 namespace thread::internal {
+
+enum class CopyOrMove {
+  Copy,
+  Move,
+};
+
+static constexpr auto kCopy = CopyOrMove::Copy;
+static constexpr auto kMove = CopyOrMove::Move;
 
 // Type-independent channel implementation.
 struct ChannelWaiterState {
@@ -109,14 +116,7 @@ class ChannelState final : public ChannelWaiterState {
     return queue_.size();
   }
 
-  Case OnRead(T* dst, bool* ok) {
-    const Case c = {
-        &rd_,
-        reinterpret_cast<intptr_t>(dst),
-        reinterpret_cast<intptr_t>(ok),
-    };
-    return c;
-  }
+  Case OnRead(T* dst, bool* ok) { return {&rd_, dst, ok}; }
 
   Case OnWrite(const T& item) {
     // Guard against user error at compile-time.
@@ -124,21 +124,15 @@ class ChannelState final : public ChannelWaiterState {
         std::is_copy_constructible_v<T>,
         "Channel<T>::OnWrite called with const T& for a type T that is not "
         "copy constructible.");
-    return {&wr_, reinterpret_cast<intptr_t>(&item),
-            reinterpret_cast<intptr_t>(&CopyOut)};
+    return {&wr_, &item, &kCopy};
   }
 
-  Case OnWrite(T&& item) {
-    return {&wr_, reinterpret_cast<intptr_t>(&item),
-            reinterpret_cast<intptr_t>(&MoveOut)};
-  }
+  Case OnWrite(T&& item) { return {&wr_, &item, &kMove}; }
 
  private:
   const size_t capacity_;  // User-supplied channel buffer size
 
   mutable eglt::concurrency::impl::Mutex mu_;
-  // chunked_queue doesn't work with over aligned types, so we use std::deque
-  // for those.
   std::deque<T> queue_ ABSL_GUARDED_BY(mu_);
   bool closed_ ABSL_GUARDED_BY(mu_);
 
@@ -164,12 +158,17 @@ class ChannelState final : public ChannelWaiterState {
   };
   Wr wr_;
 
-  static T CopyOut(T* item) { return *static_cast<const T*>(item); }
+  static T CopyOrMoveOut(T* item, CopyOrMove strategy) {
+    if (strategy == kCopy) {
+      return *static_cast<const T*>(item);
+    }
 
-  static T MoveOut(T* item) { return std::move(*item); }
+    if (strategy == kMove) {
+      return std::move(*item);
+    }
 
-  static T CopyOrMoveOut(T* item, intptr_t arg2) {
-    return reinterpret_cast<T (*)(T*)>(arg2)(item);
+    LOG(FATAL) << "Invalid CopyOrMove strategy: " << static_cast<int>(strategy);
+    ABSL_ASSUME(false);
   }
 
   T* Front() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) { return &queue_.front(); }
@@ -190,8 +189,8 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
   eglt::concurrency::impl::MutexLock l(&ch->mu_);
   DCHECK(ch->Invariants());
 
-  T* dst_item = reinterpret_cast<T*>(reader->params->arg1);
-  bool* dst_ok = reinterpret_cast<bool*>(reader->params->arg2);
+  T* dst_item = reader->params->GetArgPtrOrDie<T>(0);
+  bool* dst_ok = reader->params->GetArgPtrOrDie<bool>(1);
 
   // Is there a buffered item to read?
   if (!ch->queue_.empty()) {
@@ -210,9 +209,11 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
       // Potentially admit a waiting writer.
       CaseState* unblocked_writer;
       if (ch->GetWaitingWriter(&unblocked_writer)) {
-        T* item = reinterpret_cast<T*>(unblocked_writer->params->arg1);
-        ch->queue_.push_back(
-            CopyOrMoveOut(item, unblocked_writer->params->arg2));
+        auto* item = unblocked_writer->params->GetArgPtrOrDie<T>(0);
+        auto copy_or_move =
+            *unblocked_writer->params->GetArgPtrOrDie<CopyOrMove>(1);
+
+        ch->queue_.push_back(CopyOrMoveOut(item, copy_or_move));
         ch->UnlockAndReleaseWriter(unblocked_writer);
       }
     } else {
@@ -227,9 +228,12 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
   // Try to transfer directly from waiting writer to reader
   CaseState* writer;
   if (ch->GetMatchingWriter(reader, &writer)) {
-    T* item = reinterpret_cast<T*>(writer->params->arg1);
-    *dst_item = CopyOrMoveOut(item, writer->params->arg2);
+    auto* item = writer->params->GetArgPtrOrDie<T>(0);
+    auto copy_or_move = *writer->params->GetArgPtrOrDie<CopyOrMove>(1);
+
+    *dst_item = CopyOrMoveOut(item, copy_or_move);
     *dst_ok = true;
+
     ch->UnlockAndReleaseReader(reader);
     ch->UnlockAndReleaseWriter(writer);
     DCHECK(ch->Invariants());
@@ -274,12 +278,18 @@ bool ChannelState<T>::Wr::Handle(CaseState* writer, bool enqueue) {
   // First try to transfer directly from writer to a waiting reader
   CaseState* reader;
   if (ch->GetMatchingReader(writer, &reader)) {
-    T* writer_item = reinterpret_cast<T*>(writer->params->arg1);
-    T* reader_item = reinterpret_cast<T*>(reader->params->arg1);
-    *reader_item = CopyOrMoveOut(writer_item, writer->params->arg2);
-    *reinterpret_cast<bool*>(reader->params->arg2) = true;
+    auto* writer_item = writer->params->GetArgPtrOrDie<T>(0);
+    auto copy_or_move = *writer->params->GetArgPtrOrDie<CopyOrMove>(1);
+
+    auto* reader_item = reader->params->GetArgPtrOrDie<T>(0);
+    bool* reader_ok = reader->params->GetArgPtrOrDie<bool>(1);
+
+    *reader_item = CopyOrMoveOut(writer_item, copy_or_move);
+    *reader_ok = true;
+
     ch->UnlockAndReleaseReader(reader);
     ch->UnlockAndReleaseWriter(writer);
+
     DCHECK(ch->Invariants());
     return true;
   }
@@ -298,9 +308,14 @@ bool ChannelState<T>::Wr::Handle(CaseState* writer, bool enqueue) {
   // Is there room to buffer item?
   if (ch->queue_.size() < ch->capacity_) {
     DVLOG(2) << "Add to buffer";
-    ch->queue_.push_back(CopyOrMoveOut(
-        reinterpret_cast<T*>(writer->params->arg1), writer->params->arg2));
+
+    T* item = writer->params->GetArgPtrOrDie<T>(0);
+    const CopyOrMove copy_or_move =
+        *writer->params->GetArgPtrOrDie<CopyOrMove>(1);
+
+    ch->queue_.push_back(CopyOrMoveOut(item, copy_or_move));
     ch->UnlockAndReleaseWriter(writer);
+
     DCHECK(ch->Invariants());
     return true;
   }

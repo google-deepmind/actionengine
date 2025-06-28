@@ -47,7 +47,9 @@ void ChannelWaiterState::CloseAndReleaseReaders() {
     if (reader->sel->picked == Selector::kNonePicked) {
       // We know there was no data previously -- otherwise the reader would not
       // have been waiting -- so we return that the channel was closed.
-      *reinterpret_cast<bool*>(reader->params->arg2) = false;
+      bool* ok = reader->params->GetArgPtrOrDie<bool>(1);
+      *ok = false;
+
       Notify(&waiting_readers_, reader);
     }
 

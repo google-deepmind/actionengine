@@ -62,7 +62,7 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
     case_state->params = assoc_case;
     case_state->prev = nullptr;  // Not on any list.
     case_state->sel = &sel;
-    if (assoc_case->event->Handle(case_state, /*enqueue=*/need_to_block)) {
+    if (assoc_case->selectable->Handle(case_state, /*enqueue=*/need_to_block)) {
       ready = true;
       break;
     }
@@ -94,7 +94,7 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
     if (internal::CaseState* case_state = &case_states[i];
         case_state->index != sel.picked) {
       // sel.picked was unregistered by the notifier.
-      case_state->params->event->Unregister(case_state);
+      case_state->params->selectable->Unregister(case_state);
     }
   }
 

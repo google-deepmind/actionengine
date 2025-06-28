@@ -15,53 +15,94 @@
 #ifndef THREAD_FIBER_SELECT_INTERNAL_H_
 #define THREAD_FIBER_SELECT_INTERNAL_H_
 
+#include <concepts>
 #include <cstdint>
 
 #include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/boost_primitives.h"
 
 namespace thread {
-
-// The state kept by Select and modified by the selectables tracking which
-// selectable winds up being selected. Declared upfront so that lock-safety
-// annotations may be added.
 namespace internal {
+
+template <typename T>
+concept IsPointer = std::is_pointer_v<T>;
+
+template <typename T>
+concept IsNonConstPointer =
+    IsPointer<T> && !std::is_const_v<std::remove_pointer_t<T>>;
+
+template <typename T>
+concept IsConstPointer =
+    IsPointer<T> && std::is_const_v<std::remove_pointer_t<T>>;
+
 struct Selector {
-  int picked;  // kNonePicked until a case is picked, or index of picked case
+  static constexpr int kNonePicked = -1;
+
+  bool Pick(int index) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
+    if (picked != kNonePicked) {
+      return false;  // Already picked.
+    }
+
+    picked = index;
+    cv.Signal();
+    return true;
+  }
+
+  // kNonePicked until a case is picked, or the index of picked case
+  int picked{kNonePicked};
 
   eglt::concurrency::impl::Mutex mu;
-  eglt::concurrency::impl::CondVar cv
-      ABSL_GUARDED_BY(mu);  // Select() call waits on this until picked >= 0
-
-  // External callers (e.g. Selectable::Handle)) may set (non-negative) picked
-  // iff
-  //  i. mu is held
-  //  ii. picked == Selector::kNonePicked
-  static constexpr int kNonePicked = -1;
+  eglt::concurrency::impl::CondVar cv ABSL_GUARDED_BY(mu);
 };
 
 class Selectable;
 }  // namespace internal
 
-// A token given to the user to be passed to Select, containing the selectable
-// and untyped arguments for it specific to this case. Not in the internal
-// namespace since callers can pass around and copy objects of this type, though
-// they are not allowed to assume anything about its internals.
 struct [[nodiscard]] Case {
-  internal::Selectable* event;
-  intptr_t arg1;  // Optional
-  intptr_t arg2;  // Optional
+  internal::Selectable* selectable;
+  absl::InlinedVector<void*, 2> arguments;
 
-  // Provide constructors to initialize Case to disallow undesired implicit
-  // conversions (e.g., bool used to convert to a Case silently).
-  Case(internal::Selectable* e = nullptr, intptr_t a = 0, intptr_t b = 0)
-      : event(e), arg1(a), arg2(b) {}
+  // ReSharper disable once CppNonExplicitConvertingConstructor
+  Case(internal::Selectable* s = nullptr) : selectable(s) {}
+  // ReSharper disable once CppNonExplicitConvertingConstructor
+  Case(internal::Selectable* s, internal::IsPointer auto... args)
+      : selectable(s) {
+    AddArgs(args...);
+  }
+
   Case(const Case&) = default;
   Case& operator=(const Case&) = default;
 
-  // Disallow casting from bool
-  // ReSharper disable once CppNonExplicitConvertingConstructor
-  Case(bool, intptr_t = 0, intptr_t = 0) = delete;
+  // // Disallow casting from bool
+  // // ReSharper disable once CppNonExplicitConvertingConstructor
+  // template <typename... Args>
+  // Case(bool, Args... args) = delete;
+
+  void AddArgs(internal::IsNonConstPointer auto arg) {
+    arguments.push_back(static_cast<void*>(arg));
+  }
+
+  void AddArgs(internal::IsConstPointer auto arg) {
+    arguments.push_back(const_cast<void*>(static_cast<const void*>(arg)));
+  }
+
+  void AddArgs(internal::IsPointer auto... args) { (AddArgs(args), ...); }
+
+  [[nodiscard]] void* absl_nonnull GetArgPtrOrDie(int index) const {
+    if (index < 0 || index >= arguments.size()) {
+      LOG(FATAL) << "Case::GetArgOrDie: index out of bounds: " << index
+                 << ", arguments.size() = " << arguments.size();
+      ABSL_ASSUME(false);
+    }
+    return arguments[index];
+  }
+
+  template <typename T>
+  [[nodiscard]] T* absl_nonnull GetArgPtrOrDie(int index) const {
+    return static_cast<T*>(GetArgPtrOrDie(index));
+  }
+
+  [[nodiscard]] size_t GetNumArgs() const { return arguments.size(); }
 };
 
 // An array of cases; the type supplied to Select. Must be initializer list
@@ -69,16 +110,6 @@ struct [[nodiscard]] Case {
 typedef absl::InlinedVector<Case, 4> CaseArray;
 
 namespace internal {
-
-inline bool Pick(Selector* sel, int index)
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(sel->mu) {
-  if (sel->picked != Selector::kNonePicked) {
-    return false;  // Already picked.
-  }
-  sel->picked = index;
-  sel->cv.Signal();
-  return true;
-}
 
 // A CaseState is the encapsulation of a Case that is passed back to
 // Selectable::Handle(...) from Select (specifically, the selectable identified
@@ -107,7 +138,7 @@ struct CaseState {
   // After the caller releases sel->mu, this object is no longer guaranteed to
   // continue to exist.
   bool Pick() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(sel->mu) {
-    return internal::Pick(sel, index);
+    return sel->Pick(index);
   }
 };
 
