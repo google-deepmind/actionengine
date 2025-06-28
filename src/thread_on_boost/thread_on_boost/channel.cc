@@ -21,10 +21,10 @@
 namespace thread::internal {
 
 static void Notify(CaseState** head, CaseState* c)
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(c->sel->mu) {
-  CHECK_EQ(c->sel->picked, -1) << "Double-notifying selector";
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(c->selector->mu) {
+  CHECK_EQ(c->selector->picked_case_index, -1) << "Double-notifying selector";
   if (c->prev) {  // Synchronized by owning ChannelState
-    internal::RemoveFromList(head, c);
+    internal::UnlinkFromList(head, c);
   }
   c->Pick();
 }
@@ -43,8 +43,8 @@ void ChannelWaiterState::CloseAndReleaseReaders() {
       next_reader = nullptr;
     }
 
-    eglt::concurrency::impl::MutexLock l2(&reader->sel->mu);
-    if (reader->sel->picked == Selector::kNonePicked) {
+    eglt::concurrency::impl::MutexLock l2(&reader->selector->mu);
+    if (reader->selector->picked_case_index == Selector::kNonePicked) {
       // We know there was no data previously -- otherwise the reader would not
       // have been waiting -- so we return that the channel was closed.
       bool* ok = reader->params->GetArgPtrOrDie<bool>(1);
@@ -62,8 +62,9 @@ void ChannelWaiterState::CloseAndReleaseReaders() {
 // belong to different Select statements. Returns false with no locks held
 // otherwise.
 static bool StartTransfer(const CaseState* reader, const CaseState* writer)
-    ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->sel->mu, writer->sel->mu) {
-  if (writer->sel == reader->sel) {
+    ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->selector->mu,
+                                    writer->selector->mu) {
+  if (writer->selector == reader->selector) {
     // Cannot transfer if both reader and writer are part of
     // the same select statement.
     return false;
@@ -71,14 +72,16 @@ static bool StartTransfer(const CaseState* reader, const CaseState* writer)
 
   // Order the selector locks by address and grab both.
   internal::Selector* s1 =
-      (reader->sel < writer->sel ? reader->sel : writer->sel);
+      (reader->selector < writer->selector ? reader->selector
+                                           : writer->selector);
   internal::Selector* s2 =
-      (reader->sel < writer->sel ? writer->sel : reader->sel);
+      (reader->selector < writer->selector ? writer->selector
+                                           : reader->selector);
 
   s1->mu.Lock();
-  if (s1->picked == Selector::kNonePicked) {
+  if (s1->picked_case_index == Selector::kNonePicked) {
     s2->mu.Lock();
-    if (s2->picked == Selector::kNonePicked) {
+    if (s2->picked_case_index == Selector::kNonePicked) {
       return true;
     }
     s2->mu.Unlock();
@@ -88,15 +91,15 @@ static bool StartTransfer(const CaseState* reader, const CaseState* writer)
 }
 
 void ChannelWaiterState::UnlockAndReleaseReader(CaseState* reader)
-    ABSL_UNLOCK_FUNCTION(reader->sel->mu) {
+    ABSL_UNLOCK_FUNCTION(reader->selector->mu) {
   Notify(&waiting_readers_, reader);
-  reader->sel->mu.Unlock();
+  reader->selector->mu.Unlock();
 }
 
 void ChannelWaiterState::UnlockAndReleaseWriter(CaseState* writer)
-    ABSL_UNLOCK_FUNCTION(writer->sel->mu) {
+    ABSL_UNLOCK_FUNCTION(writer->selector->mu) {
   Notify(&waiting_writers_, writer);
-  writer->sel->mu.Unlock();
+  writer->selector->mu.Unlock();
 }
 
 bool ChannelWaiterState::GetMatchingReader(const CaseState* writer,
@@ -104,7 +107,7 @@ bool ChannelWaiterState::GetMatchingReader(const CaseState* writer,
   if (CaseState* current_reader = waiting_readers_; current_reader != nullptr) {
     do {
       if (StartTransfer(current_reader, writer)) {
-        // Both current_reader->sel->mu and writer->sel->mu are now locked.
+        // Both current_reader->selector->mu and writer->selector->mu are now locked.
         *reader = current_reader;
         return true;
       }
@@ -119,7 +122,7 @@ bool ChannelWaiterState::GetMatchingWriter(const CaseState* reader,
   if (CaseState* current_writer = waiting_writers_; current_writer != nullptr) {
     do {
       if (StartTransfer(reader, current_writer)) {
-        // Both reader->sel->mu and current_writer->sel->mu are now locked.
+        // Both reader->selector->mu and current_writer->selector->mu are now locked.
         *writer = current_writer;
         return true;
       }
@@ -132,12 +135,13 @@ bool ChannelWaiterState::GetMatchingWriter(const CaseState* reader,
 bool ChannelWaiterState::GetWaitingWriter(CaseState** writer) const {
   if (CaseState* current_writer = waiting_writers_; current_writer != nullptr) {
     do {
-      current_writer->sel->mu.Lock();
-      if (current_writer->sel->picked == Selector::kNonePicked) {
+      current_writer->selector->mu.Lock();
+      if (current_writer->selector->picked_case_index ==
+          Selector::kNonePicked) {
         *writer = current_writer;
-        return true;  // Returns with *writer->sel->mu held.
+        return true;  // Returns with *writer->selector->mu held.
       }
-      current_writer->sel->mu.Unlock();
+      current_writer->selector->mu.Unlock();
       current_writer = current_writer->next;
     } while (current_writer != waiting_writers_);
   }

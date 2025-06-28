@@ -120,48 +120,6 @@ class CondVar {
   boost::fibers::condition_variable_any cv_;
 };
 
-class ABSL_SCOPED_LOCKABLE TwoMutexLock {
- public:
-  explicit TwoMutexLock(Mutex* absl_nonnull mu1, Mutex* absl_nonnull mu2)
-      ABSL_EXCLUSIVE_LOCK_FUNCTION(mu1, mu2)
-      : mu1_(mu1), mu2_(mu2) {
-    if (ABSL_PREDICT_FALSE(mu1_ == mu2_)) {
-      mu1_->Lock();
-      return;
-    }
-
-    if (mu1 < mu2) {
-      mu1_->Lock();
-      mu2_->Lock();
-    } else {
-      mu2_->Lock();
-      mu1_->Lock();
-    }
-  }
-
-  TwoMutexLock(const TwoMutexLock&) = delete;  // NOLINT(runtime/mutex)
-  TwoMutexLock& operator=(const TwoMutexLock&) = delete;
-
-  ~TwoMutexLock() ABSL_UNLOCK_FUNCTION() {
-    if (ABSL_PREDICT_FALSE(mu1_ == mu2_)) {
-      mu1_->Unlock();
-      return;
-    }
-
-    if (mu1_ < mu2_) {
-      mu2_->Unlock();
-      mu1_->Unlock();
-    } else {
-      mu1_->Unlock();
-      mu2_->Unlock();
-    }
-  }
-
- private:
-  Mutex* absl_nonnull const mu1_;
-  Mutex* absl_nonnull const mu2_;
-};
-
 inline void SleepFor(absl::Duration duration) {
   boost::fibers::context* active_ctx = boost::fibers::context::active();
   active_ctx->wait_until(std::chrono::steady_clock::now() +

@@ -2,7 +2,7 @@
 
 namespace thread {
 
-static std::atomic<int32_t> last_rand32;
+static std::atomic<uint32_t> last_rand32;
 static absl::once_flag init_rand32_once;
 
 static void InitRand32() {

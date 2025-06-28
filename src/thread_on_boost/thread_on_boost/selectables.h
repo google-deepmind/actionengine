@@ -19,7 +19,7 @@
 
 #include "thread_on_boost/absl_headers.h"
 
-#include "thread_on_boost/select-internal.h"
+#include "thread_on_boost/cases.h"
 
 namespace thread {
 
@@ -41,8 +41,8 @@ class PermanentEvent final : public internal::Selectable {
   ~PermanentEvent() override {
     // We acquire the lock here so that PermanentEvent can synchronize
     // its own deletion.
-    lock_.lock();
-    DCHECK(enqueued_list_ == nullptr);
+    splk_.lock();
+    DCHECK(cases_to_be_selected_ == nullptr);
   }
 
   PermanentEvent(const PermanentEvent&) = delete;
@@ -71,10 +71,10 @@ class PermanentEvent final : public internal::Selectable {
  private:
   friend class Fiber;
 
-  boost::fibers::detail::spinlock lock_;
+  boost::fibers::detail::spinlock splk_;
   std::atomic<bool> notified_{false};
 
-  internal::CaseState* enqueued_list_ = nullptr;
+  internal::CaseState* cases_to_be_selected_ = nullptr;
 };
 
 // NonSelectableCase()

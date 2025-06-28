@@ -57,7 +57,7 @@ Fiber::Fiber(Unstarted, InvocableWork work, Fiber* parent)
   // Note: We become visible to cancellation as soon as we're added to parent.
   eglt::concurrency::impl::MutexLock l(&parent_->mu_);
   CHECK_EQ(parent_->state_, RUNNING);
-  parent->PushChildAtFront(this);
+  parent->PushBackChild(this);
   if (parent_->cancellation_.HasBeenNotified()) {
     // Fibers adjoined to a cancelled tree inherit implicit cancellation.
     DVLOG(2) << "F " << this << " joining cancelled sub-tree.";

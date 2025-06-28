@@ -25,10 +25,10 @@ namespace thread {
 
 // PermanentEvent
 bool PermanentEvent::Handle(internal::CaseState* c, bool enqueue) {
-  boost::fibers::detail::spinlock_lock l1(lock_);
+  boost::fibers::detail::spinlock_lock l1(splk_);
 
   if (notified_.load(std::memory_order_relaxed)) {  // Synchronized by lock_
-    eglt::concurrency::impl::MutexLock l2(&c->sel->mu);
+    eglt::concurrency::impl::MutexLock l2(&c->selector->mu);
     // Consider that in the presence of a race with another Selectable,
     // c->Pick() may return false in this case.  This is safe as we are not
     // required to maintain an active list after notification has been
@@ -36,22 +36,22 @@ bool PermanentEvent::Handle(internal::CaseState* c, bool enqueue) {
     return c->Pick();
   }
   if (enqueue) {
-    internal::PushBack(&enqueued_list_, c);
+    internal::PushBack(&cases_to_be_selected_, c);
   }
 
   return false;
 }
 
 void PermanentEvent::Unregister(internal::CaseState* c) {
-  boost::fibers::detail::spinlock_lock l1(lock_);
+  boost::fibers::detail::spinlock_lock lock(splk_);
   if (!notified_.load(std::memory_order_relaxed)) {
     // We only maintain lists of active cases up until notification.
-    internal::RemoveFromList(&enqueued_list_, c);
+    internal::UnlinkFromList(&cases_to_be_selected_, c);
   }
 }
 
 void PermanentEvent::Notify() {
-  boost::fibers::detail::spinlock_lock l(lock_);
+  boost::fibers::detail::spinlock_lock l(splk_);
 
   DCHECK(!notified_.load(std::memory_order_relaxed))
       << "Notify() method called more than once for "
@@ -59,13 +59,14 @@ void PermanentEvent::Notify() {
   notified_.store(true, std::memory_order_release);
 
   // The transition to a notified state is a permanent one, so we tear down any
-  // enqueued cases.  We must be careful to synchronize against this in the
+  // enqueued cases. We must be careful to synchronize against this in the
   // future in both the Handle(..., true) and Unregister cases.
-  while (enqueued_list_) {
-    eglt::concurrency::impl::MutexLock l2(&enqueued_list_->sel->mu);
-    enqueued_list_->Pick();
-    // Continued storage of enqueued_list_ after Pick() is guaranteed by sel->mu
-    internal::RemoveFromList(&enqueued_list_, enqueued_list_);
+  while (cases_to_be_selected_) {
+    internal::CaseState* case_in_one_select = cases_to_be_selected_;
+    eglt::concurrency::impl::MutexLock l2(&case_in_one_select->selector->mu);
+    case_in_one_select->Pick();
+    // Continued storage of enqueued_list_ after Pick() is guaranteed by selector->mu
+    internal::UnlinkFromList(&cases_to_be_selected_, case_in_one_select);
   }
 }
 
@@ -97,7 +98,7 @@ class AlwaysSelectable final : public internal::Selectable {
 
   // Implementation of Selectable interface.
   bool Handle(internal::CaseState* c, bool enqueue) override {
-    eglt::concurrency::impl::MutexLock lock(&c->sel->mu);
+    eglt::concurrency::impl::MutexLock lock(&c->selector->mu);
     // This selectable is always ready, so ask the selector to pick it.
     // Note: it may not be picked in case another selectable has already
     // been picked.

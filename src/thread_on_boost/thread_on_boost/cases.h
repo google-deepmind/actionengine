@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THREAD_FIBER_SELECT_INTERNAL_H_
-#define THREAD_FIBER_SELECT_INTERNAL_H_
-
-#include <concepts>
-#include <cstdint>
+#ifndef THREAD_FIBER_CASES_H_
+#define THREAD_FIBER_CASES_H_
 
 #include "thread_on_boost/absl_headers.h"
 #include "thread_on_boost/boost_primitives.h"
@@ -38,18 +35,29 @@ concept IsConstPointer =
 struct Selector {
   static constexpr int kNonePicked = -1;
 
-  bool Pick(int index) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
-    if (picked != kNonePicked) {
+  bool Pick(int case_index) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
+    if (picked_case_index != kNonePicked) {
       return false;  // Already picked.
     }
 
-    picked = index;
+    picked_case_index = case_index;
     cv.Signal();
     return true;
   }
 
+  // Returns true iff a case was picked before the deadline.
+  bool WaitForPickUntil(absl::Time deadline) ABSL_SHARED_LOCKS_REQUIRED(mu) {
+    while (picked_case_index == internal::Selector::kNonePicked) {
+      if (cv.WaitWithDeadline(&mu, deadline) &&
+          picked_case_index == internal::Selector::kNonePicked) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // kNonePicked until a case is picked, or the index of picked case
-  int picked{kNonePicked};
+  int picked_case_index{kNonePicked};
 
   eglt::concurrency::impl::Mutex mu;
   eglt::concurrency::impl::CondVar cv ABSL_GUARDED_BY(mu);
@@ -75,8 +83,8 @@ struct [[nodiscard]] Case {
 
   // // Disallow casting from bool
   // // ReSharper disable once CppNonExplicitConvertingConstructor
-  // template <typename... Args>
-  // Case(bool, Args... args) = delete;
+  template <typename... Args>
+  Case(bool, Args... args) = delete;
 
   void AddArgs(internal::IsNonConstPointer auto arg) {
     arguments.push_back(static_cast<void*>(arg));
@@ -111,10 +119,6 @@ typedef absl::InlinedVector<Case, 4> CaseArray;
 
 namespace internal {
 
-// A CaseState is the encapsulation of a Case that is passed back to
-// Selectable::Handle(...) from Select (specifically, the selectable identified
-// by params->event).
-//
 // A CaseState represents the per-Select call information kept for a Case.
 // This separation from Case allows a particular Case to be safely passed to
 // multiple Select calls concurrently.
@@ -127,7 +131,7 @@ struct CaseState {
   const Case* params;  // Initialized by Select()
   int index;           // Provided by Select(): index in parameter list.
   internal::Selector* absl_nonnull
-      sel;          // Provided by Select(): owning selector.
+      selector;     // Provided by Select(): owning selector.
   CaseState* prev;  // Initialized by Select(), nullptr -> not on list.
   CaseState* next;
 
@@ -135,12 +139,17 @@ struct CaseState {
   // and only if this case will be the one chosen, because no other case has
   // already become ready and been chosen.
   //
-  // After the caller releases sel->mu, this object is no longer guaranteed to
+  // After the caller releases selector->mu, this object is no longer guaranteed to
   // continue to exist.
-  bool Pick() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(sel->mu) {
-    return sel->Pick(index);
+  bool Pick() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(selector->mu) {
+    return selector->Pick(index);
   }
+
+  bool Handle(bool enqueue);
+  void Unregister();
 };
+
+using CaseStateArray = absl::InlinedVector<CaseState, 4>;
 
 // The interface implemented by objects that can be used with Select().  Note
 // that a single Selectable may be enqueued against multiple Select statements,
@@ -157,11 +166,11 @@ class Selectable {
   //
   // The selectable should implement the following algorithm:
   //   if (currently ready) {
-  //     c->sel->mu.Lock();
+  //     c->selector->mu.Lock();
   //     if (c->Pick()) {
   //       ... perform any side effects of being picked ...
   //     }
-  //     c->sel->mu.Unlock();
+  //     c->selector->mu.Unlock();
   //     return true;
   //   } else {
   //     if (enqueue) {
@@ -171,56 +180,62 @@ class Selectable {
   //   }
   //
   // If the CaseState is enqueued and the selectable later becomes ready before
-  // Unregister is called, it should again lock c->sel->mu, call c->Pick(),
-  // and perform side effects iff picked, while c->sel->mu is still held.
-  virtual bool Handle(CaseState* c, bool enqueue) = 0;
+  // Unregister is called, it should again lock c->selector->mu, call c->Pick(),
+  // and perform side effects iff picked, while c->selector->mu is still held.
+  virtual bool Handle(CaseState* case_state, bool enqueue) = 0;
 
   // Unregister a case against future transitions for this Selectable.
   //
   // Called for all cases c1 where a previous call Handle(c1, true) returned
   // false and another case c2 was successfully selected (c2->Pick() returned
   // true), or a timeout occurred.
-  virtual void Unregister(CaseState* c) = 0;
+  virtual void Unregister(CaseState* case_state) = 0;
 };
+
+inline bool CaseState::Handle(bool enqueue) {
+  return params->selectable->Handle(this, enqueue);
+}
+
+inline void CaseState::Unregister() {
+  params->selectable->Unregister(this);
+}
 
 // Shared linked list code. Implements a doubly-linked list where the list head
 // is a pointer to the oldest element added to the list.
-inline void PushBack(CaseState** head, CaseState* elem) {
+inline void PushBack(CaseState** absl_nonnull head,
+                     CaseState* absl_nonnull element) {
   if (*head == nullptr) {
     // Queue is empty; make singleton queue.
-    elem->next = elem;
-    elem->prev = elem;
-    *head = elem;
+    element->next = element;
+    element->prev = element;
+    *head = element;
   } else {
     // Add just before the oldest element (*head).
-    elem->next = *head;
-    elem->prev = elem->next->prev;
-    elem->prev->next = elem;
-    elem->next->prev = elem;
+    element->next = *head;
+    element->prev = element->next->prev;
+    element->prev->next = element;
+    element->next->prev = element;
   }
 }
 
-// Remove the supplied element from the list, updating the head pointer if
-// necessary. Guarantees that afterward elem->prev will be nullptr, and
-// elem->next will be unchanged.
-inline void RemoveFromList(CaseState** head, CaseState* elem) {
-  if (elem->next == elem) {
+inline void UnlinkFromList(CaseState** head, CaseState* element) {
+  if (element->next == element) {
     // Single entry; clear list
     *head = nullptr;
   } else {
     // Remove from list
-    elem->next->prev = elem->prev;
-    elem->prev->next = elem->next;
-    if (*head == elem) {
-      *head = elem->next;
+    element->next->prev = element->prev;
+    element->prev->next = element->next;
+    if (*head == element) {
+      *head = element->next;
     }
   }
   // Maintaining this state in "prev" allows the safe removal of the current
   // element while iterating forwards.
-  elem->prev = nullptr;
+  element->prev = nullptr;
 }
 
 }  // namespace internal
 }  // namespace thread
 
-#endif  // THREAD_FIBER_SELECT_INTERNAL_H_
+#endif  // THREAD_FIBER_CASES_H_

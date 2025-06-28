@@ -32,29 +32,16 @@ class Reader {
   Reader(const Reader&) = delete;
   Reader& operator=(const Reader&) = delete;
 
-  // Block until either
-  // (a) the next item has been read into *item; returns true.
-  // (b) Close() has been called on the corresponding writer and
-  //     all values have been consumed; returns false.
-  //
-  // When supported, Read() will move into *item.
-  bool Read(T* item) { return rep_->Get(item); }
-
-  // Returns a Case (to pass to Select()) that will finish by either
-  // (a) consuming the next item into *item and storing true in *ok, or
-  // (b) storing false in *ok to indicate that the channel has been closed and
-  //     all values have been consumed.
-  //
-  // The objects pointed to by both "item" and "ok" must outlive any call to
-  // Select using this case.
-  //
-  // When supported, OnRead() will move into *item.
-  Case OnRead(T* item, bool* ok) { return rep_->OnRead(item, ok); }
+  bool Read(T* absl_nonnull item) { return channel_state_->Get(item); }
+  Case OnRead(T* absl_nonnull item, bool* absl_nonnull ok) {
+    return channel_state_->OnRead(item, ok);
+  }
 
  private:
-  internal::ChannelState<T>* rep_;
+  internal::ChannelState<T>* absl_nonnull channel_state_;
   friend class Channel<T>;
-  explicit Reader(internal::ChannelState<T>* rep) : rep_(rep) {}
+  explicit Reader(internal::ChannelState<T>* absl_nonnull channel_state)
+      : channel_state_(channel_state) {}
 };
 
 template <class T>
@@ -63,31 +50,13 @@ class Writer {
   Writer(const Writer&) = delete;
   Writer& operator=(const Writer&) = delete;
 
-  // Blocks until the channel is able to accept a value (for a description of
-  // buffering see Channel()) and writes "item" to the channel.
-  //
-  // See thread::SelectUntil in select.h for how to write only if there's space.
-  //
-  // If "item" is a temporary or the result of calling std::move, it will be
-  // move-assigned into the buffer or a waiting reader.
-  //
-  // REQUIRES: May not be called after this->Close().
   void Write(const T& item) { Select({OnWrite(item)}); }
-
   void Write(T&& item) { Select({OnWrite(std::move(item))}); }
 
   // Marks the channel as closed, notifying any waiting readers. See
-  // Reader::Read().
-  //
-  // REQUIRES: May be called at most once.
-  void Close() { rep_->Close(); }
+  // Reader::Read(). May be called at most once.
+  void Close() { channel_state_->Close(); }
 
-  // Returns a Case (to pass to Select()) that will finish by adding the
-  // supplied item to the channel. Selectable only when there is space available
-  // on the channel.
-  //
-  // See Write() above for a description of whether "item" is copied or moved.
-  //
   // CAUTION: The lifetime of "item" must be guaranteed to span any call to
   // Select() with this case. Care must be taken when passing temporaries, whose
   // lifetime may only be guaranteed for the current statement. For example:
@@ -98,7 +67,7 @@ class Writer {
   //   thread::Case c = writer->OnWrite(19);
   //   int index = thread::Select({ c, ... });
   //
-  Case OnWrite(const T& item) { return rep_->OnWrite(item); }
+  Case OnWrite(const T& item) { return channel_state_->OnWrite(item); }
 
   // NOTE: "item" is not mutated (moved from) unless the returned Case is
   // selected. E.g.:
@@ -109,39 +78,29 @@ class Writer {
   //   if (index != 2) {
   //     unique_ptr->Foo();
   //   }
-  Case OnWrite(T&& item) { return rep_->OnWrite(std::move(item)); }
+  Case OnWrite(T&& item) { return channel_state_->OnWrite(std::move(item)); }
 
-  // Write the supplied value to the channel, returning false if and only if the
-  // calling fiber is cancelled before the value can be written.
-  //
-  // See Write() above for a description of whether "item" is copied or moved.
-  // If "item" is moved, the move happens iff this function returns true,
-  // similarly to OnWrite(T&&) above.
+  // Returns false iff the calling fiber is cancelled before the value can be
+  // written.
   bool WriteUnlessCancelled(const T& item) {
     return !Cancelled() && Select({OnCancel(), OnWrite(item)}) == 1;
   }
 
+  // NOTE: item is only moved from if this function returns true.
   bool WriteUnlessCancelled(T&& item) {
     return !Cancelled() && Select({OnCancel(), OnWrite(std::move(item))}) == 1;
   }
 
  private:
-  internal::ChannelState<T>* rep_;
+  internal::ChannelState<T>* absl_nonnull channel_state_;
   friend class Channel<T>;
-  explicit Writer(internal::ChannelState<T>* rep) : rep_(rep) {}
+  explicit Writer(internal::ChannelState<T>* absl_nonnull channel_state)
+      : channel_state_(channel_state) {}
 };
 
 template <class T>
 requires std::is_move_assignable_v<T> class Channel {
  public:
-  // Buffered channels ("buffer_capacity" > 0) behave like a producer-consumer
-  // queue into which up to "buffer_capacity" items may be queued. Memory
-  // usage is proportional to the number of items buffered, not the capacity.
-  // Although unbounded channels are possible by passing SIZE_MAX, consider that
-  // these introduce OOM risk.
-  //
-  // Unbuffered channels ("buffer_capacity" == 0) are synchronous; all writers
-  // will block until there is an available matching reader, and vice versa.
   explicit Channel(size_t buffer_capacity)
       : state_(buffer_capacity), reader_(&state_), writer_(&state_) {}
 

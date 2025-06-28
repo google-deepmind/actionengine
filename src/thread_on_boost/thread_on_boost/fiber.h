@@ -107,7 +107,7 @@ class Fiber {
   void MarkJoined();
   void InternalJoin();
 
-  void PushChildAtFront(Fiber* absl_nonnull child)
+  void PushBackChild(Fiber* absl_nonnull child)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (first_child_ == nullptr) {
       first_child_ = child;

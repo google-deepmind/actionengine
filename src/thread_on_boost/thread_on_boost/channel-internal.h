@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "thread_on_boost/boost_primitives.h"
-#include "thread_on_boost/select-internal.h"
+#include "thread_on_boost/cases.h"
 #include "thread_on_boost/select.h"
 
 namespace thread::internal {
@@ -48,11 +48,11 @@ struct ChannelWaiterState {
   // Returns false with no side effects otherwise.
   // REQUIRES: reader != nullptr, writer != nullptr
   bool GetMatchingReader(const CaseState* writer, CaseState** reader) const
-      ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*reader)->sel->mu,
-                                      writer->sel->mu);
+      ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*reader)->selector->mu,
+                                      writer->selector->mu);
   bool GetMatchingWriter(const CaseState* reader, CaseState** writer) const
-      ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->sel->mu,
-                                      (*writer)->sel->mu);
+      ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->selector->mu,
+                                      (*writer)->selector->mu);
 
   // Attempt to find an eligible queued writer.  There is no matching reader in
   // this case, it is used for when space becomes available in the queue due to
@@ -62,14 +62,14 @@ struct ChannelWaiterState {
   // returned with selector mutex held and guaranteed pickable.
   // Returns false with no side effects otherwise.
   bool GetWaitingWriter(CaseState** writer) const
-      ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*writer)->sel->mu);
+      ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*writer)->selector->mu);
 
   // Unlock (and mark selected) the passed reader/writer respectively.
   // REQUIRES: selector mutex is held, picked == kNonePicked
   void UnlockAndReleaseReader(CaseState* reader)
-      ABSL_UNLOCK_FUNCTION(reader->sel->mu);
+      ABSL_UNLOCK_FUNCTION(reader->selector->mu);
   void UnlockAndReleaseWriter(CaseState* writer)
-      ABSL_UNLOCK_FUNCTION(writer->sel->mu);
+      ABSL_UNLOCK_FUNCTION(writer->selector->mu);
 
   // Releases all waiting readers.  Unselected readers are picked and marked to
   // return that this channel was closed.
@@ -95,7 +95,7 @@ class ChannelState final : public ChannelWaiterState {
   ~ChannelState();
 
   void Close() {
-    eglt::concurrency::impl::MutexLock l(&mu_);
+    eglt::concurrency::impl::MutexLock lock(&mu_);
     DCHECK(Invariants());
     CHECK(!closed_) << "Calling Close() on closed channel";
     CHECK(waiting_writers_ == nullptr)
@@ -118,15 +118,9 @@ class ChannelState final : public ChannelWaiterState {
 
   Case OnRead(T* dst, bool* ok) { return {&rd_, dst, ok}; }
 
-  Case OnWrite(const T& item) {
-    // Guard against user error at compile-time.
-    static_assert(
-        std::is_copy_constructible_v<T>,
-        "Channel<T>::OnWrite called with const T& for a type T that is not "
-        "copy constructible.");
+  Case OnWrite(const T& item) requires(std::is_copy_constructible_v<T>) {
     return {&wr_, &item, &kCopy};
   }
-
   Case OnWrite(T&& item) { return {&wr_, &item, &kMove}; }
 
  private:
@@ -136,24 +130,24 @@ class ChannelState final : public ChannelWaiterState {
   std::deque<T> queue_ ABSL_GUARDED_BY(mu_);
   bool closed_ ABSL_GUARDED_BY(mu_);
 
-  struct Rd final : public Selectable {
+  struct Rd final : Selectable {
     ChannelState* state;
     explicit Rd(ChannelState* s) : state(s) {}
     bool Handle(CaseState* reader, bool enqueue) override;
     void Unregister(CaseState* c) override {
       eglt::concurrency::impl::MutexLock l(&state->mu_);
-      internal::RemoveFromList(&state->waiting_readers_, c);
+      internal::UnlinkFromList(&state->waiting_readers_, c);
     }
   };
   Rd rd_;
 
-  struct Wr final : public Selectable {
+  struct Wr final : Selectable {
     ChannelState* state;
     explicit Wr(ChannelState* s) : state(s) {}
     bool Handle(CaseState* writer, bool enqueue) override;
     void Unregister(CaseState* c) override {
       eglt::concurrency::impl::MutexLock l(&state->mu_);
-      internal::RemoveFromList(&state->waiting_writers_, c);
+      internal::UnlinkFromList(&state->waiting_writers_, c);
     }
   };
   Wr wr_;
@@ -178,15 +172,15 @@ class ChannelState final : public ChannelWaiterState {
 
 template <typename T>
 ChannelState<T>::~ChannelState() {
-  eglt::concurrency::impl::MutexLock l(
-      &mu_);  // Must synchronize with remote operations (e.g. Close()).
+  // Ensure exclusive access (to e.g. prevent concurrent Close()).
+  eglt::concurrency::impl::MutexLock lock(&mu_);
   DCHECK(Invariants());
 }
 
 template <typename T>
 bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
   ChannelState* ch = state;
-  eglt::concurrency::impl::MutexLock l(&ch->mu_);
+  eglt::concurrency::impl::MutexLock lock(&ch->mu_);
   DCHECK(ch->Invariants());
 
   T* dst_item = reader->params->GetArgPtrOrDie<T>(0);
@@ -195,8 +189,8 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
   // Is there a buffered item to read?
   if (!ch->queue_.empty()) {
     DVLOG(2) << "Get from buffer";
-    reader->sel->mu.Lock();
-    if (reader->sel->picked == Selector::kNonePicked) {
+    reader->selector->mu.Lock();
+    if (reader->selector->picked_case_index == Selector::kNonePicked) {
       // Move out of the buffer. Explicitly destruct behind for types that don't
       // have a move-assignment operator and where it may be harmful to leave
       // around a copy. (For example, a shared_ptr-like object with only a copy
@@ -207,8 +201,8 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
       ch->UnlockAndReleaseReader(reader);
 
       // Potentially admit a waiting writer.
-      CaseState* unblocked_writer;
-      if (ch->GetWaitingWriter(&unblocked_writer)) {
+      if (CaseState * unblocked_writer;
+          ch->GetWaitingWriter(&unblocked_writer)) {
         auto* item = unblocked_writer->params->GetArgPtrOrDie<T>(0);
         auto copy_or_move =
             *unblocked_writer->params->GetArgPtrOrDie<CopyOrMove>(1);
@@ -219,15 +213,14 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
     } else {
       // While we weren't technically able to proceed, there's no point in
       // Select() processing further cases, so we'll still return true below.
-      reader->sel->mu.Unlock();
+      reader->selector->mu.Unlock();
     }
     DCHECK(ch->Invariants());
     return true;
   }
 
   // Try to transfer directly from waiting writer to reader
-  CaseState* writer;
-  if (ch->GetMatchingWriter(reader, &writer)) {
+  if (CaseState * writer; ch->GetMatchingWriter(reader, &writer)) {
     auto* item = writer->params->GetArgPtrOrDie<T>(0);
     auto copy_or_move = *writer->params->GetArgPtrOrDie<CopyOrMove>(1);
 
@@ -239,11 +232,11 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
     DCHECK(ch->Invariants());
   }
 
-  reader->sel->mu.Lock();
+  reader->selector->mu.Lock();
   // We must guarantee that this case is eligible to proceed before any
   // side effects can occur.
-  if (reader->sel->picked != Selector::kNonePicked) {
-    reader->sel->mu.Unlock();
+  if (reader->selector->picked_case_index != Selector::kNonePicked) {
+    reader->selector->mu.Unlock();
     // Already handled item
     DVLOG(2) << "Read cancelled since another selector case done";
     DCHECK(ch->Invariants());
@@ -263,7 +256,7 @@ bool ChannelState<T>::Rd::Handle(CaseState* reader, bool enqueue) {
     internal::PushBack(&ch->waiting_readers_, reader);
   }
 
-  reader->sel->mu.Unlock();
+  reader->selector->mu.Unlock();
   DCHECK(ch->Invariants());
   return false;
 }
@@ -276,8 +269,7 @@ bool ChannelState<T>::Wr::Handle(CaseState* writer, bool enqueue) {
   CHECK(!ch->closed_) << "Calling Write() on closed channel";
 
   // First try to transfer directly from writer to a waiting reader
-  CaseState* reader;
-  if (ch->GetMatchingReader(writer, &reader)) {
+  if (CaseState * reader; ch->GetMatchingReader(writer, &reader)) {
     auto* writer_item = writer->params->GetArgPtrOrDie<T>(0);
     auto copy_or_move = *writer->params->GetArgPtrOrDie<CopyOrMove>(1);
 
@@ -294,11 +286,11 @@ bool ChannelState<T>::Wr::Handle(CaseState* writer, bool enqueue) {
     return true;
   }
 
-  writer->sel->mu.Lock();
+  writer->selector->mu.Lock();
   // We must guarantee that this case is eligible to proceed before any
   // side effects can occur.
-  if (writer->sel->picked != Selector::kNonePicked) {
-    writer->sel->mu.Unlock();
+  if (writer->selector->picked_case_index != Selector::kNonePicked) {
+    writer->selector->mu.Unlock();
     // Already handled item
     DVLOG(2) << "Write cancelled since another selector case done";
     DCHECK(ch->Invariants());
@@ -326,7 +318,7 @@ bool ChannelState<T>::Wr::Handle(CaseState* writer, bool enqueue) {
     internal::PushBack(&ch->waiting_writers_, writer);
   }
 
-  writer->sel->mu.Unlock();
+  writer->selector->mu.Unlock();
   DCHECK(ch->Invariants());
   return false;
 }

@@ -17,7 +17,7 @@
 
 #include "thread_on_boost/absl_headers.h"
 
-#include "thread_on_boost/select-internal.h"
+#include "thread_on_boost/cases.h"
 
 namespace thread {
 
