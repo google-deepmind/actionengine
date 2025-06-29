@@ -182,7 +182,7 @@ template <typename F>
 
 inline void Detach(std::unique_ptr<Fiber> fiber) {
   {
-    eglt::concurrency::impl::MutexLock l(&fiber->mu_);
+    eglt::concurrency::impl::MutexLock lock(&fiber->mu_);
     DCHECK(!fiber->detached_.load(std::memory_order_relaxed))
         << "Detach() called on already detached fiber, this should not be "
            "possible without calling WrapUnique or similar on a Fiber* you do "

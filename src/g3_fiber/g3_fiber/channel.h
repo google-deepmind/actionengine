@@ -177,7 +177,7 @@ requires std::is_move_assignable_v<T> class Channel {
   bool Get(T* absl_nonnull dst);
 
   size_t Length() const {
-    eglt::concurrency::impl::MutexLock l(&mu_);
+    eglt::concurrency::impl::MutexLock lock(&mu_);
     return queue_.size();
   }
 
@@ -369,13 +369,13 @@ bool ReadSelectable<T>::Handle(PerSelectCaseState* reader, bool enqueue) {
 
 template <typename T>
 void ReadSelectable<T>::Unregister(PerSelectCaseState* c) {
-  eglt::concurrency::impl::MutexLock l(&channel->mu_);
+  eglt::concurrency::impl::MutexLock lock(&channel->mu_);
   internal::UnlinkFromList(&channel->waiters_.readers, c);
 }
 
 template <typename T>
 bool WriteSelectable<T>::Handle(PerSelectCaseState* writer, bool enqueue) {
-  eglt::concurrency::impl::MutexLock l(&channel->mu_);
+  eglt::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());
   CHECK(!channel->closed_) << "Calling Write() on closed channel";
 
@@ -437,7 +437,7 @@ bool WriteSelectable<T>::Handle(PerSelectCaseState* writer, bool enqueue) {
 
 template <typename T>
 void WriteSelectable<T>::Unregister(PerSelectCaseState* c) {
-  eglt::concurrency::impl::MutexLock l(&channel->mu_);
+  eglt::concurrency::impl::MutexLock lock(&channel->mu_);
   internal::UnlinkFromList(&channel->waiters_.writers, c);
 }
 }  // namespace thread::internal

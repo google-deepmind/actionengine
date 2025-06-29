@@ -51,7 +51,7 @@ void PermanentEvent::Unregister(internal::PerSelectCaseState* c) {
 }
 
 void PermanentEvent::Notify() {
-  boost::fibers::detail::spinlock_lock l(splk_);
+  boost::fibers::detail::spinlock_lock lock(splk_);
 
   DCHECK(!notified_.load(std::memory_order_relaxed))
       << "Notify() method called more than once for "

@@ -55,7 +55,7 @@ Fiber::Fiber(Unstarted, InvocableWork work, Fiber* parent)
       next_sibling_(this),
       prev_sibling_(this) {
   // Note: We become visible to cancellation as soon as we're added to parent.
-  eglt::concurrency::impl::MutexLock l(&parent_->mu_);
+  eglt::concurrency::impl::MutexLock lock(&parent_->mu_);
   CHECK_EQ(parent_->state_, RUNNING);
   parent->PushBackChild(this);
   if (parent_->cancellation_.HasBeenNotified()) {
@@ -153,7 +153,7 @@ void Fiber::Join() {
   DCHECK(!IsFiberDetached(this)) << "Join() on detached fiber.";
 
   {
-    eglt::concurrency::impl::MutexLock l(&mu_);
+    eglt::concurrency::impl::MutexLock lock(&mu_);
     CHECK(state_ != JOINED) << "Join() called on already joined fiber.";
   }
 
@@ -173,7 +173,7 @@ void Fiber::Join() {
 //
 // REQUIRES: *this has not already been marked finished.
 bool Fiber::MarkFinished() {
-  eglt::concurrency::impl::MutexLock l(&mu_);
+  eglt::concurrency::impl::MutexLock lock(&mu_);
   DCHECK_EQ(state_, RUNNING);
 
   state_ = FINISHED;
@@ -199,7 +199,7 @@ void Fiber::MarkJoined() {
 
   bool has_parent;
   {
-    eglt::concurrency::impl::MutexLock l(&mu_);
+    eglt::concurrency::impl::MutexLock lock(&mu_);
     DCHECK(first_child_ == nullptr);
     if (state_ == JOINED)
       return;  // Already joined.
@@ -209,7 +209,7 @@ void Fiber::MarkJoined() {
     has_parent = parent_ != nullptr;
   }
   if (has_parent) {
-    eglt::concurrency::impl::MutexLock l(&parent_->mu_);
+    eglt::concurrency::impl::MutexLock lock(&parent_->mu_);
     parent_->UnlinkChild(this);
     if (parent_->first_child_ == nullptr && parent_->state_ == FINISHED) {
       parent_->joinable_.Notify();
