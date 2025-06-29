@@ -23,12 +23,12 @@ namespace thread::internal {
 // to find matching readers and writers in a coordinated way, i.e. locking
 // the selector mutexes of both case states if a pair is found.
 struct ChannelWaiterState {
-  bool GetMatchingReader(const PerSelectCaseState* writer,
-                         PerSelectCaseState** reader) const
+  bool GetMatchingReader(const CaseInSelectClause* writer,
+                         CaseInSelectClause** reader) const
       ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*reader)->selector->mu,
                                       writer->selector->mu);
-  bool GetMatchingWriter(const PerSelectCaseState* reader,
-                         PerSelectCaseState** writer) const
+  bool GetMatchingWriter(const CaseInSelectClause* reader,
+                         CaseInSelectClause** writer) const
       ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->selector->mu,
                                       (*writer)->selector->mu);
 
@@ -39,22 +39,22 @@ struct ChannelWaiterState {
   // Returns true, and updates *writer, if a suitable waiter exists.  *writer is
   // returned with selector mutex held and guaranteed pickable.
   // Returns false with no side effects otherwise.
-  bool GetWaitingWriter(PerSelectCaseState** writer) const
+  bool GetWaitingWriter(CaseInSelectClause** writer) const
       ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, (*writer)->selector->mu);
 
   // Unlock (and mark selected) the passed reader/writer respectively.
   // REQUIRES: selector mutex is held, picked == kNonePicked
-  void UnlockAndReleaseReader(PerSelectCaseState* reader)
+  void UnlockAndReleaseReader(CaseInSelectClause* reader)
       ABSL_UNLOCK_FUNCTION(reader->selector->mu);
-  void UnlockAndReleaseWriter(PerSelectCaseState* writer)
+  void UnlockAndReleaseWriter(CaseInSelectClause* writer)
       ABSL_UNLOCK_FUNCTION(writer->selector->mu);
 
   // Releases all waiting readers.  Unselected readers are picked and marked to
   // return that this channel was closed.
   void CloseAndReleaseReaders();
 
-  internal::PerSelectCaseState* readers = nullptr;
-  internal::PerSelectCaseState* writers = nullptr;
+  internal::CaseInSelectClause* readers = nullptr;
+  internal::CaseInSelectClause* writers = nullptr;
 };
 
 }  // namespace thread::internal

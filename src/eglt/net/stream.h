@@ -61,7 +61,7 @@ class WireStream {
   virtual auto OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn)
       -> void = 0;
 
-  //! Returns the status of the last send operation.
+  //! Returns the status of the last operation.
   virtual auto GetStatus() const -> absl::Status = 0;
 
   //! Returns the implementation-dependent identifier of the stream.

@@ -44,31 +44,57 @@ void WorkerThreadPool::Start(size_t num_threads) {
   }
   latch.wait();
 
+  for (const auto& scheduler : schedulers_) {
+    scheduler_set_.insert(scheduler);
+  }
+
   for (auto& [thread] : workers_) {
     thread.detach();
   }
 }
 
 void WorkerThreadPool::Schedule(boost::fibers::context* ctx) {
-  size_t worker_idx =
-      worker_idx_.fetch_add(1, std::memory_order_relaxed) % workers_.size();
+  if (schedule_only_through_same_thread_ &&
+      !allow_schedule_through_same_thread_) {
+    LOG(FATAL) << "Cannot schedule (only) through the same thread when "
+                  "allow_schedule_through_same_thread is false.";
+    ABSL_ASSUME(false);
+  }
 
   const auto active_ctx = boost::fibers::context::active();
+  boost::fibers::scheduler* scheduler = active_ctx->get_scheduler();
+  const bool scheduling_from_within_pool = scheduler_set_.contains(scheduler);
 
-  if constexpr (!kScheduleOnSelf) {
-    while (schedulers_[worker_idx] == active_ctx->get_scheduler()) {
-      worker_idx = Rand32() % workers_.size();
+  if (!allow_schedule_through_same_thread_ && schedulers_.size() == 1 &&
+      scheduling_from_within_pool) {
+    LOG(FATAL)
+        << "Cannot schedule through different threads when there is only "
+           "one thread in the pool.";
+    ABSL_ASSUME(false);
+  }
+
+  if (!schedule_only_through_same_thread_ || !scheduling_from_within_pool) {
+    size_t worker_idx =
+        next_worker_idx_.fetch_add(1, std::memory_order_relaxed) %
+        workers_.size();
+    scheduler = schedulers_[worker_idx];
+
+    if (!allow_schedule_through_same_thread_) {
+      while (schedulers_[worker_idx] == scheduler) {
+        worker_idx = Rand32() % workers_.size();
+      }
+      scheduler = schedulers_[worker_idx];
     }
   }
 
-  if (schedulers_[worker_idx] == active_ctx->get_scheduler()) {
+  if (scheduler == active_ctx->get_scheduler()) {
     active_ctx->attach(ctx);
-    schedulers_[worker_idx]->schedule(ctx);
+    scheduler->schedule(ctx);
   } else {
     {
       eglt::concurrency::impl::MutexLock lock(&mu_);
-      schedulers_[worker_idx]->attach_worker_context(ctx);
-      schedulers_[worker_idx]->schedule_from_remote(ctx);
+      scheduler->attach_worker_context(ctx);
+      scheduler->schedule_from_remote(ctx);
     }
   }
 }

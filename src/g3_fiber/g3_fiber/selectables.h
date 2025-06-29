@@ -48,16 +48,16 @@ class PermanentEvent final : public internal::Selectable {
   PermanentEvent(const PermanentEvent&) = delete;
   PermanentEvent& operator=(const PermanentEvent&) = delete;
 
-  // Signal that the event has occurred.  Any Selectors on this event will be
+  // Signal that the event has occurred. Any Selectors on this event will be
   // immediately notified, future Select statements against this event will be
   // non-blocking.  May only be called once.
   void Notify();
 
-  // Returns true if Notify() has been called.  False otherwise.
+  // Returns true if Notify() has been called. False otherwise.
   bool HasBeenNotified() const;
 
-  // May be passed to Select.  Will always evaluate immediately for an event
-  // that has already been notified.  Once the case has been signalled, then
+  // May be passed to Select. Will always evaluate immediately for an event
+  // that has already been notified. Once the case has been signalled, then
   // deleting the PermanentEvent will not interfere with the caller of Notify().
   Case OnEvent() const {
     Case c = {const_cast<PermanentEvent*>(this)};
@@ -65,8 +65,8 @@ class PermanentEvent final : public internal::Selectable {
   }
 
   // Implementation of Selectable interface.
-  bool Handle(internal::PerSelectCaseState* c, bool enqueue) override;
-  void Unregister(internal::PerSelectCaseState* c) override;
+  bool Handle(internal::CaseInSelectClause* c, bool enqueue) override;
+  void Unregister(internal::CaseInSelectClause* c) override;
 
  private:
   friend class Fiber;
@@ -74,12 +74,12 @@ class PermanentEvent final : public internal::Selectable {
   boost::fibers::detail::spinlock splk_;
   std::atomic<bool> notified_{false};
 
-  internal::PerSelectCaseState* cases_to_be_selected_ = nullptr;
+  internal::CaseInSelectClause* cases_to_be_selected_ = nullptr;
 };
 
 // NonSelectableCase()
 // -------------------
-// Provides a 'null' case which will never evaluate as ready by Select.  This
+// Provides a 'null' case which will never evaluate as ready by Select. This
 // may be used to substitute a Selectable that is no longer of interest within a
 // set, without re-labeling adjacent elements.
 //
@@ -101,7 +101,7 @@ Case NonSelectableCase();
 
 // AlwaysSelectableCase()
 // ----------------------
-// Provides case which will always evaluate as ready by Select.  This may be
+// Provides case which will always evaluate as ready by Select. This may be
 // used when returning a Case for an event that is already known to be ready.
 //
 // Example:

@@ -24,13 +24,13 @@
 namespace thread {
 
 // PermanentEvent
-bool PermanentEvent::Handle(internal::PerSelectCaseState* c, bool enqueue) {
+bool PermanentEvent::Handle(internal::CaseInSelectClause* c, bool enqueue) {
   boost::fibers::detail::spinlock_lock l1(splk_);
 
   if (notified_.load(std::memory_order_relaxed)) {  // Synchronized by lock_
     eglt::concurrency::impl::MutexLock l2(&c->selector->mu);
     // Consider that in the presence of a race with another Selectable,
-    // c->TryPick() may return false in this case.  This is safe as we are not
+    // c->TryPick() may return false in this case. This is safe as we are not
     // required to maintain an active list after notification has been
     // delivered.
     return c->TryPick();
@@ -42,7 +42,7 @@ bool PermanentEvent::Handle(internal::PerSelectCaseState* c, bool enqueue) {
   return false;
 }
 
-void PermanentEvent::Unregister(internal::PerSelectCaseState* c) {
+void PermanentEvent::Unregister(internal::CaseInSelectClause* c) {
   boost::fibers::detail::spinlock_lock lock(splk_);
   if (!notified_.load(std::memory_order_relaxed)) {
     // We only maintain lists of active cases up until notification.
@@ -62,11 +62,11 @@ void PermanentEvent::Notify() {
   // enqueued cases. We must be careful to synchronize against this in the
   // future in both the Handle(..., true) and Unregister cases.
   while (cases_to_be_selected_) {
-    internal::PerSelectCaseState* case_in_one_select = cases_to_be_selected_;
-    eglt::concurrency::impl::MutexLock l2(&case_in_one_select->selector->mu);
-    case_in_one_select->TryPick();
+    internal::CaseInSelectClause* case_in_select_clause = cases_to_be_selected_;
+    eglt::concurrency::impl::MutexLock l2(&case_in_select_clause->selector->mu);
+    case_in_select_clause->TryPick();
     // Continued storage of enqueued_list_ after TryPick() is guaranteed by selector->mu
-    internal::UnlinkFromList(&cases_to_be_selected_, case_in_one_select);
+    internal::UnlinkFromList(&cases_to_be_selected_, case_in_select_clause);
   }
 }
 
@@ -74,17 +74,16 @@ bool PermanentEvent::HasBeenNotified() const {
   return notified_.load(std::memory_order_acquire);
 }
 
-// NonSelectable: an ironic implementation of a Selectable.
+// Handle() always returns false, so no Select clause will select this case.
 class NonSelectable final : public internal::Selectable {
  public:
   NonSelectable() = default;
   ~NonSelectable() override = default;
 
-  // Implementation of Selectable interface.
-  bool Handle(internal::PerSelectCaseState* c, bool enqueue) override {
+  bool Handle(internal::CaseInSelectClause* c, bool enqueue) override {
     return false;
   }
-  void Unregister(internal::PerSelectCaseState* c) override {}
+  void Unregister(internal::CaseInSelectClause* c) override {}
 };
 
 Case NonSelectableCase() {
@@ -98,15 +97,14 @@ class AlwaysSelectable final : public internal::Selectable {
   AlwaysSelectable() = default;
   ~AlwaysSelectable() override = default;
 
-  // Implementation of Selectable interface.
-  bool Handle(internal::PerSelectCaseState* c, bool enqueue) override {
+  bool Handle(internal::CaseInSelectClause* c, bool enqueue) override {
     eglt::concurrency::impl::MutexLock lock(&c->selector->mu);
     // This selectable is always ready, so ask the selector to pick it.
-    // Note: it may not be picked in case another selectable has already
-    // been picked.
+    // Note: the selector still does not *have to* pick it if there are
+    // other ready candidates.
     return c->TryPick();
   }
-  void Unregister(internal::PerSelectCaseState* c) override {}
+  void Unregister(internal::CaseInSelectClause* c) override {}
 };
 
 Case AlwaysSelectableCase() {

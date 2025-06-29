@@ -24,7 +24,7 @@ namespace thread {
 int Select(const CaseArray& cases);
 
 // SelectUntil waits at most until the absolute time value specified by the
-// deadline parameter.  If a case completes before then, its index is returned.
+// deadline parameter. If a case completes before then, its index is returned.
 // Otherwise, a special index of -1 is returned, representing expiration of the
 // deadline.
 //
@@ -32,7 +32,7 @@ int Select(const CaseArray& cases);
 //
 // Example:
 //  // Try to write against the channel "c", waiting for up to 1ms when there is
-//  // no space immediately available.  Returns true if the write was
+//  // no space immediately available. Returns true if the write was
 //  // successfully enqueued, false otherwise.
 //  bool TryPut(thread::Channel<int>* c, int v) {
 //    return thread::SelectUntil(

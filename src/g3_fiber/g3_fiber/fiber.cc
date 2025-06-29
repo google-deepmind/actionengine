@@ -32,10 +32,10 @@ bool IsFiberDetached(const Fiber* fiber) {
       .load(std::memory_order_relaxed);
 }
 
-struct PerThreadDynamicFiber {
+struct ThreadLocalFiber {
   Fiber* f = nullptr;
 
-  ~PerThreadDynamicFiber() {
+  ~ThreadLocalFiber() {
     // This destructor is called while destroying thread-local storage. If it is
     // null, there is no dynamic fiber for this thread.
     DVLOG(2) << "PerThreadDynamicFiber destructor called: " << f;
@@ -47,7 +47,7 @@ struct PerThreadDynamicFiber {
   }
 };
 
-static thread_local PerThreadDynamicFiber kPerThreadDynamicFiber;
+static thread_local ThreadLocalFiber kPerThreadNoOpFiber;
 
 Fiber::Fiber(Unstarted, InvocableWork work, Fiber* parent)
     : work_(std::move(work)),
@@ -73,6 +73,15 @@ Fiber::Fiber(Unstarted, InvocableWork work, TreeOptions&& tree_options)
 
 void Fiber::Start() {
   EnsureWorkerThreadPool();
+
+  // If started from a thread in a worker pool, this is a no-op as those
+  // threads will have work-sharing/stealing schedulers assigned earlier
+  // than any call to Fiber::Start().
+  //
+  // No thread that only initializes its fiber scheduler here will actually
+  // run fibers. This initialization is done to init boost::context entities
+  // correctly, but round_robin makes sure no work is ever shared FROM any
+  // pool TO such a thread.
   EnsureThreadHasScheduler<boost::fibers::algo::round_robin>();
 
   auto body = [this]() {
@@ -127,7 +136,7 @@ Fiber* GetPerThreadFiberPtr() {
 
   // Otherwise, return the thread-local no-op fiber (not caring if it has been
   // created or not).
-  return kPerThreadDynamicFiber.f;
+  return kPerThreadNoOpFiber.f;
 }
 
 Fiber* Fiber::Current() {
@@ -138,12 +147,12 @@ Fiber* Fiber::Current() {
 
   // We only reach here if we're 1) not under any Fiber, 2) this thread does not
   // yet have a thread-local fiber. We can (and should) create and return it.
-  kPerThreadDynamicFiber.f =
+  kPerThreadNoOpFiber.f =
       new Fiber(Unstarted{}, InvocableWork(), TreeOptions{});
   DVLOG(2) << "Current() called (new static thread-local fiber created): "
-           << kPerThreadDynamicFiber.f;
+           << kPerThreadNoOpFiber.f;
 
-  return kPerThreadDynamicFiber.f;
+  return kPerThreadNoOpFiber.f;
 }
 
 void Fiber::Join() {

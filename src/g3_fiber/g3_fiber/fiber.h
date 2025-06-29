@@ -159,7 +159,7 @@ class Fiber {
   friend std::unique_ptr<Fiber> internal::CreateTree(
       InvocableWork f, TreeOptions&& tree_options);
 
-  friend struct PerThreadDynamicFiber;
+  friend struct ThreadLocalFiber;
   friend bool IsFiberDetached(const Fiber* fiber);
   friend void Detach(std::unique_ptr<Fiber> fiber);
 };

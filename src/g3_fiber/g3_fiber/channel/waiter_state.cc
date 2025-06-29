@@ -17,7 +17,7 @@
 
 namespace thread::internal {
 
-static void Notify(PerSelectCaseState** head, PerSelectCaseState* c)
+static void Notify(CaseInSelectClause** head, CaseInSelectClause* c)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(c->selector->mu) {
   CHECK_EQ(c->selector->picked_case_index, -1) << "Double-notifying selector";
   if (c->prev) {  // Synchronized by owning ChannelState
@@ -30,9 +30,9 @@ static void Notify(PerSelectCaseState** head, PerSelectCaseState* c)
 // writes are possible.
 void ChannelWaiterState::CloseAndReleaseReaders() {
   // Wake up all waiting readers
-  PerSelectCaseState* reader = readers;
+  CaseInSelectClause* reader = readers;
   while (reader != nullptr) {
-    PerSelectCaseState* next_reader = reader->next;
+    CaseInSelectClause* next_reader = reader->next;
     if (reader->next == readers) {
       // We must be careful to only traverse the list once as there may be
       // waiters who are non-selectable due to being picked by another case, but
@@ -58,8 +58,8 @@ void ChannelWaiterState::CloseAndReleaseReaders() {
 // true with both selectors held if both cases are eligible for selection and
 // belong to different Select statements. Returns false with no locks held
 // otherwise.
-static bool LockReaderAndWriterIffBothAreWaiting(
-    const PerSelectCaseState* reader, const PerSelectCaseState* writer)
+static bool LockReaderAndWriterSelectorsIffBothAreWaiting(
+    const CaseInSelectClause* reader, const CaseInSelectClause* writer)
     ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true, reader->selector->mu,
                                     writer->selector->mu) {
   if (writer->selector == reader->selector) {
@@ -88,23 +88,24 @@ static bool LockReaderAndWriterIffBothAreWaiting(
   return false;
 }
 
-void ChannelWaiterState::UnlockAndReleaseReader(PerSelectCaseState* reader)
+void ChannelWaiterState::UnlockAndReleaseReader(CaseInSelectClause* reader)
     ABSL_UNLOCK_FUNCTION(reader->selector->mu) {
   Notify(&readers, reader);
   reader->selector->mu.Unlock();
 }
 
-void ChannelWaiterState::UnlockAndReleaseWriter(PerSelectCaseState* writer)
+void ChannelWaiterState::UnlockAndReleaseWriter(CaseInSelectClause* writer)
     ABSL_UNLOCK_FUNCTION(writer->selector->mu) {
   Notify(&writers, writer);
   writer->selector->mu.Unlock();
 }
 
-bool ChannelWaiterState::GetMatchingReader(const PerSelectCaseState* writer,
-                                           PerSelectCaseState** reader) const {
-  if (PerSelectCaseState* current_reader = readers; current_reader != nullptr) {
+bool ChannelWaiterState::GetMatchingReader(const CaseInSelectClause* writer,
+                                           CaseInSelectClause** reader) const {
+  if (CaseInSelectClause* current_reader = readers; current_reader != nullptr) {
     do {
-      if (LockReaderAndWriterIffBothAreWaiting(current_reader, writer)) {
+      if (LockReaderAndWriterSelectorsIffBothAreWaiting(current_reader,
+                                                        writer)) {
         // Both current_reader->selector->mu and writer->selector->mu are now locked.
         *reader = current_reader;
         return true;
@@ -115,11 +116,12 @@ bool ChannelWaiterState::GetMatchingReader(const PerSelectCaseState* writer,
   return false;
 }
 
-bool ChannelWaiterState::GetMatchingWriter(const PerSelectCaseState* reader,
-                                           PerSelectCaseState** writer) const {
-  if (PerSelectCaseState* current_writer = writers; current_writer != nullptr) {
+bool ChannelWaiterState::GetMatchingWriter(const CaseInSelectClause* reader,
+                                           CaseInSelectClause** writer) const {
+  if (CaseInSelectClause* current_writer = writers; current_writer != nullptr) {
     do {
-      if (LockReaderAndWriterIffBothAreWaiting(reader, current_writer)) {
+      if (LockReaderAndWriterSelectorsIffBothAreWaiting(reader,
+                                                        current_writer)) {
         // Both reader->selector->mu and current_writer->selector->mu are now locked.
         *writer = current_writer;
         return true;
@@ -130,8 +132,8 @@ bool ChannelWaiterState::GetMatchingWriter(const PerSelectCaseState* reader,
   return false;
 }
 
-bool ChannelWaiterState::GetWaitingWriter(PerSelectCaseState** writer) const {
-  if (PerSelectCaseState* current_writer = writers; current_writer != nullptr) {
+bool ChannelWaiterState::GetWaitingWriter(CaseInSelectClause** writer) const {
+  if (CaseInSelectClause* current_writer = writers; current_writer != nullptr) {
     do {
       current_writer->selector->mu.Lock();
       if (current_writer->selector->picked_case_index ==

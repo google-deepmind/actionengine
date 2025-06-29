@@ -58,8 +58,8 @@ struct ReadSelectable final : Selectable {
   explicit ReadSelectable(Channel<T>* absl_nonnull channel)
       : channel(channel) {}
 
-  bool Handle(PerSelectCaseState* reader, bool enqueue) override;
-  void Unregister(PerSelectCaseState* c) override;
+  bool Handle(CaseInSelectClause* reader, bool enqueue) override;
+  void Unregister(CaseInSelectClause* c) override;
 
   Channel<T>* channel;
 };
@@ -69,8 +69,8 @@ struct WriteSelectable final : Selectable {
   explicit WriteSelectable(Channel<T>* absl_nonnull channel)
       : channel(channel) {}
 
-  bool Handle(PerSelectCaseState* writer, bool enqueue) override;
-  void Unregister(PerSelectCaseState* c) override;
+  bool Handle(CaseInSelectClause* writer, bool enqueue) override;
+  void Unregister(CaseInSelectClause* c) override;
 
   Channel<T>* channel;
 };
@@ -284,7 +284,7 @@ bool Writer<T>::WriteUnlessCancelled(T&& item) {
 namespace thread::internal {
 
 template <typename T>
-bool ReadSelectable<T>::Handle(PerSelectCaseState* reader, bool enqueue) {
+bool ReadSelectable<T>::Handle(CaseInSelectClause* reader, bool enqueue) {
   eglt::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());
 
@@ -306,7 +306,7 @@ bool ReadSelectable<T>::Handle(PerSelectCaseState* reader, bool enqueue) {
       channel->waiters_.UnlockAndReleaseReader(reader);
 
       // Potentially admit a waiting writer.
-      if (PerSelectCaseState * unblocked_writer;
+      if (CaseInSelectClause * unblocked_writer;
           channel->waiters_.GetWaitingWriter(&unblocked_writer)) {
         auto* item = unblocked_writer->GetCase()->GetArgPtr<T>(0);
         auto copy_or_move =
@@ -325,7 +325,7 @@ bool ReadSelectable<T>::Handle(PerSelectCaseState* reader, bool enqueue) {
   }
 
   // Try to transfer directly from waiting writer to reader
-  if (PerSelectCaseState * writer;
+  if (CaseInSelectClause * writer;
       channel->waiters_.GetMatchingWriter(reader, &writer)) {
     auto* item = writer->GetCase()->GetArgPtr<T>(0);
     auto copy_or_move = *writer->GetCase()->GetArgPtr<CopyOrMove>(1);
@@ -368,19 +368,19 @@ bool ReadSelectable<T>::Handle(PerSelectCaseState* reader, bool enqueue) {
 }
 
 template <typename T>
-void ReadSelectable<T>::Unregister(PerSelectCaseState* c) {
+void ReadSelectable<T>::Unregister(CaseInSelectClause* c) {
   eglt::concurrency::impl::MutexLock lock(&channel->mu_);
   internal::UnlinkFromList(&channel->waiters_.readers, c);
 }
 
 template <typename T>
-bool WriteSelectable<T>::Handle(PerSelectCaseState* writer, bool enqueue) {
+bool WriteSelectable<T>::Handle(CaseInSelectClause* writer, bool enqueue) {
   eglt::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());
   CHECK(!channel->closed_) << "Calling Write() on closed channel";
 
   // First try to transfer directly from writer to a waiting reader
-  if (PerSelectCaseState * reader;
+  if (CaseInSelectClause * reader;
       channel->waiters_.GetMatchingReader(writer, &reader)) {
     auto* writer_item = writer->GetCase()->GetArgPtr<T>(0);
     auto copy_or_move = *writer->GetCase()->GetArgPtr<CopyOrMove>(1);
@@ -436,7 +436,7 @@ bool WriteSelectable<T>::Handle(PerSelectCaseState* writer, bool enqueue) {
 }
 
 template <typename T>
-void WriteSelectable<T>::Unregister(PerSelectCaseState* c) {
+void WriteSelectable<T>::Unregister(CaseInSelectClause* c) {
   eglt::concurrency::impl::MutexLock lock(&channel->mu_);
   internal::UnlinkFromList(&channel->waiters_.writers, c);
 }
