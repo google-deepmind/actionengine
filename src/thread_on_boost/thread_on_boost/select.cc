@@ -52,9 +52,9 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
   int registered_case_states = 0;
   for (int case_state_idx = 0; case_state_idx < cases.size();
        ++case_state_idx) {
-    internal::CaseState* case_state = &case_states[case_state_idx];
+    internal::PerSelectCaseState* case_state = &case_states[case_state_idx];
 
-    case_state->params = &cases[case_state->index];
+    case_state->case_ptr = &cases[case_state->index];
     case_state->prev = nullptr;  // Not on any list so far.
     case_state->selector = &selector;
 
@@ -90,10 +90,10 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
   // Unregister from all events with which we are registered. We know that
   // all registered case states were Handle()d with enqueue=true.
   for (int i = 0; i < registered_case_states; i++) {
-    if (internal::CaseState* case_state = &case_states[i];
+    if (internal::PerSelectCaseState* case_state = &case_states[i];
         case_state->index != selector.picked_case_index) {
       // sel.picked was unregistered by the notifier.
-      case_state->params->selectable->Unregister(case_state);
+      case_state->GetCase()->selectable->Unregister(case_state);
     }
   }
 

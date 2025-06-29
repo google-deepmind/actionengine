@@ -35,7 +35,7 @@ concept IsConstPointer =
 struct Selector {
   static constexpr int kNonePicked = -1;
 
-  bool Pick(int case_index) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
+  bool TryPick(int case_index) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
     if (picked_case_index != kNonePicked) {
       return false;  // Already picked.
     }
@@ -96,7 +96,7 @@ struct [[nodiscard]] Case {
 
   void AddArgs(internal::IsPointer auto... args) { (AddArgs(args), ...); }
 
-  [[nodiscard]] void* absl_nonnull GetArgPtrOrDie(int index) const {
+  [[nodiscard]] void* absl_nonnull GetArgPtr(int index) const {
     if (index < 0 || index >= arguments.size()) {
       LOG(FATAL) << "Case::GetArgOrDie: index out of bounds: " << index
                  << ", arguments.size() = " << arguments.size();
@@ -106,8 +106,8 @@ struct [[nodiscard]] Case {
   }
 
   template <typename T>
-  [[nodiscard]] T* absl_nonnull GetArgPtrOrDie(int index) const {
-    return static_cast<T*>(GetArgPtrOrDie(index));
+  [[nodiscard]] T* absl_nonnull GetArgPtr(int index) const {
+    return static_cast<T*>(GetArgPtr(index));
   }
 
   [[nodiscard]] size_t GetNumArgs() const { return arguments.size(); }
@@ -119,21 +119,23 @@ typedef absl::InlinedVector<Case, 4> CaseArray;
 
 namespace internal {
 
-// A CaseState represents the per-Select call information kept for a Case.
+// A PerSelectCaseState represents the per-Select call information kept for a Case.
 // This separation from Case allows a particular Case to be safely passed to
 // multiple Select calls concurrently.
 //
-// CaseStates contain an intrusive, circular, doubly-linked list, to be used by
+// PerSelectCaseStates contain an intrusive, circular, doubly-linked list, to be used by
 // selectables for enqueuing cases that are waiting on some condition. See the
 // notes on Selectable::Handle below. Once enqueued, the Selectable is
 // responsible for synchronizing any modifications.
-struct CaseState {
-  const Case* params;  // Initialized by Select()
-  int index;           // Provided by Select(): index in parameter list.
+struct PerSelectCaseState {
+  const Case* absl_nonnull case_ptr;  // Initialized by Select()
+  int index;  // Provided by Select(): index in parameter list.
   internal::Selector* absl_nonnull
-      selector;     // Provided by Select(): owning selector.
-  CaseState* prev;  // Initialized by Select(), nullptr -> not on list.
-  CaseState* next;
+      selector;              // Provided by Select(): owning selector.
+  PerSelectCaseState* prev;  // Initialized by Select(), nullptr -> not on list.
+  PerSelectCaseState* next;
+
+  [[nodiscard]] const Case* GetCase() const { return case_ptr; }
 
   // Attempt to cause the owning Selector to choose this case. Returns true if
   // and only if this case will be the one chosen, because no other case has
@@ -141,15 +143,15 @@ struct CaseState {
   //
   // After the caller releases selector->mu, this object is no longer guaranteed to
   // continue to exist.
-  bool Pick() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(selector->mu) {
-    return selector->Pick(index);
+  bool TryPick() ABSL_EXCLUSIVE_LOCKS_REQUIRED(selector->mu) {
+    return selector->TryPick(index);
   }
 
   bool Handle(bool enqueue);
   void Unregister();
 };
 
-using CaseStateArray = absl::InlinedVector<CaseState, 4>;
+using CaseStateArray = absl::InlinedVector<PerSelectCaseState, 4>;
 
 // The interface implemented by objects that can be used with Select().  Note
 // that a single Selectable may be enqueued against multiple Select statements,
@@ -159,7 +161,7 @@ class Selectable {
  public:
   virtual ~Selectable() = default;
 
-  // If this selectable is ready to be picked up by c's Select, call c->Pick()
+  // If this selectable is ready to be picked up by c's Select, call c->TryPick()
   // (which may or may not pick this selectable), and return true.
   // If not ready to be picked: enqueue the case (if enqueue is true) and return
   // false.
@@ -167,43 +169,43 @@ class Selectable {
   // The selectable should implement the following algorithm:
   //   if (currently ready) {
   //     c->selector->mu.Lock();
-  //     if (c->Pick()) {
+  //     if (c->TryPick()) {
   //       ... perform any side effects of being picked ...
   //     }
   //     c->selector->mu.Unlock();
   //     return true;
   //   } else {
   //     if (enqueue) {
-  //       ... enqueue the CaseState ...
+  //       ... enqueue the PerSelectCaseState ...
   //     }
   //     return false;
   //   }
   //
-  // If the CaseState is enqueued and the selectable later becomes ready before
-  // Unregister is called, it should again lock c->selector->mu, call c->Pick(),
+  // If the PerSelectCaseState is enqueued and the selectable later becomes ready before
+  // Unregister is called, it should again lock c->selector->mu, call c->TryPick(),
   // and perform side effects iff picked, while c->selector->mu is still held.
-  virtual bool Handle(CaseState* case_state, bool enqueue) = 0;
+  virtual bool Handle(PerSelectCaseState* case_state, bool enqueue) = 0;
 
   // Unregister a case against future transitions for this Selectable.
   //
   // Called for all cases c1 where a previous call Handle(c1, true) returned
-  // false and another case c2 was successfully selected (c2->Pick() returned
+  // false and another case c2 was successfully selected (c2->TryPick() returned
   // true), or a timeout occurred.
-  virtual void Unregister(CaseState* case_state) = 0;
+  virtual void Unregister(PerSelectCaseState* case_state) = 0;
 };
 
-inline bool CaseState::Handle(bool enqueue) {
-  return params->selectable->Handle(this, enqueue);
+inline bool PerSelectCaseState::Handle(bool enqueue) {
+  return GetCase()->selectable->Handle(this, enqueue);
 }
 
-inline void CaseState::Unregister() {
-  params->selectable->Unregister(this);
+inline void PerSelectCaseState::Unregister() {
+  GetCase()->selectable->Unregister(this);
 }
 
 // Shared linked list code. Implements a doubly-linked list where the list head
 // is a pointer to the oldest element added to the list.
-inline void PushBack(CaseState** absl_nonnull head,
-                     CaseState* absl_nonnull element) {
+inline void PushBack(PerSelectCaseState** absl_nonnull head,
+                     PerSelectCaseState* absl_nonnull element) {
   if (*head == nullptr) {
     // Queue is empty; make singleton queue.
     element->next = element;
@@ -218,7 +220,8 @@ inline void PushBack(CaseState** absl_nonnull head,
   }
 }
 
-inline void UnlinkFromList(CaseState** head, CaseState* element) {
+inline void UnlinkFromList(PerSelectCaseState** head,
+                           PerSelectCaseState* element) {
   if (element->next == element) {
     // Single entry; clear list
     *head = nullptr;

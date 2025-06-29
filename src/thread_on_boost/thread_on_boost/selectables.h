@@ -65,8 +65,8 @@ class PermanentEvent final : public internal::Selectable {
   }
 
   // Implementation of Selectable interface.
-  bool Handle(internal::CaseState* c, bool enqueue) override;
-  void Unregister(internal::CaseState* c) override;
+  bool Handle(internal::PerSelectCaseState* c, bool enqueue) override;
+  void Unregister(internal::PerSelectCaseState* c) override;
 
  private:
   friend class Fiber;
@@ -74,7 +74,7 @@ class PermanentEvent final : public internal::Selectable {
   boost::fibers::detail::spinlock splk_;
   std::atomic<bool> notified_{false};
 
-  internal::CaseState* cases_to_be_selected_ = nullptr;
+  internal::PerSelectCaseState* cases_to_be_selected_ = nullptr;
 };
 
 // NonSelectableCase()

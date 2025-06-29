@@ -23,9 +23,9 @@ target_include_directories(
 target_sources(
         ThreadOnBoost PRIVATE
         thread_on_boost/absl_headers.h
-        thread_on_boost/channel.cc
         thread_on_boost/channel.h
-        thread_on_boost/channel-internal.h
+        thread_on_boost/channel/waiter_state.cc
+        thread_on_boost/channel/waiter_state.h
         thread_on_boost/fiber.cc
         thread_on_boost/select.cc
         thread_on_boost/cases.h
