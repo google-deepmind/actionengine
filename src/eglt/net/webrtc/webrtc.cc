@@ -14,7 +14,7 @@
 
 #define BOOST_ASIO_NO_DEPRECATED
 
-#include <g3_fiber/fiber.h>
+#include <g3fiber/fiber.h>
 
 #include "eglt/net/webrtc/signalling.h"
 #include "eglt/net/webrtc/webrtc.h"

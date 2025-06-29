@@ -28,7 +28,7 @@
 #if GOOGLE3
 #include "eglt/google3_concurrency_headers.h"
 #else
-#include "g3_fiber/concurrency.h"
+#include "g3fiber/concurrency.h"
 #endif  // GOOGLE3
 
 namespace eglt::concurrency {

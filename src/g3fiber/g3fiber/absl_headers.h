@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef G3_FIBER_ABSL_HEADERS_H_
-#define G3_FIBER_ABSL_HEADERS_H_
+#ifndef G3FIBER_ABSL_HEADERS_H_
+#define G3FIBER_ABSL_HEADERS_H_
 
 #include <cstddef>
 
@@ -39,4 +39,4 @@
 #include "absl/types/span.h"
 // IWYU pragma: end_exports
 
-#endif  // G3_FIBER_ABSL_HEADERS_H_
+#endif  // G3FIBER_ABSL_HEADERS_H_

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3_fiber/fiber.h"
+#include "g3fiber/fiber.h"
 
 #include <latch>
 
@@ -20,10 +20,10 @@
 #include <boost/fiber/context.hpp>
 #include <boost/intrusive_ptr.hpp>
 
-#include "g3_fiber/absl_headers.h"
-#include "g3_fiber/boost_primitives.h"
-#include "g3_fiber/select.h"
-#include "g3_fiber/thread_pool.h"
+#include "g3fiber/absl_headers.h"
+#include "g3fiber/boost_primitives.h"
+#include "g3fiber/select.h"
+#include "g3fiber/thread_pool.h"
 
 namespace thread {
 
@@ -126,7 +126,7 @@ Fiber* GetPerThreadFiberPtr() {
     ABSL_ASSUME(false);
   }
 
-  // If we have been created through g3_fiber API, there will be properties
+  // If we have been created through g3fiber API, there will be properties
   // associated with the context. We can use them to get the fiber.
   if (const FiberProperties* props =
           dynamic_cast<FiberProperties*>(ctx->get_properties());

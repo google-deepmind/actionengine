@@ -15,7 +15,7 @@
 #ifndef THREAD_FIBER_CHANNEL_WAITER_STATE_H_
 #define THREAD_FIBER_CHANNEL_WAITER_STATE_H_
 
-#include "g3_fiber/cases.h"
+#include "g3fiber/cases.h"
 
 namespace thread::internal {
 

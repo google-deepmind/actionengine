@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3_fiber/selectables.h"
+#include "g3fiber/selectables.h"
 
 #include <atomic>
 #include <mutex>
 
-#include "g3_fiber/absl_headers.h"
-#include "g3_fiber/boost_primitives.h"
-#include "g3_fiber/select.h"
+#include "g3fiber/absl_headers.h"
+#include "g3fiber/boost_primitives.h"
+#include "g3fiber/select.h"
 
 namespace thread {
 

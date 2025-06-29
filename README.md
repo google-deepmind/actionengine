@@ -6,7 +6,7 @@
 - [ ] Debug WS streams state/error handling
 - [ ] Outline action error / status flow
 - [ ] Make final alignment of this repo with ai-action-engine-ts
-- [x] Make `g3_fiber` work (achieve runnable ChunkStoreTest)
+- [x] Make `g3fiber` work (achieve runnable ChunkStoreTest)
 - [x] Achieve multithreaded fibers (worker pool for `boost::fibers::context`s)
 - [ ] Set up a Doxygen build action for the C++ code (and delete html folder)
 - [x] Integrate Pythonic bindings into this repo

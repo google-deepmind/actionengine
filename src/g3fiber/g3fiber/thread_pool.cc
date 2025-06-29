@@ -16,9 +16,9 @@
 #include <cstdint>
 #include <latch>
 
-#include "g3_fiber/fiber.h"
-#include "g3_fiber/thread_pool.h"
-#include "g3_fiber/util.h"
+#include "g3fiber/fiber.h"
+#include "g3fiber/thread_pool.h"
+#include "g3fiber/util.h"
 
 namespace thread {
 

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef G3_FIBER_BOOST_PRIMITIVES_H_
-#define G3_FIBER_BOOST_PRIMITIVES_H_
+#ifndef G3FIBER_BOOST_PRIMITIVES_H_
+#define G3FIBER_BOOST_PRIMITIVES_H_
 
 #define BOOST_ASIO_NO_DEPRECATED
 
 #include <boost/fiber/all.hpp>
 
-#include "g3_fiber/absl_headers.h"
+#include "g3fiber/absl_headers.h"
 
 namespace eglt::concurrency::impl {
 
@@ -142,4 +142,4 @@ inline void SleepFor(absl::Duration duration) {
 
 }  // namespace eglt::concurrency::impl
 
-#endif  // G3_FIBER_BOOST_PRIMITIVES_H_
+#endif  // G3FIBER_BOOST_PRIMITIVES_H_

@@ -17,9 +17,9 @@
 
 #include <atomic>
 
-#include "g3_fiber/absl_headers.h"
+#include "g3fiber/absl_headers.h"
 
-#include "g3_fiber/cases.h"
+#include "g3fiber/cases.h"
 
 namespace thread {
 

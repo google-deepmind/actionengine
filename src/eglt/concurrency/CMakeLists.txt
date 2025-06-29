@@ -18,7 +18,7 @@ target_include_directories(
 )
 target_include_directories(
         egltConcurrency PRIVATE
-        ${G3_FIBER_INCLUDE_DIRS}
+        ${G3FIBER_INCLUDE_DIRS}
 )
 target_link_libraries(
         egltConcurrency PUBLIC

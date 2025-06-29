@@ -24,9 +24,9 @@
 
 #include <boost/asio/io_context.hpp>
 
-#include "g3_fiber/absl_headers.h"
-#include "g3_fiber/boost_primitives.h"
-#include "g3_fiber/selectables.h"
+#include "g3fiber/absl_headers.h"
+#include "g3fiber/boost_primitives.h"
+#include "g3fiber/selectables.h"
 
 namespace thread {
 
