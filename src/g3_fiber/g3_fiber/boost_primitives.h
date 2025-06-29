@@ -1,11 +1,25 @@
-#ifndef THREAD_ON_BOOST_BOOST_PRIMITIVES_H_
-#define THREAD_ON_BOOST_BOOST_PRIMITIVES_H_
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef G3_FIBER_BOOST_PRIMITIVES_H_
+#define G3_FIBER_BOOST_PRIMITIVES_H_
 
 #define BOOST_ASIO_NO_DEPRECATED
 
 #include <boost/fiber/all.hpp>
 
-#include "thread_on_boost/absl_headers.h"
+#include "g3_fiber/absl_headers.h"
 
 namespace eglt::concurrency::impl {
 
@@ -128,4 +142,4 @@ inline void SleepFor(absl::Duration duration) {
 
 }  // namespace eglt::concurrency::impl
 
-#endif  // THREAD_ON_BOOST_BOOST_PRIMITIVES_H_
+#endif  // G3_FIBER_BOOST_PRIMITIVES_H_

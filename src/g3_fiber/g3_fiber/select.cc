@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "thread_on_boost/select.h"
+#include "g3_fiber/select.h"
 
 #include <atomic>
 #include <cstdint>
 
-#include "thread_on_boost/absl_headers.h"
-#include "thread_on_boost/boost_primitives.h"
-#include "thread_on_boost/util.h"
+#include "g3_fiber/absl_headers.h"
+#include "g3_fiber/boost_primitives.h"
+#include "g3_fiber/util.h"
 
 namespace thread {
 

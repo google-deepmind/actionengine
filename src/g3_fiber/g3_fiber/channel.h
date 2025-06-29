@@ -15,11 +15,11 @@
 #ifndef THREAD_FIBER_CHANNEL_H_
 #define THREAD_FIBER_CHANNEL_H_
 
-#include "thread_on_boost/boost_primitives.h"
-#include "thread_on_boost/cases.h"
-#include "thread_on_boost/channel/waiter_state.h"
-#include "thread_on_boost/fiber.h"
-#include "thread_on_boost/select.h"
+#include "g3_fiber/boost_primitives.h"
+#include "g3_fiber/cases.h"
+#include "g3_fiber/channel/waiter_state.h"
+#include "g3_fiber/fiber.h"
+#include "g3_fiber/select.h"
 
 namespace thread::internal {
 

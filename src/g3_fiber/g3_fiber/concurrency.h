@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THREAD_FIBER_UTIL_H_
-#define THREAD_FIBER_UTIL_H_
+#ifndef G3_FIBER_CONCURRENCY_H_
+#define G3_FIBER_CONCURRENCY_H_
 
-#include <cstdint>
+// IWYU pragma: begin_exports
+#include "g3_fiber/boost_primitives.h"
+#include "g3_fiber/channel.h"
+#include "g3_fiber/fiber.h"
+#include "g3_fiber/select.h"
+#include "g3_fiber/selectables.h"
+// IWYU pragma: end_exports
 
-#include "thread_on_boost/absl_headers.h"
-
-namespace thread {
-
-uint32_t Rand32();
-
-}
-
-#endif  // THREAD_FIBER_UTIL_H_
+#endif  // G3_FIBER_CONCURRENCY_H_

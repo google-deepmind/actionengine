@@ -58,11 +58,11 @@ set(
         ${EGLT_THIRD_PARTY_ROOT}/boost/libs/type_traits/include
 )
 
-set(THREAD_ON_BOOST_BOOST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost)
-set(THREAD_ON_BOOST_ABSL_ROOT ${EGLT_ABSL_ROOT})
-set(THREAD_ON_BOOST_GTEST_ROOT ${EGLT_GTEST_ROOT})
-set(THREAD_ON_BOOST_DIR ${CMAKE_CURRENT_LIST_DIR}/src/thread_on_boost)
-add_subdirectory(${THREAD_ON_BOOST_DIR})
+set(G3_FIBER_BOOST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost)
+set(G3_FIBER_ABSL_ROOT ${EGLT_ABSL_ROOT})
+set(G3_FIBER_GTEST_ROOT ${EGLT_GTEST_ROOT})
+set(G3_FIBER_DIR ${CMAKE_CURRENT_LIST_DIR}/src/g3_fiber)
+add_subdirectory(${G3_FIBER_DIR})
 
 set(EGLT_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include)
 
@@ -110,7 +110,7 @@ set(BUILD_TESTING ${BUILD_TESTING_BACKUP})
 
 set(EGLT_THIRD_PARTY_INCLUDE_DIRS
         ${EGLT_ABSL_ROOT}/include
-        ${THREAD_ON_BOOST_DIR}
+        ${G3_FIBER_DIR}
         ${EGLT_PYBIND11_ROOT}/include
         ${EGLT_CPPITERTOOLS_ROOT}/include
         ${EGLT_GTEST_ROOT}/include
@@ -124,7 +124,7 @@ add_subdirectory(examples)
 
 install(
         TARGETS
-        ThreadOnBoost
+        G3Fiber
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib

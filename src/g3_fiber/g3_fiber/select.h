@@ -15,9 +15,9 @@
 #ifndef THREAD_FIBER_SELECT_H_
 #define THREAD_FIBER_SELECT_H_
 
-#include "thread_on_boost/absl_headers.h"
+#include "g3_fiber/absl_headers.h"
 
-#include "thread_on_boost/cases.h"
+#include "g3_fiber/cases.h"
 
 namespace thread {
 

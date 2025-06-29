@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "thread_on_boost/channel/waiter_state.h"
-#include "thread_on_boost/cases.h"
+#include "g3_fiber/channel/waiter_state.h"
+#include "g3_fiber/cases.h"
 
 namespace thread::internal {
 

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "thread_on_boost/selectables.h"
+#include "g3_fiber/selectables.h"
 
 #include <atomic>
 #include <mutex>
 
-#include "thread_on_boost/absl_headers.h"
-#include "thread_on_boost/boost_primitives.h"
-#include "thread_on_boost/select.h"
+#include "g3_fiber/absl_headers.h"
+#include "g3_fiber/boost_primitives.h"
+#include "g3_fiber/select.h"
 
 namespace thread {
 
@@ -81,7 +81,9 @@ class NonSelectable final : public internal::Selectable {
   ~NonSelectable() override = default;
 
   // Implementation of Selectable interface.
-  bool Handle(internal::PerSelectCaseState* c, bool enqueue) override { return false; }
+  bool Handle(internal::PerSelectCaseState* c, bool enqueue) override {
+    return false;
+  }
   void Unregister(internal::PerSelectCaseState* c) override {}
 };
 

@@ -18,8 +18,8 @@
 #include <atomic>
 #include <thread>
 
-#include "thread_on_boost/absl_headers.h"
-#include "thread_on_boost/boost_primitives.h"
+#include "g3_fiber/absl_headers.h"
+#include "g3_fiber/boost_primitives.h"
 
 namespace thread {
 
