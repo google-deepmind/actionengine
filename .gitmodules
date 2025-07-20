@@ -29,3 +29,6 @@
 [submodule "third_party/libdatachannel"]
 	path = third_party/libdatachannel
 	url = https://github.com/paullouisageneau/libdatachannel
+[submodule "third_party/hiredis"]
+	path = third_party/hiredis
+	url = https://github.com/redis/hiredis

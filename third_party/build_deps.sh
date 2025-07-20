@@ -29,6 +29,7 @@ googletest_install_dir="${third_party_root}/build_deps/googletest"
 libdatachannel_install_dir="${third_party_root}/build_deps/libdatachannel"
 pybind11_install_dir="${third_party_root}/build_deps/pybind11"
 pybind11_abseil_install_dir="${third_party_root}/build_deps/pybind11_abseil"
+hiredis_install_dir="${third_party_root}/build_deps/hiredis"
 
 # Google Test
 mkdir -p build_deps/googletest
@@ -138,6 +139,20 @@ cmake \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DBUILD_SHARED_LIBS=OFF \
   -DINSTALL_DEPS_LIBS=ON \
+  -G "Ninja" \
+  ..
+cmake --build . --parallel "${parallelism}" --target install
+cd "${third_party_root}"
+
+# hiredis
+mkdir -p build_deps/hiredis && cd hiredis
+mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
+cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_STANDARD="${cc_standard}" \
+  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/hiredis" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DBUILD_SHARED_LIBS=OFF \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${parallelism}" --target install

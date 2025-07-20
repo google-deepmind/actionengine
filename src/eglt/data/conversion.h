@@ -26,6 +26,12 @@
 
 namespace eglt {
 
+template <typename T>
+absl::Status EgltAssignInto(T&& from, std::string* absl_nonnull to) {
+  *to = absl::StrCat(std::forward<T>(from));
+  return absl::OkStatus();
+}
+
 template <typename Dst, typename Src>
 absl::Status StatusOrAssign(Src&& from, Dst* absl_nonnull to) {
   return EgltAssignInto(std::forward<Src>(from), to);

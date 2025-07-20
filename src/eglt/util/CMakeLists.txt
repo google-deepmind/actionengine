@@ -20,6 +20,27 @@ target_link_libraries(
         Boost::beast
 )
 # --------------------------------------------------------------------------
+add_library(
+        egltUtil STATIC
+        source_location.h
+        status_builder.cc
+        status_builder.h
+        status_macros.h
+)
+add_library(
+        eglt::util ALIAS
+        egltUtil
+)
+target_include_directories(
+        egltUtil PUBLIC
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+)
+target_link_libraries(
+        egltUtil PRIVATE
+        ${EGLT_ABSL_DEPENDENCIES}
+)
 
 add_library(
         egltUtilPybind11 STATIC
