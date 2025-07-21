@@ -4,6 +4,41 @@
 
 namespace eglt::redis {
 
+constexpr std::string_view MapReplyEnumToTypeName(ReplyType type) {
+  switch (type) {
+    case ReplyType::Status:
+      return "Status";
+    case ReplyType::Error:
+      return "Error";
+    case ReplyType::Integer:
+      return "Integer";
+    case ReplyType::Nil:
+      return "Nil";
+    case ReplyType::String:
+      return "String";
+    case ReplyType::Bool:
+      return "Bool";
+    case ReplyType::Double:
+      return "Double";
+    case ReplyType::Array:
+      return "Array";
+    case ReplyType::Map:
+      return "Map";
+    case ReplyType::Set:
+      return "Set";
+    case ReplyType::Push:
+      return "Push";
+    case ReplyType::Attr:
+      return "Attr";
+    case ReplyType::BigNum:
+      return "BigNum";
+    case ReplyType::Verbatim:
+      return "Verbatim";
+    default:
+      return "unknown";
+  }
+}
+
 absl::Status EgltAssignInto(const Reply& from, absl::Status* to) {
   if (from.IsStatus()) {
     *to = std::get<StatusReplyData>(from.data).AsAbslStatus();
