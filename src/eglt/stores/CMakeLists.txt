@@ -3,12 +3,11 @@ add_library(
         byte_chunking.cc
         byte_chunking.h
         chunk_store.h
+        chunk_store.cc
         chunk_store_io.h
         chunk_store_reader.h
         chunk_store_writer.h
         local_chunk_store.h
-        shared_chunk_store.h
-        stores.cc
 )
 add_library(eglt::stores ALIAS egltStores)
 target_include_directories(

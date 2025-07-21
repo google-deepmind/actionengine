@@ -34,32 +34,48 @@ namespace eglt {
 class ChunkStore {
  public:
   ChunkStore() = default;
+
+  // Neither copyable nor movable.
+  ChunkStore(const ChunkStore&) = delete;
+  ChunkStore& operator=(const ChunkStore& other) = delete;
+
   virtual ~ChunkStore() = default;
 
-  ChunkStore(const ChunkStore&) = delete;
-  ChunkStore(ChunkStore&& other) = delete;
+  virtual absl::StatusOr<Chunk> Get(int64_t seq, absl::Duration timeout);
+  virtual absl::StatusOr<Chunk> GetByArrivalOrder(int64_t seq,
+                                                  absl::Duration timeout);
 
-  ChunkStore& operator=(const ChunkStore& other) = delete;
-  ChunkStore& operator=(ChunkStore&& other) = delete;
+  virtual absl::StatusOr<std::reference_wrapper<const Chunk>> GetRef(
+      int64_t seq, absl::Duration timeout) = 0;
+  virtual absl::StatusOr<std::reference_wrapper<const Chunk>>
+  GetRefByArrivalOrder(int64_t seq, absl::Duration timeout) = 0;
 
-  [[nodiscard]] virtual auto Get(int seq_id, absl::Duration timeout) const
-      -> absl::StatusOr<std::reference_wrapper<const Chunk>> = 0;
-  [[nodiscard]] virtual auto GetByArrivalOrder(int arrival_offset,
-                                               absl::Duration timeout) const
-      -> absl::StatusOr<std::reference_wrapper<const Chunk>> = 0;
-  virtual auto Pop(int seq_id) -> std::optional<Chunk> = 0;
-  virtual auto Put(int seq_id, Chunk chunk, bool final) -> absl::Status = 0;
+  virtual absl::Status Put(int64_t seq, Chunk chunk, bool final) = 0;
+  virtual absl::StatusOr<std::optional<Chunk>> StatusOrPop(int64_t seq) = 0;
 
-  virtual void NoFurtherPuts() = 0;
+  virtual absl::Status StatusOrCloseWritesWithStatus(absl::Status status) = 0;
 
-  virtual auto Size() -> size_t = 0;
-  virtual bool Contains(int seq_id) = 0;
+  virtual absl::StatusOr<size_t> StatusOrSize() = 0;
+  virtual absl::StatusOr<bool> StatusOrContains(int64_t seq) = 0;
 
-  virtual void SetId(std::string_view id) = 0;
+  virtual absl::Status StatusOrSetId(std::string_view id) = 0;
   [[nodiscard]] virtual auto GetId() const -> std::string_view = 0;
 
-  virtual auto GetSeqIdForArrivalOffset(int arrival_offset) -> int = 0;
-  virtual auto GetFinalSeqId() -> int = 0;
+  virtual absl::StatusOr<int64_t> StatusOrGetSeqForArrivalOffset(
+      int64_t arrival_offset) = 0;
+  virtual absl::StatusOr<int64_t> StatusOrGetFinalSeq() = 0;
+
+  // You should not override these methods. They are provided for convenience
+  // and will call the StatusOr methods above, checking for errors and
+  // terminating if any occur.
+  virtual std::optional<Chunk> Pop(int64_t seq) noexcept;
+  virtual void CloseWritesWithStatus(absl::Status status) noexcept;
+  [[nodiscard]] virtual size_t Size() noexcept;
+  [[nodiscard]] virtual bool Contains(int64_t seq) noexcept;
+  virtual void SetId(std::string_view id) noexcept;
+  [[nodiscard]] virtual int64_t GetSeqForArrivalOffset(
+      int64_t arrival_offset) noexcept;
+  [[nodiscard]] virtual int64_t GetFinalSeq() noexcept;
 };
 
 using ChunkStoreFactory = std::function<std::unique_ptr<ChunkStore>()>;
