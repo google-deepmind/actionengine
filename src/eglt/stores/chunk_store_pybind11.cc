@@ -33,11 +33,11 @@ void BindChunkStore(py::handle scope, std::string_view name) {
       scope, absl::StrCat(name, "VirtualBase").c_str())
       .def("get", &ChunkStore::Get, py::arg("seq_id"), py::arg_v("timeout", -1),
            py::call_guard<py::gil_scoped_release>())
-      .def("pop", &ChunkStore::Pop, py::arg("seq_id"),
+      .def("pop", &ChunkStore::PopOrDie, py::arg("seq_id"),
            py::call_guard<py::gil_scoped_release>())
       .def("put", &ChunkStore::Put)
-      .def("__contains__", &ChunkStore::Contains)
-      .def("__len__", &ChunkStore::Size);
+      .def("__contains__", &ChunkStore::ContainsOrDie)
+      .def("__len__", &ChunkStore::SizeOrDie);
 
   py::class_<PyChunkStore, ChunkStore, std::shared_ptr<PyChunkStore>>(
       scope, name_str.c_str())
@@ -52,7 +52,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
             if (!result.ok()) {
               throw std::runtime_error(std::string(result.status().message()));
             }
-            return result.value().get();
+            return result.value();
           },
           py::arg("seq_id"), py::arg_v("timeout", -1),
           py::call_guard<py::gil_scoped_release>())
@@ -66,7 +66,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
             if (!result.ok()) {
               throw std::runtime_error(std::string(result.status().message()));
             }
-            return result.value().get();
+            return result.value();
           },
           py::arg("seq_id"), py::arg_v("timeout", -1),
           py::call_guard<py::gil_scoped_release>())
@@ -82,16 +82,16 @@ void BindChunkStore(py::handle scope, std::string_view name) {
             }
           },
           py::arg("seq_id"), py::arg("chunk"), py::arg_v("final", false))
-      .def("no_further_puts", &PyChunkStore::NoFurtherPuts)
-      .def("size", &PyChunkStore::Size)
+      .def("no_further_puts", &PyChunkStore::CloseWritesWithStatus)
+      .def("size", &PyChunkStore::SizeOrDie)
       .def("contains", &PyChunkStore::Contains)
-      .def("set_id", &PyChunkStore::SetId)
+      .def("set_id", &PyChunkStore::SetIdOrDie)
       .def("get_id", &PyChunkStore::GetId)
-      .def("get_final_seq_id", &PyChunkStore::GetFinalSeqId)
+      .def("get_final_seq_id", &PyChunkStore::GetFinalSeq)
       .def("get_seq_id_for_arrival_offset",
-           &PyChunkStore::GetSeqIdForArrivalOffset, py::arg("arrival_offset"),
+           &PyChunkStore::GetSeqForArrivalOffset, py::arg("arrival_offset"),
            py::call_guard<py::gil_scoped_release>())
-      .def("__len__", &PyChunkStore::Size)
+      .def("__len__", &PyChunkStore::SizeOrDie)
       .def("__contains__", &PyChunkStore::Contains)
 
       .doc() = "An Evergreen ChunkStore interface.";
@@ -112,7 +112,7 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
             if (!result.ok()) {
               throw std::runtime_error(std::string(result.status().message()));
             }
-            return result.value().get();
+            return result.value();
           },
           py::arg("seq_id"), py::arg_v("timeout", -1),
           py::call_guard<py::gil_scoped_release>())
@@ -126,11 +126,11 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
             if (!result.ok()) {
               throw std::runtime_error(std::string(result.status().message()));
             }
-            return result.value().get();
+            return result.value();
           },
           py::arg("seq_id"), py::arg_v("timeout", -1),
           py::call_guard<py::gil_scoped_release>())
-      .def("pop", &LocalChunkStore::Pop, py::arg("seq_id"),
+      .def("pop", &LocalChunkStore::PopOrDie, py::arg("seq_id"),
            py::call_guard<py::gil_scoped_release>())
       .def(
           "put",
@@ -142,17 +142,17 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
             }
           },
           py::arg("seq_id"), py::arg("chunk"), py::arg_v("final", false))
-      .def("no_further_puts", &LocalChunkStore::NoFurtherPuts)
-      .def("size", &LocalChunkStore::Size)
-      .def("contains", &LocalChunkStore::Contains)
-      .def("set_id", &LocalChunkStore::SetId)
+      .def("no_further_puts", &LocalChunkStore::CloseWritesWithStatus)
+      .def("size", &LocalChunkStore::SizeOrDie)
+      .def("contains", &LocalChunkStore::ContainsOrDie)
+      .def("set_id", &LocalChunkStore::SetIdOrDie)
       .def("get_id", &LocalChunkStore::GetId)
-      .def("get_final_seq_id", &LocalChunkStore::GetFinalSeqId)
+      .def("get_final_seq_id", &LocalChunkStore::GetFinalSeq)
       .def("get_seq_id_for_arrival_offset",
-           &LocalChunkStore::GetSeqIdForArrivalOffset,
+           &LocalChunkStore::GetSeqForArrivalOffset,
            py::arg("arrival_offset"), py::call_guard<py::gil_scoped_release>())
-      .def("__len__", &LocalChunkStore::Size)
-      .def("__contains__", &LocalChunkStore::Contains)
+      .def("__len__", &LocalChunkStore::SizeOrDie)
+      .def("__contains__", &LocalChunkStore::ContainsOrDie)
       .doc() = "Evergreen LocalChunkStore.";
 }
 

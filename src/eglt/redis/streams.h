@@ -8,9 +8,11 @@
 
 #include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
+#include "eglt/data/conversion.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/redis/redis.h"
 #include "eglt/redis/reply_converters.h"
+#include "eglt/util/status_macros.h"
 
 namespace eglt::redis {
 
@@ -113,11 +115,19 @@ class RedisStream {
 
   absl::StatusOr<std::vector<StreamMessage>> XRead(
       std::string_view offset_id = "0", int count = -1,
-      absl::Duration timeout = absl::InfiniteDuration()) const;
+      absl::Duration timeout = absl::ZeroDuration()) const;
 
   absl::StatusOr<std::vector<StreamMessage>> XRead(
       StreamMessageId offset_id = {}, int count = -1,
-      absl::Duration timeout = absl::InfiniteDuration()) const;
+      absl::Duration timeout = absl::ZeroDuration()) const;
+
+  absl::StatusOr<std::vector<StreamMessage>> XRange(
+      const StreamMessageId& start_offset_id = {},
+      const StreamMessageId& end_offset_id = {}, int count = -1) const;
+
+  absl::StatusOr<std::vector<StreamMessage>> XRevRange(
+      StreamMessageId start_offset_id = {}, StreamMessageId end_offset_id = {},
+      int count = -1) const;
 
  private:
   Redis* const absl_nonnull redis_;

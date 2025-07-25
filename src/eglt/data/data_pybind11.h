@@ -97,7 +97,7 @@ PyObjectToStdAnyCaster MakeDefaultPyObjectToStdAnyCaster()
           "Cannot convert None to a C++ type. Please provide a valid object.");
     }
 
-    auto eglt_provided_conversion = eglt::StatusOrConvertTo<T>(obj);
+    auto eglt_provided_conversion = eglt::ConvertTo<T>(obj);
     if (eglt_provided_conversion.ok()) {
       return std::any(std::move(*eglt_provided_conversion));
     }
@@ -263,7 +263,7 @@ inline Chunk PyToChunk(py::handle obj, std::string_view mimetype = "",
     absl::StatusOr<Chunk> chunk;
     {
       py::gil_scoped_release release;  // Release GIL for serialization.
-      chunk = StatusOrConvertTo<Chunk>(std::move(obj));
+      chunk = ConvertTo<Chunk>(std::move(obj));
     }
     if (!chunk.ok()) {
       throw py::value_error(absl::StrCat("Failed to convert object to Chunk: ",
@@ -278,7 +278,7 @@ inline Chunk PyToChunk(py::handle obj, std::string_view mimetype = "",
     serialized_chunk = ToChunk(std::any(obj), mimetype_str, registry);
     if (!serialized_chunk.ok()) {
       serialized_chunk =
-          ToChunk(ConvertTo<std::any>(pybindings::PySerializationArgs{
+          ToChunk(ConvertToOrDie<std::any>(pybindings::PySerializationArgs{
                       .object = std::move(obj), .mimetype = mimetype_str}),
                   mimetype_str, registry);
     }

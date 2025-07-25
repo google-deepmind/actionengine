@@ -181,7 +181,7 @@ absl::Status EgltAssignInto(Reply from, ArrayReplyData* to) {
   if (from.type == ReplyType::Map) {
     MapReplyData map_reply_data = std::move(std::get<MapReplyData>(from.data));
     ASSIGN_OR_RETURN(
-        *to, StatusOrConvertTo<ArrayReplyData>(std::move(map_reply_data)));
+        *to, ConvertTo<ArrayReplyData>(std::move(map_reply_data)));
     return absl::OkStatus();
   }
   return absl::InvalidArgumentError(
@@ -196,7 +196,7 @@ absl::Status EgltAssignInto(Reply from, MapReplyData* to) {
   }
   if (from.type == ReplyType::Array) {
     const ArrayReplyData& array = std::get<ArrayReplyData>(from.data);
-    ASSIGN_OR_RETURN(*to, StatusOrConvertTo<MapReplyData>(array));
+    ASSIGN_OR_RETURN(*to, ConvertTo<MapReplyData>(array));
     return absl::OkStatus();
   }
   return absl::InvalidArgumentError(
@@ -290,9 +290,9 @@ absl::Status EgltAssignInto(PushReplyData from, std::vector<Reply>* to) {
 
 absl::Status EgltAssignInto(MapReplyData from, std::vector<Reply>* to) {
   ASSIGN_OR_RETURN(ArrayReplyData array,
-                   StatusOrConvertTo<ArrayReplyData>(std::move(from)));
+                   ConvertTo<ArrayReplyData>(std::move(from)));
   ASSIGN_OR_RETURN(*to,
-                   StatusOrConvertTo<std::vector<Reply>>(std::move(array)));
+                   ConvertTo<std::vector<Reply>>(std::move(array)));
   return absl::OkStatus();
 }
 
@@ -315,24 +315,24 @@ absl::Status EgltAssignInto(VerbatimReplyData from, std::string* to) {
 absl::Status EgltAssignInto(ArrayReplyData from,
                             absl::flat_hash_map<std::string, Reply>* to) {
   ASSIGN_OR_RETURN(MapReplyData map,
-                   StatusOrConvertTo<MapReplyData>(std::move(from)));
+                   ConvertTo<MapReplyData>(std::move(from)));
   *to = std::move(map).values;
   return absl::OkStatus();
 }
 
 absl::Status EgltAssignInto(Reply from, std::vector<Reply>* to) {
   if (from.type == ReplyType::Array) {
-    ASSIGN_OR_RETURN(*to, StatusOrConvertTo<std::vector<Reply>>(
+    ASSIGN_OR_RETURN(*to, ConvertTo<std::vector<Reply>>(
                               std::move(std::get<ArrayReplyData>(from.data))));
     return absl::OkStatus();
   }
   if (from.type == ReplyType::Set) {
-    ASSIGN_OR_RETURN(*to, StatusOrConvertTo<std::vector<Reply>>(
+    ASSIGN_OR_RETURN(*to, ConvertTo<std::vector<Reply>>(
                               std::move(std::get<SetReplyData>(from.data))));
     return absl::OkStatus();
   }
   if (from.type == ReplyType::Push) {
-    ASSIGN_OR_RETURN(*to, StatusOrConvertTo<std::vector<Reply>>(std::move(
+    ASSIGN_OR_RETURN(*to, ConvertTo<std::vector<Reply>>(std::move(
                               std::get<PushReplyData>(from.data).value_array)));
     return absl::OkStatus();
   }
@@ -349,7 +349,7 @@ absl::Status EgltAssignInto(Reply from,
   }
   if (from.type == ReplyType::Array) {
     ASSIGN_OR_RETURN(MapReplyData map,
-                     StatusOrConvertTo<MapReplyData>(std::move(from)));
+                     ConvertTo<MapReplyData>(std::move(from)));
     *to = std::move(map.values);
     return absl::OkStatus();
   }

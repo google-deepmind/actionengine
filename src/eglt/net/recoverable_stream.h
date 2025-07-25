@@ -127,6 +127,11 @@ class RecoverableStream final : public eglt::WireStream {
     return (*stream)->Receive();
   }
 
+  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
+                         absl::Status* absl_nonnull status) override {
+    return thread::NonSelectableCase();
+  }
+
   absl::Status Accept() override {
     eglt::MutexLock lock(&mu_);
     auto stream = GetObservedStream();

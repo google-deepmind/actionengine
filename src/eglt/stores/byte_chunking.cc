@@ -216,7 +216,7 @@ std::vector<Byte> SerializeBytePacket(BytePacket packet) {
 }
 
 absl::StatusOr<std::vector<Byte>> ChunkedBytes::ConsumeCompleteBytes() {
-  if (chunk_store_.Size() < total_expected_chunks_) {
+  if (chunk_store_.SizeOrDie() < total_expected_chunks_) {
     return absl::FailedPreconditionError(
         "Cannot consume message, not all chunks received yet");
   }
@@ -237,7 +237,7 @@ absl::StatusOr<std::vector<Byte>> ChunkedBytes::ConsumeCompleteBytes() {
 }
 
 absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
-  if (chunk_store_.Size() >= total_expected_chunks_ &&
+  if (chunk_store_.SizeOrDie() >= total_expected_chunks_ &&
       total_expected_chunks_ != -1) {
     return absl::FailedPreconditionError(
         "Cannot feed more packets, already received all expected chunks");
@@ -271,7 +271,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
              /*final=*/
              chunk.seq == total_expected_chunks_ - 1)
         .IgnoreError();
-    return chunk_store_.Size() == total_expected_chunks_;
+    return chunk_store_.SizeOrDie() == total_expected_chunks_;
   }
 
   if (std::holds_alternative<LengthSuffixedByteChunkPacket>(packet)) {
@@ -293,7 +293,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
              /*final=*/
              chunk.seq == total_expected_chunks_ - 1)
         .IgnoreError();
-    return chunk_store_.Size() == total_expected_chunks_;
+    return chunk_store_.SizeOrDie() == total_expected_chunks_;
   }
 
   return absl::InvalidArgumentError("Unknown WebRtcEvergreenPacket type");
@@ -301,7 +301,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
 
 absl::StatusOr<bool> ChunkedBytes::FeedSerializedPacket(
     std::vector<Byte> data) {
-  if (chunk_store_.Size() >= total_expected_chunks_ &&
+  if (chunk_store_.SizeOrDie() >= total_expected_chunks_ &&
       total_expected_chunks_ != -1) {
     return absl::FailedPreconditionError(
         "Cannot feed more packets, already received all expected chunks");

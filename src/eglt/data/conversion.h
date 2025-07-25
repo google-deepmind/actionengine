@@ -33,13 +33,13 @@ absl::Status EgltAssignInto(T&& from, std::string* absl_nonnull to) {
 }
 
 template <typename Dst, typename Src>
-absl::Status StatusOrAssign(Src&& from, Dst* absl_nonnull to) {
+absl::Status Assign(Src&& from, Dst* absl_nonnull to) {
   return EgltAssignInto(std::forward<Src>(from), to);
 }
 
 template <typename Dst, typename Src>
-void Assign(Src&& from, Dst* absl_nonnull to) {
-  if (const absl::Status status = StatusOrAssign(std::forward<Src>(from), to);
+void AssignOrDie(Src&& from, Dst* absl_nonnull to) {
+  if (const absl::Status status = Assign(std::forward<Src>(from), to);
       !status.ok()) {
     LOG(FATAL) << "Conversion failed: " << status;
     ABSL_ASSUME(false);
@@ -47,19 +47,17 @@ void Assign(Src&& from, Dst* absl_nonnull to) {
 }
 
 template <typename Dst, typename Src>
-absl::StatusOr<Dst> StatusOrConvertTo(Src&& from) {
+absl::StatusOr<Dst> ConvertTo(Src&& from) {
   Dst result;
-  if (auto status = StatusOrAssign(std::forward<Src>(from), &result);
-      !status.ok()) {
+  if (auto status = Assign(std::forward<Src>(from), &result); !status.ok()) {
     return status;
   }
   return result;
 }
 
 template <typename Dst, typename Src>
-Dst ConvertTo(Src&& from) {
-  if (auto result = StatusOrConvertTo<Dst>(std::forward<Src>(from));
-      !result.ok()) {
+Dst ConvertToOrDie(Src&& from) {
+  if (auto result = ConvertTo<Dst>(std::forward<Src>(from)); !result.ok()) {
     LOG(FATAL) << "Conversion failed: " << result.status();
     ABSL_ASSUME(false);
   } else {

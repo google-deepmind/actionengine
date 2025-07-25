@@ -1,4 +1,7 @@
+add_subdirectory(chunk_store_ops)
+
 add_executable(redis_playground
+        chunk_store.cc
         chunk_store.h
         playground.cc
         pubsub.cc
@@ -27,6 +30,7 @@ target_link_libraries(
         eglt::concurrency
         eglt::data
         eglt::msgpack
+        eglt::redis::chunk_store_ops
         eglt::stores
         eglt::util
         G3Fiber

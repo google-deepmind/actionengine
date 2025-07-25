@@ -40,7 +40,7 @@ AsyncNode::AsyncNode(std::string_view id, NodeMap* absl_nullable node_map,
   if (chunk_store_ == nullptr) {
     chunk_store_ = std::make_unique<LocalChunkStore>();
   }
-  chunk_store_->SetId(id);
+  chunk_store_->SetIdOrDie(id);
 }
 
 AsyncNode::AsyncNode(AsyncNode&& other) noexcept {
@@ -88,7 +88,7 @@ absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
             " does not match the node id: ", chunk_store_->GetId()));
       }
       if (node_id.empty()) {
-        chunk_store_->SetId(fragment.id);
+        chunk_store_->SetIdOrDie(fragment.id);
       }
     }
   }

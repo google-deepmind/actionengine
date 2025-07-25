@@ -164,7 +164,7 @@ class ChunkStoreWriter {
       }
     }
     accepts_puts_ = false;
-    chunk_store_->CloseWritesWithStatus(status_);
+    chunk_store_->CloseWritesWithStatusOrDie(status_);
   }
 
   ChunkStore* absl_nonnull const chunk_store_ = nullptr;

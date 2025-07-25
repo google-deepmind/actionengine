@@ -46,36 +46,36 @@ class ChunkStore {
                                                   absl::Duration timeout);
 
   virtual absl::StatusOr<std::reference_wrapper<const Chunk>> GetRef(
-      int64_t seq, absl::Duration timeout) = 0;
+      int64_t seq, absl::Duration timeout);
   virtual absl::StatusOr<std::reference_wrapper<const Chunk>>
-  GetRefByArrivalOrder(int64_t seq, absl::Duration timeout) = 0;
+  GetRefByArrivalOrder(int64_t seq, absl::Duration timeout);
 
   virtual absl::Status Put(int64_t seq, Chunk chunk, bool final) = 0;
-  virtual absl::StatusOr<std::optional<Chunk>> StatusOrPop(int64_t seq) = 0;
+  virtual absl::StatusOr<std::optional<Chunk>> Pop(int64_t seq) = 0;
 
-  virtual absl::Status StatusOrCloseWritesWithStatus(absl::Status status) = 0;
+  virtual absl::Status CloseWritesWithStatus(absl::Status status) = 0;
 
-  virtual absl::StatusOr<size_t> StatusOrSize() = 0;
-  virtual absl::StatusOr<bool> StatusOrContains(int64_t seq) = 0;
+  virtual absl::StatusOr<size_t> Size() = 0;
+  virtual absl::StatusOr<bool> Contains(int64_t seq) = 0;
 
-  virtual absl::Status StatusOrSetId(std::string_view id) = 0;
+  virtual absl::Status SetId(std::string_view id) = 0;
   [[nodiscard]] virtual auto GetId() const -> std::string_view = 0;
 
-  virtual absl::StatusOr<int64_t> StatusOrGetSeqForArrivalOffset(
+  virtual absl::StatusOr<int64_t> GetSeqForArrivalOffset(
       int64_t arrival_offset) = 0;
-  virtual absl::StatusOr<int64_t> StatusOrGetFinalSeq() = 0;
+  virtual absl::StatusOr<int64_t> GetFinalSeq() = 0;
 
   // You should not override these methods. They are provided for convenience
   // and will call the StatusOr methods above, checking for errors and
   // terminating if any occur.
-  virtual std::optional<Chunk> Pop(int64_t seq) noexcept;
-  virtual void CloseWritesWithStatus(absl::Status status) noexcept;
-  [[nodiscard]] virtual size_t Size() noexcept;
-  [[nodiscard]] virtual bool Contains(int64_t seq) noexcept;
-  virtual void SetId(std::string_view id) noexcept;
-  [[nodiscard]] virtual int64_t GetSeqForArrivalOffset(
+  virtual std::optional<Chunk> PopOrDie(int64_t seq) noexcept;
+  virtual void CloseWritesWithStatusOrDie(absl::Status status) noexcept;
+  [[nodiscard]] virtual size_t SizeOrDie() noexcept;
+  [[nodiscard]] virtual bool ContainsOrDie(int64_t seq) noexcept;
+  virtual void SetIdOrDie(std::string_view id) noexcept;
+  [[nodiscard]] virtual int64_t GetSeqForArrivalOffsetOrDie(
       int64_t arrival_offset) noexcept;
-  [[nodiscard]] virtual int64_t GetFinalSeq() noexcept;
+  [[nodiscard]] virtual int64_t GetFinalSeqOrDie() noexcept;
 };
 
 using ChunkStoreFactory = std::function<std::unique_ptr<ChunkStore>()>;

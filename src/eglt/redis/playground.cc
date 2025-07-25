@@ -1,8 +1,21 @@
 #include <eglt/util/random.h>
 
 #include "eglt/absl_headers.h"
+#include "eglt/redis/chunk_store.h"
 #include "eglt/redis/redis.h"
 #include "eglt/redis/streams.h"
+
+void GetFromChunkStore(eglt::redis::ChunkStore* absl_nonnull store, int64_t seq,
+                       absl::Duration timeout = absl::InfiniteDuration()) {
+  auto chunk_or_status = store->Get(seq, timeout);
+  if (!chunk_or_status.ok()) {
+    LOG(ERROR) << "Failed to get chunk for seq " << seq << ": "
+               << chunk_or_status.status();
+    return;
+  }
+  const auto& chunk = chunk_or_status.value();
+  LOG(INFO) << "Got chunk for seq " << seq << ": " << chunk;
+}
 
 absl::Status RunPlayground() {
   using namespace eglt::redis;
@@ -11,6 +24,30 @@ absl::Status RunPlayground() {
                    Redis::Connect("localhost", 6379));
 
   ASSIGN_OR_RETURN(HelloReply reply, redis->Hello());
+
+  std::string chunk_store_id = eglt::GenerateUUID4();
+  auto store = std::make_unique<ChunkStore>(redis.get(), chunk_store_id,
+                                            absl::Seconds(300));
+  // Wait for subscription to become ready (TODO: use a more robust way to
+  // ensure the store is ready).
+  // eglt::SleepFor(absl::Seconds(1));
+  RETURN_IF_ERROR(store->Put(0, {}, /*final=*/false));
+  RETURN_IF_ERROR(store->Put(2, {}, /*final=*/true));
+  LOG(INFO) << "Final seq: " << store->GetFinalSeqOrDie();
+  LOG(INFO) << "Size: " << store->SizeOrDie();
+
+  thread::Detach({}, [store = store.get()]() {
+    LOG(INFO) << "Fiber started, waiting for chunk with seq 1";
+    GetFromChunkStore(store, 1);
+  });
+  eglt::SleepFor(absl::Seconds(1));
+  LOG(INFO) << "Putting chunk with seq 1";
+  RETURN_IF_ERROR(store->Put(1, {}, /*final=*/false));
+  LOG(INFO) << "Put chunk with seq 1.";
+  LOG(INFO) << "Final seq: " << store->GetFinalSeqOrDie();
+  LOG(INFO) << "Size: " << store->SizeOrDie();
+  ASSIGN_OR_RETURN(auto chunk, store->Get(1, absl::Seconds(10)));
+  LOG(INFO) << "Got chunk: " << chunk;
 
   RETURN_IF_ERROR(redis->Ping("PONG"));
 

@@ -57,6 +57,11 @@ class PairableInMemoryStream final : public WireStream {
     return std::nullopt;
   }
 
+  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
+                         absl::Status* absl_nonnull status) override {
+    return thread::NonSelectableCase();
+  }
+
   absl::Status Start() override {
     eglt::MutexLock lock(&mu_);
     if (!partner_) {

@@ -19,6 +19,7 @@
 #include <optional>
 #include <string>
 
+#include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/data/serialization.h"
 
@@ -45,6 +46,9 @@ class WireStream {
   virtual auto Send(SessionMessage message) -> absl::Status = 0;
   //! Receives an Evergreen session message from the stream.
   virtual auto Receive() -> std::optional<SessionMessage> = 0;
+
+  virtual auto OnReceive(std::optional<SessionMessage>* absl_nonnull message,
+                         absl::Status* absl_nonnull status) -> thread::Case = 0;
 
   //! Accept the stream on the server side. Clients should not call this.
   virtual auto Accept() -> absl::Status = 0;

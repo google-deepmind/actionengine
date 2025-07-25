@@ -29,8 +29,9 @@ Redis::~Redis() {
   ClosePushReplyWriter();
 }
 
-absl::StatusOr<Reply> Redis::ExecuteCommand(std::string_view command,
-                                            const CommandArgs& args) const {
+absl::StatusOr<Reply> Redis::ExecuteCommandInternal(
+    std::string_view command, const CommandArgs& args) const
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   std::vector<size_t> arg_lengths;
   std::vector<const char*> arg_values;
   arg_lengths.reserve(args.size() + 1);
@@ -73,10 +74,11 @@ absl::StatusOr<Reply> Redis::ExecuteCommand(std::string_view command,
   return ParseHiredisReply(static_cast<redisReply*>(hiredis_reply));
 }
 
-absl::StatusOr<Reply> Redis::ExecuteCommand(
+absl::StatusOr<Reply> Redis::ExecuteCommandInternal(
     std::string_view command,
-    std::initializer_list<std::string_view> args) const {
-  return ExecuteCommand(command, std::vector(std::move(args)));
+    std::initializer_list<std::string_view> args) const
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  return ExecuteCommandInternal(command, std::vector(std::move(args)));
 }
 
 absl::StatusOr<HelloReply> HelloReply::From(Reply reply) {
@@ -106,13 +108,19 @@ absl::StatusOr<HelloReply> HelloReply::From(Reply reply) {
   hello_reply.role =
       eglt::FindOrDie(fields, "role").ConsumeStringContentOrDie();
 
-  std::vector<Reply> modules_replies =
-      std::get<ArrayReplyData>(eglt::FindOrDie(fields, "modules").data)
-          .Consume();
-  hello_reply.modules.reserve(modules_replies.size());
-  for (Reply& module_reply : modules_replies) {
-    hello_reply.modules.push_back(module_reply.ConsumeStringContentOrDie());
-  }
+  // std::vector<Reply> modules_replies =
+  //     std::get<ArrayReplyData>(eglt::FindOrDie(fields, "modules").data)
+  //         .Consume();
+  // hello_reply.modules.reserve(modules_replies.size());
+  // for (Reply& module_reply : modules_replies) {
+  //   auto module_reply_map =
+  //       StatusOrConvertTo<absl::flat_hash_map<std::string, std::string>>(
+  //           std::move(module_reply));
+  //   if (!module_reply_map.ok()) {
+  //     return module_reply_map.status();
+  //   }
+  //   hello_reply.modules.push_back(*std::move(module_reply_map));
+  // }
 
   return hello_reply;
 }
@@ -121,6 +129,7 @@ absl::StatusOr<HelloReply> Redis::Hello(int protocol_version,
                                         std::string_view client_name,
                                         std::string_view username,
                                         std::string_view password) const {
+  eglt::MutexLock lock(&mu_);
   if (protocol_version != 2 && protocol_version != 3) {
     return absl::InvalidArgumentError(
         "Protocol version must be either 2 or 3.");
@@ -139,7 +148,7 @@ absl::StatusOr<HelloReply> Redis::Hello(int protocol_version,
     args.push_back(password);
   }
 
-  ASSIGN_OR_RETURN(Reply reply, ExecuteCommand("HELLO", args));
+  ASSIGN_OR_RETURN(Reply reply, ExecuteCommandInternal("HELLO", args));
   if (reply.IsError()) {
     return GetStatusOrErrorFrom(reply);
   }
@@ -174,7 +183,9 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
 }
 
 absl::Status Redis::Ping(std::string_view expected_message) const {
-  ASSIGN_OR_RETURN(Reply reply, ExecuteCommand("PING", expected_message));
+  eglt::MutexLock lock(&mu_);
+  ASSIGN_OR_RETURN(Reply reply,
+                   ExecuteCommandInternal("PING", expected_message));
   const std::string ping_reply = reply.ConsumeStringContentOrDie();
   if (ping_reply != expected_message) {
     return absl::InternalError(
@@ -184,18 +195,22 @@ absl::Status Redis::Ping(std::string_view expected_message) const {
 }
 
 absl::StatusOr<Reply> Redis::Get(std::string_view key) const {
-  return ExecuteCommand("GET", key);
+  eglt::MutexLock lock(&mu_);
+  return ExecuteCommandInternal("GET", key);
 }
 
 absl::Status Redis::Set(std::string_view key, std::string_view value) const {
-  ASSIGN_OR_RETURN(const Reply reply, ExecuteCommand("SET", key, value));
+  eglt::MutexLock lock(&mu_);
+  ASSIGN_OR_RETURN(const Reply reply,
+                   ExecuteCommandInternal("SET", key, value));
   return GetStatusOrErrorFrom(reply);
 }
 
 absl::StatusOr<int> Redis::Publish(std::string_view channel,
                                    std::string_view message) const {
+  eglt::MutexLock lock(&mu_);
   ASSIGN_OR_RETURN(const Reply reply,
-                   ExecuteCommand("PUBLISH", channel, message));
+                   ExecuteCommandInternal("PUBLISH", channel, message));
   return reply.ToInt();
 }
 
@@ -225,7 +240,8 @@ void Redis::SetContext(
 }
 
 void Redis::HandlePushReply(void* absl_nonnull privdata,
-                            void* absl_nonnull hiredis_reply) {
+                            void* absl_nonnull hiredis_reply)
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
   const auto redis = static_cast<Redis*>(privdata);
   CHECK(redis != nullptr);
 
@@ -235,7 +251,6 @@ void Redis::HandlePushReply(void* absl_nonnull privdata,
   absl::StatusOr<Reply> reply =
       ParseHiredisReply(static_cast<redisReply*>(hiredis_reply));
 
-  eglt::MutexLock lock(&redis->mu_);
   if (!redis->push_reply_status_.ok()) {
     // If we have a previous error, we don't process further replies.
     return;

@@ -48,12 +48,12 @@ absl::Status EgltAssignInto(Reply from,
 template <typename T>
 absl::Status EgltAssignInto(Reply from, std::vector<T>* to) {
   ASSIGN_OR_RETURN(std::vector<Reply> reply_vector,
-                   StatusOrConvertTo<std::vector<Reply>>(std::move(from)));
+                   ConvertTo<std::vector<Reply>>(std::move(from)));
   std::vector<T> converted_vector;
   converted_vector.reserve(reply_vector.size());
   for (const Reply& reply : reply_vector) {
     T value;
-    ASSIGN_OR_RETURN(value, StatusOrConvertTo<T>(reply));
+    ASSIGN_OR_RETURN(value, ConvertTo<T>(reply));
     converted_vector.push_back(std::move(value));
   }
   *to = std::move(converted_vector);
@@ -63,14 +63,14 @@ absl::Status EgltAssignInto(Reply from, std::vector<T>* to) {
 template <typename T>
 absl::Status EgltAssignInto(Reply from,
                             absl::flat_hash_map<std::string, T>* to) {
-  auto reply_map = StatusOrConvertTo<absl::flat_hash_map<std::string, Reply>>(
+  auto reply_map = ConvertTo<absl::flat_hash_map<std::string, Reply>>(
       std::move(from));
   RETURN_IF_ERROR(reply_map.status());
   absl::flat_hash_map<std::string, T> converted_map;
   converted_map.reserve(reply_map->size());
   for (const auto& [key, reply] : *reply_map) {
     T value;
-    ASSIGN_OR_RETURN(value, StatusOrConvertTo<T>(reply));
+    ASSIGN_OR_RETURN(value, ConvertTo<T>(reply));
     converted_map.emplace(std::move(key), std::move(value));
   }
   *to = std::move(converted_map);

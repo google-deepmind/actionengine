@@ -48,8 +48,7 @@ std::string StreamMessageId::ToString() const {
 
 absl::Status EgltAssignInto(Reply from, StreamMessage* to) {
   auto single_kv_map =
-      StatusOrConvertTo<absl::flat_hash_map<std::string, Reply>>(
-          std::move(from));
+      ConvertTo<absl::flat_hash_map<std::string, Reply>>(std::move(from));
   RETURN_IF_ERROR(single_kv_map.status());
 
   if (single_kv_map->size() != 1) {
@@ -61,9 +60,8 @@ absl::Status EgltAssignInto(Reply from, StreamMessage* to) {
   auto& [id_str, fields_reply] = *single_kv_map->begin();
   ASSIGN_OR_RETURN(to->id, StreamMessageId::FromString(id_str));
 
-  auto fields_map =
-      StatusOrConvertTo<absl::flat_hash_map<std::string, std::string>>(
-          std::move(fields_reply));
+  auto fields_map = ConvertTo<absl::flat_hash_map<std::string, std::string>>(
+      std::move(fields_reply));
   RETURN_IF_ERROR(fields_map.status());
   to->fields = std::move(*fields_map);
 
@@ -77,23 +75,28 @@ absl::StatusOr<std::vector<StreamMessage>> RedisStream::XRead(
         "Count must be greater than 0 or negative, meaning unlimited.");
   }
 
-  std::vector<std::string_view> args;
+  std::vector<std::string> args;
   args.reserve(7);
   if (count > 0) {
-    args.push_back("COUNT");
+    args.emplace_back("COUNT");
     args.push_back(absl::StrCat(count));
   }
-  if (timeout != absl::InfiniteDuration()) {
-    args.push_back("BLOCK");
+  if (timeout != absl::ZeroDuration()) {
+    args.emplace_back("BLOCK");
     args.push_back(absl::StrCat(absl::ToInt64Milliseconds(timeout)));
   }
-  args.push_back("STREAMS");
+  args.emplace_back("STREAMS");
   args.push_back(key_);
   const std::string offset_id_str = offset_id.ToString();
   args.push_back(offset_id_str);
 
-  ASSIGN_OR_RETURN(Reply reply,
-                   redis_->ExecuteCommand("XREAD", std::move(args)));
+  std::vector<std::string_view> args_view;
+  args_view.reserve(args.size());
+  for (const auto& arg : args) {
+    args_view.push_back(arg);
+  }
+
+  ASSIGN_OR_RETURN(Reply reply, redis_->ExecuteCommand("XREAD", args_view));
   // If the reply is nil, it means the read timed out without receiving any
   // messages.
   if (reply.IsNil()) {
@@ -104,7 +107,7 @@ absl::StatusOr<std::vector<StreamMessage>> RedisStream::XRead(
   // A successful XRead reply is a map where keys are stream names and
   // values are arrays of messages.
   auto messages_by_stream =
-      StatusOrConvertTo<absl::flat_hash_map<std::string, Reply>>(reply);
+      ConvertTo<absl::flat_hash_map<std::string, Reply>>(reply);
   RETURN_IF_ERROR(messages_by_stream.status());
 
   // We expect a single stream in the reply, as we only read from one stream.
@@ -120,7 +123,43 @@ absl::StatusOr<std::vector<StreamMessage>> RedisStream::XRead(
         absl::StrCat("Stream ", key_, " not found in XRead reply."));
   }
   // Convert Reply to a vector of StreamMessage.
-  return StatusOrConvertTo<std::vector<StreamMessage>>(std::move(it->second));
+  return ConvertTo<std::vector<StreamMessage>>(std::move(it->second));
+}
+
+absl::StatusOr<std::vector<StreamMessage>> RedisStream::XRange(
+    const StreamMessageId& start_offset_id,
+    const StreamMessageId& end_offset_id, int count) const {
+  if (count == 0) {
+    return absl::InvalidArgumentError(
+        "Count must be greater than 0 or negative, meaning unlimited.");
+  }
+  std::vector<std::string> args;
+  args.reserve(5);
+  args.push_back(key_);
+  args.push_back(start_offset_id.ToString());
+  args.push_back(end_offset_id.ToString());
+  if (count > 0) {
+    args.emplace_back("COUNT");
+    args.push_back(absl::StrCat(count));
+  }
+  CommandArgs args_view;
+  args_view.reserve(args.size());
+  for (const auto& arg : args) {
+    args_view.push_back(arg);
+  }
+
+  ASSIGN_OR_RETURN(Reply reply, redis_->ExecuteCommand("XRANGE", args_view));
+  if (reply.IsNil()) {
+    return absl::NotFoundError(
+        absl::StrCat("No messages found in stream ", key_));
+  }
+  ASSIGN_OR_RETURN(auto messages,
+                   ConvertTo<std::vector<StreamMessage>>(std::move(reply)));
+  if (messages.empty()) {
+    return absl::NotFoundError(
+        absl::StrCat("No messages found in stream ", key_));
+  }
+  return messages;
 }
 
 }  // namespace eglt::redis

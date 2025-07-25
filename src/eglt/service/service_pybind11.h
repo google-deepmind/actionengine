@@ -81,6 +81,11 @@ class PyWireStream final : public WireStream {
     return std::move(result)->cast<SessionMessage>();
   }
 
+  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
+                         absl::Status* absl_nonnull status) override {
+    return thread::NonSelectableCase();
+  }
+
   absl::Status Accept() override {
     py::gil_scoped_acquire gil;
     const py::function function = py::get_override(this, "accept");

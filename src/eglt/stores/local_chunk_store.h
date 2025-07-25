@@ -40,7 +40,7 @@ class LocalChunkStore final : public ChunkStore {
   LocalChunkStore() : ChunkStore() {}
 
   explicit LocalChunkStore(std::string_view id) : LocalChunkStore() {
-    LocalChunkStore::SetId(id);
+    LocalChunkStore::SetIdOrDie(id);
   }
 
   // Neither copyable nor movable.
@@ -134,7 +134,7 @@ class LocalChunkStore final : public ChunkStore {
         chunks_, eglt::FindOrDie(arrival_order_to_seq_, arrival_offset));
   }
 
-  absl::StatusOr<std::optional<Chunk>> StatusOrPop(int64_t seq) override {
+  absl::StatusOr<std::optional<Chunk>> Pop(int64_t seq) override {
     eglt::MutexLock lock(&mu_);
     if (const auto map_node = chunks_.extract(seq); map_node) {
       const int64_t arrival_order = seq_to_arrival_order_[seq];
@@ -166,7 +166,7 @@ class LocalChunkStore final : public ChunkStore {
     return absl::OkStatus();
   }
 
-  absl::Status StatusOrCloseWritesWithStatus(absl::Status) override {
+  absl::Status CloseWritesWithStatus(absl::Status) override {
     eglt::MutexLock lock(&mu_);
 
     no_further_puts_ = true;
@@ -178,23 +178,23 @@ class LocalChunkStore final : public ChunkStore {
     return absl::OkStatus();
   }
 
-  absl::StatusOr<size_t> StatusOrSize() override {
+  absl::StatusOr<size_t> Size() override {
     eglt::MutexLock lock(&mu_);
     return chunks_.size();
   }
 
-  absl::StatusOr<bool> StatusOrContains(int64_t seq) override {
+  absl::StatusOr<bool> Contains(int64_t seq) override {
     eglt::MutexLock lock(&mu_);
     return chunks_.contains(seq);
   }
 
-  absl::Status StatusOrSetId(std::string_view id) override {
+  absl::Status SetId(std::string_view id) override {
     id_ = id;
     return absl::OkStatus();
   }
   std::string_view GetId() const override { return id_; }
 
-  absl::StatusOr<int64_t> StatusOrGetSeqForArrivalOffset(
+  absl::StatusOr<int64_t> GetSeqForArrivalOffset(
       int64_t arrival_offset) override {
     eglt::MutexLock lock(&mu_);
     if (!arrival_order_to_seq_.contains(arrival_offset)) {
@@ -203,7 +203,7 @@ class LocalChunkStore final : public ChunkStore {
     return arrival_order_to_seq_.at(arrival_offset);
   }
 
-  absl::StatusOr<int64_t> StatusOrGetFinalSeq() override {
+  absl::StatusOr<int64_t> GetFinalSeq() override {
     eglt::MutexLock lock(&mu_);
     return final_seq_;
   }

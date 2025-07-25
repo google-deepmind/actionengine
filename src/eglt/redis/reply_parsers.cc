@@ -110,20 +110,29 @@ absl::StatusOr<Reply> ParseHiredisReply(redisReply* absl_nonnull hiredis_reply,
 
   if (type == ReplyType::String) {
     reply.type = ReplyType::String;
-    reply.data =
-        StringReplyData{.value = hiredis_reply->str ? hiredis_reply->str : ""};
+    std::string value;
+    if (hiredis_reply->str) {
+      value.assign(hiredis_reply->str, hiredis_reply->len);
+    }
+    reply.data = StringReplyData{.value = std::move(value)};
   }
 
   if (type == ReplyType::Status) {
     reply.type = ReplyType::Status;
-    reply.data =
-        StatusReplyData{.value = hiredis_reply->str ? hiredis_reply->str : ""};
+    std::string value;
+    if (hiredis_reply->str) {
+      value.assign(hiredis_reply->str, hiredis_reply->len);
+    }
+    reply.data = StatusReplyData{.value = std::move(value)};
   }
 
   if (type == ReplyType::Error) {
     reply.type = ReplyType::Error;
-    reply.data =
-        ErrorReplyData{.value = hiredis_reply->str ? hiredis_reply->str : ""};
+    std::string value;
+    if (hiredis_reply->str) {
+      value.assign(hiredis_reply->str, hiredis_reply->len);
+    }
+    reply.data = ErrorReplyData{.value = std::move(value)};
   }
 
   if (type == ReplyType::Integer) {
@@ -148,16 +157,23 @@ absl::StatusOr<Reply> ParseHiredisReply(redisReply* absl_nonnull hiredis_reply,
 
   if (type == ReplyType::BigNum) {
     reply.type = ReplyType::BigNum;
-    reply.data = BigNumReplyData{
-        .value = hiredis_reply->str ? hiredis_reply->str : std::string{}};
+    std::string value;
+    if (hiredis_reply->str) {
+      value.assign(hiredis_reply->str, hiredis_reply->len);
+    }
+    reply.data = BigNumReplyData{.value = std::move(value)};
   }
 
   if (type == ReplyType::Verbatim) {
     reply.type = ReplyType::Verbatim;
+    std::string value;
+    if (hiredis_reply->str) {
+      value.assign(hiredis_reply->str, hiredis_reply->len);
+    }
     reply.data = VerbatimReplyData{
         .type = {hiredis_reply->vtype[0], hiredis_reply->vtype[1],
                  hiredis_reply->vtype[2]},
-        .value = hiredis_reply->str ? hiredis_reply->str : std::string{}};
+        .value = std::move(value)};
   }
 
   if (type == ReplyType::Array) {

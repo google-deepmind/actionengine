@@ -134,10 +134,10 @@ class ChunkStoreReader {
     }
 
     const Chunk& chunk = *chunk_or_status;
-    const int seq_id = chunk_store_->GetSeqForArrivalOffset(next_read_offset);
+    const int seq_id = chunk_store_->GetSeqForArrivalOffsetOrDie(next_read_offset);
     if (chunk.IsNull()) {
       mu_.Unlock();
-      chunk_store_->Pop(seq_id);
+      chunk_store_->PopOrDie(seq_id);
       mu_.Lock();
       return std::nullopt;
     }
@@ -147,7 +147,7 @@ class ChunkStoreReader {
 
   void RunPrefetchLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     while (!thread::Cancelled()) {
-      if (const auto final_seq_id = chunk_store_->GetFinalSeq();
+      if (const auto final_seq_id = chunk_store_->GetFinalSeqOrDie();
           final_seq_id >= 0 && total_chunks_read_ > final_seq_id) {
         status_ = absl::OkStatus();
         break;
@@ -183,7 +183,7 @@ class ChunkStoreReader {
 
       if (remove_chunks_ && next_seq_id >= 0) {
         mu_.Unlock();
-        chunk_store_->Pop(next_seq_id);
+        chunk_store_->PopOrDie(next_seq_id);
         mu_.Lock();
       }
 

@@ -49,6 +49,11 @@ class WebsocketWireStream final : public WireStream {
 
   std::optional<SessionMessage> Receive() override;
 
+  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
+                         absl::Status* absl_nonnull status) override {
+    return thread::NonSelectableCase();
+  }
+
   absl::Status Start() override;
 
   absl::Status Accept() override;

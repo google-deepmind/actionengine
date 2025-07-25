@@ -31,7 +31,7 @@ TEST(ChunkStoreTest, CanWriteChunks) {
 
     chunk_store.GetByArrivalOrder(3, /*timeout=*/absl::InfiniteDuration())
         .IgnoreError();
-    EXPECT_THAT(chunk_store.Size(), Eq(4));
+    EXPECT_THAT(chunk_store.SizeOrDie(), Eq(4));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(3));
   }
 
@@ -47,7 +47,7 @@ TEST(ChunkStoreTest, CanWriteChunks) {
     eglt::SleepFor(absl::Seconds(
         0.001));  // TODO(hpnkv): add a method to wait for finalisation
 
-    EXPECT_THAT(chunk_store.Size(), Eq(3));
+    EXPECT_THAT(chunk_store.SizeOrDie(), Eq(3));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
   }
 }
@@ -173,13 +173,13 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
     writer << "Hello" << "World" << "!" << eglt::EndOfStream();
     chunk_store.GetByArrivalOrder(3, /*timeout=*/absl::InfiniteDuration())
         .IgnoreError();
-    EXPECT_THAT(chunk_store.Size(), Eq(4));
+    EXPECT_THAT(chunk_store.SizeOrDie(), Eq(4));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(3));
 
     std::vector<std::string> read_words;
     reader >> read_words;
     EXPECT_OK(reader.GetStatus());
-    EXPECT_THAT(chunk_store.Size(), Eq(0));
+    EXPECT_THAT(chunk_store.SizeOrDie(), Eq(0));
   }
 
   {
@@ -191,7 +191,7 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
 
     eglt::SleepFor(absl::Seconds(0.001));
 
-    EXPECT_THAT(chunk_store.Size(), Eq(3));
+    EXPECT_THAT(chunk_store.SizeOrDie(), Eq(3));
     EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
 
     eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/true,
@@ -199,7 +199,7 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
     std::vector<std::string> read_words;
     reader >> read_words;
     EXPECT_OK(reader.GetStatus());
-    EXPECT_THAT(chunk_store.Size(),
+    EXPECT_THAT(chunk_store.SizeOrDie(),
                 Eq(0));  // No chunks should remain.
   }
 }

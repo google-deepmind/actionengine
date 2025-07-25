@@ -70,9 +70,7 @@ struct [[nodiscard]] Case {
   internal::Selectable* selectable;
   absl::InlinedVector<void*, 2> arguments;
 
-  // ReSharper disable once CppNonExplicitConvertingConstructor
   Case(internal::Selectable* s = nullptr) : selectable(s) {}
-  // ReSharper disable once CppNonExplicitConvertingConstructor
   Case(internal::Selectable* s, internal::IsPointer auto... args)
       : selectable(s) {
     AddArgs(args...);

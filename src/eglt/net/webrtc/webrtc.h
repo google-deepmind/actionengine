@@ -99,6 +99,11 @@ class WebRtcWireStream final : public WireStream {
     return std::move(message);
   }
 
+  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
+                         absl::Status* absl_nonnull status) override {
+    return thread::NonSelectableCase();
+  }
+
   absl::Status Start() override { return absl::OkStatus(); }
 
   absl::Status Accept() override { return absl::OkStatus(); }
