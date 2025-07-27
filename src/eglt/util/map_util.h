@@ -15,7 +15,7 @@
 #ifndef EGLT_UTIL_MAP_UTIL_H_
 #define EGLT_UTIL_MAP_UTIL_H_
 
-#include "eglt/absl_headers.h"
+#include <absl/container/flat_hash_map.h>
 
 namespace eglt {
 /// @private

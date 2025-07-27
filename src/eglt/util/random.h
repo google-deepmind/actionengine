@@ -15,9 +15,12 @@
 #ifndef EGLT_UTIL_RANDOM_H_
 #define EGLT_UTIL_RANDOM_H_
 
+#include <iomanip>
+#include <sstream>
 #include <string>
 
-#include "eglt/absl_headers.h"
+#include <absl/random/distributions.h>
+#include <absl/random/random.h>
 
 namespace eglt {
 

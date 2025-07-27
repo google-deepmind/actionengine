@@ -13,6 +13,26 @@
 // limitations under the License.
 
 #include "eglt/net/webrtc/webrtc_pybind11.h"
+
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
+#include <absl/base/nullability.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/strings/str_format.h>
+#include <bytearrayobject.h>
+#include <pybind11/attr.h>
+#include <pybind11/cast.h>
+#include <pybind11/detail/common.h>
+#include <pybind11/detail/descr.h>
+#include <pybind11/detail/internals.h>
+#include <pybind11/gil.h>
+#include <stdint.h>
+
+#include "eglt/net/stream.h"
 #include "eglt/net/webrtc/webrtc.h"
 #include "eglt/service/service.h"
 #include "eglt/util/utils_pybind11.h"
@@ -23,8 +43,8 @@ namespace py = ::pybind11;
 
 void BindWebRtcWireStream(py::handle scope, std::string_view name) {
   py::class_<net::WebRtcWireStream, WireStream,
-             std::shared_ptr<net::WebRtcWireStream>>(
-      scope, std::string(name).c_str())
+             std::shared_ptr<net::WebRtcWireStream>>(scope,
+                                                     std::string(name).c_str())
       .def("send", &net::WebRtcWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
       .def("receive", &net::WebRtcWireStream::Receive,
@@ -37,8 +57,7 @@ void BindWebRtcWireStream(py::handle scope, std::string_view name) {
       .def("get_id", &net::WebRtcWireStream::GetId)
       .def("__repr__",
            [](const std::shared_ptr<net::WebRtcWireStream>& self) {
-             return absl::StrFormat("WebRtcWireStream, id=%s",
-                                    self->GetId());
+             return absl::StrFormat("WebRtcWireStream, id=%s", self->GetId());
            })
       .doc() = "A WebRtcWireStream interface.";
 }

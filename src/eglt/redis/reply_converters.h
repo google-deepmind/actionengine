@@ -1,3 +1,17 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef EGLT_REDIS_REPLY_CONVERTERS_H_
 #define EGLT_REDIS_REPLY_CONVERTERS_H_
 
@@ -8,7 +22,40 @@
 
 namespace eglt::redis {
 
-constexpr std::string_view MapReplyEnumToTypeName(ReplyType type);
+constexpr std::string_view MapReplyEnumToTypeName(ReplyType type) {
+  switch (type) {
+    case ReplyType::Status:
+      return "Status";
+    case ReplyType::Error:
+      return "Error";
+    case ReplyType::Integer:
+      return "Integer";
+    case ReplyType::Nil:
+      return "Nil";
+    case ReplyType::String:
+      return "String";
+    case ReplyType::Bool:
+      return "Bool";
+    case ReplyType::Double:
+      return "Double";
+    case ReplyType::Array:
+      return "Array";
+    case ReplyType::Map:
+      return "Map";
+    case ReplyType::Set:
+      return "Set";
+    case ReplyType::Push:
+      return "Push";
+    case ReplyType::Attr:
+      return "Attr";
+    case ReplyType::BigNum:
+      return "BigNum";
+    case ReplyType::Verbatim:
+      return "Verbatim";
+    default:
+      return "unknown";
+  }
+}
 
 // Converters to the primitive types of RESP2 and RESP3.
 absl::Status EgltAssignInto(const Reply& from, absl::Status* to);
@@ -63,8 +110,8 @@ absl::Status EgltAssignInto(Reply from, std::vector<T>* to) {
 template <typename T>
 absl::Status EgltAssignInto(Reply from,
                             absl::flat_hash_map<std::string, T>* to) {
-  auto reply_map = ConvertTo<absl::flat_hash_map<std::string, Reply>>(
-      std::move(from));
+  auto reply_map =
+      ConvertTo<absl::flat_hash_map<std::string, Reply>>(std::move(from));
   RETURN_IF_ERROR(reply_map.status());
   absl::flat_hash_map<std::string, T> converted_map;
   converted_map.reserve(reply_map->size());

@@ -17,8 +17,12 @@
 
 #define BOOST_ASIO_NO_DEPRECATED
 
-#include <thread>
+#include <optional>
+#include <type_traits>
+#include <utility>
 
+#include <absl/container/inlined_vector.h>
+#include <absl/functional/any_invocable.h>
 #include <boost/asio/post.hpp>
 #include <boost/asio/thread_pool.hpp>
 

@@ -16,6 +16,6 @@ target_include_directories(
         ${EGLT_INCLUDE_DIR}
 )
 target_link_libraries(
-        egltMsgpack PUBLIC
-        ${EGLT_ABSL_DEPENDENCIES}
+        egltMsgpack PRIVATE
+        absl::inlined_vector
 )

@@ -18,15 +18,17 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
-#include "eglt/absl_headers.h"
+#include <absl/base/nullability.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
+
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/nodes/async_node.h"
 #include "eglt/stores/chunk_store.h"
-
 namespace eglt {
-class AsyncNode;
 
 /**
  * @brief

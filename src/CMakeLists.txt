@@ -1,29 +1,5 @@
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness")
 
-set(
-        EGLT_ABSL_DEPENDENCIES
-        absl::base
-        absl::debugging
-        absl::debugging_internal
-        absl::failure_signal_handler
-        absl::flags
-        absl::flags_parse
-        absl::flat_hash_map
-        absl::log
-        absl::log_initialize
-        absl::log_internal_check_op
-        absl::random_random
-        absl::stacktrace
-        absl::status
-        absl::status_matchers
-        absl::statusor
-        absl::strings
-        absl::strings_internal
-        absl::symbolize
-        absl::time
-)
-set(EGLT_ABSL_DEPENDENCIES ${EGLT_ABSL_DEPENDENCIES} PARENT_SCOPE)
-
 # ------------------------------------------------------------------
 
 set(EGLT_PYBIND11_DEPENDENCIES
@@ -87,6 +63,21 @@ add_library(
 
 target_link_libraries(
         evergreen_pybind11 PRIVATE
+        absl::failure_signal_handler
+)
+
+target_link_libraries(
+        evergreen_pybind11 PRIVATE
+        absl::base
+        absl::flags
+        absl::flags_parse
+        absl::log
+        absl::log_internal_check_op
+        absl::status
+        absl::statusor
+        absl::strings
+        absl::strings_internal
+        absl::failure_signal_handler
         eglt::data
         eglt::data::pybind11
         eglt::actions
@@ -99,11 +90,12 @@ target_link_libraries(
         eglt::stores::pybind11
         eglt::nodes
         eglt::nodes::pybind11
-        ${EGLT_ABSL_DEPENDENCIES}
         eglt::net::webrtc
         eglt::net::webrtc::pybind11
         eglt::net::websockets
         eglt::net::websockets::pybind11
+        eglt::redis
+        eglt::redis::pybind11
         eglt::util::pybind11
         ${EGLT_PYBIND11_DEPENDENCIES}
 )

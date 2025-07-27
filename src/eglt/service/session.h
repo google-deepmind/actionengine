@@ -15,24 +15,28 @@
 #ifndef EGLT_SERVICE_SESSION_H_
 #define EGLT_SERVICE_SESSION_H_
 
-#include <functional>
+#include <memory>
 #include <string_view>
+#include <utility>
 
-#include "eglt/absl_headers.h"
+#include <absl/base/nullability.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
+#include <absl/log/check.h>
+#include <absl/log/log.h>
+#include <absl/status/status.h>
+#include <absl/time/clock.h>
+#include <absl/time/time.h>
+
+#include "eglt/actions/action.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
-#include "eglt/net/peers.h"
 #include "eglt/net/stream.h"
+#include "eglt/nodes/async_node.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/stores/chunk_store.h"
 
 namespace eglt {
-
-class Action;
-
-class ActionRegistry;
-
-class Session;
 
 class ActionContext {
  public:

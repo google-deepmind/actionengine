@@ -34,7 +34,6 @@ target_link_libraries(
         eglt::stores
         eglt::util
         G3Fiber
-        ${EGLT_ABSL_DEPENDENCIES}
 )
 
 add_executable(redis_playground
@@ -52,4 +51,44 @@ target_include_directories(
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+)
+
+# ------------------------------------------------------------------
+
+add_library(
+        egltRedisPybind11 STATIC
+)
+add_library(
+        eglt::redis::pybind11 ALIAS
+        egltRedisPybind11
+)
+target_sources(
+        egltRedisPybind11 PRIVATE
+        chunk_store_pybind11.cc
+)
+target_sources(
+        egltRedisPybind11 PUBLIC
+        chunk_store_pybind11.h
+)
+target_link_libraries(
+        egltRedisPybind11 PRIVATE
+        eglt::concurrency
+        eglt::redis
+        cppack
+        ${EGLT_PYBIND11_DEPENDENCIES}
+)
+target_include_directories(
+        egltRedisPybind11 PUBLIC
+        ${EGLT_INCLUDE_DIRS}
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+)
+
+install(
+        TARGETS egltRedis
+        EXPORT egltTargets
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib/eglt
+        ARCHIVE DESTINATION lib/eglt
 )

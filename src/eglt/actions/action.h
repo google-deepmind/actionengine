@@ -15,21 +15,38 @@
 #ifndef EGLT_ACTIONS_ACTION_H_
 #define EGLT_ACTIONS_ACTION_H_
 
-#include <algorithm>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
-#include "eglt/absl_headers.h"
+#include <absl/base/nullability.h>
+#include <absl/base/optimization.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
+#include <absl/log/check.h>
+#include <absl/log/log.h>
+#include <absl/status/status.h>
+#include <absl/strings/str_cat.h>
+#include <absl/strings/str_format.h>
+#include <absl/strings/str_join.h>
+
+#include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
 #include "eglt/nodes/async_node.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/util/map_util.h"
 #include "eglt/util/random.h"
+
+namespace eglt {
+class Action;
+class Session;
+}  // namespace eglt
 
 /**
  * @file
@@ -43,9 +60,6 @@
 
 namespace eglt {
 
-class Session;
-
-class Action;
 using ActionHandler =
     std::function<absl::Status(const std::shared_ptr<Action>&)>;
 // A type for Python and other bindings that cannot use absl::Status
@@ -77,35 +91,7 @@ struct ActionSchema {
   }
 
   [[nodiscard]] ActionMessage GetActionMessage(
-      std::string_view action_id) const {
-    CHECK(!action_id.empty())
-        << "Action ID cannot be empty to create a message";
-
-    std::vector<Port> input_parameters;
-    input_parameters.reserve(inputs.size());
-    for (const auto& [name, _] : inputs) {
-      input_parameters.push_back(Port{
-          .name = name,
-          .id = absl::StrCat(action_id, "#", name),
-      });
-    }
-
-    std::vector<Port> output_parameters;
-    output_parameters.reserve(outputs.size());
-    for (const auto& [name, _] : outputs) {
-      output_parameters.push_back(Port{
-          .name = name,
-          .id = absl::StrCat(action_id, "#", name),
-      });
-    }
-
-    return {
-        .id = std::string(action_id),
-        .name = name,
-        .inputs = input_parameters,
-        .outputs = output_parameters,
-    };
-  }
+      std::string_view action_id) const;
 
   std::string name;
   NameToMimetype inputs;

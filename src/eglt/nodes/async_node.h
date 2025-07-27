@@ -19,21 +19,28 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <utility>
 #include <vector>
 
-#include "eglt/absl_headers.h"
+#include <absl/base/nullability.h>
+#include <absl/base/optimization.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
+#include <absl/log/log.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+
+#include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
-#include "eglt/net/peers.h"
+#include "eglt/data/serialization.h"
 #include "eglt/net/stream.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_io.h"
-#include "eglt/util/global_settings.h"
+namespace eglt {
+class NodeMap;
+}
 
 namespace eglt {
-
-class NodeMap;
 
 class AsyncNode {
  public:
@@ -56,21 +63,21 @@ class AsyncNode {
   }
 
   template <typename T>
-  auto Put(T value, int seq_id = -1, bool final = false) -> absl::Status {
+  auto Put(T value, int seq = -1, bool final = false) -> absl::Status {
     auto chunk = ToChunk(std::move(value));
     if (!chunk.ok()) {
       return chunk.status();
     }
-    return Put(*std::move(chunk), seq_id, final);
+    return Put(*std::move(chunk), seq, final);
   }
 
   template <typename T>
-  auto PutAndClose(T value, int seq_id = -1) -> absl::Status {
+  auto PutAndClose(T value, int seq = -1) -> absl::Status {
     auto chunk = ToChunk(std::move(value));
     if (!chunk.ok()) {
       return chunk.status();
     }
-    return Put(*std::move(chunk), seq_id, /*final=*/true);
+    return Put(*std::move(chunk), seq, /*final=*/true);
   }
 
   ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mu_);
@@ -149,8 +156,8 @@ class AsyncNode {
   ChunkStoreWriter* absl_nonnull EnsureWriter(int n_chunks_to_buffer = -1)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  auto PutFragment(NodeFragment fragment, int seq_id = -1) -> absl::Status;
-  auto PutChunk(Chunk chunk, int seq_id = -1, bool final = false)
+  auto PutFragment(NodeFragment fragment, int seq = -1) -> absl::Status;
+  auto PutChunk(Chunk chunk, int seq = -1, bool final = false)
       -> absl::Status;
 
   NodeMap* absl_nullable node_map_ = nullptr;
@@ -165,24 +172,24 @@ class AsyncNode {
 };
 
 template <>
-inline auto AsyncNode::Put<Chunk>(Chunk value, int seq_id, bool final)
+inline auto AsyncNode::Put<Chunk>(Chunk value, int seq, bool final)
     -> absl::Status {
   const bool continued = !final && !value.IsNull();
   return PutFragment(NodeFragment{
       .id = std::string(chunk_store_->GetId()),
-      .seq = seq_id,
+      .seq = seq,
       .chunk = std::move(value),
       .continued = continued,
   });
 }
 
 template <>
-inline auto AsyncNode::Put(NodeFragment value, int seq_id, bool final)
+inline auto AsyncNode::Put(NodeFragment value, int seq, bool final)
     -> absl::Status {
-  if (seq_id == -1) {
-    seq_id = value.seq;
+  if (seq == -1) {
+    seq = value.seq;
   }
-  return PutFragment(std::move(value), seq_id);
+  return PutFragment(std::move(value), seq);
 }
 
 // -----------------------------------------------------------------------------
@@ -268,7 +275,7 @@ inline AsyncNode& operator<<(AsyncNode& node, NodeFragment value) {
 template <>
 inline AsyncNode& operator<<(AsyncNode& node, Chunk value) {
   const bool final = value.IsNull();
-  node.Put(std::move(value), /*seq_id=*/-1, /*final=*/final).IgnoreError();
+  node.Put(std::move(value), /*seq=*/-1, /*final=*/final).IgnoreError();
   return node;
 }
 

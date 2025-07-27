@@ -1,17 +1,58 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef EGLT_REDIS_CHUNK_STORE_H_
 #define EGLT_REDIS_CHUNK_STORE_H_
 
-#include <cppack/msgpack.h>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <variant>
+#include <vector>
 
+#include <absl/base/nullability.h>
+#include <absl/base/optimization.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
+#include <absl/hash/hash.h>
+#include <absl/log/check.h>
+#include <absl/log/log.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/strings/numbers.h>
+#include <absl/strings/str_cat.h>
 #include <absl/strings/str_replace.h>
+#include <absl/strings/str_split.h>
+#include <absl/time/clock.h>
+#include <absl/time/time.h>
 
-#include "eglt/data/msgpack.h"
+#include "eglt/concurrency/concurrency.h"
+#include "eglt/data/conversion.h"
+#include "eglt/data/eg_structs.h"
 #include "eglt/redis/chunk_store_ops/close_writes.lua.h"
-#include "eglt/redis/chunk_store_ops/pop.lua.h"
-#include "eglt/redis/chunk_store_ops/put.lua.h"
+#include "eglt/redis/pubsub.h"
 #include "eglt/redis/redis.h"
+#include "eglt/redis/reply.h"
+#include "eglt/redis/reply_converters.h"
 #include "eglt/redis/streams.h"
 #include "eglt/stores/chunk_store.h"
+#include "eglt/util/status_macros.h"
 
 namespace eglt::redis {
 
@@ -113,47 +154,7 @@ class ChunkStore final : public eglt::ChunkStore {
     return absl::UnimplementedError("not implemented yet");
   }
 
-  absl::Status Put(int64_t seq, Chunk chunk, bool final) override {
-    const std::string stream_id = GetKey();
-
-    std::vector<std::string> key_strings;
-    CommandArgs keys;
-    key_strings.reserve(kPutScriptKeys.size());
-    keys.reserve(kPutScriptKeys.size());
-    for (auto& key : kPutScriptKeys) {
-      std::string fully_qualified_key = key;
-      absl::StrReplaceAll({{"{}", stream_id}}, &fully_qualified_key);
-      key_strings.push_back(std::move(fully_qualified_key));
-      keys.push_back(key_strings.back());
-    }
-
-    const std::string arg_seq = absl::StrCat(seq);
-    const std::vector<uint8_t> chunk_bytes = cppack::Pack(std::move(chunk));
-    std::string arg_data(chunk_bytes.begin(), chunk_bytes.end());
-    const std::string arg_final = final ? "1" : "0";
-    const std::string arg_ttl = ttl_ == absl::InfiniteDuration()
-                                    ? "0"
-                                    : absl::StrCat(absl::ToInt64Seconds(ttl_));
-    const std::string arg_status_ttl =
-        absl::StrCat(60 * 60 * 24 * 2);  // 2 days
-
-    absl::StatusOr<Reply> reply =
-        redis_->ExecuteScript("CHUNK STORE PUT", keys, arg_seq, arg_data,
-                              arg_final, arg_ttl, arg_status_ttl);
-    if (!reply.ok()) {
-      return reply.status();
-    }
-    if (reply->IsError()) {
-      if (auto status = std::get<ErrorReplyData>(reply->data).AsAbslStatus();
-          status.message() == "SEQ_EXISTS") {
-        return absl::AlreadyExistsError(
-            absl::StrCat("Chunk with seq ", seq, " already exists."));
-      } else {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
+  absl::Status Put(int64_t seq, Chunk chunk, bool final) override;
 
   absl::Status CloseWritesWithStatus(absl::Status status) override {
     std::string arg_status = status.ToString();
@@ -249,47 +250,7 @@ class ChunkStore final : public eglt::ChunkStore {
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::StatusOr<std::optional<Chunk>> TryGet(int64_t seq)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    const std::string seq_to_id_key = GetKey("seq_to_id");
-
-    ASSIGN_OR_RETURN(
-        Reply stream_id_reply,
-        redis_->ExecuteCommand("HGET", seq_to_id_key, absl::StrCat(seq)));
-    ASSIGN_OR_RETURN(std::string stream_message_id_str,
-                     ConvertTo<std::string>(std::move(stream_id_reply)));
-
-    if (stream_message_id_str.empty()) {
-      return std::nullopt;  // No message found for this sequence number.
-    }
-
-    ASSIGN_OR_RETURN(auto stream_message_id,
-                     StreamMessageId::FromString(stream_message_id_str));
-    ASSIGN_OR_RETURN(std::vector<StreamMessage> messages,
-                     stream_.XRange(stream_message_id, stream_message_id, 1));
-    if (messages.empty()) {
-      return absl::NotFoundError(
-          absl::StrCat("No message found for seq ", seq));
-    }
-    if (messages.size() > 1) {
-      return absl::InternalError(
-          absl::StrCat("Expected a single message for seq ", seq, ", got ",
-                       messages.size()));
-    }
-    const auto& message = messages[0];
-    if (message.fields.size() != 2) {
-      return absl::InternalError(
-          absl::StrCat("Expected 2 fields in message for seq ", seq, ", got ",
-                       message.fields.size()));
-    }
-    auto it = message.fields.find("data");
-    if (it == message.fields.end()) {
-      return absl::InternalError(
-          absl::StrCat("Missing 'data' field in message for seq ", seq));
-    }
-    std::vector<uint8_t> message_bytes(it->second.begin(), it->second.end());
-    ASSIGN_OR_RETURN(auto chunk, cppack::Unpack<Chunk>(message_bytes));
-    return chunk;
-  }
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   mutable eglt::Mutex mu_;
   eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);

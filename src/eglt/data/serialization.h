@@ -20,7 +20,8 @@
 #include <string>
 #include <string_view>
 
-#include "eglt/absl_headers.h"
+#include "absl/container/flat_hash_map.h"
+
 #include "eglt/data/eg_structs.h"
 
 namespace eglt {

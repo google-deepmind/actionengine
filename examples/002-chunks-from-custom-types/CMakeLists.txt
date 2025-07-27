@@ -5,6 +5,11 @@ add_executable(
 
 target_link_libraries(
         002-chunks-from-custom-types PRIVATE
+        absl::flags
+        absl::flags_parse
+        absl::log
+        absl::failure_signal_handler
         eglt::data
         eglt::nodes
+        eglt::redis
 )

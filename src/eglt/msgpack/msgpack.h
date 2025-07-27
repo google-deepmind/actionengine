@@ -15,6 +15,13 @@
 #ifndef EGLT_MSGPACK_MSGPACK_H
 #define EGLT_MSGPACK_MSGPACK_H
 
+#include <cstddef>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <absl/status/status.h>
+
 // IWYU pragma: begin_exports
 #include "eglt/msgpack/array.h"
 #include "eglt/msgpack/core_helpers.h"

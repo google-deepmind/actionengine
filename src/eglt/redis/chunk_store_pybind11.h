@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef G3FIBER_CONCURRENCY_H_
-#define G3FIBER_CONCURRENCY_H_
+#ifndef EGLT_REDIS_CHUNK_STORE_PYBIND11_H_
+#define EGLT_REDIS_CHUNK_STORE_PYBIND11_H_
 
-// IWYU pragma: begin_exports
-#include "g3fiber/boost_primitives.h"
-#include "g3fiber/cases.h"
-#include "g3fiber/channel.h"
-#include "g3fiber/fiber.h"
-#include "g3fiber/select.h"
-#include "g3fiber/selectables.h"
-// IWYU pragma: end_exports
+#include <pybind11/pybind11.h>
 
-#endif  // G3FIBER_CONCURRENCY_H_
+namespace eglt::pybindings {
+
+pybind11::module_ MakeRedisModule(pybind11::module_ scope,
+                                  std::string_view name);
+
+}  // namespace eglt::pybindings
+
+#endif  // EGLT_REDIS_CHUNK_STORE_PYBIND11_H_

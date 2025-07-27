@@ -1,11 +1,46 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef EGLT_NET_WEBRTC_WEBRTC_H_
 #define EGLT_NET_WEBRTC_WEBRTC_H_
 
-#include <rtc/rtc.hpp>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
+#include <absl/base/nullability.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
+#include <absl/functional/any_invocable.h>
+#include <absl/hash/hash.h>
+#include <absl/log/check.h>
+#include <absl/log/log.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/time/clock.h>
+#include <absl/time/time.h>
+#include <rtc/datachannel.hpp>
+#include <rtc/peerconnection.hpp>
+
+#include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
-#include "eglt/data/msgpack.h"
 #include "eglt/net/stream.h"
+#include "eglt/net/webrtc/signalling.h"
 #include "eglt/service/service.h"
 #include "eglt/stores/byte_chunking.h"
 
@@ -172,8 +207,6 @@ class WebRtcWireStream final : public WireStream {
   absl::AnyInvocable<void(WireStream*)> half_close_callback_ = [](WireStream*) {
   };
 };
-
-class SignallingClient;
 
 class WebRtcEvergreenServer {
  public:

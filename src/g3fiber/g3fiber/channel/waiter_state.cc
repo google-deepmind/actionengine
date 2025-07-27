@@ -13,6 +13,9 @@
 // limitations under the License.
 
 #include "g3fiber/channel/waiter_state.h"
+
+#include <absl/log/check.h>
+
 #include "g3fiber/cases.h"
 
 namespace thread::internal {

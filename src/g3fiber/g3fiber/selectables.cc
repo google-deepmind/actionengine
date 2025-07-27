@@ -17,7 +17,8 @@
 #include <atomic>
 #include <mutex>
 
-#include "g3fiber/absl_headers.h"
+#include <absl/base/no_destructor.h>
+
 #include "g3fiber/boost_primitives.h"
 #include "g3fiber/select.h"
 

@@ -10,21 +10,22 @@ target_include_directories(
         egltNetWebrtc PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
-        ${Boost_INCLUDE_DIRS}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 
 )
 target_link_libraries(
         egltNetWebrtc PUBLIC
-        ${EGLT_ABSL_DEPENDENCIES}
-        ${EGLT_PYBIND11_DEPENDENCIES}
-        cppack
-        eglt::nodes
-        eglt::stores
-        egltNetWebsockets
         Boost::json
         Boost::beast
         LibDataChannel::LibDataChannel
+)
+target_link_libraries(
+        egltNetWebrtc PRIVATE
+        cppack
+        eglt::concurrency
+        eglt::nodes
+        eglt::stores
+        egltNetWebsockets
 )
 
 # ------------------------------------------------------------------
@@ -47,8 +48,11 @@ target_sources(
 target_link_libraries(
         egltNetWebrtcPybind11 PUBLIC
         eglt::net::webrtc
-        ${EGLT_ABSL_DEPENDENCIES}
         ${EGLT_PYBIND11_DEPENDENCIES}
+)
+target_link_libraries(
+        egltNetWebrtcPybind11 PRIVATE
+        eglt::concurrency
 )
 target_include_directories(
         egltNetWebrtcPybind11 PUBLIC

@@ -14,7 +14,6 @@ target_include_directories(
 )
 target_link_libraries(
         egltNet PUBLIC
-        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
 )
@@ -33,7 +32,6 @@ target_include_directories(
 )
 target_link_libraries(
         egltNet INTERFACE
-        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::net
         eglt::data

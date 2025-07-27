@@ -142,7 +142,7 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
     next_chunk = functools.wraps(next_chunk_sync)(next_chunk)
 
     def put_fragment(
-        self, fragment: NodeFragment, seq_id: int = -1
+        self, fragment: NodeFragment, seq: int = -1
     ) -> None | Awaitable[None]:
         """Puts a fragment into the node's chunk store.
 
@@ -151,7 +151,7 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
 
         Args:
           fragment: The fragment to put.
-          seq_id: The sequence id of the fragment.
+          seq: The sequence id of the fragment.
 
         Returns:
           None if the fragment was put synchronously with no event loop, or an
@@ -160,15 +160,15 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         try:
             asyncio.get_running_loop()
             return utils.schedule_global_task(
-                asyncio.to_thread(super().put_fragment, fragment, seq_id)
+                asyncio.to_thread(super().put_fragment, fragment, seq)
             )  # pytype: disable=attribute-error
         except RuntimeError:
             super().put_fragment(
-                fragment, seq_id
+                fragment, seq
             )  # pytype: disable=attribute-error
 
     def put_chunk(
-        self, chunk: Chunk, seq_id: int = -1, final: bool = False
+        self, chunk: Chunk, seq: int = -1, final: bool = False
     ) -> None | Awaitable[None]:
         """Puts a chunk into the node's chunk store.
 
@@ -177,7 +177,7 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
 
         Args:
           chunk: The chunk to put.
-          seq_id: The sequence id of the chunk.
+          seq: The sequence id of the chunk.
           final: Whether the chunk is final.
 
         Returns:
@@ -187,26 +187,26 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         try:
             asyncio.get_running_loop()
             return utils.schedule_global_task(
-                asyncio.to_thread(super().put_chunk, chunk, seq_id, final)
+                asyncio.to_thread(super().put_chunk, chunk, seq, final)
             )  # pytype: disable=attribute-error
         except RuntimeError:
             super().put_chunk(
-                chunk, seq_id, final
+                chunk, seq, final
             )  # pytype: disable=attribute-error
             return None
 
     def put_and_finalize(
         self,
         obj: Any,
-        seq_id: int = -1,
+        seq: int = -1,
         mimetype: str | None = None,
     ) -> None | Awaitable[None]:
-        return self.put(obj, seq_id, True, mimetype)
+        return self.put(obj, seq, True, mimetype)
 
     def put(
         self,
         obj: Any,
-        seq_id: int = -1,
+        seq: int = -1,
         final: bool = False,
         mimetype: str | None = None,
     ) -> None | Awaitable[None]:
@@ -217,24 +217,24 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
                 raise ValueError(
                     "mimetype must not be specified when putting a Chunk object."
                 )
-            return self.put_chunk(obj, seq_id, final)
+            return self.put_chunk(obj, seq, final)
 
         if isinstance(obj, NodeFragment):
             if mimetype is not None:
                 raise ValueError(
                     "mimetype must not be specified when putting a NodeFragment object."
                 )
-            return self.put_fragment(obj, seq_id)
+            return self.put_fragment(obj, seq)
 
         chunk = data.to_chunk(
             obj,
             mimetype=mimetype or "",
             registry=self._serializer_registry,
         )
-        return self.put_chunk(chunk, seq_id, final)
+        return self.put_chunk(chunk, seq, final)
 
     def put_text(
-        self, text: str, seq_id: int = -1, final: bool = False
+        self, text: str, seq: int = -1, final: bool = False
     ) -> None | Awaitable[None]:
         """Puts a text/plain chunk into the node's chunk store."""
         return self.put_chunk(
@@ -242,7 +242,7 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
                 metadata=ChunkMetadata(mimetype="text/plain"),
                 data=text.encode("utf-8"),
             ),
-            seq_id=seq_id,
+            seq=seq,
             final=final,
         )
 

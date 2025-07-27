@@ -33,30 +33,7 @@ add_compile_definitions(
 add_subdirectory(${EGLT_THIRD_PARTY_ROOT}/boost)
 set(
         Boost_INCLUDE_DIRS
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/atomic/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/align/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/asio/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/assert/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/beast/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/config/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/context/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/core/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/integer/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/intrusive/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/json/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/fiber/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/move/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/mp11/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/optional/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/pool/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/predef/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/preprocessor/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/smart_ptr/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/static_assert/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/system/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/thread/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/throw_exception/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/type_traits/include
+        ""
 )
 
 set(G3FIBER_BOOST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/boost)
@@ -69,7 +46,7 @@ set(EGLT_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include)
 
 set(CMAKE_PREFIX_PATH
         ${CMAKE_PREFIX_PATH}
-        ${EGLT_ABSL_ROOT}
+        #        ${EGLT_ABSL_ROOT}
         ${EGLT_PYBIND11_ROOT}
         ${EGLT_CPPITERTOOLS_ROOT}
         ${EGLT_GTEST_ROOT}
@@ -103,6 +80,10 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/cppack)
 include(FetchContent)
 set(BUILD_TESTING_BACKUP ${BUILD_TESTING})
 set(BUILD_TESTING OFF)
+set(USE_SYSTEM_ABSEIL_BACKUP ${USE_SYSTEM_ABSEIL})
+set(USE_SYSTEM_PYBIND_BACKUP ${USE_SYSTEM_PYBIND})
+set(USE_SYSTEM_ABSEIL ON)
+set(USE_SYSTEM_PYBIND ON)
 FetchContent_Declare(
         pybind11_abseil
         GIT_REPOSITORY https://github.com/pybind/pybind11_abseil.git
@@ -110,6 +91,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11_abseil)
 set(BUILD_TESTING ${BUILD_TESTING_BACKUP})
+set(USE_SYSTEM_ABSEIL ${USE_SYSTEM_ABSEIL_BACKUP})
+set(USE_SYSTEM_PYBIND ${USE_SYSTEM_PYBIND_BACKUP})
 
 set(EGLT_THIRD_PARTY_INCLUDE_DIRS
         ${EGLT_ABSL_ROOT}/include

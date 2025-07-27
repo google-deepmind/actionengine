@@ -68,26 +68,26 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
       .def(
           "put_fragment",
           [](const std::shared_ptr<AsyncNode>& self, NodeFragment fragment,
-             int seq_id = -1) {
+             int seq = -1) {
             if (const absl::Status status =
-                    self->Put(std::move(fragment), seq_id);
+                    self->Put(std::move(fragment), seq);
                 !status.ok()) {
               throw py::value_error(status.ToString());
             }
           },
-          py::arg_v("fragment", NodeFragment()), py::arg_v("seq_id", -1),
+          py::arg_v("fragment", NodeFragment()), py::arg_v("seq", -1),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "put_chunk",
           [](const std::shared_ptr<AsyncNode>& self, Chunk chunk,
-             int seq_id = -1, bool final = false) {
+             int seq = -1, bool final = false) {
             if (const absl::Status status =
-                    self->Put(std::move(chunk), seq_id, final);
+                    self->Put(std::move(chunk), seq, final);
                 !status.ok()) {
               throw py::value_error(status.ToString());
             }
           },
-          py::arg_v("chunk", Chunk()), py::arg_v("seq_id", -1),
+          py::arg_v("chunk", Chunk()), py::arg_v("seq", -1),
           py::arg_v("final", false), py::call_guard<py::gil_scoped_release>())
       .def(
           "bind_stream",

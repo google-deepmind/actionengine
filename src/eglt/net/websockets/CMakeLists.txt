@@ -10,15 +10,17 @@ target_include_directories(
         egltNetWebsockets PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
-        ${Boost_INCLUDE_DIRS}
+        #        ${Boost_INCLUDE_DIRS}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
+        egltNetWebsockets PRIVATE
+)
+target_link_libraries(
         egltNetWebsockets PUBLIC
-        ${EGLT_ABSL_DEPENDENCIES}
-        ${EGLT_PYBIND11_DEPENDENCIES}
         cppack
         eglt::nodes
+        Boost::asio
         Boost::beast
         eglt::util::boost_asio
 )
@@ -43,7 +45,6 @@ target_sources(
 target_link_libraries(
         egltNetWebsocketsPybind11 PUBLIC
         eglt::net::websockets
-        ${EGLT_ABSL_DEPENDENCIES}
         ${EGLT_PYBIND11_DEPENDENCIES}
 )
 target_include_directories(

@@ -16,13 +16,22 @@
 #define EGLT_PYBIND11_EGLT_SERVICE_H_
 
 #include <optional>
-#include <string>
 #include <string_view>
 #include <utility>
 
+#include <absl/base/nullability.h>
+#include <absl/base/optimization.h>
+#include <absl/functional/any_invocable.h>
+#include <absl/log/log.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+
+#include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
 #include "eglt/pybind11_headers.h"
+#include "eglt/stores/chunk_store.h"           // IWYU pragma: keep
+#include "eglt/stores/chunk_store_pybind11.h"  // IWYU pragma: keep
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {

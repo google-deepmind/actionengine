@@ -14,7 +14,10 @@
 #include <string>
 #include <string_view>
 
-#include <eglt/absl_headers.h>
+#include <absl/debugging/failure_signal_handler.h>
+#include <absl/flags/flag.h>
+#include <absl/flags/parse.h>
+#include <absl/log/check.h>
 #include <eglt/actions/action.h>
 #include <eglt/data/eg_structs.h>
 #include <eglt/net/websockets/websockets.h>
@@ -156,7 +159,7 @@ std::string CallEcho(std::string_view text, Session* absl_nonnull session,
   // echo->GetNode("text")
   //     ->PutChunk(Chunk{.metadata = {.mimetype = "text/plain"},
   //                      .data = std::string(text)},
-  //                /*seq_id=*/0,
+  //                /*seq=*/0,
   //                /*final=*/true)
   //     .IgnoreError();
   echo->GetNode("text") << Chunk{.metadata = {.mimetype = "text/plain"},

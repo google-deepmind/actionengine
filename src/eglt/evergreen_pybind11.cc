@@ -12,14 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <string>
+#include <string_view>
+
+#include <absl/debugging/failure_signal_handler.h>
+#include <pybind11/detail/common.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 
 #include "eglt/actions/actions_pybind11.h"
 #include "eglt/data/data_pybind11.h"
 #include "eglt/net/webrtc/webrtc_pybind11.h"
 #include "eglt/net/websockets/websockets_pybind11.h"
 #include "eglt/nodes/nodes_pybind11.h"
-#include "eglt/pybind11_headers.h"
+#include "eglt/redis/chunk_store_pybind11.h"
 #include "eglt/service/service_pybind11.h"
 #include "eglt/stores/chunk_store_pybind11.h"
 
@@ -36,6 +41,7 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
   pybindings::BindAsyncNode(m, "AsyncNode");
 
   py::module_ actions = pybindings::MakeActionsModule(m, "actions");
+  py::module_ redis = pybindings::MakeRedisModule(m, "redis");
   py::module_ service = pybindings::MakeServiceModule(m, "service");
   py::module_ webrtc = pybindings::MakeWebRtcModule(m, "webrtc");
   py::module_ websockets = pybindings::MakeWebsocketsModule(m, "websockets");

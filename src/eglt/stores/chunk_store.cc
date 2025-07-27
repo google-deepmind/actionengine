@@ -1,4 +1,8 @@
 #include "eglt/stores/chunk_store.h"
+
+#include <absl/log/check.h>
+#include <absl/time/time.h>
+
 #include "eglt/util/status_macros.h"
 
 namespace eglt {

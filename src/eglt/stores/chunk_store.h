@@ -22,11 +22,18 @@
 #ifndef EGLT_STORES_CHUNK_STORE_H_
 #define EGLT_STORES_CHUNK_STORE_H_
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string_view>
+#include <utility>
 
-#include "eglt/concurrency/concurrency.h"
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/time/time.h>
+
 #include "eglt/data/eg_structs.h"
 
 namespace eglt {

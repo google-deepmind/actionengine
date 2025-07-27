@@ -13,3 +13,11 @@
 // limitations under the License.
 
 #include "eglt/concurrency/concurrency.h"
+
+namespace eglt::concurrency {
+
+void SleepFor(absl::Duration duration) {
+  impl::SleepFor(duration);
+}
+
+}  // namespace eglt::concurrency

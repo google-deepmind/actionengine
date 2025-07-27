@@ -12,17 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file
- * @brief
- *   Evergreen data structures used to implement actions and nodes (data
- *   streams).
- */
-
 #ifndef EGLT_DATA_CONVERSION_H_
 #define EGLT_DATA_CONVERSION_H_
 
-#include "eglt/absl_headers.h"
+#include "absl/base/nullability.h"
+#include "absl/log/log.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 
 namespace eglt {
 

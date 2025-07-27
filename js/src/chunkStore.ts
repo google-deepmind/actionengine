@@ -2,32 +2,38 @@ import { CondVar, Mutex } from './utils.js';
 
 export interface ChunkStore {
   get(seqId: number, timeout: number): Promise<Chunk>;
+
   getByArrivalOrder(arrivalOffset: number, timeout: number): Promise<Chunk>;
+
   pop(seqId: number): Promise<Chunk | null>;
+
   put(seqId: number, chunk: Chunk, final: boolean): void | Promise<void>;
 
   noFurtherPuts(): void | Promise<void>;
 
   size(): number | Promise<number>;
+
   contains(seqId: number): boolean | Promise<boolean>;
 
   setId(node_id: string): void;
+
   getId(): string;
 
-  getSeqIdForArrivalOffset(arrival_offset: number): number | Promise<number>;
-  getFinalSeqId(): number | Promise<number>;
+  getSeqForArrivalOffset(arrival_offset: number): number | Promise<number>;
+
+  getFinalSeq(): number | Promise<number>;
 }
 
 export class LocalChunkStore implements ChunkStore {
   private id: string;
 
   private seqIdToArrivalOffset: Map<number, number>;
-  private arrivalOffsetToSeqId: Map<number, number>;
+  private arrivalOffsetToSeq: Map<number, number>;
 
   private chunks: Map<number, Chunk>;
 
-  private finalSeqId: number;
-  private maxSeqId: number;
+  private finalSeq: number;
+  private maxSeq: number;
   private totalChunksPut: number;
 
   private noFurtherPutsFlag: boolean;
@@ -39,12 +45,12 @@ export class LocalChunkStore implements ChunkStore {
     this.id = id;
 
     this.seqIdToArrivalOffset = new Map() as Map<number, number>;
-    this.arrivalOffsetToSeqId = new Map() as Map<number, number>;
+    this.arrivalOffsetToSeq = new Map() as Map<number, number>;
 
     this.chunks = new Map() as Map<number, Chunk>;
 
-    this.finalSeqId = -1;
-    this.maxSeqId = -1;
+    this.finalSeq = -1;
+    this.maxSeq = -1;
     this.totalChunksPut = 0;
 
     this.noFurtherPutsFlag = false;
@@ -87,8 +93,8 @@ export class LocalChunkStore implements ChunkStore {
 
   async getByArrivalOrder(arrivalOffset: number, timeout?: number) {
     return await this.mutex.runExclusive(async () => {
-      if (this.arrivalOffsetToSeqId.has(arrivalOffset)) {
-        const seqId = this.arrivalOffsetToSeqId.get(arrivalOffset);
+      if (this.arrivalOffsetToSeq.has(arrivalOffset)) {
+        const seqId = this.arrivalOffsetToSeq.get(arrivalOffset);
         return this.chunks.get(seqId);
       }
 
@@ -99,7 +105,7 @@ export class LocalChunkStore implements ChunkStore {
       }
 
       while (
-        !this.arrivalOffsetToSeqId.has(arrivalOffset) &&
+        !this.arrivalOffsetToSeq.has(arrivalOffset) &&
         !this.noFurtherPutsFlag
       ) {
         if (
@@ -119,7 +125,7 @@ export class LocalChunkStore implements ChunkStore {
         }
       }
 
-      const seqId = this.arrivalOffsetToSeqId.get(arrivalOffset);
+      const seqId = this.arrivalOffsetToSeq.get(arrivalOffset);
       return this.chunks.get(seqId);
     });
   }
@@ -133,7 +139,7 @@ export class LocalChunkStore implements ChunkStore {
       this.chunks.delete(seqId);
       const arrivalOffset = this.seqIdToArrivalOffset.get(seqId);
       this.seqIdToArrivalOffset.delete(seqId);
-      this.arrivalOffsetToSeqId.delete(arrivalOffset);
+      this.arrivalOffsetToSeq.delete(arrivalOffset);
       return chunk;
     });
   }
@@ -146,10 +152,10 @@ export class LocalChunkStore implements ChunkStore {
         );
       }
 
-      this.maxSeqId = Math.max(this.maxSeqId, seqId);
-      this.finalSeqId = final ? seqId : this.finalSeqId;
+      this.maxSeq = Math.max(this.maxSeq, seqId);
+      this.finalSeq = final ? seqId : this.finalSeq;
 
-      this.arrivalOffsetToSeqId.set(this.totalChunksPut, seqId);
+      this.arrivalOffsetToSeq.set(this.totalChunksPut, seqId);
       this.seqIdToArrivalOffset.set(seqId, this.totalChunksPut);
       this.chunks.set(seqId, chunk);
       ++this.totalChunksPut;
@@ -161,8 +167,8 @@ export class LocalChunkStore implements ChunkStore {
   async noFurtherPuts() {
     await this.mutex.runExclusive(() => {
       this.noFurtherPutsFlag = true;
-      if (this.maxSeqId !== -1) {
-        this.finalSeqId = Math.min(this.finalSeqId, this.maxSeqId);
+      if (this.maxSeq !== -1) {
+        this.finalSeq = Math.min(this.finalSeq, this.maxSeq);
       }
       this.cv.notifyAll();
     });
@@ -188,18 +194,18 @@ export class LocalChunkStore implements ChunkStore {
     return this.id;
   }
 
-  async getSeqIdForArrivalOffset(arrival_offset: number) {
+  async getSeqForArrivalOffset(arrival_offset: number) {
     return await this.mutex.runExclusive(() => {
-      if (!this.arrivalOffsetToSeqId.has(arrival_offset)) {
+      if (!this.arrivalOffsetToSeq.has(arrival_offset)) {
         return -1;
       }
-      return this.arrivalOffsetToSeqId.get(arrival_offset);
+      return this.arrivalOffsetToSeq.get(arrival_offset);
     });
   }
 
-  async getFinalSeqId() {
+  async getFinalSeq() {
     return await this.mutex.runExclusive(() => {
-      return this.finalSeqId;
+      return this.finalSeq;
     });
   }
 }

@@ -49,7 +49,27 @@ Cpp11BracedListStyle: true
 DerivePointerAlignment: false  # Make sure the * or & align on the left
 EmptyLineBeforeAccessModifier: LogicalBlock
 FixNamespaceComments: true
-IncludeBlocks: Preserve
+#IncludeBlocks: Regroup
+IncludeCategories:
+- Regex: '^"'
+  Priority: 3
+  SortPriority: 0
+  CaseSensitive: false
+
+- Regex: '^<[^/]+[^(\.h)]>$'
+  Priority: 1
+  SortPriority: 0
+  CaseSensitive: false
+
+- Regex: '^<[^/]+>$'
+  Priority: 2
+  SortPriority: 0
+  CaseSensitive: false
+
+- Regex: '^<.+/.+>$'
+  Priority: 2
+  SortPriority: 0
+  CaseSensitive: false
 IndentCaseLabels: true
 IndentPPDirectives: None
 IndentWidth: 2
@@ -60,7 +80,7 @@ ObjCSpaceAfterProperty: false
 ObjCSpaceBeforeProtocolList: true
 PointerAlignment: Left
 ReflowComments: false
-# SeparateDefinitionBlocks: Always   # Only support since clang-format 14
+SeparateDefinitionBlocks: Always   # Only support since clang-format 14
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
 SpaceAfterTemplateKeyword: true

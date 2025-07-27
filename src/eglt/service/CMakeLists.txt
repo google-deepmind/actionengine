@@ -13,10 +13,22 @@ target_include_directories(
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
+        egltService PRIVATE
+)
+target_link_libraries(
         egltService PUBLIC
-        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
+)
+
+target_link_libraries(
+        egltService PRIVATE
+        absl::base
+        absl::log
+        absl::log_internal_check_op
+        absl::status
+        absl::statusor
+        absl::time
 )
 
 # ------------------------------------------------------------------

@@ -64,8 +64,7 @@ export class ChunkStoreReader {
       return null;
     }
 
-    const seqId =
-      await this.chunkStore.getSeqIdForArrivalOffset(nextReadOffset);
+    const seqId = await this.chunkStore.getSeqForArrivalOffset(nextReadOffset);
 
     if (isEndOfStream(chunk)) {
       await this.chunkStore.pop(seqId);
@@ -77,37 +76,37 @@ export class ChunkStoreReader {
 
   private async runPrefetchLoop() {
     while (true) {
-      const finalSeqId = await this.chunkStore.getFinalSeqId();
-      if (finalSeqId >= 0 && this.totalChunksRead > finalSeqId) {
+      const finalSeq = await this.chunkStore.getFinalSeq();
+      if (finalSeq >= 0 && this.totalChunksRead > finalSeq) {
         break;
       }
 
       let nextChunk: Chunk | null = null;
-      let nextSeqId: number = -1;
+      let nextSeq: number = -1;
       if (this.ordered) {
         nextChunk = await this.chunkStore.get(
           this.totalChunksRead,
           this.timeout,
         );
-        nextSeqId = this.totalChunksRead;
+        nextSeq = this.totalChunksRead;
       } else {
         const nextNumberedChunk = await this.nextInternal();
         if (nextNumberedChunk !== null) {
           nextChunk = nextNumberedChunk.chunk;
-          nextSeqId = nextNumberedChunk.seq;
+          nextSeq = nextNumberedChunk.seq;
         }
-        if (nextSeqId === -1) {
-          nextSeqId = 0;
+        if (nextSeq === -1) {
+          nextSeq = 0;
         }
       }
 
       if (nextChunk !== null) {
-        await this.buffer.send({ seq: nextSeqId, chunk: nextChunk });
+        await this.buffer.send({ seq: nextSeq, chunk: nextChunk });
         this.totalChunksRead++;
       }
 
-      if (this.removeChunks && nextSeqId >= 0) {
-        await this.chunkStore.pop(nextSeqId);
+      if (this.removeChunks && nextSeq >= 0) {
+        await this.chunkStore.pop(nextSeq);
       }
     }
     await this.buffer.close();

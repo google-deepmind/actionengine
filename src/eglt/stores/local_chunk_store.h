@@ -17,7 +17,6 @@
 
 #include <cstddef>
 
-#include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/stores/chunk_store.h"

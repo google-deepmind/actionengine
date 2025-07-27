@@ -15,7 +15,7 @@
 #ifndef THREAD_FIBER_SELECT_H_
 #define THREAD_FIBER_SELECT_H_
 
-#include "g3fiber/absl_headers.h"
+#include <absl/log/check.h>
 
 #include "g3fiber/cases.h"
 

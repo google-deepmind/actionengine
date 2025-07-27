@@ -1,11 +1,33 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef EGLT_NET_WEBRTC_SIGNALLING_H_
 #define EGLT_NET_WEBRTC_SIGNALLING_H_
 
-#include <boost/beast/websocket.hpp>
-#include <boost/json.hpp>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
 
+#include <absl/base/thread_annotations.h>
+#include <absl/status/status.h>
+#include <boost/json/value.hpp>
+
+#include "eglt/concurrency/concurrency.h"
 #include "eglt/net/websockets/fiber_aware_websocket_stream.h"
-#include "eglt/util/boost_asio_utils.h"
 
 namespace eglt::net {
 

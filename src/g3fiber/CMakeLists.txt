@@ -16,13 +16,17 @@ add_library(G3Fiber STATIC)
 target_include_directories(
         G3Fiber PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}
-        ${G3FIBER_ABSL_ROOT}/include
-        ${Boost_INCLUDE_DIRS}
         ${G3FIBER_GTEST_ROOT}/include
+)
+
+target_include_directories(
+        G3Fiber PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        ${G3FIBER_ABSL_ROOT}/include
 )
 target_sources(
         G3Fiber PRIVATE
-        g3fiber/absl_headers.h
+        g3fiber/boost_primitives.cc
         g3fiber/channel.h
         g3fiber/channel/waiter_state.cc
         g3fiber/channel/waiter_state.h
@@ -53,17 +57,22 @@ target_link_libraries(
         absl::log_internal_check_op
         absl::random_random
         absl::time
-        boost_thread
+        Boost::thread
+)
+target_include_directories(
+        G3Fiber PUBLIC
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/intrusive/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/fiber/include
+        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/smart_ptr/include
 )
 target_link_libraries(
         G3Fiber PUBLIC
-        boost_fiber
+        Boost::fiber
 )
 message(${G3FIBER_BOOST_ROOT}/../../boost/include)
 set(G3FIBER_INCLUDE_DIRS
         ${CMAKE_CURRENT_LIST_DIR}
         ${G3FIBER_ABSL_ROOT}/include
-        ${Boost_INCLUDE_DIRS}
         ${G3FIBER_GTEST_ROOT}/include
         PARENT_SCOPE
 )

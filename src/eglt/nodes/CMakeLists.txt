@@ -13,9 +13,13 @@ target_include_directories(
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
+        egltNodes PRIVATE
+        absl::base
+        absl::flat_hash_map
+)
+target_link_libraries(
         egltNodes PUBLIC
         cppitertools::cppitertools
-        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
         eglt::stores

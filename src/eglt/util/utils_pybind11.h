@@ -18,9 +18,8 @@
 #include <memory>
 
 #include <pybind11/pybind11.h>
-
-#include "eglt/absl_headers.h"
-
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 namespace eglt::pybindings {
 
 namespace py = ::pybind11;

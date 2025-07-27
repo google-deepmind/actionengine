@@ -26,45 +26,30 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <type_traits>
+#include <string_view>
+#include <utility>
 #include <vector>
 
-#include "eglt/absl_headers.h"
-#include "eglt/data/conversion.h"  // IWYU pragma: keep
+#include <absl/base/optimization.h>
+#include <absl/log/log.h>
+#include <absl/status/status.h>
+#include <absl/strings/str_cat.h>
+#include <absl/strings/str_format.h>
+#include <absl/time/clock.h>
+#include <absl/time/time.h>
+
+#include "eglt/data/conversion.h"
 #include "eglt/data/mimetypes.h"
 
 namespace eglt {
 
 namespace base {
-/// @private
-inline std::vector<std::string> Indent(std::vector<std::string> fields,
-                                       int indentation = 0,
-                                       bool indent_first_line = false) {
-  if (fields.empty()) {
-    return fields;
-  }
+std::vector<std::string> Indent(std::vector<std::string> fields,
+                                int num_spaces = 0,
+                                bool indent_first_line = false);
 
-  std::vector<std::string> result = std::move(fields);
-  const size_t start_index = indent_first_line ? 0 : 1;
-
-  for (size_t index = start_index; index < result.size(); ++index) {
-    result[index] = absl::StrCat(std::string(indentation, ' '), result[index]);
-  }
-
-  return result;
-}
-
-/// @private
-inline std::string Indent(std::string field, int indentation = 0,
-                          bool indent_first_line = false) {
-  const std::vector<std::string> lines = Indent(
-      absl::StrSplit(std::move(field), '\n'), indentation, indent_first_line);
-
-  return absl::StrJoin(lines, "\n",
-                       [](std::string* out, const std::string_view line) {
-                         absl::StrAppend(out, line);
-                       });
-}
+std::string Indent(std::string field, int num_spaces = 0,
+                   bool indent_first_line = false);
 
 /// Evergreen chunk metadata.
 ///

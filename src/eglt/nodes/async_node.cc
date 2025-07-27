@@ -14,7 +14,6 @@
 
 #include "async_node.h"
 
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -22,9 +21,8 @@
 #include <utility>
 #include <vector>
 
-#include <cppitertools/zip.hpp>
+#include <absl/strings/str_cat.h>
 
-#include "eglt/absl_headers.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
 #include "eglt/nodes/node_map.h"
@@ -77,7 +75,7 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   return *this;
 }
 
-absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
+absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq) {
   {
     eglt::MutexLock lock(&mu_);
     const std::string node_id(chunk_store_->GetId());
@@ -98,11 +96,11 @@ absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq_id) {
   }
 
   return PutChunk(std::move(*fragment.chunk),
-                  seq_id == -1 ? fragment.seq : seq_id,
+                  seq == -1 ? fragment.seq : seq,
                   /*final=*/!fragment.continued);
 }
 
-absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
+absl::Status AsyncNode::PutChunk(Chunk chunk, int seq, bool final) {
   eglt::MutexLock lock(&mu_);
   ChunkStoreWriter* writer = EnsureWriter();
 
@@ -111,11 +109,11 @@ absl::Status AsyncNode::PutChunk(Chunk chunk, int seq_id, bool final) {
     message_for_peers.node_fragments.push_back(
         NodeFragment{.id = std::string(chunk_store_->GetId()),
                      .chunk = chunk,
-                     .seq = seq_id,
+                     .seq = seq,
                      .continued = !final});
   }
 
-  auto status_or_seq = writer->Put(std::move(chunk), seq_id, final);
+  auto status_or_seq = writer->Put(std::move(chunk), seq, final);
   if (!status_or_seq.ok()) {
     LOG(ERROR) << "Failed to put chunk: " << status_or_seq.status();
     return status_or_seq.status();

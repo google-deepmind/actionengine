@@ -14,6 +14,13 @@
 
 #include "eglt/util/boost_asio_utils.h"
 
+#include <thread>
+
+#include <boost/asio/detail/bind_handler.hpp>
+#include <boost/asio/impl/thread_pool.hpp>
+#include <boost/asio/impl/thread_pool.ipp>
+#include <boost/asio/thread_pool.hpp>
+
 namespace eglt::util {
 
 boost::asio::thread_pool* GetDefaultAsioExecutionContext() {

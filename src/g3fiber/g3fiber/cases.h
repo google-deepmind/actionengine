@@ -15,7 +15,6 @@
 #ifndef THREAD_FIBER_CASES_H_
 #define THREAD_FIBER_CASES_H_
 
-#include "g3fiber/absl_headers.h"
 #include "g3fiber/boost_primitives.h"
 
 namespace thread {

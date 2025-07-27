@@ -25,11 +25,25 @@
 #ifndef EGLT_CONCURRENCY_CONCURRENCY_H_
 #define EGLT_CONCURRENCY_CONCURRENCY_H_
 
+#include <type_traits>
+#include <utility>
+
+#include <absl/base/attributes.h>
+#include <absl/base/nullability.h>
+#include <absl/base/optimization.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/functional/any_invocable.h>
+#include <absl/log/check.h>
+#include <absl/time/clock.h>
+#include <absl/time/time.h>
+
+// IWYU pragma: begin_exports
 #if GOOGLE3
 #include "eglt/google3_concurrency_headers.h"
 #else
 #include "g3fiber/concurrency.h"
 #endif  // GOOGLE3
+// IWYU pragma: end_exports
 
 namespace eglt::concurrency {
 
@@ -46,9 +60,7 @@ using CondVar = impl::CondVar;
 using Mutex = impl::Mutex;
 using MutexLock = impl::MutexLock;
 
-inline void SleepFor(absl::Duration duration) {
-  impl::SleepFor(duration);
-}
+void SleepFor(absl::Duration duration);
 #endif  // GOOGLE3
 
 class ScopedUnlock {

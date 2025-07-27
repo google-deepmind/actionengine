@@ -14,6 +14,8 @@
 
 #include "eglt/net/websockets/websockets.h"
 
+#include <cppack/msgpack.h>
+
 namespace eglt::net {
 
 WebsocketWireStream::WebsocketWireStream(

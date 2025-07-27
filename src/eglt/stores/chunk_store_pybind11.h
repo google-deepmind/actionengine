@@ -97,12 +97,12 @@ class PyChunkStore final : public ChunkStore {
       int64_t arrival_offset) override {
     PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, PyChunkStore,
                                 "get_seq_for_arrival_offset",
-                                GetSeqIdForArrivalOffset, arrival_offset);
+                                GetSeqForArrivalOffset, arrival_offset);
   }
 
   absl::StatusOr<int64_t> GetFinalSeq() override {
     PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, PyChunkStore,
-                                "get_final_seq", GetFinalSeqId, );
+                                "get_final_seq", GetFinalSeq, );
   }
 };
 

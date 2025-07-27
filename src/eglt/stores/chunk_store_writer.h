@@ -21,8 +21,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-
-#include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/stores/chunk_store.h"
@@ -140,7 +138,7 @@ class ChunkStoreWriter {
       }
 
       mu_.Unlock();
-      auto status = chunk_store_->Put(/*seq_id=*/next_fragment->seq,
+      auto status = chunk_store_->Put(/*seq=*/next_fragment->seq,
                                       /*chunk=*/
                                       std::move(*next_fragment->chunk),
                                       /*final=*/
@@ -153,7 +151,7 @@ class ChunkStoreWriter {
       }
 
       ++total_chunks_written_;
-      if (final_seq_id_ >= 0 && total_chunks_written_ > final_seq_id_) {
+      if (final_seq_ >= 0 && total_chunks_written_ > final_seq_) {
         if (!buffer_writer_closed_) {
           buffer_.writer()->WriteUnlessCancelled(std::nullopt);
         }
@@ -170,7 +168,7 @@ class ChunkStoreWriter {
   ChunkStore* absl_nonnull const chunk_store_ = nullptr;
   const int n_chunks_to_buffer_;
 
-  int final_seq_id_ ABSL_GUARDED_BY(mu_) = -1;
+  int final_seq_ ABSL_GUARDED_BY(mu_) = -1;
   int total_chunks_put_ ABSL_GUARDED_BY(mu_) = 0;
 
   bool accepts_puts_ ABSL_GUARDED_BY(mu_) = true;
@@ -197,11 +195,11 @@ inline absl::StatusOr<int> ChunkStoreWriter::Put(Chunk value, int seq,
         "Put was called on a writer that is not accepting more puts.");
   }
 
-  if (seq != -1 && final_seq_id_ != -1 && seq > final_seq_id_) {
-    DLOG(ERROR) << "Cannot put chunks with seq_id > final_seq_id: " << seq
-                << " > " << final_seq_id_;
+  if (seq != -1 && final_seq_ != -1 && seq > final_seq_) {
+    DLOG(ERROR) << "Cannot put chunks with seq > final_seq: " << seq
+                << " > " << final_seq_;
     return absl::FailedPreconditionError(
-        "Cannot put chunks with seq_id > final_seq_id.");
+        "Cannot put chunks with seq > final_seq.");
   }
 
   if (value.IsNull() && !final) {
@@ -217,7 +215,7 @@ inline absl::StatusOr<int> ChunkStoreWriter::Put(Chunk value, int seq,
   total_chunks_put_++;
 
   if (final) {
-    final_seq_id_ = written_seq;
+    final_seq_ = written_seq;
   }
 
   EnsureWriteLoop();

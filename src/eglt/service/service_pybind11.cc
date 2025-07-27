@@ -14,20 +14,27 @@
 
 #include "eglt/service/service_pybind11.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 
-#include <pybind11/attr.h>
-#include <pybind11/pybind11.h>
+#include <absl/log/check.h>
+#include <absl/strings/str_cat.h>
+#include <bytearrayobject.h>
+#include <listobject.h>
+#include <pybind11/detail/common.h>
+#include <pybind11/detail/descr.h>
+#include <pybind11/detail/internals.h>
 
-#include "eglt/data/eg_structs.h"
+#include "eglt/actions/action.h"
 #include "eglt/net/stream.h"
+#include "eglt/nodes/async_node.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/pybind11_headers.h"
 #include "eglt/service/service.h"
 #include "eglt/service/session.h"
-#include "eglt/stores/chunk_store_pybind11.h"  // IWYU pragma: keep
+#include "eglt/stores/chunk_store.h"
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {

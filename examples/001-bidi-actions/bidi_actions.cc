@@ -22,7 +22,13 @@
 #include <string>
 #include <string_view>
 
-#include <eglt/absl_headers.h>
+#include <absl/debugging/failure_signal_handler.h>
+#include <absl/flags/flag.h>
+#include <absl/flags/parse.h>
+#include <absl/log/check.h>
+#include <absl/log/log.h>
+#include <absl/strings/match.h>
+#include <absl/strings/str_split.h>
 #include <eglt/actions/action.h>
 #include <eglt/data/eg_structs.h>
 #include <eglt/net/websockets/websockets.h>

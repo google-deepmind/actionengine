@@ -14,6 +14,12 @@
 
 #include "g3fiber/util.h"
 
+#include <atomic>
+
+#include <absl/base/call_once.h>
+#include <absl/random/distributions.h>
+#include <absl/random/random.h>
+
 namespace thread {
 
 static std::atomic<uint32_t> last_rand32;

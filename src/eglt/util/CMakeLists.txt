@@ -16,7 +16,8 @@ target_include_directories(
 )
 target_link_libraries(
         egltUtilBoostAsio PRIVATE
-        ${EGLT_ABSL_DEPENDENCIES}
+        absl::base
+        eglt::concurrency
         Boost::beast
 )
 # --------------------------------------------------------------------------
@@ -39,7 +40,9 @@ target_include_directories(
 )
 target_link_libraries(
         egltUtil PRIVATE
-        ${EGLT_ABSL_DEPENDENCIES}
+        absl::base
+        absl::inlined_vector
+        absl::log
 )
 
 add_library(
@@ -59,7 +62,6 @@ target_sources(
 )
 target_link_libraries(
         egltUtilPybind11 PRIVATE
-        ${EGLT_ABSL_DEPENDENCIES}
         ${EGLT_PYBIND11_DEPENDENCIES}
 )
 target_include_directories(

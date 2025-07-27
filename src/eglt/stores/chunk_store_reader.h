@@ -21,8 +21,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-
-#include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/stores/chunk_store.h"
@@ -119,8 +117,8 @@ class ChunkStoreReader {
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     const int next_read_offset = total_chunks_read_;
 
-    // if (const int final_seq_id = chunk_store_->GetFinalSeqId();
-    //     final_seq_id != -1 && next_read_offset > final_seq_id) {
+    // if (const int final_seq = chunk_store_->GetFinalSeq();
+    //     final_seq != -1 && next_read_offset > final_seq) {
     //   return std::nullopt;
     // }
 
@@ -134,27 +132,27 @@ class ChunkStoreReader {
     }
 
     const Chunk& chunk = *chunk_or_status;
-    const int seq_id = chunk_store_->GetSeqForArrivalOffsetOrDie(next_read_offset);
+    const int seq = chunk_store_->GetSeqForArrivalOffsetOrDie(next_read_offset);
     if (chunk.IsNull()) {
       mu_.Unlock();
-      chunk_store_->PopOrDie(seq_id);
+      chunk_store_->PopOrDie(seq);
       mu_.Lock();
       return std::nullopt;
     }
 
-    return std::pair(seq_id, chunk);
+    return std::pair(seq, chunk);
   }
 
   void RunPrefetchLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     while (!thread::Cancelled()) {
-      if (const auto final_seq_id = chunk_store_->GetFinalSeqOrDie();
-          final_seq_id >= 0 && total_chunks_read_ > final_seq_id) {
+      if (const auto final_seq = chunk_store_->GetFinalSeqOrDie();
+          final_seq >= 0 && total_chunks_read_ > final_seq) {
         status_ = absl::OkStatus();
         break;
       }
 
       std::optional<Chunk> next_chunk;
-      int next_seq_id = -1;
+      int next_seq = -1;
       if (ordered_) {
         mu_.Unlock();
         auto chunk = chunk_store_->Get(total_chunks_read_, timeout_);
@@ -165,7 +163,7 @@ class ChunkStoreReader {
           return;
         }
         next_chunk = chunk.value();
-        next_seq_id = total_chunks_read_;
+        next_seq = total_chunks_read_;
       } else {
         auto next_chunk_or_status = NextInternal();
         if (!next_chunk_or_status.ok()) {
@@ -174,16 +172,16 @@ class ChunkStoreReader {
         }
         if (auto next_seq_and_chunk = next_chunk_or_status.value();
             next_seq_and_chunk.has_value()) {
-          std::tie(next_seq_id, next_chunk) = std::move(*next_seq_and_chunk);
-          if (next_seq_id == -1) {
-            next_seq_id = 0;
+          std::tie(next_seq, next_chunk) = std::move(*next_seq_and_chunk);
+          if (next_seq == -1) {
+            next_seq = 0;
           }
         }
       }
 
-      if (remove_chunks_ && next_seq_id >= 0) {
+      if (remove_chunks_ && next_seq >= 0) {
         mu_.Unlock();
-        chunk_store_->PopOrDie(next_seq_id);
+        chunk_store_->PopOrDie(next_seq);
         mu_.Lock();
       }
 
@@ -196,7 +194,7 @@ class ChunkStoreReader {
       }
 
       buffer_.writer()->Write(
-          std::make_pair(next_seq_id, std::move(*next_chunk)));
+          std::make_pair(next_seq, std::move(*next_chunk)));
     }
     buffer_.writer()->Close();
   }

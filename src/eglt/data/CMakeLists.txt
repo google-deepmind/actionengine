@@ -12,6 +12,7 @@ target_sources(egltData
 target_sources(egltData
         PRIVATE
         eg_structs.cc
+        msgpack.cc
 )
 target_include_directories(
         egltData PUBLIC
@@ -20,10 +21,17 @@ target_include_directories(
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
-        egltData PUBLIC
+        egltData PRIVATE
         cppack
         eglt::msgpack
-        ${EGLT_ABSL_DEPENDENCIES}
+        absl::base
+        absl::log
+        absl::log_internal_check_op
+        absl::status
+        absl::statusor
+        absl::strings
+        absl::strings_internal
+        absl::time
 )
 
 # ------------------------------------------------------------------

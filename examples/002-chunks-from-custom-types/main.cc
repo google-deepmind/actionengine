@@ -11,9 +11,13 @@
 #include <string>
 #include <vector>
 
-#include <eglt/absl_headers.h>
+#include <absl/debugging/failure_signal_handler.h>
 #include <eglt/data/eg_structs.h>
 #include <eglt/nodes/async_node.h>
+#include <eglt/redis/chunk_store.h>
+#include <eglt/redis/redis.h>
+#include <eglt/stores/local_chunk_store.h>
+#include <eglt/util/random.h>
 
 // Simply some type aliases to make the code more readable. These declarations
 // are not included anywhere, so it is okay to use such shorthands to make the
@@ -54,7 +58,18 @@ absl::Status EgltAssignInto(const Chunk& chunk, User* user) {
   return absl::OkStatus();
 }
 
-int main(int argc, char** argv) {
+std::unique_ptr<eglt::redis::Redis> GetRedisOrDie() {
+  absl::StatusOr<std::unique_ptr<eglt::redis::Redis>> redis_or =
+      eglt::redis::Redis::Connect("localhost", 6379);
+  if (!redis_or.ok()) {
+    LOG(FATAL) << "Failed to connect to Redis: " << redis_or.status();
+    ABSL_ASSUME(false);
+  }
+  CHECK_OK((*redis_or)->Hello());
+  return *std::move(redis_or);
+}
+
+int main(int, char**) {
   absl::InstallFailureSignalHandler({});
   // create some users
   const std::vector users = {
@@ -63,15 +78,47 @@ int main(int argc, char** argv) {
       User{.name = "Bob Jones", .email = "jones@example.com"},
   };
 
+  std::string store_id = absl::StrCat("users_", eglt::GenerateUUID4());
+
+  // std::unique_ptr<eglt::redis::Redis> redis = GetRedisOrDie();
+  //
+  //
+  // auto store = std::make_unique<eglt::redis::ChunkStore>(redis.get(), store_id,
+  //                                                        absl::Seconds(300));
+
+  auto store = eglt::MakeChunkStore<eglt::LocalChunkStore>(store_id);
+
   // create a node
-  auto node_that_streams_users = AsyncNode(/*id=*/"users");
+  auto node_that_streams_users = AsyncNode(
+      /*id=*/store_id, /*node_map=*/nullptr,
+      /*chunk_store=*/std::move(store));
+  node_that_streams_users.SetReaderOptions(
+      /*ordered=*/true, /*remove_chunks=*/false);
   for (const auto& user : users) {
     if (const auto status = node_that_streams_users.Put(user); !status.ok()) {
       LOG(FATAL) << "Error: " << status;
       ABSL_ASSUME(false);
     }
   }
+  node_that_streams_users
+      .Put(
+          User{
+              .name = "Helena Pankov",
+              .email = "helenapankov@google.com",
+          },
+          4)
+      .IgnoreError();
+  node_that_streams_users
+      .Put(
+          User{
+              .name = "Paramjit Sandhu",
+              .email = "params@google.com",
+          },
+          3)
+      .IgnoreError();
   node_that_streams_users.Put(eglt::EndOfStream()).IgnoreError();
+
+  eglt::SleepFor(absl::Seconds(1));
 
   int user_number = 0;
   while (true) {

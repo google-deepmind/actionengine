@@ -17,9 +17,16 @@ target_include_directories(
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
+        egltStores PRIVATE
+        absl::log
+        absl::log_internal_check_op
+        absl::time
+        cppack
+        eglt::data
+)
+target_link_libraries(
         egltStores PUBLIC
         cppitertools::cppitertools
-        ${EGLT_ABSL_DEPENDENCIES}
         eglt::concurrency
         eglt::data
         eglt::net

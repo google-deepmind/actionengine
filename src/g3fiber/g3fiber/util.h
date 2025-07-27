@@ -17,8 +17,6 @@
 
 #include <cstdint>
 
-#include "g3fiber/absl_headers.h"
-
 namespace thread {
 
 uint32_t Rand32();

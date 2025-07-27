@@ -12,13 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "session.h"
+#include "eglt/service/session.h"
 
+#include <functional>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
-#include "eglt/absl_headers.h"
+#include <absl/strings/str_cat.h>
+#include <absl/strings/str_format.h>
+
 #include "eglt/actions/action.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
@@ -26,7 +33,6 @@
 #include "eglt/nodes/async_node.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/stores/chunk_store.h"
-#include "eglt/stores/local_chunk_store.h"
 
 namespace eglt {
 

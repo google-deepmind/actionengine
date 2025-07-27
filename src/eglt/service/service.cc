@@ -12,20 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "service.h"
+#include "eglt/service/service.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "eglt/absl_headers.h"
+#include <absl/base/optimization.h>
+#include <absl/strings/str_cat.h>
+#include <absl/time/time.h>
+
 #include "eglt/actions/action.h"
 #include "eglt/concurrency/concurrency.h"
+#include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/service/session.h"
+#include "eglt/util/map_util.h"
 
 namespace eglt {
 

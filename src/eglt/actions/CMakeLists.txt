@@ -15,9 +15,18 @@ target_include_directories(
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
+        egltActions PRIVATE
+        absl::base
+        absl::log
+        absl::log_internal_check_op
+        absl::status
+        absl::statusor
+        absl::strings
+        absl::strings_internal
+)
+target_link_libraries(
         egltActions
         PUBLIC
-        ${EGLT_ABSL_DEPENDENCIES}
         eglt::data
         eglt::net
         eglt::nodes

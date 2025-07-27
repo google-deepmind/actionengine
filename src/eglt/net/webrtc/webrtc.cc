@@ -14,13 +14,29 @@
 
 #define BOOST_ASIO_NO_DEPRECATED
 
-#include <g3fiber/fiber.h>
-
-#include "eglt/net/webrtc/signalling.h"
 #include "eglt/net/webrtc/webrtc.h"
-#include "eglt/net/websockets/fiber_aware_websocket_stream.h"
+
+#include <cstddef>
+#include <functional>
+
+#include <absl/strings/str_format.h>
+#include <boost/json/object.hpp>
+#include <boost/json/serialize.hpp>
+#include <boost/json/string.hpp>
+#include <boost/json/value.hpp>
+#include <boost/system/detail/error_code.hpp>
+#include <rtc/candidate.hpp>
+#include <rtc/common.hpp>
+#include <rtc/configuration.hpp>
+#include <rtc/description.hpp>
+#include <rtc/reliability.hpp>
+
+#include "cppack/msgpack.h"
+#include "eglt/concurrency/concurrency.h"
+#include "eglt/data/msgpack.h"
+#include "eglt/net/webrtc/signalling.h"
 #include "eglt/stores/byte_chunking.h"
-#include "eglt/util/boost_asio_utils.h"
+#include "eglt/util/map_util.h"
 
 // TODO: split this file into multiple files for better organization.
 

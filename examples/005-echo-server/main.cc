@@ -7,7 +7,9 @@
 #include <string>
 #include <string_view>
 
-#include <eglt/absl_headers.h>
+#include <absl/debugging/failure_signal_handler.h>
+#include <absl/flags/flag.h>
+#include <absl/flags/parse.h>
 #include <eglt/actions/action.h>
 #include <eglt/data/eg_structs.h>
 #include <eglt/net/webrtc/webrtc.h>

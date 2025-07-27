@@ -5,7 +5,7 @@ import { isEndOfStream } from './data.js';
 export class ChunkStoreWriter {
   private chunkStore: ChunkStore;
 
-  private finalSeqId: number;
+  private finalSeq: number;
   private totalChunksPut: number;
 
   private acceptsPuts: boolean;
@@ -17,7 +17,7 @@ export class ChunkStoreWriter {
   constructor(chunkStore: ChunkStore) {
     this.chunkStore = chunkStore;
 
-    this.finalSeqId = -1;
+    this.finalSeq = -1;
     this.totalChunksPut = 0;
 
     this.acceptsPuts = true;
@@ -36,9 +36,9 @@ export class ChunkStoreWriter {
       throw new Error('ChunkStoreWriter is closed');
     }
 
-    if (seq !== -1 && this.finalSeqId !== -1 && seq > this.finalSeqId) {
+    if (seq !== -1 && this.finalSeq !== -1 && seq > this.finalSeq) {
       throw new Error(
-        `Cannot put chunk with seqId ${seq} because finalSeqId is ${this.finalSeqId}`,
+        `Cannot put chunk with seqId ${seq} because finalSeq is ${this.finalSeq}`,
       );
     }
 
@@ -53,7 +53,7 @@ export class ChunkStoreWriter {
     ++this.totalChunksPut;
 
     if (final) {
-      this.finalSeqId = writtenSeq;
+      this.finalSeq = writtenSeq;
     }
 
     this.ensureWriterLoop();
@@ -94,7 +94,7 @@ export class ChunkStoreWriter {
       }
 
       ++this.totalChunksWritten;
-      if (this.finalSeqId >= 0 && this.totalChunksWritten > this.finalSeqId) {
+      if (this.finalSeq >= 0 && this.totalChunksWritten > this.finalSeq) {
         await this.buffer.send(null);
       }
     }

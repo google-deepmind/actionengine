@@ -22,8 +22,9 @@
 #include <boost/asio/thread_pool.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
-#include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 
 namespace eglt::net {

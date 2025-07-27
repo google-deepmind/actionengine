@@ -15,12 +15,19 @@
 #ifndef EGLT_STORES_BYTE_CHUNKING_H_
 #define EGLT_STORES_BYTE_CHUNKING_H_
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <iterator>
+#include <optional>
+#include <utility>
+#include <variant>
 #include <vector>
 
-#include "eglt/absl_headers.h"
-#include "eglt/data/eg_structs.h"
-#include "eglt/data/msgpack.h"
+#include <absl/log/check.h>
+#include <absl/status/statusor.h>
+
+#include "eglt/data/msgpack.h"  // IWYU pragma: keep
 #include "eglt/stores/local_chunk_store.h"
 
 namespace eglt::data {
@@ -36,11 +43,7 @@ enum BytePacketType {
 struct CompleteBytesPacket {
   static constexpr Byte kType = BytePacketType::kCompleteBytes;
 
-  static uint32_t GetSerializedMetadataSize(uint64_t transient_id) {
-    cppack::Packer packer;
-    packer.process(transient_id);
-    return packer.vector().size();
-  }
+  static uint32_t GetSerializedMetadataSize(uint64_t transient_id);
 
   std::vector<Byte> serialized_message;
   uint64_t transient_id;
@@ -50,12 +53,7 @@ struct ByteChunkPacket {
   static constexpr Byte kType = BytePacketType::kByteChunk;
 
   static uint32_t GetSerializedMetadataSize(uint64_t transient_id,
-                                            uint32_t seq) {
-    cppack::Packer packer;
-    packer.process(transient_id);
-    packer.process(seq);
-    return packer.vector().size();
-  }
+                                            uint32_t seq);
 
   std::vector<Byte> chunk;
   uint32_t seq;
@@ -66,13 +64,7 @@ struct LengthSuffixedByteChunkPacket {
   static constexpr Byte kType = BytePacketType::kLengthSuffixedByteChunk;
 
   static uint32_t GetSerializedMetadataSize(uint64_t transient_id, uint32_t seq,
-                                            uint32_t length) {
-    cppack::Packer packer;
-    packer.process(transient_id);
-    packer.process(seq);
-    packer.process(length);
-    return packer.vector().size();
-  }
+                                            uint32_t length);
 
   std::vector<Byte> chunk;
   uint32_t length;
@@ -128,93 +120,9 @@ inline BytePacket ProducePacket(std::vector<Byte>::const_iterator it,
                          .transient_id = transient_id};
 }
 
-inline std::vector<Byte> SerializeBytePacket2(const BytePacket& packet) {
-  cppack::Packer packer;
-  if (std::holds_alternative<CompleteBytesPacket>(packet)) {
-    const auto& complete_packet = std::get<CompleteBytesPacket>(packet);
-    packer.process(static_cast<Byte>(CompleteBytesPacket::kType));
-    packer.process(complete_packet.transient_id);
+std::vector<Byte> SerializeBytePacket2(const BytePacket& packet);
 
-    std::vector<Byte> result = packer.vector();
-    result.reserve(result.size() + complete_packet.serialized_message.size());
-    result.insert(result.end(), complete_packet.serialized_message.begin(),
-                  complete_packet.serialized_message.end());
-    return result;
-  }
-
-  if (std::holds_alternative<ByteChunkPacket>(packet)) {
-    const auto& chunk_packet = std::get<ByteChunkPacket>(packet);
-    packer.process(static_cast<Byte>(ByteChunkPacket::kType));
-    packer.process(chunk_packet.transient_id);
-    packer.process(chunk_packet.seq);
-
-    std::vector<Byte> result = packer.vector();
-    result.reserve(result.size() + chunk_packet.chunk.size());
-    result.insert(result.end(), chunk_packet.chunk.begin(),
-                  chunk_packet.chunk.end());
-    return result;
-  }
-
-  if (std::holds_alternative<LengthSuffixedByteChunkPacket>(packet)) {
-    const auto& length_chunk_packet =
-        std::get<LengthSuffixedByteChunkPacket>(packet);
-    packer.process(static_cast<Byte>(LengthSuffixedByteChunkPacket::kType));
-    packer.process(length_chunk_packet.transient_id);
-    packer.process(length_chunk_packet.seq);
-    packer.process(length_chunk_packet.length);
-
-    std::vector<Byte> result = packer.vector();
-    result.reserve(result.size() + length_chunk_packet.chunk.size());
-    result.insert(result.end(), length_chunk_packet.chunk.begin(),
-                  length_chunk_packet.chunk.end());
-    return result;
-  }
-
-  return {};
-}
-
-inline BytePacket DeserializeBytePacket2(const std::vector<Byte>& data) {
-  cppack::Unpacker unpacker(data.data(), data.size());
-
-  Byte type_byte;
-  unpacker.process(type_byte);
-  const auto type = static_cast<BytePacketType>(type_byte);
-
-  if (type == BytePacketType::kCompleteBytes) {
-    CompleteBytesPacket packet;
-    unpacker.process(packet.transient_id);
-    const Byte* offset = unpacker.GetDataPtr();
-    const auto header_size = offset - data.data();
-    packet.serialized_message =
-        std::vector(data.begin() + header_size, data.end());
-    return packet;
-  }
-
-  if (type == BytePacketType::kByteChunk) {
-    ByteChunkPacket packet;
-    unpacker.process(packet.transient_id);
-    unpacker.process(packet.seq);
-    const Byte* offset = unpacker.GetDataPtr();
-    const auto header_size = offset - data.data();
-    packet.chunk = std::vector(data.begin() + header_size, data.end());
-    return packet;
-  }
-
-  if (type == BytePacketType::kLengthSuffixedByteChunk) {
-    LengthSuffixedByteChunkPacket packet;
-    unpacker.process(packet.transient_id);
-    unpacker.process(packet.seq);
-    unpacker.process(packet.length);
-    const Byte* offset = unpacker.GetDataPtr();
-    const auto header_size = offset - data.data();
-    packet.chunk = std::vector(data.begin() + header_size, data.end());
-    return packet;
-  }
-
-  LOG(FATAL) << "Unknown BytePacketType: " << static_cast<int>(type)
-             << ". Cannot deserialize BytePacket.";
-  ABSL_ASSUME(false);
-}
+BytePacket DeserializeBytePacket2(const std::vector<Byte>& data);
 
 class ByteSplitter {
  public:

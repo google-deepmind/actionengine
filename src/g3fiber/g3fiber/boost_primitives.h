@@ -15,11 +15,13 @@
 #ifndef G3FIBER_BOOST_PRIMITIVES_H_
 #define G3FIBER_BOOST_PRIMITIVES_H_
 
-#define BOOST_ASIO_NO_DEPRECATED
+#include <boost/fiber/condition_variable.hpp>
+#include <boost/fiber/mutex.hpp>
 
-#include <boost/fiber/all.hpp>
-
-#include "g3fiber/absl_headers.h"
+#include <absl/base/thread_annotations.h>
+#include <absl/log/log.h>
+#include <absl/status/status.h>
+#include <absl/time/clock.h>
 
 namespace eglt::concurrency::impl {
 
@@ -28,22 +30,8 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
   Mutex() = default;
   ~Mutex() = default;
 
-  void Lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() {
-    try {
-      mu_.lock();
-    } catch (boost::fibers::lock_error& error) {
-      LOG(FATAL) << "Mutex lock failed. " << error.what();
-      ABSL_ASSUME(false);
-    }
-  }
-  void Unlock() noexcept ABSL_UNLOCK_FUNCTION() {
-    try {
-      mu_.unlock();
-    } catch (boost::fibers::lock_error& error) {
-      LOG(FATAL) << "Mutex unlock failed. " << error.what();
-      ABSL_ASSUME(false);
-    }
-  }
+  void Lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION();
+  void Unlock() noexcept ABSL_UNLOCK_FUNCTION();
 
   void lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() { Lock(); }
   void unlock() noexcept ABSL_UNLOCK_FUNCTION() { Unlock(); }
@@ -51,7 +39,7 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
   friend class CondVar;
 
  private:
-  boost::fibers::mutex& GetImpl() { return mu_; }
+  boost::fibers::mutex& GetImpl();
   boost::fibers::mutex mu_;
 };
 

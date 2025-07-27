@@ -1,43 +1,36 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "eglt/redis/reply_converters.h"
+
+#include <cstddef>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <variant>
+#include <vector>
+
+#include <absl/container/flat_hash_map.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/strings/match.h>
+#include <absl/strings/numbers.h>
+#include <absl/strings/str_cat.h>
 
 #include "eglt/redis/reply.h"
 
 namespace eglt::redis {
-
-constexpr std::string_view MapReplyEnumToTypeName(ReplyType type) {
-  switch (type) {
-    case ReplyType::Status:
-      return "Status";
-    case ReplyType::Error:
-      return "Error";
-    case ReplyType::Integer:
-      return "Integer";
-    case ReplyType::Nil:
-      return "Nil";
-    case ReplyType::String:
-      return "String";
-    case ReplyType::Bool:
-      return "Bool";
-    case ReplyType::Double:
-      return "Double";
-    case ReplyType::Array:
-      return "Array";
-    case ReplyType::Map:
-      return "Map";
-    case ReplyType::Set:
-      return "Set";
-    case ReplyType::Push:
-      return "Push";
-    case ReplyType::Attr:
-      return "Attr";
-    case ReplyType::BigNum:
-      return "BigNum";
-    case ReplyType::Verbatim:
-      return "Verbatim";
-    default:
-      return "unknown";
-  }
-}
 
 absl::Status EgltAssignInto(const Reply& from, absl::Status* to) {
   if (from.IsStatus()) {
@@ -180,8 +173,7 @@ absl::Status EgltAssignInto(Reply from, ArrayReplyData* to) {
   }
   if (from.type == ReplyType::Map) {
     MapReplyData map_reply_data = std::move(std::get<MapReplyData>(from.data));
-    ASSIGN_OR_RETURN(
-        *to, ConvertTo<ArrayReplyData>(std::move(map_reply_data)));
+    ASSIGN_OR_RETURN(*to, ConvertTo<ArrayReplyData>(std::move(map_reply_data)));
     return absl::OkStatus();
   }
   return absl::InvalidArgumentError(
@@ -291,8 +283,7 @@ absl::Status EgltAssignInto(PushReplyData from, std::vector<Reply>* to) {
 absl::Status EgltAssignInto(MapReplyData from, std::vector<Reply>* to) {
   ASSIGN_OR_RETURN(ArrayReplyData array,
                    ConvertTo<ArrayReplyData>(std::move(from)));
-  ASSIGN_OR_RETURN(*to,
-                   ConvertTo<std::vector<Reply>>(std::move(array)));
+  ASSIGN_OR_RETURN(*to, ConvertTo<std::vector<Reply>>(std::move(array)));
   return absl::OkStatus();
 }
 
@@ -314,8 +305,7 @@ absl::Status EgltAssignInto(VerbatimReplyData from, std::string* to) {
 
 absl::Status EgltAssignInto(ArrayReplyData from,
                             absl::flat_hash_map<std::string, Reply>* to) {
-  ASSIGN_OR_RETURN(MapReplyData map,
-                   ConvertTo<MapReplyData>(std::move(from)));
+  ASSIGN_OR_RETURN(MapReplyData map, ConvertTo<MapReplyData>(std::move(from)));
   *to = std::move(map).values;
   return absl::OkStatus();
 }

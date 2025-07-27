@@ -6,8 +6,6 @@
 #include <absl/status/status_matchers.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
-#include "eglt/absl_headers.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/stores/chunk_store_io.h"
 #include "eglt/stores/local_chunk_store.h"
@@ -32,7 +30,7 @@ TEST(ChunkStoreTest, CanWriteChunks) {
     chunk_store.GetByArrivalOrder(3, /*timeout=*/absl::InfiniteDuration())
         .IgnoreError();
     EXPECT_THAT(chunk_store.SizeOrDie(), Eq(4));
-    EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(3));
+    EXPECT_THAT(chunk_store.GetFinalSeq(), Eq(3));
   }
 
   // if no explicit end of stream is written, the store should contain exactly
@@ -48,7 +46,7 @@ TEST(ChunkStoreTest, CanWriteChunks) {
         0.001));  // TODO(hpnkv): add a method to wait for finalisation
 
     EXPECT_THAT(chunk_store.SizeOrDie(), Eq(3));
-    EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
+    EXPECT_THAT(chunk_store.GetFinalSeq(), Eq(2));
   }
 }
 
@@ -174,7 +172,7 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
     chunk_store.GetByArrivalOrder(3, /*timeout=*/absl::InfiniteDuration())
         .IgnoreError();
     EXPECT_THAT(chunk_store.SizeOrDie(), Eq(4));
-    EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(3));
+    EXPECT_THAT(chunk_store.GetFinalSeq(), Eq(3));
 
     std::vector<std::string> read_words;
     reader >> read_words;
@@ -192,7 +190,7 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
     eglt::SleepFor(absl::Seconds(0.001));
 
     EXPECT_THAT(chunk_store.SizeOrDie(), Eq(3));
-    EXPECT_THAT(chunk_store.GetFinalSeqId(), Eq(2));
+    EXPECT_THAT(chunk_store.GetFinalSeq(), Eq(2));
 
     eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/true,
                                   /*remove_chunks=*/true);

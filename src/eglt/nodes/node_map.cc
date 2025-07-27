@@ -16,8 +16,6 @@
 
 #include <string_view>
 #include <vector>
-
-#include "eglt/absl_headers.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/nodes/async_node.h"
 #include "eglt/stores/chunk_store.h"

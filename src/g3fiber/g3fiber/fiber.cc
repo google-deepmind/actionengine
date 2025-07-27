@@ -16,11 +16,11 @@
 
 #include <latch>
 
+#include <absl/log/check.h>
 #include <boost/fiber/all.hpp>
 #include <boost/fiber/context.hpp>
 #include <boost/intrusive_ptr.hpp>
 
-#include "g3fiber/absl_headers.h"
 #include "g3fiber/boost_primitives.h"
 #include "g3fiber/select.h"
 #include "g3fiber/thread_pool.h"

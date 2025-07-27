@@ -1,3 +1,17 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef EGLT_REDIS_CHUNK_STORE_OPS_POP_LUA_H_
 #define EGLT_REDIS_CHUNK_STORE_OPS_POP_LUA_H_
 
@@ -7,8 +21,8 @@
 
 namespace eglt::redis {
 
-constexpr std::array<std::string, 3> kPopScriptKeys = {
-    "{}:s",         "{}:seq_to_id", "{}:offset_to_seq"};
+const std::array<std::string, 3> kPopScriptKeys = {"{}:s", "{}:seq_to_id",
+                                                   "{}:offset_to_seq"};
 
 constexpr std::string_view kPopScriptCode = R"(
   -- pop.lua
@@ -54,6 +68,6 @@ constexpr std::string_view kPopScriptCode = R"(
   return data_to_return
 )"_unindent;
 
-}
+}  // namespace eglt::redis
 
 #endif  // EGLT_REDIS_CHUNK_STORE_OPS_POP_LUA_H_

@@ -13,3 +13,36 @@
 // limitations under the License.
 
 #include "eglt/actions/action.h"
+
+namespace eglt {
+
+ActionMessage ActionSchema::GetActionMessage(std::string_view action_id) const {
+  CHECK(!action_id.empty()) << "Action ID cannot be empty to create a message";
+
+  std::vector<Port> input_parameters;
+  input_parameters.reserve(inputs.size());
+  for (const auto& [name, _] : inputs) {
+    input_parameters.push_back(Port{
+        .name = name,
+        .id = absl::StrCat(action_id, "#", name),
+    });
+  }
+
+  std::vector<Port> output_parameters;
+  output_parameters.reserve(outputs.size());
+  for (const auto& [name, _] : outputs) {
+    output_parameters.push_back(Port{
+        .name = name,
+        .id = absl::StrCat(action_id, "#", name),
+    });
+  }
+
+  return {
+      .id = std::string(action_id),
+      .name = name,
+      .inputs = input_parameters,
+      .outputs = output_parameters,
+  };
+}
+
+}  // namespace eglt

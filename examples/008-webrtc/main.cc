@@ -1,7 +1,8 @@
 #include <iostream>
 #include <memory>
 
-#include <eglt/absl_headers.h>
+#include <absl/debugging/failure_signal_handler.h>
+#include <absl/flags/parse.h>
 #include <eglt/net/webrtc/webrtc.h>
 
 int main(int argc, char** argv) {

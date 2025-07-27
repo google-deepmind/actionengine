@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "g3fiber/thread_pool.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <latch>
 
+#include <absl/base/call_once.h>
+#include <boost/fiber/algo/shared_work.hpp>
+#include <boost/fiber/context.hpp>
+
 #include "g3fiber/fiber.h"
-#include "g3fiber/thread_pool.h"
 #include "g3fiber/util.h"
 
 namespace thread {

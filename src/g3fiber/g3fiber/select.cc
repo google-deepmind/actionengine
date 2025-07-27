@@ -17,7 +17,8 @@
 #include <atomic>
 #include <cstdint>
 
-#include "g3fiber/absl_headers.h"
+#include <absl/log/check.h>
+
 #include "g3fiber/boost_primitives.h"
 #include "g3fiber/util.h"
 

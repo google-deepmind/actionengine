@@ -15,7 +15,10 @@
 #ifndef EGLT_NET_WEBRTC_WEBRTC_PYBIND11_H_
 #define EGLT_NET_WEBRTC_WEBRTC_PYBIND11_H_
 
-#include "eglt/pybind11_headers.h"
+#include <string_view>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 
 namespace eglt::pybindings {
 
