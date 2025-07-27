@@ -23,6 +23,7 @@ target_link_libraries(
         eglt::concurrency
         eglt::data
         eglt::net
+        eglt::util
 )
 
 # ------------------------------------------------------------------

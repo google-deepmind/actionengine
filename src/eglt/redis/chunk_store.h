@@ -158,12 +158,14 @@ class ChunkStore final : public eglt::ChunkStore {
   absl::Status CloseWritesWithStatus(absl::Status status) override {
     std::string arg_status = status.ToString();
 
+    std::string stream_id = GetKey();
+
     std::vector<std::string> key_strings;
     CommandArgs keys;
     keys.reserve(kCloseWritesScriptKeys.size());
     for (auto& key : kCloseWritesScriptKeys) {
       std::string fully_qualified_key = key;
-      absl::StrReplaceAll({{"{}", id_}}, &fully_qualified_key);
+      absl::StrReplaceAll({{"{}", stream_id}}, &fully_qualified_key);
       key_strings.push_back(std::move(fully_qualified_key));
       keys.push_back(key_strings.back());
     }
@@ -221,9 +223,12 @@ class ChunkStore final : public eglt::ChunkStore {
     const std::string final_seq_key = GetKey("final_seq");
     ASSIGN_OR_RETURN(const Reply reply,
                      redis_->ExecuteCommand("GET", final_seq_key));
+    if (reply.type == ReplyType::Nil) {
+      return -1;  // No final sequence set.
+    }
     if (reply.type != ReplyType::String) {
-      return absl::InternalError(
-          absl::StrCat("Unexpected reply type: ", reply.type));
+      return absl::InternalError(absl::StrCat(
+          "Unexpected reply type: ", MapReplyEnumToTypeName(reply.type)));
     }
     if (std::get<StringReplyData>(reply.data).value.empty()) {
       return -1;  // No final sequence set.

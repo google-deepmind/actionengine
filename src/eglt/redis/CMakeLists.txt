@@ -1,9 +1,8 @@
 add_subdirectory(chunk_store_ops)
 
-add_executable(redis_playground
+add_library(egltRedis STATIC
         chunk_store.cc
         chunk_store.h
-        playground.cc
         pubsub.cc
         pubsub.h
         redis.cc
@@ -17,14 +16,15 @@ add_executable(redis_playground
         streams.cc
         streams.h
 )
+add_library(eglt::redis ALIAS egltRedis)
 target_include_directories(
-        redis_playground PRIVATE
+        egltRedis PRIVATE
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(
-        redis_playground PRIVATE
+        egltRedis PRIVATE
         cppack
         hiredis::hiredis
         eglt::concurrency
@@ -37,38 +37,19 @@ target_link_libraries(
         ${EGLT_ABSL_DEPENDENCIES}
 )
 
-#add_library(egltRedis STATIC)
-#add_library(eglt::redis ALIAS egltRedis)
-#
-#target_sources(egltRedis
-#        PUBLIC
-#        conversion.h
-#        eg_structs.h
-#        mimetypes.h
-#        msgpack.h
-#        serialization.h
-#)
-#target_sources(egltRedis
-#        PRIVATE
-#        eg_structs.cc
-#)
-#target_include_directories(
-#        egltRedis PUBLIC
-#        ${EGLT_PROJECT_TOP_LEVEL}
-#        ${EGLT_INCLUDE_DIR}
-#        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
-#)
-#target_link_libraries(
-#        egltRedis PUBLIC
-#        cppack
-#        eglt::msgpack
-#        ${EGLT_ABSL_DEPENDENCIES}
-#)
-#
-#install(
-#        TARGETS egltRedis
-#        EXPORT egltTargets
-#        RUNTIME DESTINATION bin
-#        LIBRARY DESTINATION lib/eglt
-#        ARCHIVE DESTINATION lib/eglt
-#)
+add_executable(redis_playground
+        playground.cc
+)
+target_link_libraries(
+        redis_playground
+        eglt::redis
+        eglt::data
+        eglt::nodes
+        eglt::util
+)
+target_include_directories(
+        redis_playground PRIVATE
+        ${EGLT_PROJECT_TOP_LEVEL}
+        ${EGLT_INCLUDE_DIR}
+        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
+)
