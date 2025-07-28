@@ -10,7 +10,6 @@ target_include_directories(
         egltNetWebsockets PUBLIC
         ${EGLT_PROJECT_TOP_LEVEL}
         ${EGLT_INCLUDE_DIR}
-        #        ${Boost_INCLUDE_DIRS}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
 )
 target_link_libraries(

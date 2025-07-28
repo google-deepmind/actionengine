@@ -14,8 +14,8 @@
 
 #include "eglt/net/webrtc/webrtc_pybind11.h"
 
+#include <cstdint>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -30,11 +30,13 @@
 #include <pybind11/detail/descr.h>
 #include <pybind11/detail/internals.h>
 #include <pybind11/gil.h>
-#include <stdint.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
 
 #include "eglt/net/stream.h"
 #include "eglt/net/webrtc/webrtc.h"
 #include "eglt/service/service.h"
+#include "eglt/util/status_macros.h"
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
@@ -83,17 +85,13 @@ void BindWebRtcEvergreenServer(py::handle scope, std::string_view name) {
       .def(
           "cancel",
           [](const std::shared_ptr<net::WebRtcEvergreenServer>& self) {
-            if (const absl::Status status = self->Cancel(); !status.ok()) {
-              throw std::runtime_error(status.ToString());
-            }
+            return self->Cancel();
           },
           py::call_guard<py::gil_scoped_release>())
       .def(
           "join",
           [](const std::shared_ptr<net::WebRtcEvergreenServer>& self) {
-            if (const absl::Status status = self->Join(); !status.ok()) {
-              throw std::runtime_error(status.ToString());
-            }
+            return self->Join();
           },
           py::call_guard<py::gil_scoped_release>())
       .doc() = "A WebRtcEvergreenServer interface.";
@@ -109,14 +107,13 @@ py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
   webrtc.def(
       "make_webrtc_evergreen_stream",
       [](std::string_view identity, std::string_view peer_identity,
-         std::string_view signalling_address, uint16_t port) {
-        if (auto stream = net::StartStreamWithSignalling(
-                identity, peer_identity, signalling_address, port);
-            !stream.ok()) {
-          throw std::runtime_error(stream.status().ToString());
-        } else {
-          return std::shared_ptr(*std::move(stream));
-        }
+         std::string_view signalling_address, uint16_t port)
+          -> absl::StatusOr<std::shared_ptr<net::WebRtcWireStream>> {
+        ASSIGN_OR_RETURN(
+            std::unique_ptr<net::WebRtcWireStream> stream,
+            net::StartStreamWithSignalling(identity, peer_identity,
+                                           signalling_address, port));
+        return stream;
       },
       py::arg_v("identity", "client"), py::arg_v("peer_identity", "server"),
       py::arg_v("signalling_address", "localhost"),

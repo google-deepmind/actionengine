@@ -18,9 +18,14 @@
 #include <string_view>
 #include <vector>
 
+#include <pybind11/pybind11.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
+
 #include "eglt/data/eg_structs.h"
 #include "eglt/data/serialization.h"
 #include "eglt/pybind11_headers.h"
+#include "eglt/util/status_macros.h"
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
@@ -187,20 +192,24 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
       py::class_<SerializerRegistry, std::shared_ptr<SerializerRegistry>>(
           scope, std::string(name).c_str());
   registry.def(MakeSameObjectRefConstructor<SerializerRegistry>());
+
   registry.def(
       py::init([]() { return std::make_shared<SerializerRegistry>(); }));
+
   registry.def_property_readonly(
       "_mimetype_to_type", [](const std::shared_ptr<SerializerRegistry>& self) {
         return GetMimetypeToTypeDict(self.get());
       });
+
   registry.def_property_readonly(
       "_type_to_mimetype", [](const std::shared_ptr<SerializerRegistry>& self) {
         return GetTypeToMimetypeDict(self.get());
       });
+
   registry.def(
       "serialize",
       [](const std::shared_ptr<SerializerRegistry>& self, py::handle value,
-         std::string_view mimetype) -> py::bytes {
+         std::string_view mimetype) -> absl::StatusOr<py::bytes> {
         auto mimetype_str = std::string(mimetype);
         if (mimetype_str.empty()) {
           auto type_to_mimetype = GetTypeToMimetypeDict(self.get());
@@ -218,38 +227,28 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
           py::gil_scoped_release release_gil;
           serialized = self->Serialize(value, mimetype_str);
           if (!serialized.ok()) {
-            auto cpp_any = CastPyObjectToAny(std::move(value), mimetype_str);
-            if (!cpp_any.ok()) {
-              throw py::value_error(
-                  absl::StrCat("Failed to convert value to std::any: ",
-                               cpp_any.status().message()));
-            }
-
-            serialized = self->Serialize(*std::move(cpp_any), mimetype_str);
+            ASSIGN_OR_RETURN(std::any cpp_any,
+                             CastPyObjectToAny(std::move(value), mimetype_str));
+            serialized = self->Serialize(std::move(cpp_any), mimetype_str);
           }
         }
-        if (!serialized.ok()) {
-          throw py::value_error(absl::StrCat("Failed to serialize value: ",
-                                             serialized.status().message()));
-        }
+        RETURN_IF_ERROR(serialized.status());
         return py::bytes(std::move(*serialized));
       },
       py::arg("value"), py::arg_v("mimetype", ""));
+
   registry.def(
       "deserialize",
       [](const std::shared_ptr<SerializerRegistry>& self, py::bytes data,
-         std::string_view mimetype) -> py::object {
+         std::string_view mimetype) -> absl::StatusOr<py::object> {
         absl::StatusOr<std::any> deserialized;
         {
           py::gil_scoped_release release_gil;
           deserialized = self->Deserialize(std::move(data), mimetype);
         }
-        if (!deserialized.ok()) {
-          throw py::value_error(absl::StrCat("Failed to deserialize data: ",
-                                             deserialized.status().message()));
-        }
+        RETURN_IF_ERROR(deserialized.status());
         if (std::any_cast<py::object>(&*deserialized) == nullptr) {
-          throw py::type_error(
+          return absl::InvalidArgumentError(
               absl::StrCat("Deserialized object is not a py::object, but a ",
                            deserialized->type().name(),
                            ". Cannot convert to py::object because it's not "
@@ -259,6 +258,7 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
         return std::any_cast<py::object>(*std::move(deserialized));
       },
       py::arg("data"), py::arg_v("mimetype", ""));
+
   registry.def(
       "register_serializer",
       [](const std::shared_ptr<SerializerRegistry>& self,
@@ -266,7 +266,7 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
          const py::object& obj_type = py::none()) {
         if (!obj_type.is_none()) {
           if (!py::isinstance<py::type>(obj_type)) {
-            throw py::type_error(
+            return absl::InvalidArgumentError(
                 "obj_type must be a type, not an instance or other object.");
           }
           // Register the mimetype with the type.
@@ -276,6 +276,7 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
         }
         self->RegisterSerializer(std::string(mimetype),
                                  PySerializerToCppSerializer(serializer));
+        return absl::OkStatus();
       },
       py::arg("mimetype"), py::arg("serializer"),
       py::arg_v("obj_type", py::none()), py::keep_alive<1, 3>());
@@ -286,9 +287,8 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
          const py::object& obj_type = py::none()) {
         if (!obj_type.is_none()) {
           if (!py::isinstance<py::type>(obj_type)) {
-            throw py::type_error(
-                "obj_type must be a type, not an instance or other "
-                "object.");
+            return absl::InvalidArgumentError(
+                "obj_type must be a type, not an instance or other object.");
           }
           // Register the mimetype with the type.
           auto mimetype_str = std::string(mimetype);
@@ -298,6 +298,7 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
         self->RegisterDeserializer(
             std::string(mimetype),
             PyDeserializerToCppDeserializer(deserializer));
+        return absl::OkStatus();
       },
       py::keep_alive<1, 3>());
   registry.def("__del__", [](const std::shared_ptr<SerializerRegistry>& self) {
@@ -326,8 +327,10 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
   data.def(
       "to_bytes",
       [](py::handle obj, std::string_view mimetype = "",
-         SerializerRegistry* registry = nullptr) -> py::bytes {
-        return pybindings::PyToChunk(std::move(obj), mimetype, registry).data;
+         SerializerRegistry* registry = nullptr) -> absl::StatusOr<py::bytes> {
+        ASSIGN_OR_RETURN(Chunk chunk, pybindings::PyToChunk(
+                                          std::move(obj), mimetype, registry));
+        return std::move(chunk.data);
       },
       py::arg("obj"), py::arg_v("mimetype", ""),
       py::arg_v("registry", nullptr));
@@ -335,8 +338,8 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
   data.def(
       "to_chunk",
       [](py::handle obj, std::string_view mimetype = "",
-         SerializerRegistry* registry = nullptr) {
-        return pybindings::PyToChunk(std::move(obj), mimetype, registry);
+         SerializerRegistry* registry = nullptr) -> absl::StatusOr<Chunk> {
+        return pybindings::PyToChunk(obj, mimetype, registry);
       },
       py::arg("obj"), py::arg_v("mimetype", ""),
       py::arg_v("registry", nullptr));
@@ -344,7 +347,7 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
   data.def(
       "from_chunk",
       [](Chunk chunk, std::string_view mimetype = "",
-         const SerializerRegistry* registry = nullptr) -> py::object {
+         const SerializerRegistry* registry = nullptr) {
         return pybindings::PyFromChunk(std::move(chunk), mimetype, registry);
       },
       py::arg("chunk"), py::arg_v("mimetype", ""),

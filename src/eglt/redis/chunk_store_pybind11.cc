@@ -15,8 +15,14 @@
 #include "eglt/redis/chunk_store_pybind11.h"
 
 #include <pybind11/pybind11.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
 
 #include "eglt/redis/chunk_store.h"
+#include "eglt/redis/redis.h"
+#include "eglt/stores/chunk_store_pybind11.h"
+#include "eglt/util/status_macros.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
 
@@ -27,23 +33,92 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
   redis_module.doc() =
       "Module for Redis chunk store and related functionality.";
 
-  return redis_module;
+  py::class_<redis::Redis, std::shared_ptr<redis::Redis>>(redis_module, "Redis")
+      .def_static(
+          "connect",
+          [](std::string_view host,
+             uint16_t port) -> absl::StatusOr<std::shared_ptr<redis::Redis>> {
+            ASSIGN_OR_RETURN(std::shared_ptr client,
+                             redis::Redis::Connect(host, port));
+            return client;
+          },
+          py::arg("host"), py::arg_v("port", 6379), keep_event_loop_memo())
+      .doc() = "Redis client for Evergreen.";
 
-  // // Bind the RedisChunkStore class.
-  // py::class_<eglt::redis::ChunkStore>(redis_module, "RedisChunkStore")
-  //     .def(py::init<std::string_view>(), py::arg("store_id"))
-  //     .def("put", &eglt::redis::ChunkStore::Put, py::arg("chunk"))
-  //     .def("get", &eglt::redis::ChunkStore::Get, py::arg("seq"),
-  //          py::arg("timeout") = absl::InfiniteDuration())
-  //     .def("contains", &eglt::redis::ChunkStore::Contains, py::arg("seq"))
-  //     .def("set_id", &eglt::redis::ChunkStore::SetId, py::arg("id"))
-  //     .def("get_id", &eglt::redis::ChunkStore::GetId)
-  //     .def("get_seq_for_arrival_offset",
-  //          &eglt::redis::ChunkStore::GetSeqForArrivalOffset,
-  //          py::arg("arrival_offset"))
-  //     .def("get_final_seq", &eglt::redis::ChunkStore::GetFinalSeq);
-  //
-  // return redis_module;
+  py::class_<redis::ChunkStore, eglt::ChunkStore,
+             std::shared_ptr<redis::ChunkStore>>(redis_module, "ChunkStore")
+      .def(py::init([](redis::Redis* absl_nonnull redis, std::string_view id,
+                       int64_t ttl = -1) {
+             absl::Duration ttl_duration =
+                 ttl < 0 ? absl::InfiniteDuration() : absl::Seconds(ttl);
+             return std::make_shared<redis::ChunkStore>(redis, id,
+                                                        ttl_duration);
+           }),
+           py::arg("redis"), py::arg("id"), py::arg("ttl"),
+           keep_event_loop_memo())
+      .def(
+          "get",
+          [](const std::shared_ptr<redis::ChunkStore>& self, int seq,
+             double timeout) -> absl::StatusOr<Chunk> {
+            return self->Get(seq, timeout < 0 ? absl::InfiniteDuration()
+                                              : absl::Seconds(timeout));
+          },
+          py::arg("seq"), py::arg_v("timeout", -1),
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "get_by_arrival_order",
+          [](const std::shared_ptr<redis::ChunkStore>& self, int seq,
+             double timeout) -> absl::StatusOr<Chunk> {
+            return self->GetByArrivalOrder(seq, timeout < 0
+                                                    ? absl::InfiniteDuration()
+                                                    : absl::Seconds(timeout));
+          },
+          py::arg("seq"), py::arg_v("timeout", -1),
+          py::call_guard<py::gil_scoped_release>())
+      .def("pop", &redis::ChunkStore::PopOrDie, py::arg("seq"),
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "put",
+          [](const std::shared_ptr<redis::ChunkStore>& self, int seq,
+             const Chunk& chunk,
+             bool final) { return self->Put(seq, chunk, final); },
+          py::arg("seq"), py::arg("chunk"), py::arg_v("final", false))
+      .def("no_further_puts",
+           [](const std::shared_ptr<redis::ChunkStore>& self) {
+             return self->CloseWritesWithStatus(absl::OkStatus());
+           })
+      .def("size",
+           [](const std::shared_ptr<redis::ChunkStore>& self) {
+             return self->Size();
+           })
+      .def(
+          "contains",
+          [](const std::shared_ptr<redis::ChunkStore>& self, int seq) {
+            return self->Contains(seq);
+          },
+          py::arg("seq"))
+      .def("set_id", &redis::ChunkStore::SetId)
+      .def("get_id", &redis::ChunkStore::GetId)
+      .def("get_final_seq", &redis::ChunkStore::GetFinalSeq)
+      .def(
+          "get_seq_for_arrival_offset",
+          [](const std::shared_ptr<redis::ChunkStore>& self,
+             int64_t arrival_offset) {
+            return self->GetSeqForArrivalOffset(arrival_offset);
+          },
+          py::arg("arrival_offset"), py::call_guard<py::gil_scoped_release>())
+      .def("__len__",
+           [](const std::shared_ptr<redis::ChunkStore>& self)
+               -> absl::StatusOr<int64_t> { return self->Size(); })
+      .def(
+          "__contains__",
+          [](const std::shared_ptr<redis::ChunkStore>& self, int seq) {
+            return self->Contains(seq);
+          },
+          py::arg("seq"))
+      .doc() = "Evergreen Redis ChunkStore.";
+
+  return redis_module;
 }
 
 }  // namespace eglt::pybindings

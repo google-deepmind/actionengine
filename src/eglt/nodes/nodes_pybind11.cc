@@ -19,6 +19,8 @@
 #include <string_view>
 
 #include <pybind11/pybind11.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
 
 #include "eglt/nodes/node_map.h"
 #include "eglt/stores/chunk_store.h"
@@ -68,24 +70,14 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
       .def(
           "put_fragment",
           [](const std::shared_ptr<AsyncNode>& self, NodeFragment fragment,
-             int seq = -1) {
-            if (const absl::Status status =
-                    self->Put(std::move(fragment), seq);
-                !status.ok()) {
-              throw py::value_error(status.ToString());
-            }
-          },
+             int seq = -1) { return self->Put(std::move(fragment), seq); },
           py::arg_v("fragment", NodeFragment()), py::arg_v("seq", -1),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "put_chunk",
-          [](const std::shared_ptr<AsyncNode>& self, Chunk chunk,
-             int seq = -1, bool final = false) {
-            if (const absl::Status status =
-                    self->Put(std::move(chunk), seq, final);
-                !status.ok()) {
-              throw py::value_error(status.ToString());
-            }
+          [](const std::shared_ptr<AsyncNode>& self, Chunk chunk, int seq = -1,
+             bool final = false) {
+            return self->Put(std::move(chunk), seq, final);
           },
           py::arg_v("chunk", Chunk()), py::arg_v("seq", -1),
           py::arg_v("final", false), py::call_guard<py::gil_scoped_release>())
@@ -93,7 +85,7 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           "bind_stream",
           [](const std::shared_ptr<AsyncNode>& self,
              const std::shared_ptr<WireStream>& stream) {
-            absl::flat_hash_map<std::string, std::shared_ptr<WireStream>>  peers;
+            absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers;
             peers[stream->GetId()] = stream;
             self->BindPeers(std::move(peers));
           },
@@ -109,10 +101,7 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
       .def(
           "raise_reader_error_if_any",
           [](const std::shared_ptr<AsyncNode>& self) {
-            if (const absl::Status status = self->GetReaderStatus();
-                !status.ok()) {
-              throw std::runtime_error(status.ToString());
-            }
+            return self->GetReaderStatus();
           },
           py::call_guard<py::gil_scoped_release>())
       .def(

@@ -79,17 +79,12 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/cppack)
 
 include(FetchContent)
 set(BUILD_TESTING_BACKUP ${BUILD_TESTING})
-set(BUILD_TESTING OFF)
 set(USE_SYSTEM_ABSEIL_BACKUP ${USE_SYSTEM_ABSEIL})
 set(USE_SYSTEM_PYBIND_BACKUP ${USE_SYSTEM_PYBIND})
+set(BUILD_TESTING OFF)
 set(USE_SYSTEM_ABSEIL ON)
 set(USE_SYSTEM_PYBIND ON)
-FetchContent_Declare(
-        pybind11_abseil
-        GIT_REPOSITORY https://github.com/pybind/pybind11_abseil.git
-        GIT_TAG master
-)
-FetchContent_MakeAvailable(pybind11_abseil)
+add_subdirectory(${EGLT_THIRD_PARTY_ROOT}/pybind11_abseil)
 set(BUILD_TESTING ${BUILD_TESTING_BACKUP})
 set(USE_SYSTEM_ABSEIL ${USE_SYSTEM_ABSEIL_BACKUP})
 set(USE_SYSTEM_PYBIND ${USE_SYSTEM_PYBIND_BACKUP})

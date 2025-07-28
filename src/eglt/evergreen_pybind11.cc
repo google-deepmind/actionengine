@@ -18,6 +18,7 @@
 #include <pybind11/detail/common.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
+#include <pybind11_abseil/check_status_module_imported.h>
 
 #include "eglt/actions/actions_pybind11.h"
 #include "eglt/data/data_pybind11.h"
@@ -33,6 +34,12 @@ namespace eglt {
 /// @private
 PYBIND11_MODULE(evergreen_pybind11, m) {
   absl::InstallFailureSignalHandler({});
+  if (!pybind11::google::internal::IsStatusModuleImported()) {
+    py::module_::import("evergreen.pybind11_abseil.status");
+    // importing under a custom path/name, so just in case check that the
+    // library understands our import.
+    py::google::internal::CheckStatusModuleImported();
+  }
 
   py::module_ data = pybindings::MakeDataModule(m, "data");
 

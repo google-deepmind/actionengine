@@ -13,8 +13,13 @@
 // limitations under the License.
 
 #include "eglt/net/websockets/websockets_pybind11.h"
+
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
+
 #include "eglt/net/websockets/websockets.h"
 #include "eglt/service/service.h"
+#include "eglt/util/status_macros.h"
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
@@ -58,17 +63,13 @@ void BindWebsocketEvergreenServer(py::handle scope, std::string_view name) {
       .def(
           "cancel",
           [](const std::shared_ptr<net::WebsocketEvergreenServer>& self) {
-            if (const absl::Status status = self->Cancel(); !status.ok()) {
-              throw std::runtime_error(status.ToString());
-            }
+            return self->Cancel();
           },
           py::call_guard<py::gil_scoped_release>())
       .def(
           "join",
           [](const std::shared_ptr<net::WebsocketEvergreenServer>& self) {
-            if (const absl::Status status = self->Join(); !status.ok()) {
-              throw std::runtime_error(status.ToString());
-            }
+            return self->Join();
           },
           py::call_guard<py::gil_scoped_release>())
       .doc() = "A WebsocketEvergreenServer interface.";
@@ -84,13 +85,11 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
 
   websockets.def(
       "make_websocket_evergreen_stream",
-      [](std::string_view address, std::string_view target, int32_t port) {
-        if (auto stream = net::MakeWebsocketWireStream(address, port, target);
-            !stream.ok()) {
-          throw std::runtime_error(stream.status().ToString());
-        } else {
-          return std::shared_ptr(*std::move(stream));
-        }
+      [](std::string_view address, std::string_view target, int32_t port)
+          -> absl::StatusOr<std::shared_ptr<net::WebsocketWireStream>> {
+        ASSIGN_OR_RETURN(std::unique_ptr<net::WebsocketWireStream> stream,
+                         net::MakeWebsocketWireStream(address, port, target));
+        return stream;
       },
       py::arg_v("address", "localhost"), py::arg_v("target", "/"),
       py::arg_v("port", 20000));

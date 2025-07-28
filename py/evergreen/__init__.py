@@ -9,6 +9,7 @@ from evergreen import session as eg_session
 from evergreen import stream as eg_stream
 from evergreen import data
 from evergreen import pydantic_helpers
+from evergreen import redis
 from evergreen import utils
 from evergreen import webrtc
 from evergreen import websockets

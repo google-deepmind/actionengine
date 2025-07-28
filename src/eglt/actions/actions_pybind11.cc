@@ -110,17 +110,11 @@ void BindAction(py::handle scope, std::string_view name) {
         return std::make_shared<Action>(std::move(schema), id);
       }))
       .def("run",
-           [](const std::shared_ptr<Action>& action) {
-             if (const absl::Status status = action->Run(); !status.ok()) {
-               throw std::runtime_error(status.ToString());
-             }
-           })
+           [](const std::shared_ptr<Action>& action) { return action->Run(); })
       .def(
           "call",
           [](const std::shared_ptr<Action>& action) {
-            if (const absl::Status status = action->Call(); !status.ok()) {
-              throw py::value_error(status.ToString());
-            }
+            return action->Call();
           },
           py::call_guard<py::gil_scoped_release>())
       .def(

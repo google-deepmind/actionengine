@@ -12,6 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/redis/chunk_store_ops/unindent.h"
+#include <string_view>
 
-namespace multiline_raw_string {}  // namespace multiline_raw_string
+#include <pybind11/detail/common.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+#include <pybind11_abseil/register_status_bindings.h>
+
+namespace eglt {
+
+namespace py = pybind11;
+
+PYBIND11_MODULE(pybind11_abseil, m) {
+  const py::module_ status =
+      m.def_submodule("status", "Abseil status bindings");
+  py::google::internal::RegisterStatusBindings(status);
+}
+
+}  // namespace eglt

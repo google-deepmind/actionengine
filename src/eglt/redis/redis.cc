@@ -193,6 +193,8 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
 
   redisSetPushCallback(context, Redis::HandlePushReply);
 
+  RETURN_IF_ERROR(redis->Hello().status());
+
   return redis;
 }
 

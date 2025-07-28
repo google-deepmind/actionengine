@@ -97,6 +97,7 @@ class ChunkStore final : public eglt::ChunkStore {
   // No copy or move semantics allowed.
   ChunkStore(const ChunkStore&) = delete;
   ChunkStore& operator=(const ChunkStore& other) = delete;
+
   ~ChunkStore() override {
     eglt::MutexLock lock(&mu_);
 
@@ -196,6 +197,9 @@ class ChunkStore final : public eglt::ChunkStore {
     ASSIGN_OR_RETURN(
         Reply reply,
         redis_->ExecuteCommand("HEXISTS", seq_to_id_key, absl::StrCat(seq)));
+    if (reply.type == ReplyType::Error) {
+      return std::get<ErrorReplyData>(reply.data).AsAbslStatus();
+    }
     if (reply.type != ReplyType::Integer) {
       return absl::InternalError(
           absl::StrCat("Unexpected reply type: ", reply.type));
@@ -208,7 +212,8 @@ class ChunkStore final : public eglt::ChunkStore {
     CHECK(id == id_) << "Cannot change the ID of a ChunkStore.";
     return absl::OkStatus();
   }
-  std::string_view GetId() const override { return id_; }
+
+  [[nodiscard]] std::string_view GetId() const override { return id_; }
 
   absl::StatusOr<int64_t> GetSeqForArrivalOffset(
       int64_t arrival_offset) override {
@@ -220,6 +225,7 @@ class ChunkStore final : public eglt::ChunkStore {
     }
     return value_map.begin()->second.value_or(-1);
   }
+
   absl::StatusOr<int64_t> GetFinalSeq() override {
     const std::string final_seq_key = GetKey("final_seq");
     ASSIGN_OR_RETURN(const Reply reply,

@@ -18,8 +18,11 @@
 #include <string_view>
 
 #include <pybind11/pybind11.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
 
 #include "eglt/data/serialization.h"
+#include "eglt/util/status_macros.h"
 
 namespace eglt {
 namespace py = ::pybind11;
@@ -238,8 +241,9 @@ inline absl::Status EgltAssignInto(pybind11::handle obj, std::string* dest) {
 
 namespace eglt::pybindings {
 
-inline Chunk PyToChunk(py::handle obj, std::string_view mimetype = "",
-                       SerializerRegistry* registry = nullptr) {
+inline absl::StatusOr<Chunk> PyToChunk(py::handle obj,
+                                       std::string_view mimetype = "",
+                                       SerializerRegistry* registry = nullptr) {
   auto mimetype_str = std::string(mimetype);
 
   if (registry == nullptr) {
@@ -260,16 +264,10 @@ inline Chunk PyToChunk(py::handle obj, std::string_view mimetype = "",
   }
 
   if (mimetype_str.empty()) {
-    absl::StatusOr<Chunk> chunk;
     {
       py::gil_scoped_release release;  // Release GIL for serialization.
-      chunk = ConvertTo<Chunk>(std::move(obj));
+      return ConvertTo<Chunk>(obj);
     }
-    if (!chunk.ok()) {
-      throw py::value_error(absl::StrCat("Failed to convert object to Chunk: ",
-                                         chunk.status().message()));
-    }
-    return *std::move(chunk);
   }
 
   absl::StatusOr<Chunk> serialized_chunk;
@@ -279,33 +277,30 @@ inline Chunk PyToChunk(py::handle obj, std::string_view mimetype = "",
     if (!serialized_chunk.ok()) {
       serialized_chunk =
           ToChunk(ConvertToOrDie<std::any>(pybindings::PySerializationArgs{
-                      .object = std::move(obj), .mimetype = mimetype_str}),
+                      .object = obj, .mimetype = mimetype_str}),
                   mimetype_str, registry);
     }
   }
 
-  if (!serialized_chunk.ok()) {
-    throw py::value_error(std::string(serialized_chunk.status().message()));
-  }
+  RETURN_IF_ERROR(serialized_chunk.status());
   return *std::move(serialized_chunk);
 }
 
-inline py::object PyFromChunk(Chunk chunk, std::string_view mimetype = "",
-                              const SerializerRegistry* registry = nullptr) {
+inline absl::StatusOr<py::object> PyFromChunk(
+    Chunk chunk, std::string_view mimetype = "",
+    const SerializerRegistry* registry = nullptr) {
   absl::StatusOr<std::any> obj;
   {
     py::gil_scoped_release release;  // Release GIL for deserialization.
     obj = FromChunk(std::move(chunk), mimetype, registry);
   }
-  if (!obj.ok()) {
-    throw py::value_error(absl::StrCat("Failed to convert Chunk to object: ",
-                                       obj.status().message()));
-  }
+  RETURN_IF_ERROR(obj.status());
 
   if (std::any_cast<py::object>(&*obj) == nullptr) {
-    throw py::type_error(absl::StrCat(
+    return absl::InvalidArgumentError(absl::StrCat(
         "Deserialized object is not a py::object, but a ", obj->type().name(),
-        ". Cannot convert to py::object because it's not implemented yet."));
+        ". Cannot convert to py::object because it's not "
+        "implemented yet."));
   }
 
   return std::any_cast<py::object>(*std::move(obj));

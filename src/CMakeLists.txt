@@ -49,6 +49,7 @@ add_subdirectory(eglt/redis)
 add_subdirectory(eglt/service)
 add_subdirectory(eglt/stores)
 add_subdirectory(eglt/util)
+add_subdirectory(pybind11_abseil_module)
 
 # ------------------------------------------------------------------
 
