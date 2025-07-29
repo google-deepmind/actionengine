@@ -136,7 +136,7 @@ struct ArrayReplyData {
   [[nodiscard]] std::vector<Reply> Consume();
   [[nodiscard]] absl::flat_hash_map<std::string, Reply> ConsumeAsMapOrDie();
 
-  std::vector<Reply> values{};
+  std::vector<Reply> values;
 };
 
 struct MapReplyData {
