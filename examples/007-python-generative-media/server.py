@@ -11,6 +11,11 @@ def make_action_registry():
 
     registry.register("echo", actions.echo.SCHEMA, actions.echo.run)
     registry.register(
+        "rehydrate_session",
+        actions.gemini.REHYDRATE_SESSION_SCHEMA,
+        actions.gemini.run_rehydrate_session,
+    )
+    registry.register(
         "generate_content",
         actions.gemini.GENERATE_CONTENT_SCHEMA,
         actions.gemini.generate_content,

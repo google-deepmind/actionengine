@@ -43,6 +43,31 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
             return client;
           },
           py::arg("host"), py::arg_v("port", 6379), keep_event_loop_memo())
+      .def(
+          "get",
+          [](const std::shared_ptr<redis::Redis>& self,
+             std::string_view key) -> absl::StatusOr<std::string> {
+            ASSIGN_OR_RETURN(redis::Reply reply,
+                             self->ExecuteCommand("GET", {key}));
+            return ConvertTo<std::string>(std::move(reply));
+          },
+          py::arg("key"), py::call_guard<py::gil_scoped_release>())
+      .def(
+          "set",
+          [](const std::shared_ptr<redis::Redis>& self, std::string_view key,
+             py::handle value) -> absl::Status {
+            if (!py::isinstance<py::str>(value) &&
+                !py::isinstance<py::bytes>(value)) {
+              return absl::InvalidArgumentError(
+                  "Value must be a string or bytes for Redis SET command.");
+            }
+            ASSIGN_OR_RETURN(const redis::Reply reply,
+                             self->ExecuteCommand(
+                                 "SET", {key, py::cast<std::string>(value)}));
+            return GetStatusOrErrorFrom(reply);
+          },
+          py::arg("key"), py::arg("value"),
+          py::call_guard<py::gil_scoped_release>())
       .doc() = "Redis client for Evergreen.";
 
   py::class_<redis::ChunkStore, eglt::ChunkStore,

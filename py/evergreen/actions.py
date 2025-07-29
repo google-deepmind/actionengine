@@ -258,11 +258,11 @@ class Action(actions_pybind11.Action):
 
         schema = self.get_schema()
         for param in schema.inputs:
-            if param.endswith(name):
+            if param == name:
                 node = self.get_input(name)
                 break
         for param in schema.outputs:
-            if param.endswith(name):
+            if param == name:
                 node = self.get_output(name)
                 break
 
