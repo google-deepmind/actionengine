@@ -81,14 +81,15 @@ async def main():
     NODE_MAP = evergreen.NodeMap()
 
     key = f"hello-{uuid.uuid4()}"
+    num_chunks = 10
 
-    for i in range(5):
+    for i in range(num_chunks):
         text = f"Hello, world! {i + 1}"
         print(f"Writing chunk {i + 1}:", text)
         await write_text_chunk(key, i, text)
 
     idx = 0
-    async for text in read_text_chunks(key, offset=0, count=5):
+    async for text in read_text_chunks(key, offset=0, count=num_chunks):
         print(f"Read text chunk {idx + 1}:", text)
         idx += 1
 

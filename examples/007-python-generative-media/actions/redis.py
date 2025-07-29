@@ -4,6 +4,9 @@ import evergreen
 from pydantic import BaseModel
 
 
+TTL = 120  # Time to live for Redis keys in seconds
+
+
 def get_eglt_redis_client_for_sub():
     if not hasattr(get_eglt_redis_client_for_sub, "client"):
         get_eglt_redis_client_for_sub.client = evergreen.redis.Redis.connect(
@@ -31,7 +34,7 @@ def read_store_chunks_into_queue(
     queue: asyncio.Queue,
 ):
     store = evergreen.redis.ChunkStore(
-        get_eglt_redis_client_for_sub(), request.key, -1
+        get_eglt_redis_client_for_sub(), request.key, TTL
     )
     for idx in range(request.offset, request.offset + request.count):
         chunk = store.get(idx)
@@ -85,7 +88,7 @@ async def run_write_store(action: evergreen.Action) -> None:
     response = action["response"]
 
     store = evergreen.redis.ChunkStore(
-        get_eglt_redis_client_for_pub(), request.key, -1
+        get_eglt_redis_client_for_pub(), request.key, TTL
     )
     chunk = evergreen.Chunk(
         metadata=evergreen.ChunkMetadata(
