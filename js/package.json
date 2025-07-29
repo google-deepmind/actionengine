@@ -10,7 +10,7 @@
   },
   "types": "index.ts",
   "engines": {
-    "node": ">= 23.0 < 24"
+    "node": ">= 23.0"
   },
   "devDependencies": {
     "@eslint/js": "~9.17",
