@@ -62,31 +62,7 @@ struct ChunkStoreEvent {
   int arrival_offset = -1;
   std::string stream_message_id;
 
-  static ChunkStoreEvent FromString(const std::string& message) {
-    const std::vector<std::string> parts =
-        absl::StrSplit(message, absl::MaxSplits(':', 4));
-
-    ChunkStoreEvent event;
-    event.type = parts[0];
-    if (event.type == "CLOSE") {
-      return event;
-    }
-    if (event.type == "NEW") {
-      bool success = true;
-      success &= absl::SimpleAtoi(parts[1], &event.seq);
-      success &= absl::SimpleAtoi(parts[2], &event.arrival_offset);
-      event.stream_message_id = parts[3];
-      if (!success) {
-        LOG(ERROR) << "Failed to parse NEW event: " << message;
-        return ChunkStoreEvent{"", -1, -1, ""};
-      }
-      return event;
-    }
-
-    LOG(FATAL) << "Unknown ChunkStoreEvent type: " << event.type
-               << " in message: " << message;
-    ABSL_ASSUME(false);
-  }
+  static ChunkStoreEvent FromString(const std::string& message);
 };
 
 class ChunkStore final : public eglt::ChunkStore {
@@ -98,151 +74,31 @@ class ChunkStore final : public eglt::ChunkStore {
   ChunkStore(const ChunkStore&) = delete;
   ChunkStore& operator=(const ChunkStore& other) = delete;
 
-  ~ChunkStore() override {
-    eglt::MutexLock lock(&mu_);
+  ~ChunkStore() override;
 
-    allow_new_gets_ = false;
-    while (num_pending_gets_ > 0) {
-      cv_.Wait(&mu_);
-    }
-  }
-
-  absl::StatusOr<Chunk> Get(int64_t seq, absl::Duration timeout) override {
-    absl::Time deadline = absl::Now() + timeout;
-    eglt::MutexLock lock(&mu_);
-
-    ASSIGN_OR_RETURN(std::optional<Chunk> chunk, TryGet(seq));
-    if (chunk.has_value()) {
-      return *chunk;
-    }
-
-    if (!allow_new_gets_) {
-      return absl::FailedPreconditionError(
-          "ChunkStore is closed for new gets.");
-    }
-    ++num_pending_gets_;
-
-    while (absl::Now() < deadline) {
-      if (cv_.WaitWithDeadline(&mu_, deadline)) {
-        break;  // Timeout reached.
-      }
-
-      absl::StatusOr<std::optional<Chunk>> chunk_or_error = TryGet(seq);
-      if (!chunk_or_error.ok()) {
-        --num_pending_gets_;
-        cv_.SignalAll();
-        return chunk_or_error.status();
-      }
-      if (chunk_or_error->has_value()) {
-        --num_pending_gets_;
-        cv_.SignalAll();
-        return **chunk_or_error;
-      }
-    }
-
-    --num_pending_gets_;
-    cv_.SignalAll();
-    return absl::DeadlineExceededError(
-        absl::StrCat("Timed out waiting for chunk with seq ", seq));
-  }
+  absl::StatusOr<Chunk> Get(int64_t seq, absl::Duration timeout) override;
 
   absl::StatusOr<Chunk> GetByArrivalOrder(int64_t arrival_offset,
-                                          absl::Duration timeout) override {
-    return absl::UnimplementedError("not implemented yet");
-  }
+                                          absl::Duration timeout) override;
 
-  absl::StatusOr<std::optional<Chunk>> Pop(int64_t seq) override {
-    return absl::UnimplementedError("not implemented yet");
-  }
+  absl::StatusOr<std::optional<Chunk>> Pop(int64_t seq) override;
 
   absl::Status Put(int64_t seq, Chunk chunk, bool final) override;
 
-  absl::Status CloseWritesWithStatus(absl::Status status) override {
-    std::string arg_status = status.ToString();
+  absl::Status CloseWritesWithStatus(absl::Status status) override;
 
-    std::string stream_id = GetKey();
+  absl::StatusOr<size_t> Size() override;
 
-    std::vector<std::string> key_strings;
-    CommandArgs keys;
-    keys.reserve(kCloseWritesScriptKeys.size());
-    for (auto& key : kCloseWritesScriptKeys) {
-      std::string fully_qualified_key = key;
-      absl::StrReplaceAll({{"{}", stream_id}}, &fully_qualified_key);
-      key_strings.push_back(std::move(fully_qualified_key));
-      keys.push_back(key_strings.back());
-    }
+  absl::StatusOr<bool> Contains(int64_t seq) override;
 
-    ASSIGN_OR_RETURN(
-        Reply reply,
-        redis_->ExecuteScript("CHUNK STORE CLOSE WRITES", keys, {arg_status}));
-    if (reply.IsError()) {
-      return std::get<ErrorReplyData>(reply.data).AsAbslStatus();
-    }
-    if (reply.type != ReplyType::String) {
-      return absl::InternalError(
-          absl::StrCat("Unexpected reply type: ", reply.type));
-    }
-    return absl::OkStatus();
-  }
-
-  absl::StatusOr<size_t> Size() override {
-    const std::string offset_to_seq_key = GetKey("offset_to_seq");
-    ASSIGN_OR_RETURN(Reply reply,
-                     redis_->ExecuteCommand("ZCARD", {offset_to_seq_key}));
-    return ConvertToOrDie<int64_t>(std::move(reply));
-  }
-
-  absl::StatusOr<bool> Contains(int64_t seq) override {
-    const std::string seq_to_id_key = GetKey("seq_to_id");
-    ASSIGN_OR_RETURN(
-        Reply reply,
-        redis_->ExecuteCommand("HEXISTS", {seq_to_id_key, absl::StrCat(seq)}));
-    if (reply.type == ReplyType::Error) {
-      return std::get<ErrorReplyData>(reply.data).AsAbslStatus();
-    }
-    if (reply.type != ReplyType::Integer) {
-      return absl::InternalError(
-          absl::StrCat("Unexpected reply type: ", reply.type));
-    }
-    ASSIGN_OR_RETURN(const auto exists, ConvertTo<int64_t>(std::move(reply)));
-    return exists == 1;
-  }
-
-  absl::Status SetId(std::string_view id) override {
-    CHECK(id == id_) << "Cannot change the ID of a ChunkStore.";
-    return absl::OkStatus();
-  }
+  absl::Status SetId(std::string_view id) override;
 
   [[nodiscard]] std::string_view GetId() const override { return id_; }
 
   absl::StatusOr<int64_t> GetSeqForArrivalOffset(
-      int64_t arrival_offset) override {
-    ASSIGN_OR_RETURN(auto value_map,
-                     redis_->ZRange(GetKey("offset_to_seq"), arrival_offset,
-                                    arrival_offset, /*withscores=*/true));
-    if (value_map.empty()) {
-      return -1;
-    }
-    return value_map.begin()->second.value_or(-1);
-  }
+      int64_t arrival_offset) override;
 
-  absl::StatusOr<int64_t> GetFinalSeq() override {
-    const std::string final_seq_key = GetKey("final_seq");
-    ASSIGN_OR_RETURN(const Reply reply,
-                     redis_->ExecuteCommand("GET", {final_seq_key}));
-    if (reply.type == ReplyType::Nil) {
-      return -1;  // No final sequence set.
-    }
-    if (reply.type != ReplyType::String) {
-      return absl::InternalError(absl::StrCat(
-          "Unexpected reply type: ", MapReplyEnumToTypeName(reply.type)));
-    }
-    if (std::get<StringReplyData>(reply.data).value.empty()) {
-      return -1;  // No final sequence set.
-    }
-    ASSIGN_OR_RETURN(auto final_seq, ConvertTo<int64_t>(std::move(reply)));
-    return final_seq;
-  }
+  absl::StatusOr<int64_t> GetFinalSeq() override;
 
  private:
   std::string GetKey(std::string_view key = "") const {
