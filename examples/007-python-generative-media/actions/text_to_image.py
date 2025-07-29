@@ -56,6 +56,8 @@ def make_progress_callback(action: evergreen.Action):
 async def run(action: evergreen.Action):
     request: DiffusionRequest = await action["request"].consume()
 
+    print("Running text_to_image with request:", str(request), flush=True)
+
     async with LOCK:
         pipe = get_pipeline()
 

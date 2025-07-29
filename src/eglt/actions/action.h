@@ -491,9 +491,9 @@ class Action : public std::enable_shared_from_this<Action> {
     mu_.Lock();
 
     UnbindStreams();
-    // if (node_map_ != nullptr) {
-    //   ResetIoNodes();
-    // }
+    if (node_map_ != nullptr) {
+      ResetIoNodes();
+    }
 
     return status;
   }

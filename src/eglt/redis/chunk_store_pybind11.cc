@@ -82,7 +82,8 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
           [](const std::shared_ptr<redis::ChunkStore>& self, int seq,
              const Chunk& chunk,
              bool final) { return self->Put(seq, chunk, final); },
-          py::arg("seq"), py::arg("chunk"), py::arg_v("final", false))
+          py::arg("seq"), py::arg("chunk"), py::arg_v("final", false),
+          py::call_guard<py::gil_scoped_release>())
       .def("no_further_puts",
            [](const std::shared_ptr<redis::ChunkStore>& self) {
              return self->CloseWritesWithStatus(absl::OkStatus());

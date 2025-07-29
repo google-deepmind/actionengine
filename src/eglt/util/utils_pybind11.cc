@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/log/log.h"
-
-#include "eglt/pybind11_headers.h"
 #include "eglt/util/utils_pybind11.h"
+
+#include "absl/log/log.h"
+#include "eglt/pybind11_headers.h"
 
 namespace eglt::pybindings {
 namespace py = ::pybind11;
@@ -36,7 +36,6 @@ void SaveFirstEncounteredEventLoop() {
     try {
       global_event_loop_object =
           py::module_::import("asyncio").attr("get_running_loop")();
-      DLOG(INFO) << "Saved event loop: ";
     } catch (py::error_already_set&) {
       // No event loop was found.
     }

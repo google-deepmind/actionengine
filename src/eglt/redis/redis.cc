@@ -35,15 +35,12 @@ static constexpr redisOptions GetDefaultRedisOptions() {
 }
 
 internal::EventLoop::EventLoop() : loop_(uvw::loop::create()) {
-  DLOG(INFO) << "Starting event loop thread.";
   handle_ = loop_->resource<uvw::idle_handle>();
   handle_->init();
 
   thread_ = std::make_unique<std::thread>([this]() {
     handle_->start();
     loop_->run();
-
-    DLOG(INFO) << "Event loop thread exiting.";
   });
 }
 
@@ -92,7 +89,6 @@ absl::StatusOr<HelloReply> HelloReply::From(Reply reply) {
 }
 
 void Redis::ConnectCallback(const redisAsyncContext* context, int status) {
-  DLOG(INFO) << "Redis::ConnectCallback called with status: " << status;
   const auto redis = static_cast<Redis*>(context->data);
   CHECK(redis != nullptr)
       << "Redis::ConnectCallback called with redisAsyncContext not "
@@ -117,8 +113,6 @@ void Redis::PubsubCallback(redisAsyncContext* context, void* hiredis_reply,
 
   const auto subscription = static_cast<Subscription*>(privdata);
   if (hiredis_reply == nullptr) {
-    LOG(WARNING) << "Received null reply in PubsubCallback for subscription at "
-                 << subscription;
     return;
   }
 
@@ -194,7 +188,6 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
   context->data = redis.get();
   eglt::MutexLock lock(&redis->mu_);
   redis->context_ = std::move(context);
-  DLOG(INFO) << "Connecting to Redis at " << host << ":" << port;
 
   redisLibuvAttach(redis->context_.get(), redis->event_loop_.Get()->raw());
 
@@ -392,7 +385,6 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
 
 void Redis::OnConnect(int status) {
   eglt::MutexLock lock(&mu_);
-  LOG(INFO) << "OnConnect called with status: " << status;
   if (status != REDIS_OK) {
     status_ = absl::InternalError("Failed to connect to Redis server.");
     connected_ = false;

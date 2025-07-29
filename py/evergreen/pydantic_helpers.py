@@ -305,7 +305,6 @@ def base_model_to_bytes(component: BaseModel) -> bytes:
 
 def bytes_to_base_model(data: bytes) -> BaseModel:
     component_name, packed_data = ormsgpack.unpackb(data)
-    print(component_name, packed_data)
 
     model = _get_component_registry().get(component_name)
     if model is None:
