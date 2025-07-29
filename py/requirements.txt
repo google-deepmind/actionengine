@@ -1,6 +1,6 @@
 absl-py==2.2.2
 msgpack-python==0.5.6
-numpy
+numpy<2
 ormsgpack
 Pillow
 pybind11==2.13.6
