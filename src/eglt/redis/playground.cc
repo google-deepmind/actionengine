@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <absl/debugging/failure_signal_handler.h>
 #include <eglt/util/random.h>
 
 #include "eglt/redis/chunk_store.h"
@@ -30,13 +31,17 @@ void GetFromChunkStore(eglt::redis::ChunkStore* absl_nonnull store, int64_t seq,
   LOG(INFO) << "Got chunk for seq " << seq << ": " << chunk;
 }
 
-absl::Status RunPlayground() {
+absl::Status RunAsyncPlayground() {
   using namespace eglt::redis;
 
   ASSIGN_OR_RETURN(std::unique_ptr<Redis> redis,
                    Redis::Connect("localhost", 6379));
 
-  ASSIGN_OR_RETURN(HelloReply reply, redis->Hello());
+  RETURN_IF_ERROR(redis->ExecuteCommand("PING").status());
+
+  ASSIGN_OR_RETURN(auto reply,
+                   redis->ExecuteCommand("PING", {"non-trivial PONG"}));
+  DLOG(INFO) << "Reply to PING: " << eglt::ConvertToOrDie<std::string>(reply);
 
   std::string chunk_store_id = eglt::GenerateUUID4();
   auto store = std::make_unique<ChunkStore>(redis.get(), chunk_store_id,
@@ -62,25 +67,24 @@ absl::Status RunPlayground() {
   ASSIGN_OR_RETURN(auto chunk, store->Get(1, absl::Seconds(10)));
   LOG(INFO) << "Got chunk: " << chunk;
 
-  RETURN_IF_ERROR(redis->Ping("PONG"));
+  RETURN_IF_ERROR(
+      redis->ExecuteCommand("SET", {"test_key", "test_value"}).status());
+  ASSIGN_OR_RETURN(auto value, redis->ExecuteCommand("GET", {"test_key"}));
+  DLOG(INFO) << "Value for 'test_key': "
+             << eglt::ConvertToOrDie<std::string>(value);
 
-  RETURN_IF_ERROR(redis->Set("int_value", 10));
-  ASSIGN_OR_RETURN(const int64_t value, redis->Get<int64_t>("int_value"));
-  LOG(INFO) << "int64_t value: " << value;
+  ASSIGN_OR_RETURN(std::shared_ptr<Subscription> subscription,
+                   redis->Subscribe("test_channel", [](Reply reply) {
+                     DLOG(INFO) << "Received message: "
+                                << reply.ConsumeStringContentOrDie();
+                   }));
+  RETURN_IF_ERROR(
+      redis->ExecuteCommand("PUBLISH", {"test_channel", "Hello, Redis!"})
+          .status());
 
-  RETURN_IF_ERROR(redis->Set("bool_value", true));
-  ASSIGN_OR_RETURN(const bool bool_value, redis->Get<bool>("bool_value"));
-  LOG(INFO) << "bool value: " << std::boolalpha << bool_value;
-
-  RETURN_IF_ERROR(redis->Set("double_value", 3.14));
-  ASSIGN_OR_RETURN(const double double_value,
-                   redis->Get<double>("double_value"));
-  LOG(INFO) << "double value: " << double_value;
-
-  RETURN_IF_ERROR(redis->Set("string_value", "hello"));
-  ASSIGN_OR_RETURN(const std::string string_value,
-                   redis->Get<std::string>("string_value"));
-  LOG(INFO) << "string value: " << string_value;
+  RETURN_IF_ERROR(redis->Set("int_value", 42));
+  ASSIGN_OR_RETURN(int int_value, redis->Get<int64_t>("int_value"));
+  DLOG(INFO) << "int_value: " << int_value;
 
   RedisStream stream(redis.get(), eglt::GenerateUUID4());
   ASSIGN_OR_RETURN(
@@ -98,6 +102,6 @@ absl::Status RunPlayground() {
 
 int main() {
   absl::InstallFailureSignalHandler(absl::FailureSignalHandlerOptions());
-  CHECK_OK(RunPlayground());
+  CHECK_OK(RunAsyncPlayground());
   return 0;
 }

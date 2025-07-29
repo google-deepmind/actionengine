@@ -34,6 +34,8 @@ target_link_libraries(
         eglt::stores
         eglt::util
         G3Fiber
+        libuv::uv
+        uvw::uvw
 )
 
 add_executable(redis_playground
@@ -41,6 +43,7 @@ add_executable(redis_playground
 )
 target_link_libraries(
         redis_playground
+        absl::failure_signal_handler
         eglt::redis
         eglt::data
         eglt::nodes

@@ -17,8 +17,11 @@
 
 #include <initializer_list>
 #include <string_view>
+#include <uvw.hpp>
 
 #include <g3fiber/channel.h>
+#include <hiredis/adapters/libuv.h>
+#include <hiredis/async.h>
 #include <hiredis/hiredis.h>
 
 #include "eglt/concurrency/concurrency.h"
@@ -35,14 +38,43 @@ namespace internal {
 // A custom deleter for redisContext to ensure proper cleanup of C structures
 // when the Redis object is destroyed.
 struct RedisContextDeleter {
-  void operator()(redisContext* context) const {
-    if (context) {
-      redisFree(context);
+  void operator()(redisAsyncContext* context) const {
+    if (context != nullptr) {
+      redisAsyncFree(context);
     }
   }
 };
 
 struct PrivateConstructorTag {};
+
+class EventLoop {
+ public:
+  EventLoop() : loop_(uvw::loop::create()) {
+    DLOG(INFO) << "Starting event loop thread.";
+    handle_ = loop_->resource<uvw::idle_handle>();
+    handle_->init();
+
+    thread_ = std::make_unique<std::thread>([this]() {
+      handle_->start();
+      loop_->run();
+
+      DLOG(INFO) << "Event loop thread exiting.";
+    });
+  }
+
+  ~EventLoop() {
+    handle_->stop();
+    thread_->join();
+  }
+
+  uvw::loop* Get() { return loop_.get(); }
+
+ private:
+  std::shared_ptr<uvw::idle_handle> handle_;
+  std::shared_ptr<uvw::loop> loop_;
+  std::unique_ptr<std::thread> thread_;
+};
+
 }  // namespace internal
 
 struct HelloReply {
@@ -62,13 +94,41 @@ struct Script {
   std::string code;
 };
 
+namespace internal {
+struct ReplyFuture {
+  Reply reply;
+  absl::Status status;
+  thread::PermanentEvent event;
+};
+}  // namespace internal
+
 class Redis {
  public:
+  // Static callbacks for hiredis async context events. They resolve to
+  // instance methods to allow access to the instance state.
+  static void ConnectCallback(const redisAsyncContext* absl_nonnull context,
+                              int status);
+
+  static void DisconnectCallback(const redisAsyncContext* absl_nonnull context,
+                                 int status);
+
+  static void PubsubCallback(redisAsyncContext* absl_nonnull context,
+                             void* absl_nullable hiredis_reply, void* privdata);
+
+  static void ReplyCallback(redisAsyncContext* absl_nonnull context,
+                            void* absl_nonnull hiredis_reply, void* privdata);
+
+  // ReSharper disable once CppParameterMayBeConstPtrOrRef
+  static void PushReplyCallback(redisAsyncContext* absl_nonnull context,
+                                void* absl_nonnull hiredis_reply);
+
+  // Deleted default constructor to prevent instantiation without connection.
   Redis() = delete;
 
   static absl::StatusOr<std::unique_ptr<Redis>> Connect(std::string_view host,
                                                         int port = 6379);
 
+  // Non-copyable, non-moveable.
   Redis(const Redis&) = delete;
   Redis& operator=(const Redis&) = delete;
 
@@ -89,41 +149,17 @@ class Redis {
     return absl::StrCat(key_prefix_, key);
   }
 
-  absl::StatusOr<HelloReply> Hello(int protocol_version = 3,
-                                   std::string_view client_name = "",
-                                   std::string_view username = "",
-                                   std::string_view password = "") const;
-  absl::Status Ping(std::string_view expected_message = "PONG") const;
-
-  absl::StatusOr<Reply> Get(std::string_view key) const;
+  absl::StatusOr<Reply> Get(std::string_view key);
   template <typename T>
-  absl::StatusOr<T> Get(std::string_view key) const;
+  absl::StatusOr<T> Get(std::string_view key);
 
-  absl::Status Set(std::string_view key, std::string_view value) const;
+  absl::Status Set(std::string_view key, std::string_view value);
+
   template <typename T>
-  absl::Status Set(std::string_view key, T&& value) const {
+  absl::Status Set(std::string_view key, T&& value) {
     ASSIGN_OR_RETURN(const std::string value_str,
                      ConvertTo<std::string>(std::forward<T>(value)));
     return Set(key, std::string_view(value_str));
-  }
-
-  absl::Status Multi() const {
-    eglt::MutexLock lock(&mu_);
-    ASSIGN_OR_RETURN(Reply reply, ExecuteCommandInternal("MULTI"));
-    ASSIGN_OR_RETURN(auto status_string,
-                     ConvertTo<std::string>(std::move(reply)));
-    if (status_string != "OK") {
-      return absl::InternalError(
-          absl::StrCat("Expected OK after MULTI, got: ", status_string));
-    }
-    return absl::OkStatus();
-  }
-
-  template <typename... Args>
-  absl::StatusOr<Reply> ExecuteCommand(std::string_view command,
-                                       Args... args) const {
-    eglt::MutexLock lock(&mu_);
-    return ExecuteCommandInternal(command, std::forward<Args>(args)...);
   }
 
   absl::StatusOr<std::string> RegisterScript(std::string_view name,
@@ -137,7 +173,7 @@ class Redis {
       return scripts_.at(name).sha1;  // Return existing script SHA1.
     }
     ASSIGN_OR_RETURN(Reply reply,
-                     ExecuteCommandInternal("SCRIPT", "LOAD", code));
+                     ExecuteCommandWithGuards("SCRIPT", {"LOAD", code}));
     if (reply.type != ReplyType::String) {
       return absl::InternalError(absl::StrCat(
           "Expected a string reply after SCRIPT LOAD, got: ", reply.type));
@@ -153,9 +189,34 @@ class Redis {
     return script.sha1;
   }
 
+  absl::StatusOr<Reply> ExecuteScript(std::string_view name,
+                                      CommandArgs script_keys = {},
+                                      CommandArgs script_args = {}) {
+    eglt::MutexLock lock(&mu_);
+    std::string sha1;
+    if (!scripts_.contains(name)) {
+      return absl::NotFoundError(absl::StrCat("Script not found: ", name));
+    }
+    const Script& script = scripts_.at(name);
+    sha1 = script.sha1;
+
+    const std::string num_keys_str = absl::StrCat(script_keys.size());
+    CommandArgs evalsha_args;
+    evalsha_args.reserve(script_keys.size() + script_args.size() + 2);
+    evalsha_args.push_back(sha1);
+    evalsha_args.push_back(num_keys_str);
+    evalsha_args.insert(evalsha_args.end(),
+                        std::make_move_iterator(script_keys.begin()),
+                        std::make_move_iterator(script_keys.end()));
+    evalsha_args.insert(evalsha_args.end(),
+                        std::make_move_iterator(script_args.begin()),
+                        std::make_move_iterator(script_args.end()));
+    return ExecuteCommandWithGuards("EVALSHA", evalsha_args);
+  }
+
   absl::StatusOr<absl::flat_hash_map<std::string, std::optional<int64_t>>>
   ZRange(std::string_view key, int64_t start, int64_t end,
-         bool withscores = false) const {
+         bool withscores = false) {
     eglt::MutexLock lock(&mu_);
     CommandArgs args;
     args.reserve(4);
@@ -165,7 +226,7 @@ class Redis {
     if (withscores) {
       args.push_back("WITHSCORES");
     }
-    ASSIGN_OR_RETURN(Reply reply, ExecuteCommandInternal("ZRANGE", args));
+    ASSIGN_OR_RETURN(Reply reply, ExecuteCommandWithGuards("ZRANGE", args));
     if (reply.type != ReplyType::Array) {
       return absl::InternalError(absl::StrCat(
           "Expected an array reply after ZRANGE, got: ", reply.type));
@@ -190,205 +251,91 @@ class Redis {
     return result;
   }
 
-  absl::StatusOr<Reply> ExecuteScript(std::string_view name,
-                                      CommandArgs script_keys = {},
-                                      CommandArgs script_args = {}) const {
-    eglt::MutexLock lock(&mu_);
-    std::string sha1;
-    if (!scripts_.contains(name)) {
-      return absl::NotFoundError(absl::StrCat("Script not found: ", name));
-    }
-    const Script& script = scripts_.at(name);
-    sha1 = script.sha1;
+  absl::StatusOr<std::shared_ptr<Subscription>> Subscribe(
+      std::string_view channel,
+      absl::AnyInvocable<void(Reply)> on_message = {});
 
-    const std::string num_keys_str = absl::StrCat(script_keys.size());
-    CommandArgs evalsha_args;
-    evalsha_args.reserve(script_keys.size() + script_args.size() + 2);
-    evalsha_args.push_back(sha1);
-    evalsha_args.push_back(num_keys_str);
-    evalsha_args.insert(evalsha_args.end(),
-                        std::make_move_iterator(script_keys.begin()),
-                        std::make_move_iterator(script_keys.end()));
-    evalsha_args.insert(evalsha_args.end(),
-                        std::make_move_iterator(script_args.begin()),
-                        std::make_move_iterator(script_args.end()));
-    return ExecuteCommandInternal("EVALSHA", evalsha_args);
-  }
+  absl::StatusOr<HelloReply> Hello(int protocol_version = 3,
+                                   std::string_view client_name = "",
+                                   std::string_view username = "",
+                                   std::string_view password = "");
 
-  absl::StatusOr<Reply> ExecuteScript(
-      std::string_view name, const CommandArgs& script_keys = {},
-      std::initializer_list<std::string_view> script_args = {}) const {
-    return ExecuteScript(name, script_keys, CommandArgs(script_args));
-  }
-  template <typename... Args>
-  absl::StatusOr<Reply> ExecuteScript(std::string_view name,
-                                      const CommandArgs& script_keys,
-                                      std::string_view arg0,
-                                      Args&&... args) const {
-    return ExecuteScript(
-        name, script_keys,
-        std::vector<std::string_view>{arg0, std::forward<Args>(args)...});
-  }
+  absl::StatusOr<Reply> ExecuteCommand(std::string_view command,
+                                       const CommandArgs& args = {});
 
-  absl::StatusOr<std::vector<Reply>> Exec() const {
-    eglt::MutexLock lock(&mu_);
-    ASSIGN_OR_RETURN(Reply reply, ExecuteCommandInternal("EXEC"));
-    if (reply.type == ReplyType::Nil) {
-      return absl::InternalError(
-          "EXEC returned a nil reply, which indicates that the transaction "
-          "was "
-          "discarded or no commands were executed.");
-    }
-    if (reply.type != ReplyType::Array) {
-      return absl::InternalError(absl::StrCat(
-          "Expected an array reply after EXEC, got: ", reply.type));
-    }
-    return ConvertTo<std::vector<Reply>>(std::move(reply));
-  }
+  explicit Redis(internal::PrivateConstructorTag _) {}
 
-  absl::Status Watch(std::initializer_list<std::string_view> keys) const {
-    eglt::MutexLock lock(&mu_);
-    ASSIGN_OR_RETURN(Reply reply, ExecuteCommandInternal("WATCH", keys));
-    ASSIGN_OR_RETURN(auto status_string,
-                     ConvertTo<std::string>(std::move(reply)));
-    if (status_string != "OK") {
-      return absl::InternalError(
-          absl::StrCat("Expected OK after WATCH, got: ", status_string));
+ private:
+  bool ParseReply(redisReply* absl_nonnull hiredis_reply,
+                  Reply* absl_nonnull reply_out)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  absl::Status CheckConnected() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    if (!connected_) {
+      return absl::FailedPreconditionError(
+          "Redis is not connected to the Redis server.");
     }
     return absl::OkStatus();
   }
 
-  absl::StatusOr<int> Publish(std::string_view channel,
-                              std::string_view message) const;
-  template <typename T>
-  absl::StatusOr<int> Publish(std::string_view channel, T&& message) const {
-    ASSIGN_OR_RETURN(const std::string message_str,
-                     ToString(std::forward<T>(message)));
-    return Publish(channel, std::string_view(message_str));
+  absl::StatusOr<Reply> ExecuteCommandWithGuards(std::string_view command,
+                                                 const CommandArgs& args = {})
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    if (command.empty()) {
+      return absl::InvalidArgumentError("Command cannot be empty.");
+    }
+    RETURN_IF_ERROR(status_);
+    RETURN_IF_ERROR(CheckConnected());
+
+    ++num_pending_commands_;
+    absl::StatusOr<Reply> reply = ExecuteCommandInternal(command, args);
+    --num_pending_commands_;
+    cv_.SignalAll();
+
+    return reply;
   }
 
-  void Unsubscribe(std::string_view channel = "") {
-    eglt::MutexLock lock(&mu_);
-    if (channel.empty()) {
-      CHECK_OK(ExecuteCommandInternal("UNSUBSCRIBE", {}).status());
-    } else {
-      CHECK_OK(ExecuteCommandInternal("UNSUBSCRIBE", channel).status());
-    }
-    auto it = subscriptions_.find(channel);
-    if (it != subscriptions_.end()) {
-      it->second->Unsubscribe();  // Notify the subscription.
-      subscriptions_.erase(it);   // Remove the subscription.
-    }
-  }
-
-  std::shared_ptr<Subscription> Subscribe(
-      std::string_view channel,
-      size_t capacity = Subscription::kDefaultChannelCapacity) {
-    eglt::MutexLock lock(&mu_);
-    if (const auto it = subscriptions_.find(channel);
-        it != subscriptions_.end()) {
-      return it->second;
-    }
-
-    auto subscription = std::make_shared<Subscription>(capacity);
-    subscriptions_.emplace(channel,
-                           subscription);  // Store the subscription.
-
-    CHECK_OK(ExecuteCommandInternal("SUBSCRIBE", channel).status());
-    return subscription;
-  }
-
-  std::shared_ptr<Subscription> Subscribe(
-      std::string_view channel,
-      absl::AnyInvocable<void(Reply)> on_message = {}) {
-    eglt::MutexLock lock(&mu_);
-    if (const auto it = subscriptions_.find(channel);
-        it != subscriptions_.end()) {
-      return it->second;
-    }
-
-    auto subscription = std::make_shared<Subscription>(std::move(on_message));
-    subscriptions_.emplace(channel,
-                           subscription);  // Store the subscription.
-
-    CHECK_OK(ExecuteCommandInternal("SUBSCRIBE", channel).status());
-    return subscription;
-  }
-
-  absl::Status GetPushReplyStatus() const;
-  [[nodiscard]] thread::Reader<PushReplyData>* GetPushReplyReader();
-  [[nodiscard]] redisContext* GetContext() const;
-
-  explicit Redis(internal::PrivateConstructorTag _,
-                 size_t push_reply_channel_capacity = 64);
-
- private:
   absl::StatusOr<Reply> ExecuteCommandInternal(std::string_view command,
-                                               const CommandArgs& args) const
+                                               const CommandArgs& args = {})
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  absl::StatusOr<Reply> ExecuteCommandInternal(
-      std::string_view command,
-      std::initializer_list<std::string_view> args = {}) const
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  // Instance versions of the static callbacks.
+  void OnConnect(int status) ABSL_LOCKS_EXCLUDED(mu_);
 
-  template <typename... Args>
-  absl::StatusOr<Reply> ExecuteCommandInternal(std::string_view command,
-                                               std::string_view arg0,
-                                               Args&&... args) const
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  void OnDisconnect(int status) ABSL_LOCKS_EXCLUDED(mu_);
 
-  void SetContext(
-      std::unique_ptr<redisContext, internal::RedisContextDeleter> context);
-  [[nodiscard]] std::string_view GetContextErrorMessage() const;
+  void OnPubsubReply(void* absl_nonnull hiredis_reply,
+                     Subscription* absl_nonnull subscription)
+      ABSL_LOCKS_EXCLUDED(mu_);
 
-  static void HandlePushReply(void* absl_nonnull privdata,
-                              void* absl_nonnull hiredis_reply)
-      ABSL_NO_THREAD_SAFETY_ANALYSIS;
-  void ClosePushReplyWriter() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  void OnPushReply(redisReply* absl_nonnull hiredis_reply)
+      ABSL_LOCKS_EXCLUDED(mu_);
 
   mutable eglt::Mutex mu_;
-  std::unique_ptr<redisContext, internal::RedisContextDeleter> context_;
+  eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
 
-  thread::Channel<PushReplyData> push_reply_channel_;
-  absl::Status push_reply_status_ ABSL_GUARDED_BY(mu_);
-  bool push_replies_closed_ ABSL_GUARDED_BY(mu_) = false;
-  std::string key_prefix_ ABSL_GUARDED_BY(mu_) = "eglt:redis:";
+  internal::EventLoop event_loop_ ABSL_GUARDED_BY(mu_);
+
+  std::string key_prefix_ ABSL_GUARDED_BY(mu_) = "eglt:";
+  size_t num_pending_commands_ ABSL_GUARDED_BY(mu_) = 0;
+  thread::PermanentEvent disconnect_event_ ABSL_GUARDED_BY(mu_);
+  bool connected_ ABSL_GUARDED_BY(mu_) = false;
+  absl::Status status_ ABSL_GUARDED_BY(mu_) = absl::OkStatus();
 
   absl::flat_hash_map<std::string, std::shared_ptr<Subscription>> subscriptions_
       ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, Script> scripts_ ABSL_GUARDED_BY(mu_);
+  std::unique_ptr<redisAsyncContext, internal::RedisContextDeleter> context_;
 };
 
-template <typename... Args>
-absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
-                                                    std::string_view arg0,
-                                                    Args&&... args) const
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-  const std::initializer_list<std::string_view> command_args{
-      arg0, std::forward<Args>(args)...};
-  return ExecuteCommandInternal(command, command_args);
-}
-
 template <typename T>
-absl::StatusOr<T> Redis::Get(std::string_view key) const {
+absl::StatusOr<T> Redis::Get(std::string_view key) {
   ASSIGN_OR_RETURN(Reply reply, Get(key));
   return ConvertTo<T>(reply);
 }
 
 template <>
-inline absl::StatusOr<std::string> Redis::Get(std::string_view key) const {
-  ASSIGN_OR_RETURN(Reply reply, Get(key));
-  if (reply.type != ReplyType::String) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Expected reply type REDIS_REPLY_STRING, got ", reply.type));
-  }
-  return reply.ConsumeStringContentOrDie();
-}
-
-template <>
-inline absl::Status Redis::Set(std::string_view key,
-                               const std::string& value) const {
+inline absl::Status Redis::Set(std::string_view key, const std::string& value) {
   return Set(key, std::string_view(value));
 }
 

@@ -174,7 +174,7 @@ class ChunkStore final : public eglt::ChunkStore {
 
     ASSIGN_OR_RETURN(
         Reply reply,
-        redis_->ExecuteScript("CHUNK STORE CLOSE WRITES", keys, arg_status));
+        redis_->ExecuteScript("CHUNK STORE CLOSE WRITES", keys, {arg_status}));
     if (reply.IsError()) {
       return std::get<ErrorReplyData>(reply.data).AsAbslStatus();
     }
@@ -188,7 +188,7 @@ class ChunkStore final : public eglt::ChunkStore {
   absl::StatusOr<size_t> Size() override {
     const std::string offset_to_seq_key = GetKey("offset_to_seq");
     ASSIGN_OR_RETURN(Reply reply,
-                     redis_->ExecuteCommand("ZCARD", offset_to_seq_key));
+                     redis_->ExecuteCommand("ZCARD", {offset_to_seq_key}));
     return ConvertToOrDie<int64_t>(std::move(reply));
   }
 
@@ -196,7 +196,7 @@ class ChunkStore final : public eglt::ChunkStore {
     const std::string seq_to_id_key = GetKey("seq_to_id");
     ASSIGN_OR_RETURN(
         Reply reply,
-        redis_->ExecuteCommand("HEXISTS", seq_to_id_key, absl::StrCat(seq)));
+        redis_->ExecuteCommand("HEXISTS", {seq_to_id_key, absl::StrCat(seq)}));
     if (reply.type == ReplyType::Error) {
       return std::get<ErrorReplyData>(reply.data).AsAbslStatus();
     }
@@ -229,7 +229,7 @@ class ChunkStore final : public eglt::ChunkStore {
   absl::StatusOr<int64_t> GetFinalSeq() override {
     const std::string final_seq_key = GetKey("final_seq");
     ASSIGN_OR_RETURN(const Reply reply,
-                     redis_->ExecuteCommand("GET", final_seq_key));
+                     redis_->ExecuteCommand("GET", {final_seq_key}));
     if (reply.type == ReplyType::Nil) {
       return -1;  // No final sequence set.
     }

@@ -73,40 +73,49 @@ struct NilReplyData {};
 
 struct StatusReplyData {
   [[nodiscard]] std::string Consume() { return std::move(value); }
+
   absl::Status AsAbslStatus() const { return {absl::StatusCode::kOk, value}; }
+
   std::string value{};
 };
 
 struct ErrorReplyData {
   [[nodiscard]] std::string Consume() { return std::move(value); }
+
   absl::Status AsAbslStatus() const {
     return {absl::StatusCode::kInternal, value};
   }
+
   std::string value{};
 };
 
 struct IntegerReplyData {
   [[nodiscard]] int64_t Consume() const { return value; }
+
   int64_t value{0};
 };
 
 struct StringReplyData {
   [[nodiscard]] std::string Consume() { return std::move(value); }
+
   std::string value{};
 };
 
 struct BoolReplyData {
   [[nodiscard]] bool Consume() const { return value; }
+
   bool value{false};
 };
 
 struct DoubleReplyData {
   [[nodiscard]] double Consume() const { return value; }
+
   double value{0.0};
 };
 
 struct BigNumReplyData {
   [[nodiscard]] std::string Consume() { return std::move(value); }
+
   std::string value{};
 };
 
@@ -127,7 +136,7 @@ struct ArrayReplyData {
   [[nodiscard]] std::vector<Reply> Consume();
   [[nodiscard]] absl::flat_hash_map<std::string, Reply> ConsumeAsMapOrDie();
 
-  std::vector<Reply> values;
+  std::vector<Reply> values{};
 };
 
 struct MapReplyData {

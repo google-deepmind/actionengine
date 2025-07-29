@@ -34,67 +34,6 @@ static constexpr redisOptions GetDefaultRedisOptions() {
   return options;
 }
 
-Redis::Redis(internal::PrivateConstructorTag _,
-             size_t push_reply_channel_capacity)
-    : push_reply_channel_(push_reply_channel_capacity) {}
-
-Redis::~Redis() {
-  eglt::MutexLock lock(&mu_);
-  ClosePushReplyWriter();
-}
-
-absl::StatusOr<Reply> Redis::ExecuteCommandInternal(
-    std::string_view command, const CommandArgs& args) const
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-  std::vector<size_t> arg_lengths;
-  std::vector<const char*> arg_values;
-  arg_lengths.reserve(args.size() + 1);
-  arg_values.reserve(args.size() + 1);
-
-  arg_lengths.push_back(command.size());
-  arg_values.push_back(command.data());
-
-  for (const auto& arg : args) {
-    arg_lengths.push_back(arg.size());
-    arg_values.push_back(arg.data());
-  }
-
-  if (args.size() == 0) {
-    redisAppendCommand(context_.get(), command.data());
-  } else {
-    redisAppendCommandArgv(context_.get(), static_cast<int>(arg_values.size()),
-                           arg_values.data(), arg_lengths.data());
-  }
-
-  if (command == "SUBSCRIBE" || command == "PSUBSCRIBE" ||
-      command == "UNSUBSCRIBE" || command == "PUNSUBSCRIBE") {
-    // For subscription commands, we don't expect an immediate reply.
-    return Reply{.type = ReplyType::Nil, .data = NilReplyData{}};
-  }
-
-  void* hiredis_reply = nullptr;
-  if (redisGetReply(context_.get(), &hiredis_reply) != REDIS_OK) {
-    return absl::InternalError(
-        absl::StrCat("Failed to execute command: ", command, ". ",
-                     GetContextErrorMessage()));
-  }
-
-  if (hiredis_reply == nullptr) {
-    return absl::InternalError(
-        absl::StrCat("Failed to execute command: ", command, ". ",
-                     GetContextErrorMessage()));
-  }
-
-  return ParseHiredisReply(static_cast<redisReply*>(hiredis_reply));
-}
-
-absl::StatusOr<Reply> Redis::ExecuteCommandInternal(
-    std::string_view command,
-    std::initializer_list<std::string_view> args) const
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-  return ExecuteCommandInternal(command, std::vector(std::move(args)));
-}
-
 absl::StatusOr<HelloReply> HelloReply::From(Reply reply) {
   HelloReply hello_reply;
   if (reply.type != ReplyType::Array && reply.type != ReplyType::Map) {
@@ -139,10 +78,183 @@ absl::StatusOr<HelloReply> HelloReply::From(Reply reply) {
   return hello_reply;
 }
 
+void Redis::ConnectCallback(const redisAsyncContext* context, int status) {
+  DLOG(INFO) << "Redis::ConnectCallback called with status: " << status;
+  const auto redis = static_cast<Redis*>(context->data);
+  CHECK(redis != nullptr)
+      << "Redis::ConnectCallback called with redisAsyncContext not "
+         "bound to Redis instance.";
+  redis->OnConnect(status);
+}
+
+void Redis::DisconnectCallback(const redisAsyncContext* context,
+                                    int status) {
+  const auto redis = static_cast<Redis*>(context->data);
+  CHECK(redis != nullptr)
+      << "Redis::DisconnectCallback called with redisAsyncContext not "
+         "bound to Redis instance.";
+  redis->OnDisconnect(status);
+}
+
+void Redis::PubsubCallback(redisAsyncContext* context, void* hiredis_reply,
+                                void* privdata) {
+  const auto redis = static_cast<Redis*>(context->data);
+  CHECK(redis != nullptr)
+      << "Redis::PubsubCallback called with redisAsyncContext not "
+         "bound to Redis instance.";
+
+  const auto subscription = static_cast<Subscription*>(privdata);
+  if (hiredis_reply == nullptr) {
+    LOG(WARNING) << "Received null reply in PubsubCallback for subscription at "
+                 << subscription;
+    return;
+  }
+
+  return redis->OnPubsubReply(hiredis_reply, subscription);
+}
+
+void Redis::ReplyCallback(redisAsyncContext* context, void* hiredis_reply,
+                               void* privdata) {
+  const auto redis = static_cast<Redis*>(context->data);
+  CHECK(redis != nullptr)
+      << "Redis::ReplyCallback called with redisAsyncContext not "
+         "bound to Redis instance.";
+
+  auto future = static_cast<internal::ReplyFuture*>(privdata);
+  CHECK(future != nullptr)
+      << "Redis::ReplyCallback called with null privdata (expected "
+         "internal::ReplyFuture).";
+
+  if (hiredis_reply == nullptr) {
+    future->status = absl::InternalError(
+        "Received null reply in ReplyCallback. "
+        "This may indicate a connection error.");
+    future->event.Notify();
+    return;
+  }
+
+  absl::StatusOr<Reply> reply =
+      ParseHiredisReply(static_cast<redisReply*>(hiredis_reply), /*free=*/true);
+  if (!reply.ok()) {
+    future->status = reply.status();
+    LOG(ERROR) << "Failed to parse reply in ReplyCallback: "
+               << future->status.message();
+    future->event.Notify();
+    return;
+  }
+  future->reply = std::move(*reply);
+  future->status = absl::OkStatus();
+  future->event.Notify();
+}
+
+void Redis::PushReplyCallback(redisAsyncContext* context,
+                                   void* hiredis_reply) {
+  DLOG(INFO) << "Redis::PushReplyCallback called with redisAsyncContext: "
+             << context;
+  const auto redis = static_cast<Redis*>(context->data);
+  CHECK(redis != nullptr)
+      << "Redis::DisconnectCallback called with redisAsyncContext not "
+         "bound to Redis instance.";
+  redis->OnPushReply(static_cast<redisReply*>(hiredis_reply));
+}
+
+absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(
+    std::string_view host, int port) {
+  auto redis = std::make_unique<Redis>(internal::PrivateConstructorTag{});
+
+  redisOptions options{};
+  options.options |= REDIS_OPT_NO_PUSH_AUTOFREE;
+  options.options |= REDIS_OPT_NONBLOCK;
+  options.options |= REDIS_OPT_NOAUTOFREEREPLIES;
+  options.options |= REDIS_OPT_NOAUTOFREE;
+  REDIS_OPTIONS_SET_TCP(&options, std::string(host).c_str(), port);
+  REDIS_OPTIONS_SET_PRIVDATA(&options, redis.get(), [](void*) {});
+
+  redisAsyncContext* context_ptr = redisAsyncConnectWithOptions(&options);
+  std::unique_ptr<redisAsyncContext, internal::RedisContextDeleter>
+      context(context_ptr);
+  if (context == nullptr) {
+    return absl::InternalError("Could not allocate async redis context.");
+  }
+  if (context->err) {
+    return absl::InternalError(context->errstr);
+  }
+
+  context->data = redis.get();
+  eglt::MutexLock lock(&redis->mu_);
+  redis->context_ = std::move(context);
+  DLOG(INFO) << "Connecting to Redis at " << host << ":" << port;
+
+  redisLibuvAttach(redis->context_.get(), redis->event_loop_.Get()->raw());
+
+  redisAsyncSetConnectCallback(redis->context_.get(),
+                               Redis::ConnectCallback);
+  redisAsyncSetDisconnectCallback(redis->context_.get(),
+                                  Redis::DisconnectCallback);
+  redisAsyncSetPushCallback(redis->context_.get(),
+                            Redis::PushReplyCallback);
+
+  while (!redis->connected_ && redis->status_.ok()) {
+    redis->cv_.Wait(&redis->mu_);
+  }
+
+  redis->mu_.Unlock();
+  RETURN_IF_ERROR(redis->Hello().status());
+  redis->mu_.Lock();
+
+  if (!redis->status_.ok()) {
+    return redis->status_;
+  }
+
+  return redis;
+}
+
+Redis::~Redis() {
+  eglt::MutexLock lock(&mu_);
+  while (num_pending_commands_ > 0) {
+    cv_.Wait(&mu_);
+  }
+}
+
+absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
+    std::string_view channel, absl::AnyInvocable<void(Reply)> on_message) {
+  eglt::MutexLock lock(&mu_);
+
+  if (channel.empty()) {
+    LOG(ERROR) << "Subscribe called with empty channel.";
+    return nullptr;
+  }
+
+  if (subscriptions_.contains(channel)) {
+    LOG(INFO) << "Already subscribed to channel: " << channel;
+    return subscriptions_[channel];
+  }
+
+  std::shared_ptr<Subscription> subscription;
+  if (on_message) {
+    // If a callback is provided, create a subscription with the callback.
+    subscription = std::make_shared<Subscription>(std::move(on_message));
+  } else {
+    // Otherwise, create a subscription without a callback.
+    subscription = std::make_shared<Subscription>();
+  }
+  subscriptions_[channel] = subscription;
+
+  ASSIGN_OR_RETURN(const Reply reply,
+                   ExecuteCommandInternal("SUBSCRIBE", {channel}));
+  if (reply.type != ReplyType::Nil) {
+    LOG(ERROR) << "Unexpected reply type for SUBSCRIBE command: "
+               << static_cast<int>(reply.type);
+    return absl::InternalError("Unexpected reply type for SUBSCRIBE command.");
+  }
+
+  return subscription;
+}
+
 absl::StatusOr<HelloReply> Redis::Hello(int protocol_version,
-                                        std::string_view client_name,
-                                        std::string_view username,
-                                        std::string_view password) const {
+                                             std::string_view client_name,
+                                             std::string_view username,
+                                             std::string_view password) {
   eglt::MutexLock lock(&mu_);
   if (protocol_version != 2 && protocol_version != 3) {
     return absl::InvalidArgumentError(
@@ -171,160 +283,181 @@ absl::StatusOr<HelloReply> Redis::Hello(int protocol_version,
   return hello_reply;
 }
 
-absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
-                                                      int port) {
-  auto redis = std::make_unique<Redis>(internal::PrivateConstructorTag{});
-
-  redisOptions options = GetDefaultRedisOptions();
-  options.options |= REDIS_OPT_NO_PUSH_AUTOFREE;
-  REDIS_OPTIONS_SET_TCP(&options, std::string(host).c_str(), port);
-  REDIS_OPTIONS_SET_PRIVDATA(&options, redis.get(), [](void*) {});
-
-  redisContext* context = redisConnectWithOptions(&options);
-  if (context == nullptr) {
-    return absl::InternalError("Could not allocate redis context.");
-  }
-  if (context->err) {
-    return absl::InternalError(context->errstr);
-  }
-
-  redis->SetContext(
-      std::unique_ptr<redisContext, internal::RedisContextDeleter>(context));
-
-  redisSetPushCallback(context, Redis::HandlePushReply);
-
-  RETURN_IF_ERROR(redis->Hello().status());
-
-  return redis;
-}
-
-absl::Status Redis::Ping(std::string_view expected_message) const {
+absl::StatusOr<Reply> Redis::ExecuteCommand(std::string_view command,
+                                                 const CommandArgs& args) {
   eglt::MutexLock lock(&mu_);
-  ASSIGN_OR_RETURN(Reply reply,
-                   ExecuteCommandInternal("PING", expected_message));
-  const std::string ping_reply = reply.ConsumeStringContentOrDie();
-  if (ping_reply != expected_message) {
-    return absl::InternalError(
-        absl::StrCat("Unexpected PING reply: ", ping_reply));
-  }
-  return absl::OkStatus();
+  return ExecuteCommandWithGuards(command, args);
 }
 
-absl::StatusOr<Reply> Redis::Get(std::string_view key) const {
-  eglt::MutexLock lock(&mu_);
-  return ExecuteCommandInternal("GET", key);
-}
+bool Redis::ParseReply(redisReply* hiredis_reply, Reply* reply_out) {
+  mu_.Unlock();
+  absl::StatusOr<Reply> reply = ParseHiredisReply(hiredis_reply, /*free=*/true);
+  mu_.Lock();
 
-absl::Status Redis::Set(std::string_view key, std::string_view value) const {
-  eglt::MutexLock lock(&mu_);
-  ASSIGN_OR_RETURN(const Reply reply,
-                   ExecuteCommandInternal("SET", key, value));
-  return GetStatusOrErrorFrom(reply);
-}
-
-absl::StatusOr<int> Redis::Publish(std::string_view channel,
-                                   std::string_view message) const {
-  eglt::MutexLock lock(&mu_);
-  ASSIGN_OR_RETURN(const Reply reply,
-                   ExecuteCommandInternal("PUBLISH", channel, message));
-  return reply.ToInt();
-}
-
-absl::Status Redis::GetPushReplyStatus() const {
-  eglt::MutexLock lock(&mu_);
-  return push_reply_status_;
-}
-
-thread::Reader<PushReplyData>* Redis::GetPushReplyReader() {
-  return push_reply_channel_.reader();
-}
-
-redisContext* Redis::GetContext() const {
-  return context_.get();
-}
-
-std::string_view Redis::GetContextErrorMessage() const {
-  if (context_->err) {
-    return {context_->errstr};
-  }
-  return "";
-}
-
-void Redis::SetContext(
-    std::unique_ptr<redisContext, internal::RedisContextDeleter> context) {
-  context_ = std::move(context);
-}
-
-void Redis::HandlePushReply(void* absl_nonnull privdata,
-                            void* absl_nonnull hiredis_reply)
-    ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  const auto redis = static_cast<Redis*>(privdata);
-  CHECK(redis != nullptr);
-
-  if (hiredis_reply == nullptr) {
-    return;
-  }
-  absl::StatusOr<Reply> reply =
-      ParseHiredisReply(static_cast<redisReply*>(hiredis_reply));
-
-  if (!redis->push_reply_status_.ok()) {
-    // If we have a previous error, we don't process further replies.
-    return;
-  }
-
-  if (redis->push_replies_closed_) {
-    LOG(WARNING) << "Push reply received after push replies were closed. "
-                 << "This is unexpected and may indicate a bug in the client.";
+  if (!status_.ok()) {
+    LOG(ERROR) << "Cannot parse reply because Redis is in an error state: "
+               << status_.message();
+    return false;
   }
 
   if (!reply.ok()) {
-    // An error means no further replies will be processed.
-    LOG(ERROR) << "Error processing push reply: " << reply.status();
-    redis->push_reply_status_ = reply.status();
-    redis->ClosePushReplyWriter();
-    return;
+    status_ = reply.status();
+    LOG(ERROR) << "Failed to parse reply: " << reply.status().message();
+    return false;
   }
 
-  DCHECK(reply->type == ReplyType::Push)
-      << "Expected a Push reply, got type coded as: "
-      << static_cast<int>(reply->type);
-
-  const auto& [_, value_array] = std::get<PushReplyData>(reply->data);
-  const std::string_view message_type =
-      std::get<StringReplyData>(value_array.values[0].data).value;
-
-  // Route to subscription channels if any.
-  if (message_type == "message" || message_type == "subscribe" ||
-      message_type == "unsubscribe") {
-    const std::string_view channel_name =
-        std::get<StringReplyData>(value_array.values[1].data).value;
-    const std::shared_ptr<Subscription> subscription =
-        FindOrDie(redis->subscriptions_, channel_name);
-
-    if (message_type == "subscribe") {
-      subscription->Subscribe();
-      return;
-    }
-    if (message_type == "unsubscribe") {
-      subscription->Unsubscribe();
-      return;
-    }
-    Reply message_content = std::move(value_array.values[2]);
-    subscription->Message(std::move(message_content));
-    return;
-  }
-
-  // If not a subscription message, we push the reply to the push reply channel.
-  redis->push_reply_channel_.writer()->WriteUnlessCancelled(
-      std::move(std::get<PushReplyData>(reply->data)));
+  *reply_out = std::move(*reply);
+  return true;
 }
 
-void Redis::ClosePushReplyWriter() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-  if (push_replies_closed_) {
+absl::StatusOr<Reply> Redis::ExecuteCommandInternal(
+    std::string_view command, const CommandArgs& args) {
+  std::vector<size_t> arg_lengths;
+  std::vector<const char*> arg_values;
+  arg_lengths.reserve(args.size() + 1);
+  arg_values.reserve(args.size() + 1);
+
+  arg_lengths.push_back(command.size());
+  arg_values.push_back(command.data());
+
+  for (const auto& arg : args) {
+    arg_lengths.push_back(arg.size());
+    arg_values.push_back(arg.data());
+  }
+
+  bool subscribe = false;
+  internal::ReplyFuture future;
+  void* privdata = &future;
+  redisCallbackFn* callback = Redis::ReplyCallback;
+
+  // Subscription callbacks are handled differently: they are called
+  // multiple times, once for each message received.
+  if (command == "SUBSCRIBE" || command == "PSUBSCRIBE") {
+    if (args.size() != 1) {
+      return absl::InvalidArgumentError(
+          "SUBSCRIBE and PSUBSCRIBE commands are only supported for one "
+          "channel at a time.");
+    }
+    subscribe = true;
+    if (subscriptions_.contains(args[0])) {
+      privdata = subscriptions_[args[0]].get();
+    } else {
+      // Create a new subscription.
+      auto subscription = std::make_shared<Subscription>();
+      privdata = subscription.get();
+      subscriptions_[args[0]] = std::move(subscription);
+    }
+    callback = Redis::PubsubCallback;
+  }
+
+  // mu_.Unlock();
+  if (args.empty()) {
+    redisAsyncCommand(context_.get(), callback, privdata, command.data());
+  } else {
+    redisAsyncCommandArgv(context_.get(), callback, privdata,
+                          static_cast<int>(arg_values.size()),
+                          arg_values.data(), arg_lengths.data());
+  }
+  // mu_.Lock();
+
+  if (subscribe) {
+    // For subscription commands, we don't expect an immediate reply.
+    const auto subscription = static_cast<Subscription*>(privdata);
+    mu_.Unlock();
+    thread::Select({subscription->OnSubscribe()});
+    mu_.Lock();
+    return Reply{.type = ReplyType::Nil, .data = NilReplyData{}};
+  }
+
+  mu_.Unlock();
+  // Wait for the reply to be processed.
+  thread::Select({thread::OnCancel(), future.event.OnEvent()});
+  mu_.Lock();
+
+  if (thread::Cancelled()) {
+    return absl::CancelledError("Redis command was cancelled.");
+  }
+  RETURN_IF_ERROR(future.status);
+  return std::move(future.reply);
+}
+
+void Redis::OnConnect(int status) {
+  eglt::MutexLock lock(&mu_);
+  LOG(INFO) << "OnConnect called with status: " << status;
+  if (status != REDIS_OK) {
+    status_ = absl::InternalError("Failed to connect to Redis server.");
+    connected_ = false;
+  } else {
+    status_ = absl::OkStatus();
+    connected_ = true;
+  }
+  cv_.SignalAll();
+  // TODO: attempt to reconnect
+}
+
+void Redis::OnDisconnect(int status) {
+  eglt::MutexLock lock(&mu_);
+  if (status != REDIS_OK) {
+    status_ = absl::InternalError("Disconnected from Redis server.");
+    connected_ = false;
+    // TODO: attempt to reconnect
+  } else {
+    status_ = absl::OkStatus();
+    connected_ = false;
+  }
+  cv_.SignalAll();
+}
+
+void Redis::OnPubsubReply(void* hiredis_reply,
+                               Subscription* subscription) {
+  eglt::MutexLock lock(&mu_);
+
+  Reply reply;
+  if (!ParseReply(static_cast<redisReply*>(hiredis_reply), &reply)) {
+    LOG(ERROR) << "Failed to parse pubsub reply for subscription at "
+               << subscription;
     return;
   }
-  push_replies_closed_ = true;
-  push_reply_channel_.writer()->Close();
+
+  auto reply_elements = ConvertToOrDie<std::vector<Reply>>(std::move(reply));
+  if (reply_elements.empty()) {
+    LOG(WARNING)
+        << "Received empty reply in PubsubCallback for subscription at "
+        << subscription;
+    return;
+  }
+
+  if (const auto message_type = ConvertToOrDie<std::string>(reply_elements[0]);
+      message_type == "subscribe" || message_type == "psubscribe") {
+    subscription->Subscribe();
+  } else if (message_type == "unsubscribe" || message_type == "punsubscribe") {
+    subscription->Unsubscribe();
+  } else {
+    // For regular messages, we pass the reply to the subscription.
+    subscription->Message(std::move(reply_elements[2]));
+  }
+}
+
+void Redis::OnPushReply(redisReply* hiredis_reply) {
+  eglt::MutexLock lock(&mu_);
+  Reply reply;
+  if (!ParseReply(hiredis_reply, &reply)) {
+    LOG(ERROR) << "Failed to parse push reply.";
+    return;
+  }
+  // Process the reply as needed.
+}
+
+absl::StatusOr<Reply> Redis::Get(std::string_view key) {
+  eglt::MutexLock lock(&mu_);
+  return ExecuteCommandWithGuards("GET", {key});
+}
+
+absl::Status Redis::Set(std::string_view key, std::string_view value) {
+  eglt::MutexLock lock(&mu_);
+  ASSIGN_OR_RETURN(const Reply reply,
+                   ExecuteCommandWithGuards("SET", {key, value}));
+  return GetStatusOrErrorFrom(reply);
 }
 
 }  // namespace eglt::redis

@@ -55,17 +55,21 @@ ChunkStore::ChunkStore(Redis* redis, std::string_view id, absl::Duration ttl)
     LOG(FATAL) << "Failed to register chunk store scripts: "
                << registration_status;
   }
-  subscription_ = redis_->Subscribe(GetKey("events"), [this](Reply reply) {
-    auto event_message = ConvertTo<std::string>(std::move(reply));
-    if (!event_message.ok()) {
-      LOG(ERROR) << "Failed to convert reply to string: "
-                 << event_message.status();
-      return;
-    }
-    auto event = ChunkStoreEvent::FromString(event_message.value());
-    eglt::MutexLock lock(&mu_);
-    cv_.SignalAll();
-  });
+  absl::StatusOr<std::shared_ptr<Subscription>> subscription =
+      redis_->Subscribe(GetKey("events"), [this](Reply reply) {
+        auto event_message = ConvertTo<std::string>(std::move(reply));
+        if (!event_message.ok()) {
+          LOG(ERROR) << "Failed to convert reply to string: "
+                     << event_message.status();
+          return;
+        }
+        auto event = ChunkStoreEvent::FromString(event_message.value());
+        eglt::MutexLock lock(&mu_);
+        cv_.SignalAll();
+      });
+  CHECK_OK(subscription.status())
+      << "Failed to subscribe to chunk store events: " << subscription.status();
+  subscription_ = std::move(subscription.value());
 }
 
 absl::Status ChunkStore::Put(int64_t seq, Chunk chunk, bool final) {
@@ -91,9 +95,9 @@ absl::Status ChunkStore::Put(int64_t seq, Chunk chunk, bool final) {
                                   : absl::StrCat(absl::ToInt64Seconds(ttl_));
   const std::string arg_status_ttl = absl::StrCat(60 * 60 * 24 * 2);  // 2 days
 
-  absl::StatusOr<Reply> reply =
-      redis_->ExecuteScript("CHUNK STORE PUT", keys, arg_seq, arg_data,
-                            arg_final, arg_ttl, arg_status_ttl);
+  absl::StatusOr<Reply> reply = redis_->ExecuteScript(
+      "CHUNK STORE PUT", keys,
+      {arg_seq, arg_data, arg_final, arg_ttl, arg_status_ttl});
   if (!reply.ok()) {
     return reply.status();
   }
@@ -115,7 +119,7 @@ absl::StatusOr<std::optional<Chunk>> ChunkStore::TryGet(int64_t seq)
 
   ASSIGN_OR_RETURN(
       Reply stream_id_reply,
-      redis_->ExecuteCommand("HGET", seq_to_id_key, absl::StrCat(seq)));
+      redis_->ExecuteCommand("HGET", {seq_to_id_key, absl::StrCat(seq)}));
   ASSIGN_OR_RETURN(std::string stream_message_id_str,
                    ConvertTo<std::string>(std::move(stream_id_reply)));
 

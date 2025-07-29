@@ -26,6 +26,8 @@ set(EGLT_CPPITERTOOLS_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/cppitertools)
 set(EGLT_GTEST_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest)
 set(EGLT_LIBDATACHANNEL_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/libdatachannel)
 set(EGLT_HIREDIS_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/hiredis)
+set(EGLT_LIBUV_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/libuv)
+set(EGLT_UVW_ROOT ${EGLT_THIRD_PARTY_INSTALL_ROOT}/uvw)
 
 add_compile_definitions(
         BOOST_FIBERS_SPINLOCK_TTAS_FUTEX
@@ -52,6 +54,8 @@ set(CMAKE_PREFIX_PATH
         ${EGLT_GTEST_ROOT}
         ${EGLT_LIBDATACHANNEL_ROOT}
         ${EGLT_HIREDIS_ROOT}
+        ${EGLT_LIBUV_ROOT}
+        ${EGLT_UVW_ROOT}
 )
 
 execute_process(
@@ -74,6 +78,10 @@ find_package(GTest REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(LibDataChannel REQUIRED)
 find_package(hiredis REQUIRED)
+find_package(libuv REQUIRED)
+find_package(uvw REQUIRED)
+
+add_compile_definitions(UVW_AS_LIB)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/cppack)
 
@@ -97,6 +105,8 @@ set(EGLT_THIRD_PARTY_INCLUDE_DIRS
         ${EGLT_GTEST_ROOT}/include
         ${EGLT_LIBDATACHANNEL_ROOT}/include
         ${EGLT_HIREDIS_ROOT}/include
+        ${EGLT_LIBUV_ROOT}/include
+        ${EGLT_UVW_ROOT}/include
 )
 
 enable_testing()

@@ -23,13 +23,10 @@ fi
 python_exec_prefix=$(python3 -c "import sys; print(sys.exec_prefix)")
 
 abseil_install_dir="${third_party_root}/build_deps/abseil-cpp"
-boost_install_dir="${third_party_root}/build_deps/boost"
 cppitertools_install_dir="${third_party_root}/build_deps/cppitertools"
 googletest_install_dir="${third_party_root}/build_deps/googletest"
 libdatachannel_install_dir="${third_party_root}/build_deps/libdatachannel"
 pybind11_install_dir="${third_party_root}/build_deps/pybind11"
-pybind11_abseil_install_dir="${third_party_root}/build_deps/pybind11_abseil"
-hiredis_install_dir="${third_party_root}/build_deps/hiredis"
 
 # Google Test
 mkdir -p build_deps/googletest
@@ -153,6 +150,34 @@ cmake \
   -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/hiredis" \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DBUILD_SHARED_LIBS=OFF \
+  -G "Ninja" \
+  ..
+cmake --build . --parallel "${parallelism}" --target install
+cd "${third_party_root}"
+
+# libuv
+mkdir -p build_deps/libuv && cd libuv
+mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
+cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_STANDARD="${cc_standard}" \
+  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/libuv" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -G "Ninja" \
+  ..
+cmake --build . --parallel "${parallelism}" --target install
+cd "${third_party_root}"
+
+
+# uvw
+mkdir -p build_deps/uvw && cd uvw
+mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
+cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_STANDARD="${cc_standard}" \
+  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/uvw" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DUVW_BUILD_SHARED_LIB=OFF \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${parallelism}" --target install
