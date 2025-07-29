@@ -49,18 +49,7 @@ struct PrivateConstructorTag {};
 
 class EventLoop {
  public:
-  EventLoop() : loop_(uvw::loop::create()) {
-    DLOG(INFO) << "Starting event loop thread.";
-    handle_ = loop_->resource<uvw::idle_handle>();
-    handle_->init();
-
-    thread_ = std::make_unique<std::thread>([this]() {
-      handle_->start();
-      loop_->run();
-
-      DLOG(INFO) << "Event loop thread exiting.";
-    });
-  }
+  EventLoop();
 
   ~EventLoop() {
     handle_->stop();

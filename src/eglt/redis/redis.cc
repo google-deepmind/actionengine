@@ -34,6 +34,19 @@ static constexpr redisOptions GetDefaultRedisOptions() {
   return options;
 }
 
+internal::EventLoop::EventLoop() : loop_(uvw::loop::create()) {
+  DLOG(INFO) << "Starting event loop thread.";
+  handle_ = loop_->resource<uvw::idle_handle>();
+  handle_->init();
+
+  thread_ = std::make_unique<std::thread>([this]() {
+    handle_->start();
+    loop_->run();
+
+    DLOG(INFO) << "Event loop thread exiting.";
+  });
+}
+
 absl::StatusOr<HelloReply> HelloReply::From(Reply reply) {
   HelloReply hello_reply;
   if (reply.type != ReplyType::Array && reply.type != ReplyType::Map) {
@@ -87,8 +100,7 @@ void Redis::ConnectCallback(const redisAsyncContext* context, int status) {
   redis->OnConnect(status);
 }
 
-void Redis::DisconnectCallback(const redisAsyncContext* context,
-                                    int status) {
+void Redis::DisconnectCallback(const redisAsyncContext* context, int status) {
   const auto redis = static_cast<Redis*>(context->data);
   CHECK(redis != nullptr)
       << "Redis::DisconnectCallback called with redisAsyncContext not "
@@ -97,7 +109,7 @@ void Redis::DisconnectCallback(const redisAsyncContext* context,
 }
 
 void Redis::PubsubCallback(redisAsyncContext* context, void* hiredis_reply,
-                                void* privdata) {
+                           void* privdata) {
   const auto redis = static_cast<Redis*>(context->data);
   CHECK(redis != nullptr)
       << "Redis::PubsubCallback called with redisAsyncContext not "
@@ -114,7 +126,7 @@ void Redis::PubsubCallback(redisAsyncContext* context, void* hiredis_reply,
 }
 
 void Redis::ReplyCallback(redisAsyncContext* context, void* hiredis_reply,
-                               void* privdata) {
+                          void* privdata) {
   const auto redis = static_cast<Redis*>(context->data);
   CHECK(redis != nullptr)
       << "Redis::ReplyCallback called with redisAsyncContext not "
@@ -147,8 +159,7 @@ void Redis::ReplyCallback(redisAsyncContext* context, void* hiredis_reply,
   future->event.Notify();
 }
 
-void Redis::PushReplyCallback(redisAsyncContext* context,
-                                   void* hiredis_reply) {
+void Redis::PushReplyCallback(redisAsyncContext* context, void* hiredis_reply) {
   DLOG(INFO) << "Redis::PushReplyCallback called with redisAsyncContext: "
              << context;
   const auto redis = static_cast<Redis*>(context->data);
@@ -158,8 +169,8 @@ void Redis::PushReplyCallback(redisAsyncContext* context,
   redis->OnPushReply(static_cast<redisReply*>(hiredis_reply));
 }
 
-absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(
-    std::string_view host, int port) {
+absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
+                                                      int port) {
   auto redis = std::make_unique<Redis>(internal::PrivateConstructorTag{});
 
   redisOptions options{};
@@ -171,8 +182,8 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(
   REDIS_OPTIONS_SET_PRIVDATA(&options, redis.get(), [](void*) {});
 
   redisAsyncContext* context_ptr = redisAsyncConnectWithOptions(&options);
-  std::unique_ptr<redisAsyncContext, internal::RedisContextDeleter>
-      context(context_ptr);
+  std::unique_ptr<redisAsyncContext, internal::RedisContextDeleter> context(
+      context_ptr);
   if (context == nullptr) {
     return absl::InternalError("Could not allocate async redis context.");
   }
@@ -187,12 +198,10 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(
 
   redisLibuvAttach(redis->context_.get(), redis->event_loop_.Get()->raw());
 
-  redisAsyncSetConnectCallback(redis->context_.get(),
-                               Redis::ConnectCallback);
+  redisAsyncSetConnectCallback(redis->context_.get(), Redis::ConnectCallback);
   redisAsyncSetDisconnectCallback(redis->context_.get(),
                                   Redis::DisconnectCallback);
-  redisAsyncSetPushCallback(redis->context_.get(),
-                            Redis::PushReplyCallback);
+  redisAsyncSetPushCallback(redis->context_.get(), Redis::PushReplyCallback);
 
   while (!redis->connected_ && redis->status_.ok()) {
     redis->cv_.Wait(&redis->mu_);
@@ -252,9 +261,9 @@ absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
 }
 
 absl::StatusOr<HelloReply> Redis::Hello(int protocol_version,
-                                             std::string_view client_name,
-                                             std::string_view username,
-                                             std::string_view password) {
+                                        std::string_view client_name,
+                                        std::string_view username,
+                                        std::string_view password) {
   eglt::MutexLock lock(&mu_);
   if (protocol_version != 2 && protocol_version != 3) {
     return absl::InvalidArgumentError(
@@ -284,7 +293,7 @@ absl::StatusOr<HelloReply> Redis::Hello(int protocol_version,
 }
 
 absl::StatusOr<Reply> Redis::ExecuteCommand(std::string_view command,
-                                                 const CommandArgs& args) {
+                                            const CommandArgs& args) {
   eglt::MutexLock lock(&mu_);
   return ExecuteCommandWithGuards(command, args);
 }
@@ -310,8 +319,8 @@ bool Redis::ParseReply(redisReply* hiredis_reply, Reply* reply_out) {
   return true;
 }
 
-absl::StatusOr<Reply> Redis::ExecuteCommandInternal(
-    std::string_view command, const CommandArgs& args) {
+absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
+                                                    const CommandArgs& args) {
   std::vector<size_t> arg_lengths;
   std::vector<const char*> arg_values;
   arg_lengths.reserve(args.size() + 1);
@@ -408,8 +417,7 @@ void Redis::OnDisconnect(int status) {
   cv_.SignalAll();
 }
 
-void Redis::OnPubsubReply(void* hiredis_reply,
-                               Subscription* subscription) {
+void Redis::OnPubsubReply(void* hiredis_reply, Subscription* subscription) {
   eglt::MutexLock lock(&mu_);
 
   Reply reply;

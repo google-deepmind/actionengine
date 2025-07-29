@@ -178,6 +178,7 @@ cmake \
   -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/uvw" \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DUVW_BUILD_SHARED_LIB=OFF \
+  -DUVW_BUILD_LIBS=ON \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${parallelism}" --target install
