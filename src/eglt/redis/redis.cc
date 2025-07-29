@@ -213,6 +213,12 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
 
 Redis::~Redis() {
   eglt::MutexLock lock(&mu_);
+
+  // for (const auto& [channel, subscription] : subscriptions_) {
+  //   ExecuteCommandWithGuards("UNSUBSCRIBE", {channel}).IgnoreError();
+  // }
+  // subscriptions_.clear();
+
   while (num_pending_commands_ > 0) {
     cv_.Wait(&mu_);
   }
@@ -243,7 +249,7 @@ absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
   subscriptions_[channel] = subscription;
 
   ASSIGN_OR_RETURN(const Reply reply,
-                   ExecuteCommandInternal("SUBSCRIBE", {channel}));
+                   ExecuteCommandWithGuards("SUBSCRIBE", {channel}));
   if (reply.type != ReplyType::Nil) {
     LOG(ERROR) << "Unexpected reply type for SUBSCRIBE command: "
                << static_cast<int>(reply.type);
@@ -251,6 +257,35 @@ absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
   }
 
   return subscription;
+}
+
+absl::Status Redis::Unsubscribe(std::string_view channel) {
+  eglt::MutexLock lock(&mu_);
+
+  if (channel.empty()) {
+    return absl::InvalidArgumentError("Channel cannot be empty.");
+  }
+
+  auto it = subscriptions_.find(channel);
+  if (it == subscriptions_.end()) {
+    return absl::NotFoundError(
+        absl::StrCat("Not subscribed to channel: ", channel));
+  }
+
+  ASSIGN_OR_RETURN(const Reply reply,
+                   ExecuteCommandWithGuards("UNSUBSCRIBE", {channel}));
+
+  auto subscription = it->second;
+  subscriptions_.erase(it);
+
+  if (reply.type != ReplyType::Nil) {
+    LOG(ERROR) << "Unexpected reply type for UNSUBSCRIBE command: "
+               << static_cast<int>(reply.type);
+    return absl::InternalError(
+        "Unexpected reply type for UNSUBSCRIBE command.");
+  }
+
+  return absl::OkStatus();
 }
 
 absl::StatusOr<HelloReply> Redis::Hello(int protocol_version,
@@ -334,7 +369,8 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
 
   // Subscription callbacks are handled differently: they are called
   // multiple times, once for each message received.
-  if (command == "SUBSCRIBE" || command == "PSUBSCRIBE") {
+  if (command == "SUBSCRIBE" || command == "PSUBSCRIBE" ||
+      command == "UNSUBSCRIBE" || command == "PUNSUBSCRIBE") {
     if (args.size() != 1) {
       return absl::InvalidArgumentError(
           "SUBSCRIBE and PSUBSCRIBE commands are only supported for one "

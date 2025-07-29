@@ -105,6 +105,9 @@ ChunkStore::~ChunkStore() {
   while (num_pending_gets_ > 0) {
     cv_.Wait(&mu_);
   }
+
+  redis_->Unsubscribe(GetKey("events")).IgnoreError();
+  subscription_.reset();
 }
 
 absl::StatusOr<Chunk> ChunkStore::Get(int64_t seq, absl::Duration timeout) {

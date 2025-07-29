@@ -64,6 +64,7 @@ async def read_text_chunks(
         actions.redis.ReadRedisStoreRequest(
             key=key,
             offset=offset,
+            count=count,
         )
     )
 

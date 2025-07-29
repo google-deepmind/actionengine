@@ -244,6 +244,8 @@ class Redis {
       std::string_view channel,
       absl::AnyInvocable<void(Reply)> on_message = {});
 
+  absl::Status Unsubscribe(std::string_view channel);
+
   absl::StatusOr<HelloReply> Hello(int protocol_version = 3,
                                    std::string_view client_name = "",
                                    std::string_view username = "",

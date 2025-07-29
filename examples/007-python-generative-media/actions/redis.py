@@ -35,9 +35,8 @@ def read_store_chunks_into_queue(
     )
     for idx in range(request.offset, request.offset + request.count):
         chunk = store.get(idx)
-        if chunk is None:
-            break
         queue.put_nowait(chunk)
+    queue.put_nowait(None)  # Signal that no more chunks will be added
 
 
 async def run_read_store(action: evergreen.Action) -> None:
@@ -48,31 +47,18 @@ async def run_read_store(action: evergreen.Action) -> None:
         f"Reading from stream {request.key} with offset {request.offset} and count {request.count}"
     )
 
-    queue = asyncio.Queue(maxsize=request.count)
-    reading_task = asyncio.create_task(
+    queue = asyncio.Queue(maxsize=request.count + 1)
+    asyncio.create_task(
         asyncio.to_thread(read_store_chunks_into_queue, request, queue)
     )
 
     try:
         while True:
-            try:
-                get_task = asyncio.create_task(queue.get())
-                await asyncio.wait(
-                    [get_task, reading_task],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-
-                if get_task.done():
-                    await response.put(await get_task)
-
-                if reading_task.done():
-                    break
-            except asyncio.CancelledError:
-                reading_task.cancel()
+            chunk = await queue.get()
+            if chunk is None:
                 break
-            except Exception as e:
-                print(f"Error while reading from stream: {e}")
-                break
+
+            await response.put(chunk)
     finally:
         await response.finalize()
 

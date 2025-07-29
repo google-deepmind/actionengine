@@ -26,6 +26,7 @@ Subscription::Subscription(absl::AnyInvocable<void(Reply)> on_message)
 }
 
 Subscription::~Subscription() {
+  thread::Select({OnUnsubscribe()});
   eglt::MutexLock lock(&mu_);
   CloseWriter();
 }
@@ -55,7 +56,6 @@ void Subscription::Subscribe() {
 
 void Subscription::Unsubscribe() {
   eglt::MutexLock lock(&mu_);
-  DLOG(INFO) << "Unsubscribing from channel.";
   CloseWriter();
   unsubscribe_event_.Notify();
 }
