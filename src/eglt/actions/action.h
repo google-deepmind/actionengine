@@ -224,7 +224,12 @@ class Action : public std::enable_shared_from_this<Action> {
     return *this;
   }
 
-  ~Action() = default;
+  ~Action() {
+    eglt::MutexLock lock(&mu_);
+    for (const auto& [output_name, output_id] : output_name_to_id_) {
+      node_map_->Extract(output_id).reset();
+    }
+  }
 
   //! Makes an action message to be sent on a WireStream.
   /**
@@ -491,12 +496,9 @@ class Action : public std::enable_shared_from_this<Action> {
       return status;
     }
 
-    // Asking to clear inputs or outputs without a node map is an error.
+    // Without a node map, we do not need to clear inputs or outputs.
     if (node_map_ == nullptr) {
-      return absl::FailedPreconditionError(absl::StrFormat(
-          "No node map is bound to action %s with id=%s. Cannot clear inputs "
-          "or outputs.",
-          schema_.name, id_));
+      return status;
     }
 
     if (clear_inputs_after_run_) {

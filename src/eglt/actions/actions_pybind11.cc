@@ -50,13 +50,13 @@ void BindActionSchema(py::handle scope, std::string_view name) {
       scope, std::string(name).c_str())
       .def(py::init<>())
       .def(MakeSameObjectRefConstructor<ActionSchema>())
-      .def(py::init([](const std::string& action_name,
+      .def(py::init([](std::string_view action_name,
                        const std::vector<NameAndMimetype>& inputs,
                        const std::vector<NameAndMimetype>& outputs) {
              NameToMimetype input_map(inputs.begin(), inputs.end());
              NameToMimetype output_map(outputs.begin(), outputs.end());
-             return std::make_shared<ActionSchema>(action_name, input_map,
-                                                   output_map);
+             return std::make_shared<ActionSchema>(std::string(action_name),
+                                                   input_map, output_map);
            }),
            py::kw_only(), py::arg("name"),
            py::arg_v("inputs", std::vector<NameAndMimetype>()),
@@ -87,8 +87,8 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
            py::arg("name"), py::arg("id"))
       .def(
           "make_action",
-          [](const std::shared_ptr<ActionRegistry>& self,
-             const std::string& name, const std::string& id, NodeMap* node_map,
+          [](const std::shared_ptr<ActionRegistry>& self, std::string_view name,
+             std::string_view id, NodeMap* node_map,
              const std::shared_ptr<WireStream>& stream, Session* session) {
             auto action = self->MakeAction(name, id);
             action->BindNodeMap(node_map);
@@ -106,7 +106,7 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
 void BindAction(py::handle scope, std::string_view name) {
   py::class_<Action, std::shared_ptr<Action>>(scope, std::string(name).c_str())
       .def(MakeSameObjectRefConstructor<Action>(), py::keep_alive<0, 1>())
-      .def(py::init([](ActionSchema schema, const std::string& id = "") {
+      .def(py::init([](ActionSchema schema, std::string_view id = "") {
         return std::make_shared<Action>(std::move(schema), id);
       }))
       .def(
@@ -155,13 +155,13 @@ void BindAction(py::handle scope, std::string_view name) {
       .def("get_schema", &Action::GetSchema, py::return_value_policy::reference)
       .def(
           "get_node",
-          [](const std::shared_ptr<Action>& action, const std::string& id) {
+          [](const std::shared_ptr<Action>& action, std::string_view id) {
             return ShareWithNoDeleter(action->GetNode(id));
           },
           py::arg("id"), py::call_guard<py::gil_scoped_release>())
       .def(
           "get_input",
-          [](const std::shared_ptr<Action>& action, const std::string& id,
+          [](const std::shared_ptr<Action>& action, std::string_view id,
              const std::optional<bool>& bind_stream) {
             return ShareWithNoDeleter(action->GetInput(id, bind_stream));
           },
@@ -169,7 +169,7 @@ void BindAction(py::handle scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>())
       .def(
           "get_output",
-          [](const std::shared_ptr<Action>& action, const std::string& id,
+          [](const std::shared_ptr<Action>& action, std::string_view id,
              const std::optional<bool>& bind_stream) {
             return ShareWithNoDeleter(action->GetOutput(id, bind_stream));
           },
@@ -177,8 +177,8 @@ void BindAction(py::handle scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>())
       .def(
           "make_action_in_same_session",
-          [](const std::shared_ptr<Action>& action, const std::string& name,
-             const std::string& id) {
+          [](const std::shared_ptr<Action>& action, std::string_view name,
+             std::string_view id) {
             return std::shared_ptr(action->MakeActionInSameSession(name, id));
           },
           py::arg("name"), py::arg_v("id", ""))

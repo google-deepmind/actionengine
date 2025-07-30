@@ -46,7 +46,6 @@ async def write_text_chunk(
         )
     )
     await write_action["response"].consume()
-    del write_action
 
 
 async def read_text_chunks(
@@ -71,8 +70,6 @@ async def read_text_chunks(
     async for text in read_action["response"]:
         yield text
 
-    del read_action
-
 
 async def main():
     global ACTION_REGISTRY, NODE_MAP
@@ -92,9 +89,6 @@ async def main():
     async for text in read_text_chunks(key, offset=0, count=num_chunks):
         print(f"Read text chunk {idx + 1}:", text)
         idx += 1
-
-    # hacky way to make things destroyed properly
-    await asyncio.sleep(0.1)
 
 
 def setup_action_engine():

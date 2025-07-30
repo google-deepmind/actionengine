@@ -38,14 +38,29 @@ void BindNodeMap(py::handle scope, std::string_view name) {
              return std::make_shared<NodeMap>(factory);
            }),
            py::arg_v("chunk_store_factory", py::none()))
-      .def("get",
-           [](const std::shared_ptr<NodeMap>& self, const std::string& id) {
-             return ShareWithNoDeleter(self->Get(id));
-           })
-      .def("contains",
-           [](const std::shared_ptr<NodeMap>& self, const std::string& id) {
-             return self->contains(id);
-           });
+      .def(
+          "get",
+          [](const std::shared_ptr<NodeMap>& self, std::string_view id) {
+            return ShareWithNoDeleter(self->Get(id));
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "extract",
+          [](const std::shared_ptr<NodeMap>& self,
+             std::string_view id) -> std::optional<std::shared_ptr<AsyncNode>> {
+            std::unique_ptr<AsyncNode> node = self->Extract(id);
+            if (node == nullptr) {
+              return std::nullopt;
+            }
+            return node;
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "contains",
+          [](const std::shared_ptr<NodeMap>& self, std::string_view id) {
+            return self->contains(id);
+          },
+          py::call_guard<py::gil_scoped_release>());
 }
 
 /// @private

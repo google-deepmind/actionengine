@@ -43,6 +43,8 @@ def read_store_chunks_into_queue(
 
 
 async def run_read_store(action: evergreen.Action) -> None:
+    action.clear_inputs_after_run()
+
     request: ReadRedisStoreRequest = await action["request"].consume()
     response = action["response"]
 
@@ -84,6 +86,8 @@ class WriteRedisStoreRequest(BaseModel):
 
 
 async def run_write_store(action: evergreen.Action) -> None:
+    action.clear_inputs_after_run()
+
     request: WriteRedisStoreRequest = await action["request"].consume()
     response = action["response"]
 

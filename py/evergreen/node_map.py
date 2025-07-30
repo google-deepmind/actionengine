@@ -37,6 +37,12 @@ class NodeMap(evergreen_pybind11.NodeMap):
             AsyncNode, super().get(node_id)
         )  # pytype: disable=attribute-error
 
+    def extract(self, node_id: str) -> AsyncNode:
+        """Extracts the AsyncNode with the given ID.
+
+        Removes it from the NodeMap and transfers ownership to the caller."""
+        return utils.wrap_pybind_object(AsyncNode, super().extract(node_id))
+
     # pylint: disable-next=[useless-parent-delegation]
     def contains(self, node_id: str) -> bool:
         """Returns whether the NodeMap contains the given ID."""
