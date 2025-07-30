@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
     std::cout << "Received: " << response << "\n" << std::endl;
   }
 
-  shared_stream->HalfClose();
+  shared_stream->HalfClose().IgnoreError();
 
   server.Cancel().IgnoreError();
   server.Join().IgnoreError();

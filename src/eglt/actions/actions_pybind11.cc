@@ -109,14 +109,26 @@ void BindAction(py::handle scope, std::string_view name) {
       .def(py::init([](ActionSchema schema, const std::string& id = "") {
         return std::make_shared<Action>(std::move(schema), id);
       }))
-      .def("run",
-           [](const std::shared_ptr<Action>& action) { return action->Run(); })
+      .def(
+          "run",
+          [](const std::shared_ptr<Action>& action) { return action->Run(); },
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "call",
-          [](const std::shared_ptr<Action>& action) {
-            return action->Call();
-          },
+          [](const std::shared_ptr<Action>& action) { return action->Call(); },
           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "clear_inputs_after_run",
+          [](const std::shared_ptr<Action>& self, bool clear) {
+            self->ClearInputsAfterRun(clear);
+          },
+          py::arg_v("clear", true))
+      .def(
+          "clear_outputs_after_run",
+          [](const std::shared_ptr<Action>& self, bool clear) {
+            self->ClearOutputsAfterRun(clear);
+          },
+          py::arg_v("clear", true))
       .def(
           "cancel",
           [](const std::shared_ptr<Action>& self) { return self->Cancel(); },

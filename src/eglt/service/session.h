@@ -47,18 +47,22 @@ class ActionContext {
   ~ActionContext();
 
   absl::Status Dispatch(std::shared_ptr<Action> action);
+
   void CancelContext() ABSL_LOCKS_EXCLUDED(mu_) {
     eglt::MutexLock lock(&mu_);
-    CancelContextImpl();
+    CancelContextInternal();
   }
 
-  void WaitForActionsToDetach() ABSL_LOCKS_EXCLUDED(mu_) {
+  void WaitForActionsToDetach(
+      absl::Duration cancel_timeout = kFiberCancellationTimeout,
+      absl::Duration detach_timeout = kActionDetachTimeout)
+      ABSL_LOCKS_EXCLUDED(mu_) {
     eglt::MutexLock lock(&mu_);
-    WaitForActionsToDetachImpl();
+    WaitForActionsToDetachInternal(cancel_timeout, detach_timeout);
   }
 
  private:
-  void CancelContextImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  void CancelContextInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   std::unique_ptr<thread::Fiber> ExtractActionFiber(Action* absl_nonnull action)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
@@ -68,10 +72,13 @@ class ActionContext {
     return std::move(map_node.mapped());
   }
 
-  void WaitForActionsToDetachImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  void WaitForActionsToDetachInternal(
+      absl::Duration cancel_timeout = kFiberCancellationTimeout,
+      absl::Duration detach_timeout = kActionDetachTimeout)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     const absl::Time now = absl::Now();
-    const absl::Time fiber_cancel_by = now + kFiberCancellationTimeout;
-    const absl::Time expect_actions_to_detach_by = now + kActionDetachTimeout;
+    const absl::Time fiber_cancel_by = now + cancel_timeout;
+    const absl::Time expect_actions_to_detach_by = now + detach_timeout;
 
     while (!running_actions_.empty()) {
       if (cv_.WaitWithDeadline(&mu_, fiber_cancel_by)) {
@@ -87,10 +94,12 @@ class ActionContext {
     for (auto& [_, action_fiber] : running_actions_) {
       action_fiber->Cancel();
     }
-    DLOG(INFO) << "Some actions are still running, waiting for them to detach.";
+    DLOG(INFO) << "Some actions are still running: sent cancellations and "
+                  "waiting for them to detach.";
 
     while (!running_actions_.empty()) {
       if (cv_.WaitWithDeadline(&mu_, expect_actions_to_detach_by)) {
+        DLOG(ERROR) << "Timed out waiting for actions to detach.";
         break;
       }
     }
@@ -100,7 +109,7 @@ class ActionContext {
   absl::flat_hash_map<Action*, std::unique_ptr<thread::Fiber>> running_actions_
       ABSL_GUARDED_BY(mu_);
   thread::PermanentEvent cancellation_;
-  bool cancelled_;
+  bool cancelled_ ABSL_GUARDED_BY(mu_) = false;
   eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
 };
 

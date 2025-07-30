@@ -41,10 +41,10 @@ ActionContext::~ActionContext() {
   DLOG(INFO) << "ActionContext::~ActionContext()";
 
   if (!cancelled_) {
-    CancelContextImpl();
+    CancelContextInternal();
   }
 
-  WaitForActionsToDetachImpl();
+  WaitForActionsToDetachInternal();
 
   if (!running_actions_.empty()) {
     DLOG(WARNING)
@@ -85,7 +85,7 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
   return absl::OkStatus();
 }
 
-void ActionContext::CancelContextImpl() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+void ActionContext::CancelContextInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   cancellation_.Notify();
   cancelled_ = true;
   DLOG(INFO) << absl::StrFormat(
@@ -178,6 +178,13 @@ absl::Status Session::DispatchMessage(
     action->BindNodeMap(node_map_);
     action->BindSession(this);
     action->BindStream(stream);
+
+    // The session class is intended to represent a session where there is
+    // another party involved. In this case, we want to clear inputs and outputs
+    // after the action is run, because they will already have been sent to the
+    // other party, and we don't want to keep them around locally.
+    action->ClearInputsAfterRun(true);
+    action->ClearOutputsAfterRun(true);
 
     status.Update(action_context_->Dispatch(std::move(action)));
   }

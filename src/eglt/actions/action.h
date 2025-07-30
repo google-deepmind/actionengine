@@ -224,12 +224,7 @@ class Action : public std::enable_shared_from_this<Action> {
     return *this;
   }
 
-  ~Action() {
-    eglt::MutexLock lock(&mu_);
-    if (node_map_ != nullptr) {
-      ResetIoNodes();
-    }
-  }
+  ~Action() = default;
 
   //! Makes an action message to be sent on a WireStream.
   /**
@@ -491,11 +486,42 @@ class Action : public std::enable_shared_from_this<Action> {
     mu_.Lock();
 
     UnbindStreams();
-    if (node_map_ != nullptr) {
-      ResetIoNodes();
+    if (!clear_inputs_after_run_ && !clear_outputs_after_run_) {
+      // If no clearing is requested, we can return early.
+      return status;
+    }
+
+    // Asking to clear inputs or outputs without a node map is an error.
+    if (node_map_ == nullptr) {
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "No node map is bound to action %s with id=%s. Cannot clear inputs "
+          "or outputs.",
+          schema_.name, id_));
+    }
+
+    if (clear_inputs_after_run_) {
+      for (const auto& [input_name, input_id] : input_name_to_id_) {
+        node_map_->Extract(input_id).reset();
+      }
+    }
+
+    if (clear_outputs_after_run_) {
+      for (const auto& [output_name, output_id] : output_name_to_id_) {
+        node_map_->Extract(output_id).reset();
+      }
     }
 
     return status;
+  }
+
+  void ClearInputsAfterRun(bool clear = true) ABSL_LOCKS_EXCLUDED(mu_) {
+    eglt::MutexLock lock(&mu_);
+    clear_inputs_after_run_ = clear;
+  }
+
+  void ClearOutputsAfterRun(bool clear = true) ABSL_LOCKS_EXCLUDED(mu_) {
+    eglt::MutexLock lock(&mu_);
+    clear_outputs_after_run_ = clear;
   }
 
   void Cancel() const {
@@ -544,15 +570,6 @@ class Action : public std::enable_shared_from_this<Action> {
     nodes_with_bound_streams_.clear();
   }
 
-  void ResetIoNodes() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    for (const auto& [input_name, input_id] : input_name_to_id_) {
-      node_map_->Extract(input_id).reset();
-    }
-    for (const auto& [output_name, output_id] : output_name_to_id_) {
-      node_map_->Extract(output_id).reset();
-    }
-  }
-
   mutable eglt::Mutex mu_{};
 
   ActionSchema schema_;
@@ -574,6 +591,9 @@ class Action : public std::enable_shared_from_this<Action> {
 
   std::unique_ptr<thread::PermanentEvent> cancelled_;
   thread::PermanentEvent* absl_nullable cancelled_externally_ = nullptr;
+
+  bool clear_inputs_after_run_ ABSL_GUARDED_BY(mu_) = false;
+  bool clear_outputs_after_run_ ABSL_GUARDED_BY(mu_) = false;
 };
 
 inline std::unique_ptr<Action> ActionRegistry::MakeAction(
