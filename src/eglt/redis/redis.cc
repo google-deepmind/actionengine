@@ -37,6 +37,10 @@ static constexpr redisOptions GetDefaultRedisOptions() {
 internal::EventLoop::EventLoop() : loop_(uvw::loop::create()) {
   handle_ = loop_->resource<uvw::idle_handle>();
   handle_->init();
+  handle_->on<uvw::idle_event>([](const uvw::idle_event&, uvw::idle_handle& h) {
+    // TODO: this is a hack, and a better way to slash CPU usage should exist.
+    eglt::SleepFor(absl::Milliseconds(2));
+  });
 
   thread_ = std::make_unique<std::thread>([this]() {
     handle_->start();

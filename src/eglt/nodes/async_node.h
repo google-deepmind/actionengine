@@ -36,6 +36,7 @@
 #include "eglt/net/stream.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_io.h"
+
 namespace eglt {
 class NodeMap;
 }
@@ -156,9 +157,10 @@ class AsyncNode {
   ChunkStoreWriter* absl_nonnull EnsureWriter(int n_chunks_to_buffer = -1)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  auto PutFragment(NodeFragment fragment, int seq = -1) -> absl::Status;
-  auto PutChunk(Chunk chunk, int seq = -1, bool final = false)
-      -> absl::Status;
+  absl::Status PutFragment(NodeFragment fragment, int seq = -1)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  absl::Status PutChunk(Chunk chunk, int seq = -1, bool final = false)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   NodeMap* absl_nullable node_map_ = nullptr;
   std::unique_ptr<ChunkStore> chunk_store_;
@@ -174,6 +176,7 @@ class AsyncNode {
 template <>
 inline auto AsyncNode::Put<Chunk>(Chunk value, int seq, bool final)
     -> absl::Status {
+  eglt::MutexLock lock(&mu_);
   const bool continued = !final && !value.IsNull();
   return PutFragment(NodeFragment{
       .id = std::string(chunk_store_->GetId()),
@@ -186,6 +189,7 @@ inline auto AsyncNode::Put<Chunk>(Chunk value, int seq, bool final)
 template <>
 inline auto AsyncNode::Put(NodeFragment value, int seq, bool final)
     -> absl::Status {
+  eglt::MutexLock lock(&mu_);
   if (seq == -1) {
     seq = value.seq;
   }

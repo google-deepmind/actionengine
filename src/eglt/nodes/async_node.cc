@@ -75,19 +75,17 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   return *this;
 }
 
-absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq) {
-  {
-    eglt::MutexLock lock(&mu_);
-    const std::string node_id(chunk_store_->GetId());
-    if (!fragment.id.empty()) {
-      if (fragment.id != node_id) {
-        return absl::FailedPreconditionError(absl::StrCat(
-            "Fragment id: ", fragment.id,
-            " does not match the node id: ", chunk_store_->GetId()));
-      }
-      if (node_id.empty()) {
-        chunk_store_->SetIdOrDie(fragment.id);
-      }
+absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  const std::string node_id(chunk_store_->GetId());
+  if (!fragment.id.empty()) {
+    if (fragment.id != node_id) {
+      return absl::FailedPreconditionError(
+          absl::StrCat("Fragment id: ", fragment.id,
+                       " does not match the node id: ", chunk_store_->GetId()));
+    }
+    if (node_id.empty()) {
+      chunk_store_->SetIdOrDie(fragment.id);
     }
   }
 
@@ -95,13 +93,12 @@ absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq) {
     return absl::OkStatus();
   }
 
-  return PutChunk(std::move(*fragment.chunk),
-                  seq == -1 ? fragment.seq : seq,
+  return PutChunk(*std::move(fragment).chunk, seq == -1 ? fragment.seq : seq,
                   /*final=*/!fragment.continued);
 }
 
-absl::Status AsyncNode::PutChunk(Chunk chunk, int seq, bool final) {
-  eglt::MutexLock lock(&mu_);
+absl::Status AsyncNode::PutChunk(Chunk chunk, int seq, bool final)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   ChunkStoreWriter* writer = EnsureWriter();
 
   SessionMessage message_for_peers;
