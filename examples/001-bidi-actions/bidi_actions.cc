@@ -53,7 +53,7 @@ absl::Status RunPrint(const std::shared_ptr<Action>& action) {
   text->SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
 
   while (true) {
-    std::optional<std::string> word = text->Next<std::string>();
+    std::optional<std::string> word = text->NextOrDie<std::string>();
     if (!word.has_value()) {
       break;
     }
@@ -76,7 +76,7 @@ absl::Status RunBidiEcho(const std::shared_ptr<Action>& action) {
 
   absl::BitGen generator;
   while (true) {
-    std::optional<std::string> word = echo_input->Next<std::string>();
+    std::optional<std::string> word = echo_input->NextOrDie<std::string>();
     if (!word.has_value()) {
       break;
     }

@@ -129,15 +129,7 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
         return await asyncio.to_thread(self.next_chunk_sync)
 
     def next_chunk_sync(self) -> Chunk | None:
-        """Returns the next chunk in the store, or None if the store is empty.
-
-        Raises a status error if the reader is in an error state.
-        """
-        chunk = super().next_chunk()  # pytype: disable=attribute-error
-        if chunk is None:
-            self.raise_reader_error_if_any()
-            return None
-        return chunk
+        return super().next_chunk()  # pytype: disable=attribute-error
 
     next_chunk = functools.wraps(next_chunk_sync)(next_chunk)
 

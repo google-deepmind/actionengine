@@ -40,7 +40,8 @@ def wrap_async_handler(handler: AsyncActionHandler) -> SyncActionHandler:
 
 def wrap_sync_handler(handler: SyncActionHandler) -> SyncActionHandler:
     def sync_handler(action: Action) -> None:
-        return handler(utils.wrap_pybind_object(Action, action))
+        py_action = utils.wrap_pybind_object(Action, action)
+        return handler(py_action)
 
     return sync_handler
 

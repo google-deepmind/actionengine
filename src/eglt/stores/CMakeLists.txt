@@ -6,6 +6,7 @@ add_library(
         chunk_store.cc
         chunk_store_io.h
         chunk_store_reader.h
+        chunk_store_reader.cc
         chunk_store_writer.h
         local_chunk_store.h
 )

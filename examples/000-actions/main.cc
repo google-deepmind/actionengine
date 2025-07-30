@@ -68,7 +68,7 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
     // order of chunks, we could have used the >> operator directly like this :
     // *action->GetNode("text") >> chunk;
     // Equivalent operations are supported as AsyncNode methods, in this case:
-    // std::optional<Chunk> chunk = action->GetNode("text")->Next<Chunk>();
+    // std::optional<Chunk> chunk = action->GetNode("text")->NextOrDie<Chunk>();
     *input_text >> chunk;
 
     // End of stream (everything was read successfully)

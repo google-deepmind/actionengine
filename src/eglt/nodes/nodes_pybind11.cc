@@ -92,18 +92,13 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           py::arg("stream"))
       .def(
           "next_chunk",
-          [](const std::shared_ptr<AsyncNode>& self) {
+          [](const std::shared_ptr<AsyncNode>& self)
+              -> absl::StatusOr<std::optional<Chunk>> {
             return self->Next<Chunk>();
           },
           py::call_guard<py::gil_scoped_release>())
       .def("get_id",
            [](const std::shared_ptr<AsyncNode>& self) { return self->GetId(); })
-      .def(
-          "raise_reader_error_if_any",
-          [](const std::shared_ptr<AsyncNode>& self) {
-            return self->GetReaderStatus();
-          },
-          py::call_guard<py::gil_scoped_release>())
       .def(
           "make_reader",
           [](const std::shared_ptr<AsyncNode>& self, bool ordered = false,

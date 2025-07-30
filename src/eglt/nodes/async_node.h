@@ -55,7 +55,13 @@ class AsyncNode {
   AsyncNode& operator=(AsyncNode& other) = delete;
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
-  ~AsyncNode() { eglt::MutexLock lock(&mu_); }
+  ~AsyncNode() {
+    eglt::MutexLock lock(&mu_);
+    if (default_reader_ != nullptr) {
+      default_reader_->Cancel();
+      default_reader_.reset();
+    }
+  }
 
   void BindPeers(
       absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers) {
@@ -89,47 +95,36 @@ class AsyncNode {
   }
 
   template <typename T>
-  auto StatusOrNext() -> absl::StatusOr<std::optional<T>> {
+  auto Next() -> absl::StatusOr<std::optional<T>> {
     ChunkStoreReader& reader = GetReader();
-    auto next = reader.Next<T>();
-    if (absl::Status status = reader.GetStatus(); !status.ok()) {
-      return status;
-    }
-    if (!next.has_value()) {
-      return std::nullopt;
-    }
-    return next;
+    return reader.Next<T>();
   }
 
   template <typename T>
-  auto Next() -> std::optional<T> {
-    auto status_or_next = StatusOrNext<T>();
-    if (!status_or_next.ok()) {
-      LOG(FATAL) << "Failed to get next chunk: " << status_or_next.status();
-      ABSL_ASSUME(false);
-    }
-    return status_or_next.value();
+  auto NextOrDie() -> std::optional<T> {
+    auto next = Next<T>();
+    CHECK_OK(next.status()) << "Failed to get next value: " << next.status();
+    return *std::move(next);
   }
 
   template <typename T>
-  T ConsumeAs() {
-    auto status_or_item = StatusOrNext<T>();
-    if (!status_or_item.ok()) {
-      LOG(FATAL) << "Failed to get chunk: " << status_or_item.status();
-      ABSL_ASSUME(false);
+  absl::StatusOr<T> ConsumeAs() {
+    // The node being consumed must contain an element.
+    ASSIGN_OR_RETURN(std::optional<T> item, Next<T>());
+    if (!item) {
+      return absl::FailedPreconditionError(
+          "AsyncNode is empty at current offset, "
+          "cannot consume item as type T.");
     }
 
-    auto must_be_nullopt = StatusOrNext<T>();
-    if (!must_be_nullopt.ok()) {
-      LOG(FATAL) << "Error probing reader: " << must_be_nullopt.status();
-      ABSL_ASSUME(false);
-    }
-    if (*must_be_nullopt) {
-      LOG(FATAL) << "Reader must be empty after consuming the node.";
-      ABSL_ASSUME(false);
+    // The node must be empty after consuming the item.
+    ASSIGN_OR_RETURN(const std::optional<Chunk> must_be_nullopt, Next<Chunk>());
+    if (must_be_nullopt.has_value()) {
+      return absl::FailedPreconditionError(
+          "AsyncNode must be empty after consuming the item.");
     }
 
-    return *std::move(status_or_item);
+    return *std::move(item);
   }
 
   ChunkStoreReader& GetReader() ABSL_LOCKS_EXCLUDED(mu_);
@@ -233,12 +228,10 @@ AsyncNode& operator<<(AsyncNode& node, T value) {
 // Concrete instantiation for the operator>> for Chunk.
 template <>
 inline AsyncNode& operator>>(AsyncNode& node, std::optional<Chunk>& value) {
-  auto next_chunk_or_status = node.StatusOrNext<Chunk>();
-  if (!next_chunk_or_status.ok()) {
-    LOG(ERROR) << "Failed to get next chunk: " << next_chunk_or_status.status();
-    return node;
-  }
-  value = next_chunk_or_status.value();
+  auto next_chunk = node.Next<Chunk>();
+  CHECK_OK(next_chunk.status())
+      << "Failed to get next chunk: " << next_chunk.status();
+  value = *std::move(next_chunk);
   return node;
 }
 

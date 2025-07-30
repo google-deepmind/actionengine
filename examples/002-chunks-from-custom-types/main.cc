@@ -122,7 +122,7 @@ int main(int, char**) {
 
   int user_number = 0;
   while (true) {
-    std::optional<User> user = node_that_streams_users.Next<User>();
+    std::optional<User> user = node_that_streams_users.NextOrDie<User>();
 
     if (!node_that_streams_users.GetReaderStatus().ok()) {
       break;
