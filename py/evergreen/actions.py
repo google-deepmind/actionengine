@@ -174,6 +174,7 @@ class Action(actions_pybind11.Action):
         self._node_map = node_map
         self._stream = stream
         self._session = session
+        self._task = None
 
         super().__init__(
             schema,
@@ -187,6 +188,12 @@ class Action(actions_pybind11.Action):
     def _add_python_specific_attributes(self):
         """Adds Python-specific attributes to the action."""
         self._schema = self.get_schema()
+        self._task = None
+
+    def __await__(self):
+        if self._task is not None:
+            return self._task.__await__()
+        return asyncio.to_thread(super().wait_until_complete).__await__()
 
     async def call(self) -> None:
         """Calls the action by sending the action message to the stream."""
@@ -282,7 +289,7 @@ class Action(actions_pybind11.Action):
 
     def run(self) -> asyncio.Task:
         """Runs the action."""
-        background_task = utils.schedule_global_task(
+        self._task = utils.schedule_global_task(
             asyncio.to_thread(super().run)
         )  # pytype: disable=attribute-error
-        return background_task
+        return self._task

@@ -534,7 +534,7 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     mu_.Lock();
 
     // Check if our fiber has been cancelled, which means we should stop.
-    if (thread::Cancelled()) {
+    if (thread::Cancelled() || selected == 2) {
       LOG(INFO) << "WebRtcEvergreenServer RunLoop cancelled.";
       break;
     }

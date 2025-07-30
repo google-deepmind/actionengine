@@ -99,7 +99,8 @@ async def run_rehydrate_session(action: evergreen.Action):
         await action["previous_thoughts"].finalize()
 
     print(
-        f"Rehydrated session {session_id} with {next_message_seq} messages and {next_thought_seq} thoughts.",
+        f"Rehydrated session {session_id} with {next_message_seq} messages "
+        f"and {next_thought_seq} thoughts.",
         flush=True,
     )
 
@@ -219,7 +220,7 @@ async def generate_content(action: evergreen.Action):
                     next_output_seq,
                     next_thought_seq,
                 )
-                await action.get_output("new_session_token").put(session_token)
+                await action["new_session_token"].put(session_token)
                 break
             except Exception:
                 retries_left -= 1

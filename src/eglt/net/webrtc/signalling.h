@@ -71,7 +71,9 @@ class SignallingClient {
 
   void Cancel() {
     eglt::MutexLock lock(&mu_);
-    stream_.Close().IgnoreError();
+    if (const absl::Status status = stream_.Close(); !status.ok()) {
+      LOG(ERROR) << "SignallingClient::Cancel failed: " << status;
+    }
     loop_->Cancel();
     loop_status_ = absl::CancelledError("WebsocketEvergreenServer cancelled");
   }

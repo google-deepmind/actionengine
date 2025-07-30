@@ -344,29 +344,7 @@ class Action : public std::enable_shared_from_this<Action> {
   GetOutput(std::string_view name,
             const std::optional<bool> bind_stream = std::nullopt) {
     eglt::MutexLock lock(&mu_);
-    if (node_map_ == nullptr) {
-      LOG(FATAL) << absl::StrFormat(
-          "No node map is bound to action %s with id=%s. Cannot get input %s",
-          schema_.name, id_, name);
-      ABSL_ASSUME(false);
-    }
-
-    if (!output_name_to_id_.contains(name) && name != "__status__") {
-      LOG(FATAL) << absl::StrFormat(
-          "Output %s not found in action schema for %s with id=%s", name,
-          schema_.name, id_);
-      ABSL_ASSUME(false);
-    }
-
-    AsyncNode* node = node_map_->Get(GetOutputId(name));
-    if (stream_ != nullptr &&
-        bind_stream.value_or(bind_streams_on_outputs_default_)) {
-      absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers;
-      peers.insert({std::string(stream_->GetId()), stream_});
-      node->BindPeers(std::move(peers));
-      nodes_with_bound_streams_.insert(node);
-    }
-    return node;
+    return GetOutputInternal(name, bind_stream);
   }
 
   /** @brief Sets the action handler.
@@ -446,6 +424,38 @@ class Action : public std::enable_shared_from_this<Action> {
 
   [[nodiscard]] const ActionSchema& GetSchema() const { return schema_; }
 
+  absl::Status Await() {
+    eglt::MutexLock lock(&mu_);
+    if (has_been_run_) {
+      while (!run_status_.has_value()) {
+        cv_.Wait(&mu_);
+      }
+      return *run_status_;
+    }
+
+    if (has_been_called_) {
+      AsyncNode* status_node =
+          GetOutputInternal("__status__", /*bind_stream=*/false);
+
+      mu_.Unlock();
+      absl::StatusOr<absl::Status> run_status =
+          status_node->ConsumeAs<absl::Status>();
+      mu_.Lock();
+
+      if (!run_status.ok()) {
+        LOG(ERROR) << absl::StrFormat(
+            "Failed to consume status from node %s: %s", status_node->GetId(),
+            run_status.status().message());
+        return run_status.status();
+      }
+      return *run_status;
+    }
+
+    return absl::FailedPreconditionError(
+        "Action has not been run or called yet. Awaiting is only possible "
+        "after Run() or Call() has been invoked.");
+  }
+
   /**
    * @brief
    *   Calls the action by sending an Evergreen action message to associated
@@ -463,7 +473,12 @@ class Action : public std::enable_shared_from_this<Action> {
     bind_streams_on_inputs_default_ = true;
     bind_streams_on_outputs_default_ = false;
 
-    return stream_->Send(SessionMessage{.actions = {GetActionMessage()}});
+    const auto status =
+        stream_->Send(SessionMessage{.actions = {GetActionMessage()}});
+    RETURN_IF_ERROR(status);
+
+    has_been_called_ = true;
+    return absl::OkStatus();
   }
 
   /**
@@ -487,18 +502,44 @@ class Action : public std::enable_shared_from_this<Action> {
     has_been_run_ = true;
 
     mu_.Unlock();
-    auto status = handler_(shared_from_this());
+    absl::Status handler_status = handler_(shared_from_this());
     mu_.Lock();
 
+    absl::Status full_run_status = handler_status;
+    auto handler_status_chunk = ConvertToOrDie<Chunk>(handler_status);
+    if (stream_ != nullptr) {
+      // If the stream is bound, we send the status chunk to it.
+      // We are doing it here instead of relying on a bound stream.
+      const auto stream_ptr = stream_.get();
+      mu_.Unlock();
+      full_run_status.Update(
+          stream_ptr->Send(SessionMessage{.node_fragments = {NodeFragment{
+                                              .id = GetOutputId("__status__"),
+                                              .chunk = handler_status_chunk,
+                                              .seq = 0,
+                                              .continued = true,
+                                          }}}));
+      mu_.Lock();
+    }
+
+    AsyncNode* status_node =
+        GetOutputInternal("__status__", /*bind_stream=*/false);
+    full_run_status.Update(status_node->Put(std::move(handler_status_chunk),
+                                            /*seq=*/0, /*final=*/true));
+
     UnbindStreams();
+
+    run_status_ = full_run_status;
+    cv_.SignalAll();
+
     if (!clear_inputs_after_run_ && !clear_outputs_after_run_) {
       // If no clearing is requested, we can return early.
-      return status;
+      return full_run_status;
     }
 
     // Without a node map, we do not need to clear inputs or outputs.
     if (node_map_ == nullptr) {
-      return status;
+      return full_run_status;
     }
 
     if (clear_inputs_after_run_) {
@@ -513,7 +554,7 @@ class Action : public std::enable_shared_from_this<Action> {
       }
     }
 
-    return status;
+    return full_run_status;
   }
 
   void ClearInputsAfterRun(bool clear = true) ABSL_LOCKS_EXCLUDED(mu_) {
@@ -562,6 +603,35 @@ class Action : public std::enable_shared_from_this<Action> {
     return absl::StrCat(id_, "#", name);
   }
 
+  AsyncNode* absl_nonnull
+  GetOutputInternal(std::string_view name,
+                    const std::optional<bool> bind_stream = std::nullopt)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    if (node_map_ == nullptr) {
+      LOG(FATAL) << absl::StrFormat(
+          "No node map is bound to action %s with id=%s. Cannot get input %s",
+          schema_.name, id_, name);
+      ABSL_ASSUME(false);
+    }
+
+    if (!output_name_to_id_.contains(name) && name != "__status__") {
+      LOG(FATAL) << absl::StrFormat(
+          "Output %s not found in action schema for %s with id=%s", name,
+          schema_.name, id_);
+      ABSL_ASSUME(false);
+    }
+
+    AsyncNode* node = node_map_->Get(GetOutputId(name));
+    if (stream_ != nullptr &&
+        bind_stream.value_or(bind_streams_on_outputs_default_)) {
+      absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers;
+      peers.insert({std::string(stream_->GetId()), stream_});
+      node->BindPeers(std::move(peers));
+      nodes_with_bound_streams_.insert(node);
+    }
+    return node;
+  }
+
   void UnbindStreams() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     for (const auto& node : nodes_with_bound_streams_) {
       if (node == nullptr) {
@@ -573,12 +643,14 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
   mutable eglt::Mutex mu_{};
+  eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
 
   ActionSchema schema_;
   absl::flat_hash_map<std::string, std::string> input_name_to_id_;
   absl::flat_hash_map<std::string, std::string> output_name_to_id_;
 
   ActionHandler handler_;
+  bool has_been_called_ ABSL_GUARDED_BY(mu_) = false;
   bool has_been_run_ ABSL_GUARDED_BY(mu_) = false;
   std::string id_;
 
@@ -596,6 +668,7 @@ class Action : public std::enable_shared_from_this<Action> {
 
   bool clear_inputs_after_run_ ABSL_GUARDED_BY(mu_) = false;
   bool clear_outputs_after_run_ ABSL_GUARDED_BY(mu_) = false;
+  std::optional<absl::Status> run_status_ ABSL_GUARDED_BY(mu_) = std::nullopt;
 };
 
 inline std::unique_ptr<Action> ActionRegistry::MakeAction(

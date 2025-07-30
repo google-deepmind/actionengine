@@ -118,6 +118,10 @@ void BindAction(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<Action>& action) { return action->Call(); },
           py::call_guard<py::gil_scoped_release>())
       .def(
+          "wait_until_complete",
+          [](const std::shared_ptr<Action>& action) { return action->Await(); },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
           "clear_inputs_after_run",
           [](const std::shared_ptr<Action>& self, bool clear) {
             self->ClearInputsAfterRun(clear);
