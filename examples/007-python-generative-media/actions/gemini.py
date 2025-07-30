@@ -23,34 +23,35 @@ def get_redis_client():
     return get_redis_client._redis_client
 
 
-async def rehydrate_session(action: evergreen.Action, put_outputs: bool = True):
+async def resolve_session_token_to_session_id_and_seqs(
+    token: str = "",
+) -> tuple[str, int, int]:
     redis_client = get_redis_client()
 
     session_id = base64.urlsafe_b64encode(os.urandom(6)).decode("utf-8")
     next_message_seq = 0
     next_thought_seq = 0
 
-    session_token = await action["session_token"].consume()
-    if not session_token:
-        print("No session token provided, nothing to rehydrate.", flush=True)
+    if not token:
+        print(
+            "No session token provided, nothing to resolve. "
+            "Generating a new session ID.",
+            flush=True,
+        )
         return session_id, next_message_seq, next_thought_seq
 
     try:
-        session_info = redis_client.get(session_token)
+        session_info = redis_client.get(token)
     except Exception:
         session_info = None
         traceback.print_exc()
 
     if not session_info:
-        print(
-            f"Session token {session_token} not found in Redis, "
-            f"nothing to rehydrate.",
-            flush=True,
-        )
+        print(f"Session token {token} not found in Redis.", flush=True)
         return session_id, next_message_seq, next_thought_seq
 
     print(
-        f"Rehydrating session with token: {session_token}, info: {session_info}",
+        f"Resolved session with token: {token}, info: {session_info}",
         flush=True,
     )
 
@@ -60,41 +61,47 @@ async def rehydrate_session(action: evergreen.Action, put_outputs: bool = True):
     next_message_seq = int(session_info_parts[1])
     next_thought_seq = int(session_info_parts[2])
 
-    message_offset = max(0, next_message_seq - 10)
+    return session_id, next_message_seq, next_thought_seq
+
+
+async def run_rehydrate_session(action: evergreen.Action):
+    session_token = await action["session_token"].consume()
+    session_id, next_message_seq, next_thought_seq = (
+        await resolve_session_token_to_session_id_and_seqs(session_token)
+    )
+
+    redis_client = get_redis_client()
+
+    # message offset is 2x the thought offset, because there is a user input
+    # and a model output for each turn, but only one thought message per turn.
+    message_offset = max(0, next_message_seq - 20)
     thought_offset = max(0, next_thought_seq - 10)
 
     message_store = evergreen.redis.ChunkStore(
         redis_client,
         f"{session_id}:messages",
-        -1,
+        -1,  # no TTL
     )
     thought_store = evergreen.redis.ChunkStore(
         redis_client,
         f"{session_id}:thoughts",
-        -1,
+        -1,  # no TTL
     )
 
-    if put_outputs:
-        try:
-            for idx in range(message_offset, next_message_seq):
-                await action["previous_messages"].put(message_store.get(idx))
+    try:
+        for idx in range(message_offset, next_message_seq):
+            await action["previous_messages"].put(message_store.get(idx))
 
-            for idx in range(thought_offset, next_thought_seq):
-                await action["previous_thoughts"].put(thought_store.get(idx))
-        finally:
-            await action["previous_messages"].finalize()
-            await action["previous_thoughts"].finalize()
+        for idx in range(thought_offset, next_thought_seq):
+            await action["previous_thoughts"].put(thought_store.get(idx))
+    finally:
+        await action["previous_messages"].finalize()
+        await action["previous_thoughts"].finalize()
 
     print(
         f"Rehydrated session {session_id} with {next_message_seq} messages and {next_thought_seq} thoughts.",
         flush=True,
     )
-
-    return session_id, next_message_seq, next_thought_seq
-
-
-async def run_rehydrate_session(action: evergreen.Action):
-    _ = await rehydrate_session(action)
 
 
 def get_text_chunk(text: str):
@@ -121,12 +128,12 @@ async def save_message_turn(
     message_store = evergreen.redis.ChunkStore(
         redis_client,
         f"{session_id}:messages",
-        -1,
+        -1,  # no TTL
     )
     thought_store = evergreen.redis.ChunkStore(
         redis_client,
         f"{session_id}:thoughts",
-        -1,
+        -1,  # no TTL
     )
 
     message_store.put(next_message_seq, get_text_chunk(chat_input))
@@ -153,8 +160,9 @@ async def generate_content(action: evergreen.Action):
         await action["output"].put_and_finalize("API key is required.")
         return
 
-    session_id, next_output_seq, next_thought_seq = await rehydrate_session(
-        action, put_outputs=False
+    session_token = await action["session_token"].consume()
+    session_id, next_output_seq, next_thought_seq = (
+        await resolve_session_token_to_session_id_and_seqs(session_token)
     )
 
     if (
