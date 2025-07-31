@@ -152,8 +152,6 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
       mu_.Lock();
       if (!chunk.ok()) {
         status = chunk.status();
-        DLOG(ERROR) << "Failed to prefetch (in order) chunk at seq "
-                    << total_chunks_read_ << ": " << status;
         break;
       }
       next_chunk = *chunk;
@@ -163,8 +161,6 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
           GetNextUnorderedSeqAndChunkFromStore();
       if (!next_unordered_seq_and_chunk.ok()) {
         status = next_unordered_seq_and_chunk.status();
-        DLOG(ERROR) << "Failed to prefetch (unordered) chunk at arrival offset "
-                    << total_chunks_read_ << ": " << status;
         break;
       }
       if (!next_unordered_seq_and_chunk->has_value()) {

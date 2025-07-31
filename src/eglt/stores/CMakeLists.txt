@@ -69,6 +69,7 @@ add_executable(
 )
 target_link_libraries(
         test_chunk_store
+        absl::status_matchers
         eglt::data
         eglt::stores
         GTest::gtest
