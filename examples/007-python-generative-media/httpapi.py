@@ -1,9 +1,11 @@
 import asyncio
 import dataclasses
+import json
 import uuid
 
 import evergreen
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 import actions
@@ -161,7 +163,6 @@ async def send_message_to_session(
     ae = get_action_engine_client()
 
     action = make_action(ae, "generate_content")
-
     await asyncio.gather(
         action.call(),
         action["prompt"].put_and_finalize(
@@ -188,7 +189,133 @@ async def send_message_to_session(
         response=response,
         thought=thought if thought else None,
         session_token=new_session_token if new_session_token else None,
-        gui_url=f"https://demos.helena.direct/gemini/?session_token={new_session_token}&q={request.api_key or 'ollama'}",
+        gui_url=f"https://demos.helena.direct/gemini/"
+        f"?session_token={new_session_token}&q={request.api_key or 'ollama'}",
+    )
+
+
+async def put_node_fragments_in_queue(
+    node: evergreen.AsyncNode,
+    queue: asyncio.Queue,
+    name: str,
+):
+    seq = 0
+    async for data in node:
+        fragment = evergreen.NodeFragment(
+            id=name,
+            chunk=await asyncio.to_thread(evergreen.to_chunk, data),
+            seq=seq,
+            continued=True,
+        )
+        await queue.put((name, fragment))
+        seq += 1
+
+    # Hacky way to construct a final node fragment
+    await queue.put(
+        (
+            name,
+            evergreen.NodeFragment(
+                id=name,
+                seq=seq,
+                chunk=evergreen.Chunk(
+                    metadata=evergreen.ChunkMetadata(
+                        mimetype="application/octet-stream"
+                    ),
+                    data=b"",
+                ),
+                continued=False,
+            ),
+        )
+    )
+
+    await queue.put(None)
+
+
+async def make_response_events(
+    queue: asyncio.Queue,
+):
+    """
+    Stream node fragments from the queue as a StreamingResponse.
+    """
+
+    while True:
+        element = await queue.get()
+        if element is None:
+            break
+
+        name, fragment = element
+        # this is just a hack for demo purposes
+        include_metadata = fragment.seq == 0 or not fragment.continued
+
+        event = {
+            "id": fragment.id,
+            "seq": fragment.seq,
+            "continued": fragment.continued,
+            "chunk": {
+                "data": fragment.chunk.data.decode("utf-8"),
+            },
+        }
+
+        metadata = {
+            "mimetype": fragment.chunk.metadata.mimetype,
+        }
+        if include_metadata:
+            event["metadata"] = metadata
+
+        yield f"data: {json.dumps(event)}\nevent: stream.fragment\n\n"
+
+
+async def send_message_with_streaming_response(
+    session_token: str,
+    request: SendMessageRequest,
+):
+    ae = get_action_engine_client()
+
+    action = make_action(ae, "generate_content")
+    await asyncio.gather(
+        action.call(),
+        action["prompt"].put_and_finalize(
+            request.message
+        ),  # dummy, not used now
+        action["session_token"].put_and_finalize(session_token),
+        action["api_key"].put_and_finalize(request.api_key or ""),
+        action["chat_input"].put_and_finalize(
+            request.message
+        ),  # dummy, not used now
+    )
+
+    queue = asyncio.Queue()
+
+    stream_thoughts = asyncio.create_task(
+        put_node_fragments_in_queue(action["thoughts"], queue, "thought")
+    )
+    async for event in make_response_events(queue):
+        yield event
+    await stream_thoughts
+
+    stream_response = asyncio.create_task(
+        put_node_fragments_in_queue(action["output"], queue, "response")
+    )
+    async for event in make_response_events(queue):
+        yield event
+    await stream_response
+
+
+@app.put(
+    "/sessions/{session_token}/stream/",
+)
+async def send_message_to_session(
+    session_token: str,
+    request: SendMessageRequest,
+):
+    """
+    Generate text based on the provided prompt, continuing an existing session
+    specified by the session token. Returns the response as an event stream.
+    """
+
+    return StreamingResponse(
+        send_message_with_streaming_response(session_token, request),
+        media_type="text/event-stream",
     )
 
 
