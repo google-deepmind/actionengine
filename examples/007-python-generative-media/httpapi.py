@@ -4,7 +4,7 @@ import uuid
 
 import evergreen
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import actions
 
@@ -81,34 +81,72 @@ def make_action(client: ActionEngineClient, name: str):
 
 
 class Message(BaseModel):
-    role: str
-    content: str
+    role: str = Field(
+        ...,
+        description="Role of the message sender, e.g. 'user', "
+        "'assistant' or 'system'.",
+    )
+    content: str = Field(
+        ...,
+        description="Content of the message.",
+    )
 
 
 class ChatResponse(BaseModel):
-    response: str
-    thought: str | None = None
-    session_token: str | None = None
+    response: str = Field(
+        ...,
+        description="The generated response from the model.",
+    )
+    thought: str | None = Field(
+        None,
+        description="The thought process of the model, if available.",
+    )
+    session_token: str = Field(
+        ...,
+        description="The session token for the new position in the session history.",
+    )
+    gui_url: str | None = None
 
 
 class SessionHistoryResponse(BaseModel):
-    messages: list[Message]
-    thoughts: list[str]
+    messages: list[Message] = Field(
+        ...,
+        description="List of messages in the session history.",
+    )
+    thoughts: list[str] = Field(
+        ...,
+        description="List of thoughts in the session history.",
+    )
 
 
 class SendMessageRequest(BaseModel):
-    message: str
-    api_key: str | None = "ollama"
+    message: str = Field(
+        ...,
+        description="The message to send to the session.",
+    )
+    api_key: str | None = Field(
+        None,
+        description="API key for the model. Use 'ollama' for a local DeepSeek "
+        "model, and your Gemini API key for Gemini.",
+    )
 
 
 @app.post("/sessions/")
 async def send_message_to_new_session(
     request: SendMessageRequest,
 ):
+    """
+    Create a new session and send a message to it.
+    Your request should contain a new chat message to be sent with the 'user'
+    role, and optionally, a Gemini API key.
+
+    Responds with a ChatResponse containing the generated response, thought,
+    session token, and GUI URL for the new session.
+    """
     return await send_message_to_session("new", request)
 
 
-@app.post(
+@app.put(
     "/sessions/{session_token}/",
     response_model=ChatResponse,
 )
@@ -117,7 +155,8 @@ async def send_message_to_session(
     request: SendMessageRequest,
 ):
     """
-    Generate text based on the provided prompt.
+    Generate text based on the provided prompt, continuing an existing session
+    specified by the session token.
     """
     ae = get_action_engine_client()
 
@@ -143,12 +182,13 @@ async def send_message_to_session(
     async for thought_chunk in action["thoughts"]:
         thought += thought_chunk
 
-    session_token = await action["new_session_token"].consume()
+    new_session_token = await action["new_session_token"].consume()
 
     return ChatResponse(
         response=response,
         thought=thought if thought else None,
-        session_token=session_token if session_token else None,
+        session_token=new_session_token if new_session_token else None,
+        gui_url=f"https://demos.helena.direct/gemini/?session_token={new_session_token}&q={request.api_key or 'ollama'}",
     )
 
 
