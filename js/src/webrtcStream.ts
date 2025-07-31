@@ -508,7 +508,7 @@ export class WebRtcEvergreenStream implements BaseEvergreenStream {
       const messageData = await chunkedMessage.consume();
       const message = await decodeSessionMessage(messageData);
       await this.mutex.runExclusive(async () => {
-        await this.channel.sendNowait(message);
+        await this.channel.send(message);
         this.chunkedMessages.delete(packet.transientId);
       });
     }

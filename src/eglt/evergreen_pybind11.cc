@@ -52,6 +52,10 @@ PYBIND11_MODULE(evergreen_pybind11, m) {
   py::module_ service = pybindings::MakeServiceModule(m, "service");
   py::module_ webrtc = pybindings::MakeWebRtcModule(m, "webrtc");
   py::module_ websockets = pybindings::MakeWebsocketsModule(m, "websockets");
+
+  m.def("run_threadsafe_if_coroutine", &pybindings::RunThreadsafeIfCoroutine,
+        py::arg("function_call_result"), py::arg_v("loop", py::none()),
+        pybindings::keep_event_loop_memo());
 }
 
 }  // namespace eglt

@@ -91,10 +91,8 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
 
     def consume(self) -> Any | Awaitable[Any]:
         try:
-            asyncio.get_running_loop()
-            return utils.schedule_global_task(
-                asyncio.to_thread(self._consume_sync)
-            )  # pytype: disable=attribute-error
+            loop = asyncio.get_running_loop()
+            return loop.run_in_executor(None, self._consume_sync)
         except RuntimeError:
             return self._consume_sync()
 
@@ -150,10 +148,10 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
           awaitable if the fragment was put asynchronously within an event loop.
         """
         try:
-            asyncio.get_running_loop()
-            return utils.schedule_global_task(
-                asyncio.to_thread(super().put_fragment, fragment, seq)
-            )  # pytype: disable=attribute-error
+            loop = asyncio.get_running_loop()
+            return loop.run_in_executor(
+                None, self.put_fragment_sync, fragment, seq
+            )
         except RuntimeError:
             super().put_fragment(
                 fragment, seq
@@ -177,10 +175,10 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
           awaitable if the chunk was put asynchronously within an event loop.
         """
         try:
-            asyncio.get_running_loop()
-            return utils.schedule_global_task(
-                asyncio.to_thread(super().put_chunk, chunk, seq, final)
-            )  # pytype: disable=attribute-error
+            loop = asyncio.get_running_loop()
+            return loop.run_in_executor(
+                None, super().put_chunk, chunk, seq, final
+            )
         except RuntimeError:
             super().put_chunk(
                 chunk, seq, final

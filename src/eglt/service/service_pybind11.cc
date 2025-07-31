@@ -87,30 +87,38 @@ void BindSession(py::handle scope, std::string_view name) {
              const ChunkStoreFactory& chunk_store_factory = {}) {
             return ShareWithNoDeleter(self->GetNode(id, chunk_store_factory));
           },
-          py::arg_v("id", ""), py::arg_v("chunk_store_factory", py::none()))
+          py::arg_v("id", ""), py::arg_v("chunk_store_factory", py::none()),
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "dispatch_from",
           [](const std::shared_ptr<Session>& self,
              const std::shared_ptr<WireStream>& stream) {
             self->DispatchFrom(stream);
           },
-          py::keep_alive<1, 2>())
-      .def("stop_dispatching_from",
-           [](const std::shared_ptr<Session>& self, WireStream* stream) {
-             self->StopDispatchingFrom(stream);
-           })
+          py::keep_alive<1, 2>(), py::call_guard<py::gil_scoped_release>())
+      .def(
+          "stop_dispatching_from",
+          [](const std::shared_ptr<Session>& self, WireStream* stream) {
+            self->StopDispatchingFrom(stream);
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def("dispatch_message", &Session::DispatchMessage,
            py::call_guard<py::gil_scoped_release>())
-      .def("get_node_map",
-           [](const std::shared_ptr<Session>& self) {
-             return ShareWithNoDeleter(self->GetNodeMap());
-           })
-      .def("get_action_registry",
-           [](const std::shared_ptr<Session>& self) {
-             return ShareWithNoDeleter(self->GetActionRegistry());
-           })
+      .def(
+          "get_node_map",
+          [](const std::shared_ptr<Session>& self) {
+            return ShareWithNoDeleter(self->GetNodeMap());
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "get_action_registry",
+          [](const std::shared_ptr<Session>& self) {
+            return ShareWithNoDeleter(self->GetActionRegistry());
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def("set_action_registry", &Session::SetActionRegistry,
-           py::arg("action_registry"));
+           py::arg("action_registry"),
+           py::call_guard<py::gil_scoped_release>());
 }
 
 /// @private
@@ -128,16 +136,20 @@ void BindService(py::handle scope, std::string_view name) {
            }),
            py::arg("action_registry"),
            py::arg_v("connection_handler", py::none()))
-      .def("get_stream",
-           [](const std::shared_ptr<Service>& self,
-              const std::string& stream_id) {
-             return ShareWithNoDeleter(self->GetStream(stream_id));
-           })
-      .def("get_session",
-           [](const std::shared_ptr<Service>& self,
-              const std::string& session_id) {
-             return ShareWithNoDeleter(self->GetSession(session_id));
-           })
+      .def(
+          "get_stream",
+          [](const std::shared_ptr<Service>& self,
+             const std::string& stream_id) {
+            return ShareWithNoDeleter(self->GetStream(stream_id));
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "get_session",
+          [](const std::shared_ptr<Service>& self,
+             const std::string& session_id) {
+            return ShareWithNoDeleter(self->GetSession(session_id));
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def("get_session_keys", &Service::GetSessionKeys,
            py::call_guard<py::gil_scoped_release>())
       .def(

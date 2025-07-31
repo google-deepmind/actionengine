@@ -34,8 +34,10 @@ void BindWebsocketWireStream(py::handle scope, std::string_view name) {
            py::call_guard<py::gil_scoped_release>())
       .def("receive", &net::WebsocketWireStream::Receive,
            py::call_guard<py::gil_scoped_release>())
-      .def("accept", &net::WebsocketWireStream::Accept)
-      .def("start", &net::WebsocketWireStream::Start)
+      .def("accept", &net::WebsocketWireStream::Accept,
+           py::call_guard<py::gil_scoped_release>())
+      .def("start", &net::WebsocketWireStream::Start,
+           py::call_guard<py::gil_scoped_release>())
       .def("close", &net::WebsocketWireStream::HalfClose,
            py::call_guard<py::gil_scoped_release>())
       .def("get_status", &net::WebsocketWireStream::GetStatus)
@@ -92,7 +94,7 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
         return stream;
       },
       py::arg_v("address", "localhost"), py::arg_v("target", "/"),
-      py::arg_v("port", 20000));
+      py::arg_v("port", 20000), py::call_guard<py::gil_scoped_release>());
 
   return websockets;
 }

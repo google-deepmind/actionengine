@@ -517,7 +517,7 @@ class Action : public std::enable_shared_from_this<Action> {
                                               .id = GetOutputId("__status__"),
                                               .chunk = handler_status_chunk,
                                               .seq = 0,
-                                              .continued = true,
+                                              .continued = false,
                                           }}}));
       mu_.Lock();
     }

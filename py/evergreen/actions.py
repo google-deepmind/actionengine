@@ -1,11 +1,11 @@
 """A Pythonic wrapper for the raw pybind11 Actions bindings."""
 
 import asyncio
-import inspect
 from typing import Any
 from typing import Awaitable
 from typing import Callable
 
+import evergreen
 from evergreen import async_node
 from evergreen import node_map as eg_node_map
 from evergreen import data
@@ -25,32 +25,16 @@ async def do_nothing(_: "Action") -> None:
     pass
 
 
-def wrap_async_handler(handler: AsyncActionHandler) -> SyncActionHandler:
-    """Wraps the given handler to run in the event loop."""
+def wrap_handler(handler: ActionHandler) -> ActionHandler:
     loop = asyncio.get_running_loop()
 
-    def sync_handler(action: Action) -> None:
-        future = asyncio.run_coroutine_threadsafe(
-            handler(utils.wrap_pybind_object(Action, action)), loop
+    def inner(action: "Action") -> None:
+        return evergreen.run_threadsafe_if_coroutine(
+            handler(utils.wrap_pybind_object(Action, action)),
+            loop=loop,
         )
-        future.result()
 
-    return sync_handler
-
-
-def wrap_sync_handler(handler: SyncActionHandler) -> SyncActionHandler:
-    def sync_handler(action: Action) -> None:
-        py_action = utils.wrap_pybind_object(Action, action)
-        return handler(py_action)
-
-    return sync_handler
-
-
-def wrap_handler(handler: ActionHandler) -> ActionHandler:
-    if inspect.iscoroutinefunction(handler):
-        return wrap_async_handler(handler)
-    else:
-        return wrap_sync_handler(handler)
+    return inner
 
 
 class ActionSchema(actions_pybind11.ActionSchema):
@@ -156,35 +140,6 @@ class ActionRegistry(actions_pybind11.ActionRegistry):
 class Action(actions_pybind11.Action):
     """A Pythonic wrapper for the raw pybind11 Action bindings."""
 
-    # pytype: disable=name-error
-    def __init__(
-        self,
-        schema: ActionSchema,
-        handler: Any = do_nothing,
-        action_id: str = "",
-        *,
-        node_map: NodeMap | None = None,
-        stream: "WireStream | None" = None,
-        session: "Session | None" = None,
-    ):
-        # pytype: enable=name-error
-        """Constructor for Action."""
-
-        self._schema = schema
-        self._node_map = node_map
-        self._stream = stream
-        self._session = session
-        self._task = None
-
-        super().__init__(
-            schema,
-            wrap_handler(handler),
-            action_id,
-            node_map,
-            stream,
-            session,
-        )
-
     def _add_python_specific_attributes(self):
         """Adds Python-specific attributes to the action."""
         self._schema = self.get_schema()
@@ -287,9 +242,14 @@ class Action(actions_pybind11.Action):
             # pytype: disable=attribute-error
         )
 
-    def run(self) -> asyncio.Task:
+    def run(self) -> Awaitable[None]:
         """Runs the action."""
-        self._task = utils.schedule_global_task(
-            asyncio.to_thread(super().run)
-        )  # pytype: disable=attribute-error
-        return self._task
+        try:
+            loop = asyncio.get_running_loop()
+            return loop.run_in_executor(
+                None, super().run  # pytype: disable=attribute-error
+            )
+        except RuntimeError:
+            raise NotImplementedError(
+                "Running actions is not supported outside of an asyncio event loop."
+            )

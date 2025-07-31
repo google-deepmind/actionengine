@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 
 from evergreen import actions
@@ -48,3 +49,11 @@ to_chunk = data.to_chunk
 from_chunk = data.from_chunk
 
 get_global_eglt_settings = global_settings.get_global_eglt_settings
+
+
+def run_threadsafe_if_coroutine(
+    function_call_result, loop: asyncio.AbstractEventLoop | None = None
+) -> Any:
+    return evergreen_pybind11.run_threadsafe_if_coroutine(
+        function_call_result, loop
+    )

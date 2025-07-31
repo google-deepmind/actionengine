@@ -99,7 +99,7 @@ void SaveFirstEncounteredEventLoop();
  *   .def(py::init<>(), pybindings::keep_event_loop_memo())
  * \endcode
  *
- * \headerfile eglt/pybind11/utils.h
+ * \headerfile eglt/util/utils_pybind11.h
  */
 struct keep_event_loop_memo {};
 

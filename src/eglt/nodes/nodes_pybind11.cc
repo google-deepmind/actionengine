@@ -75,7 +75,7 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
                        const ChunkStoreFactory& chunk_store_factory = {}) {
              std::unique_ptr<ChunkStore> chunk_store(nullptr);
              if (chunk_store_factory) {
-               chunk_store = chunk_store_factory();
+               chunk_store = chunk_store_factory(id);
              }
              return std::make_shared<AsyncNode>(id, node_map,
                                                 std::move(chunk_store));
@@ -104,7 +104,7 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
             peers[stream->GetId()] = stream;
             self->BindPeers(std::move(peers));
           },
-          py::arg("stream"))
+          py::arg("stream"), py::call_guard<py::gil_scoped_release>())
       .def(
           "next_chunk",
           [](const std::shared_ptr<AsyncNode>& self)

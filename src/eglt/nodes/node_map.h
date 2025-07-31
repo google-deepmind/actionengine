@@ -28,6 +28,7 @@
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/nodes/async_node.h"
 #include "eglt/stores/chunk_store.h"
+
 namespace eglt {
 
 /**
@@ -75,7 +76,7 @@ class NodeMap {
 
  private:
   std::unique_ptr<ChunkStore> MakeChunkStore(
-      const ChunkStoreFactory& factory = {}) const;
+      const ChunkStoreFactory& factory = {}, std::string_view id = "") const;
 
   mutable eglt::Mutex mu_;
   absl::flat_hash_map<std::string, std::unique_ptr<AsyncNode>> nodes_

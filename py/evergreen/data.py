@@ -16,7 +16,7 @@ Port = data_pybind11.Port
 ActionMessage = data_pybind11.ActionMessage
 SessionMessage = data_pybind11.SessionMessage
 
-ChunkStoreFactory = Callable[[], chunk_store_pybind11.ChunkStore]
+ChunkStoreFactory = Callable[[str], chunk_store_pybind11.ChunkStore]
 
 SerializerRegistry = data_pybind11.SerializerRegistry
 get_global_serializer_registry = data_pybind11.get_global_serializer_registry

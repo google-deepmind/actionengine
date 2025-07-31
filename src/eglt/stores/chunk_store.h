@@ -85,7 +85,8 @@ class ChunkStore {
   [[nodiscard]] virtual int64_t GetFinalSeqOrDie() noexcept;
 };
 
-using ChunkStoreFactory = std::function<std::unique_ptr<ChunkStore>()>;
+using ChunkStoreFactory =
+    std::function<std::unique_ptr<ChunkStore>(std::string_view)>;
 
 template <typename T, typename... Args>
 std::unique_ptr<T> MakeChunkStore(Args&&... args) {

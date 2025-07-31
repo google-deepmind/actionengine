@@ -42,7 +42,8 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
                              redis::Redis::Connect(host, port));
             return client;
           },
-          py::arg("host"), py::arg_v("port", 6379), keep_event_loop_memo())
+          py::arg("host"), py::arg_v("port", 6379), keep_event_loop_memo(),
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "get",
           [](const std::shared_ptr<redis::Redis>& self,
@@ -109,23 +110,28 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
              bool final) { return self->Put(seq, chunk, final); },
           py::arg("seq"), py::arg("chunk"), py::arg_v("final", false),
           py::call_guard<py::gil_scoped_release>())
-      .def("no_further_puts",
-           [](const std::shared_ptr<redis::ChunkStore>& self) {
-             return self->CloseWritesWithStatus(absl::OkStatus());
-           })
-      .def("size",
-           [](const std::shared_ptr<redis::ChunkStore>& self) {
-             return self->Size();
-           })
+      .def(
+          "no_further_puts",
+          [](const std::shared_ptr<redis::ChunkStore>& self) {
+            return self->CloseWritesWithStatus(absl::OkStatus());
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "size",
+          [](const std::shared_ptr<redis::ChunkStore>& self) {
+            return self->Size();
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "contains",
           [](const std::shared_ptr<redis::ChunkStore>& self, int seq) {
             return self->Contains(seq);
           },
-          py::arg("seq"))
+          py::arg("seq"), py::call_guard<py::gil_scoped_release>())
       .def("set_id", &redis::ChunkStore::SetId)
       .def("get_id", &redis::ChunkStore::GetId)
-      .def("get_final_seq", &redis::ChunkStore::GetFinalSeq)
+      .def("get_final_seq", &redis::ChunkStore::GetFinalSeq,
+           py::call_guard<py::gil_scoped_release>())
       .def(
           "get_seq_for_arrival_offset",
           [](const std::shared_ptr<redis::ChunkStore>& self,
@@ -133,15 +139,17 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
             return self->GetSeqForArrivalOffset(arrival_offset);
           },
           py::arg("arrival_offset"), py::call_guard<py::gil_scoped_release>())
-      .def("__len__",
-           [](const std::shared_ptr<redis::ChunkStore>& self)
-               -> absl::StatusOr<int64_t> { return self->Size(); })
+      .def(
+          "__len__",
+          [](const std::shared_ptr<redis::ChunkStore>& self)
+              -> absl::StatusOr<int64_t> { return self->Size(); },
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "__contains__",
           [](const std::shared_ptr<redis::ChunkStore>& self, int seq) {
             return self->Contains(seq);
           },
-          py::arg("seq"))
+          py::arg("seq"), py::call_guard<py::gil_scoped_release>())
       .doc() = "Evergreen Redis ChunkStore.";
 
   return redis_module;

@@ -71,9 +71,12 @@ void BindChunkStore(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<PyChunkStore>& self, int seq,
              const Chunk& chunk,
              bool final) { return self->Put(seq, chunk, final); },
-          py::arg("seq"), py::arg("chunk"), py::arg_v("final", false))
-      .def("no_further_puts", &PyChunkStore::CloseWritesWithStatus)
-      .def("size", &PyChunkStore::Size)
+          py::arg("seq"), py::arg("chunk"), py::arg_v("final", false),
+          py::call_guard<py::gil_scoped_release>())
+      .def("no_further_puts", &PyChunkStore::CloseWritesWithStatus,
+           py::call_guard<py::gil_scoped_release>())
+      .def("size", &PyChunkStore::Size,
+           py::call_guard<py::gil_scoped_release>())
       .def("contains", &PyChunkStore::Contains)
       .def("set_id", &PyChunkStore::SetId)
       .def("get_id", &PyChunkStore::GetId)
@@ -117,8 +120,10 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<LocalChunkStore>& self, int seq,
              const Chunk& chunk,
              bool final) { return self->Put(seq, chunk, final); },
-          py::arg("seq"), py::arg("chunk"), py::arg_v("final", false))
-      .def("no_further_puts", &LocalChunkStore::CloseWritesWithStatus)
+          py::arg("seq"), py::arg("chunk"), py::arg_v("final", false),
+          py::call_guard<py::gil_scoped_release>())
+      .def("no_further_puts", &LocalChunkStore::CloseWritesWithStatus,
+           py::call_guard<py::gil_scoped_release>())
       .def("size", &LocalChunkStore::Size)
       .def("contains", &LocalChunkStore::Contains)
       .def("set_id", &LocalChunkStore::SetId)

@@ -16,6 +16,7 @@
 
 #include <string_view>
 #include <vector>
+
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/nodes/async_node.h"
 #include "eglt/stores/chunk_store.h"
@@ -94,12 +95,12 @@ bool NodeMap::contains(std::string_view id) const {
 }
 
 std::unique_ptr<ChunkStore> NodeMap::MakeChunkStore(
-    const ChunkStoreFactory& factory) const {
+    const ChunkStoreFactory& factory, std::string_view id) const {
   if (factory) {
-    return factory();
+    return factory(id);
   }
   if (chunk_store_factory_) {
-    return chunk_store_factory_();
+    return chunk_store_factory_(id);
   }
   return nullptr;
 }

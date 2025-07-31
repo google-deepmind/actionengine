@@ -51,8 +51,10 @@ void BindWebRtcWireStream(py::handle scope, std::string_view name) {
            py::call_guard<py::gil_scoped_release>())
       .def("receive", &net::WebRtcWireStream::Receive,
            py::call_guard<py::gil_scoped_release>())
-      .def("accept", &net::WebRtcWireStream::Accept)
-      .def("start", &net::WebRtcWireStream::Start)
+      .def("accept", &net::WebRtcWireStream::Accept,
+           py::call_guard<py::gil_scoped_release>())
+      .def("start", &net::WebRtcWireStream::Start,
+           py::call_guard<py::gil_scoped_release>())
       .def("close", &net::WebRtcWireStream::HalfClose,
            py::call_guard<py::gil_scoped_release>())
       .def("get_status", &net::WebRtcWireStream::GetStatus)
@@ -117,7 +119,8 @@ py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
       },
       py::arg_v("identity", "client"), py::arg_v("peer_identity", "server"),
       py::arg_v("signalling_address", "localhost"),
-      py::arg_v("signalling_port", 80));
+      py::arg_v("signalling_port", 80),
+      py::call_guard<py::gil_scoped_release>());
 
   return webrtc;
 }
