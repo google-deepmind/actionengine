@@ -40,7 +40,6 @@ std::optional<SessionMessage> WebsocketWireStream::Receive() {
 
   // Receive from underlying websocket stream.
   if (const absl::Status status = stream_.Read(&buffer); !status.ok()) {
-    DLOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_, status);
     return std::nullopt;
   }
 

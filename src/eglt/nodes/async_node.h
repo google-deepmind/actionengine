@@ -35,7 +35,8 @@
 #include "eglt/data/serialization.h"
 #include "eglt/net/stream.h"
 #include "eglt/stores/chunk_store.h"
-#include "eglt/stores/chunk_store_io.h"
+#include "eglt/stores/chunk_store_reader.h"
+#include "eglt/stores/chunk_store_writer.h"
 
 namespace eglt {
 class NodeMap;
@@ -55,19 +56,13 @@ class AsyncNode {
   AsyncNode& operator=(AsyncNode& other) = delete;
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
-  ~AsyncNode() {
-    eglt::MutexLock lock(&mu_);
-    if (default_reader_ != nullptr) {
-      default_reader_->Cancel();
-      default_reader_.reset();
-    }
-  }
+  ~AsyncNode();
 
   void BindPeers(
-      absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers) {
-    eglt::MutexLock lock(&mu_);
-    peers_ = std::move(peers);
-  }
+      absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers);
+
+  auto Put(Chunk value, int seq = -1, bool final = false) -> absl::Status;
+  auto Put(NodeFragment value) -> absl::Status;
 
   template <typename T>
   auto Put(T value, int seq = -1, bool final = false) -> absl::Status {
@@ -76,15 +71,6 @@ class AsyncNode {
       return chunk.status();
     }
     return Put(*std::move(chunk), seq, final);
-  }
-
-  template <typename T>
-  auto PutAndClose(T value, int seq = -1) -> absl::Status {
-    auto chunk = ToChunk(std::move(value));
-    if (!chunk.ok()) {
-      return chunk.status();
-    }
-    return Put(*std::move(chunk), seq, /*final=*/true);
   }
 
   ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mu_);
@@ -103,7 +89,7 @@ class AsyncNode {
   template <typename T>
   auto NextOrDie() -> std::optional<T> {
     auto next = Next<T>();
-    CHECK_OK(next.status()) << "Failed to get next value: " << next.status();
+    CHECK_OK(next.status());
     return *std::move(next);
   }
 
@@ -152,9 +138,9 @@ class AsyncNode {
   ChunkStoreWriter* absl_nonnull EnsureWriter(int n_chunks_to_buffer = -1)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  absl::Status PutFragment(NodeFragment fragment, int seq = -1)
+  absl::Status PutInternal(NodeFragment fragment)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
-  absl::Status PutChunk(Chunk chunk, int seq = -1, bool final = false)
+  absl::Status PutInternal(Chunk chunk, int seq = -1, bool final = false)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   NodeMap* absl_nullable node_map_ = nullptr;
@@ -167,29 +153,6 @@ class AsyncNode {
   absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers_
       ABSL_GUARDED_BY(mu_);
 };
-
-template <>
-inline auto AsyncNode::Put<Chunk>(Chunk value, int seq, bool final)
-    -> absl::Status {
-  eglt::MutexLock lock(&mu_);
-  const bool continued = !final && !value.IsNull();
-  return PutFragment(NodeFragment{
-      .id = std::string(chunk_store_->GetId()),
-      .seq = seq,
-      .chunk = std::move(value),
-      .continued = continued,
-  });
-}
-
-template <>
-inline auto AsyncNode::Put(NodeFragment value, int seq, bool final)
-    -> absl::Status {
-  eglt::MutexLock lock(&mu_);
-  if (seq == -1) {
-    seq = value.seq;
-  }
-  return PutFragment(std::move(value), seq);
-}
 
 // -----------------------------------------------------------------------------
 // IO operators for AsyncNode. These templates have concrete instantiations for
@@ -206,6 +169,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
     value = std::nullopt;
     return node;
   }
+
   auto status_or_value = FromChunkAs<T>(*std::move(chunk));
   if (!status_or_value.ok()) {
     LOG(FATAL) << "Failed to convert chunk to value: "
@@ -216,7 +180,6 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<T>& value) {
   return node;
 }
 
-/// @private
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, T value) {
   node.EnsureWriter();
@@ -227,13 +190,7 @@ AsyncNode& operator<<(AsyncNode& node, T value) {
 
 // Concrete instantiation for the operator>> for Chunk.
 template <>
-inline AsyncNode& operator>>(AsyncNode& node, std::optional<Chunk>& value) {
-  auto next_chunk = node.Next<Chunk>();
-  CHECK_OK(next_chunk.status())
-      << "Failed to get next chunk: " << next_chunk.status();
-  value = *std::move(next_chunk);
-  return node;
-}
+AsyncNode& operator>>(AsyncNode& node, std::optional<Chunk>& value);
 
 // -----------------------------------------------------------------------------
 
@@ -261,24 +218,14 @@ std::shared_ptr<AsyncNode>& operator>>(std::shared_ptr<AsyncNode>& node,
 // -----------------------------------------------------------------------------
 // "Concrete" instantiations for the operator<< for Chunk and NodeFragment.
 // -----------------------------------------------------------------------------
-/// @private
 template <>
-inline AsyncNode& operator<<(AsyncNode& node, NodeFragment value) {
-  node.Put(std::move(value)).IgnoreError();
-  return node;
-}
+AsyncNode& operator<<(AsyncNode& node, NodeFragment value);
 
-/// @private
 template <>
-inline AsyncNode& operator<<(AsyncNode& node, Chunk value) {
-  const bool final = value.IsNull();
-  node.Put(std::move(value), /*seq=*/-1, /*final=*/final).IgnoreError();
-  return node;
-}
+AsyncNode& operator<<(AsyncNode& node, Chunk value);
 
 // -----------------------------------------------------------------------------
 
-/// @private
 template <typename T>
 AsyncNode& operator<<(AsyncNode& node, std::vector<T> value) {
   for (auto& element : std::move(value)) {
@@ -291,33 +238,14 @@ AsyncNode& operator<<(AsyncNode& node, std::vector<T> value) {
   return node;
 }
 
-/// @private
-template <typename T>
-AsyncNode& operator<<(AsyncNode& node, std::pair<T, int> value) {
-  auto [data_value, seq] = std::move(value);
-  node.Put(std::move(data_value), seq, /*final=*/false).IgnoreError();
-  return node;
-}
-
-/// @private
-template <>
-inline AsyncNode& operator<<(AsyncNode& node, std::pair<Chunk, int> value) {
-  auto [data_value, seq] = std::move(value);
-  bool final = data_value.IsNull();
-  node.Put(std::move(data_value), seq, /*final=*/final).IgnoreError();
-  return node;
-}
-
 // Convenience operators to write to an AsyncNode pointers (such as in the case
 // of action->GetOutput("text"))
-/// @private
 template <typename T>
 AsyncNode* absl_nonnull operator<<(AsyncNode* absl_nonnull node, T value) {
   *node << std::move(value);
   return node;
 }
 
-/// @private
 template <typename T>
 std::unique_ptr<AsyncNode>& operator<<(std::unique_ptr<AsyncNode>& node,
                                        T value) {
@@ -325,7 +253,6 @@ std::unique_ptr<AsyncNode>& operator<<(std::unique_ptr<AsyncNode>& node,
   return node;
 }
 
-/// @private
 template <typename T>
 std::shared_ptr<AsyncNode>& operator<<(std::shared_ptr<AsyncNode>& node,
                                        T value) {

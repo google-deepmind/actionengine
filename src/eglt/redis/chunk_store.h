@@ -108,9 +108,6 @@ class ChunkStore final : public eglt::ChunkStore {
     return redis_->GetKey(absl::StrCat("streams:", id_, ":", key));
   }
 
-  absl::StatusOr<Chunk> GetInternal(int64_t seq, absl::Duration timeout)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
-
   absl::StatusOr<std::optional<Chunk>> TryGet(int64_t seq)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 

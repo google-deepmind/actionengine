@@ -27,7 +27,8 @@
 #include "eglt/net/stream.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/stores/chunk_store.h"
-#include "eglt/stores/chunk_store_io.h"
+#include "eglt/stores/chunk_store_reader.h"
+#include "eglt/stores/chunk_store_writer.h"
 #include "eglt/stores/local_chunk_store.h"
 
 namespace eglt {
@@ -75,7 +76,21 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   return *this;
 }
 
-absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq)
+AsyncNode::~AsyncNode() {
+  eglt::MutexLock lock(&mu_);
+  if (default_reader_ != nullptr) {
+    default_reader_->Cancel();
+    default_reader_.reset();
+  }
+}
+
+void AsyncNode::BindPeers(
+    absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers) {
+  eglt::MutexLock lock(&mu_);
+  peers_ = std::move(peers);
+}
+
+absl::Status AsyncNode::PutInternal(NodeFragment fragment)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   const std::string node_id(chunk_store_->GetId());
   if (!fragment.id.empty()) {
@@ -93,11 +108,11 @@ absl::Status AsyncNode::PutFragment(NodeFragment fragment, const int seq)
     return absl::OkStatus();
   }
 
-  return PutChunk(*std::move(fragment).chunk, seq == -1 ? fragment.seq : seq,
-                  /*final=*/!fragment.continued);
+  return PutInternal(*std::move(fragment.chunk), fragment.seq,
+                     !fragment.continued);
 }
 
-absl::Status AsyncNode::PutChunk(Chunk chunk, int seq, bool final)
+absl::Status AsyncNode::PutInternal(Chunk chunk, int seq, bool final)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   ChunkStoreWriter* writer = EnsureWriter();
 
@@ -198,6 +213,43 @@ ChunkStoreWriter* AsyncNode::EnsureWriter(int n_chunks_to_buffer)
                                                          n_chunks_to_buffer);
   }
   return default_writer_.get();
+}
+
+auto AsyncNode::Put(Chunk value, int seq, bool final) -> absl::Status {
+  eglt::MutexLock lock(&mu_);
+  const bool continued = !final && !value.IsNull();
+  return PutInternal(NodeFragment{
+      .id = std::string(chunk_store_->GetId()),
+      .seq = seq,
+      .chunk = std::move(value),
+      .continued = continued,
+  });
+}
+
+auto AsyncNode::Put(NodeFragment value) -> absl::Status {
+  eglt::MutexLock lock(&mu_);
+  return PutInternal(std::move(value));
+}
+
+template <>
+AsyncNode& operator>>(AsyncNode& node, std::optional<Chunk>& value) {
+  auto next_chunk = node.Next<Chunk>();
+  CHECK_OK(next_chunk.status()) << "Failed to get next chunk.";
+  value = *std::move(next_chunk);
+  return node;
+}
+
+template <>
+AsyncNode& operator<<(AsyncNode& node, NodeFragment value) {
+  node.Put(std::move(value)).IgnoreError();
+  return node;
+}
+
+template <>
+AsyncNode& operator<<(AsyncNode& node, Chunk value) {
+  const bool final = value.IsNull();
+  CHECK_OK(node.Put(std::move(value), /*seq=*/-1, /*final=*/final));
+  return node;
 }
 
 }  // namespace eglt

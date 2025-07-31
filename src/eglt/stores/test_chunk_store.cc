@@ -6,8 +6,10 @@
 #include <absl/status/status_matchers.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include "eglt/data/eg_structs.h"
-#include "eglt/stores/chunk_store_io.h"
+#include "eglt/stores/chunk_store_reader.h"
+#include "eglt/stores/chunk_store_writer.h"
 #include "eglt/stores/local_chunk_store.h"
 
 #define EXPECT_OK(expression) EXPECT_THAT(expression, ::absl_testing::IsOk())
