@@ -12,12 +12,12 @@ def make_action_registry():
     registry.register(
         "read_store",
         actions.redis.READ_STORE_SCHEMA,
-        actions.redis.run_read_store,
+        actions.redis.read_store_run,
     )
     registry.register(
         "write_store",
         actions.redis.WRITE_STORE_SCHEMA,
-        actions.redis.run_write_store,
+        actions.redis.write_store_run,
     )
     return registry
 
@@ -36,7 +36,7 @@ async def write_text_chunk(
         node_map=NODE_MAP,
         stream=None,  # No stream needed for this action
     )
-    write_action.run()
+    _ = write_action.run()
     await write_action["request"].put_and_finalize(
         actions.redis.WriteRedisStoreRequest(
             key=key,
@@ -58,9 +58,9 @@ async def read_text_chunks(
         node_map=NODE_MAP,
         stream=None,  # No stream needed for this action
     )
-    read_action.run()
+    _ = read_action.run()
     await read_action["request"].put_and_finalize(
-        actions.redis.ReadRedisStoreRequest(
+        actions.redis.ReadStoreRequest(
             key=key,
             offset=offset,
             count=count,
@@ -69,6 +69,24 @@ async def read_text_chunks(
 
     async for text in read_action["response"]:
         yield text
+
+
+def get_global_redis_client():
+    if not hasattr(get_global_redis_client, "client"):
+        get_global_redis_client.client = evergreen.redis.Redis.connect(
+            "localhost"
+        )
+    return get_global_redis_client.client
+
+
+def make_redis_chunk_store(node_id: str) -> evergreen.redis.ChunkStore:
+    redis_client = get_global_redis_client()
+    store = evergreen.redis.ChunkStore(redis_client, node_id, -1)  # No TTL
+    return store
+
+
+async def print_hello_async():
+    print("Hello from the Redis client example!", flush=True)
 
 
 async def main():

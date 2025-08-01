@@ -26,7 +26,7 @@ async def do_nothing(_: "Action") -> None:
 
 
 def wrap_handler(handler: ActionHandler) -> ActionHandler:
-    loop = asyncio.get_running_loop()
+    loop = None  # was asyncio.get_running_loop()
 
     def inner(action: "Action") -> None:
         return evergreen.run_threadsafe_if_coroutine(

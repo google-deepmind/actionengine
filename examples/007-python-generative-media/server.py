@@ -24,6 +24,8 @@ def make_action_registry():
         "text_to_image", actions.text_to_image.SCHEMA, actions.text_to_image.run
     )
 
+    actions.redis.register_actions(registry)
+
     return registry
 
 

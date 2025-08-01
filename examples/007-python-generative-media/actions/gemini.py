@@ -27,7 +27,7 @@ def get_redis_client():
 
 async def resolve_session_token_to_session_id_and_seqs(
     token: str = "",
-) -> tuple[str, int, int]:
+) -> tuple[str | None, int, int]:
     redis_client = get_redis_client()
 
     session_id = base64.urlsafe_b64encode(os.urandom(6)).decode("utf-8")
@@ -50,7 +50,7 @@ async def resolve_session_token_to_session_id_and_seqs(
 
     if not session_info:
         print(f"Session token {token} not found in Redis.", flush=True)
-        return session_id, next_message_seq, next_thought_seq
+        return None, next_message_seq, next_thought_seq
 
     print(
         f"Resolved session with token: {token}, info: {session_info}",
@@ -71,6 +71,8 @@ async def run_rehydrate_session(action: evergreen.Action):
     session_id, next_message_seq, next_thought_seq = (
         await resolve_session_token_to_session_id_and_seqs(session_token)
     )
+    if session_id is None:
+        session_id = base64.urlsafe_b64encode(os.urandom(6)).decode("utf-8")
 
     redis_client = get_redis_client()
 
@@ -114,6 +116,20 @@ def get_text_chunk(text: str):
     )
 
 
+def make_token_for_session_info(
+    session_id: str,
+    next_message_seq: int,
+    next_thought_seq: int,
+) -> str:
+    redis_client = get_redis_client()
+    session_token = base64.urlsafe_b64encode(os.urandom(6)).decode("utf-8")
+    redis_client.set(
+        session_token,
+        f"{session_id}:{next_message_seq}:{next_thought_seq}",
+    )
+    return session_token
+
+
 async def save_message_turn(
     session_id: str,
     chat_input: str,
@@ -147,13 +163,13 @@ async def save_message_turn(
         thought_store.put(next_thought_seq, get_text_chunk(thought))
         next_thought_seq += 1
 
-    session_token = base64.urlsafe_b64encode(os.urandom(6))
-    redis_client.set(
-        session_token,
-        f"{session_id}:{next_message_seq}:{next_thought_seq}",
+    session_token = make_token_for_session_info(
+        session_id,
+        next_message_seq,
+        next_thought_seq,
     )
 
-    return session_token.decode("utf-8")
+    return session_token
 
 
 async def generate_content_gemini(
@@ -164,6 +180,8 @@ async def generate_content_gemini(
     session_id, next_output_seq, next_thought_seq = (
         await resolve_session_token_to_session_id_and_seqs(session_token)
     )
+    if session_id is None:
+        session_id = base64.urlsafe_b64encode(os.urandom(6)).decode("utf-8")
 
     gemini_client = get_gemini_client(api_key)
 
@@ -229,6 +247,8 @@ async def generate_content_ollama(action: evergreen.Action):
     session_id, next_output_seq, next_thought_seq = (
         await resolve_session_token_to_session_id_and_seqs(session_token)
     )
+    if session_id is None:
+        session_id = base64.urlsafe_b64encode(os.urandom(6)).decode("utf-8")
 
     rehydrate_action = action.get_registry().make_action(
         "rehydrate_session",
