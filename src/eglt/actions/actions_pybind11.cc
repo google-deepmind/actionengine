@@ -101,7 +101,8 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
           py::arg("name"), py::arg_v("id", ""), py::arg_v("node_map", nullptr),
           py::arg_v("stream", nullptr), py::arg_v("session", nullptr),
           py::keep_alive<0, 4>(), py::keep_alive<0, 5>(),
-          py::keep_alive<0, 6>(), py::call_guard<py::gil_scoped_release>());
+          py::keep_alive<0, 6>(), py::call_guard<py::gil_scoped_release>(),
+          pybindings::keep_event_loop_memo());
 }
 
 /// @private

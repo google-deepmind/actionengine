@@ -30,9 +30,31 @@ def get_app_with_handlers() -> FastAPI:
     application.post(
         "/echo/",
         response_model=str,
-        summary="Echo text",
-        description="Echoes the provided text back to the client.",
+        summary="Echo a text string or a list of strings",
         tags=["simple-examples"],
+        responses={
+            200: {
+                "description": "Echoed text",
+                "content": {
+                    "text/plain": {
+                        "example": "Hello, world!",
+                    },
+                    "application/json": {
+                        "example": "Hello, world!",
+                    },
+                },
+            },
+            400: {
+                "description": "Invalid input",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "detail": "Text must be a string or a list of strings.",
+                        },
+                    },
+                },
+            },
+        },
     )(actions.echo.http_handler)
 
     actions.redis.register_http_routes(application)
@@ -76,6 +98,7 @@ class SessionInfo(BaseModel):
     session_id: str = Field(
         ...,
         description="The stream ID for the session.",
+        examples=["qQB4Y2Rg"],
     )
     next_message_seq: int = Field(
         0,
@@ -92,10 +115,15 @@ class Message(BaseModel):
         ...,
         description="Role of the message sender, e.g. 'user', "
         "'assistant' or 'system'.",
+        examples=["user", "assistant", "system"],
     )
     content: str = Field(
         ...,
         description="Content of the message.",
+        examples=[
+            "Hello! What can you do?",
+            "I can help you with various tasks.",
+        ],
     )
 
 
@@ -103,26 +131,58 @@ class ChatResponse(BaseModel):
     response: str = Field(
         ...,
         description="The generated response from the model.",
+        examples=[
+            "Hello! I can assist you with a variety of tasks, "
+            "including answering questions, providing information, "
+            "and more.",
+        ],
     )
     thought: str | None = Field(
         None,
         description="The thought process of the model, if available.",
+        examples=[
+            "The user seems to be interested in what I can do, "
+            "so I should provide a brief overview of my capabilities.",
+        ],
     )
     session_token: str = Field(
         ...,
         description="The session token for the new position in the session history.",
+        examples=["pLA9rUID"],
     )
-    gui_url: str | None = None
+    gui_url: str | None = Field(
+        None,
+        description="Optional URL for the GUI to view the session.",
+        examples=[
+            "https://demos.helena.direct/gemini/?session_token=pLA9rUID&q=ollama",
+        ],
+    )
 
 
 class SessionHistoryResponse(BaseModel):
     messages: list[Message] = Field(
         ...,
         description="List of messages in the session history.",
+        examples=[
+            {
+                "role": "user",
+                "content": "Hello! What can you do?",
+            },
+            {
+                "role": "assistant",
+                "content": "I can assist you with a variety of tasks, "
+                "including answering questions, providing information, "
+                "and more.",
+            },
+        ],
     )
     thoughts: list[str] = Field(
         ...,
         description="List of thoughts in the session history.",
+        examples=[
+            "The user seems to be interested in what I can do, "
+            "so I should provide a brief overview of my capabilities.",
+        ],
     )
 
 
@@ -130,6 +190,11 @@ class SendMessageRequest(BaseModel):
     message: str = Field(
         "Hello! What can you do?",
         description="The message to send to the session.",
+        examples=[
+            "Hello! What can you do?",
+            "Can you tell me a joke?",
+            "What is the capital of France?",
+        ],
     )
     api_key: str | None = Field(
         "ollama",
@@ -142,6 +207,7 @@ class SendMessageRequest(BaseModel):
     "/resolve-token/{session_token}",
     tags=["sessions"],
     response_model=SessionInfo,
+    summary="Resolve a session token to get session ID and sequence offsets for raw streams",
 )
 async def resolve_token(
     session_token: str,
@@ -179,6 +245,7 @@ async def resolve_token(
     "/sessions/",
     tags=["sessions"],
     response_model=ChatResponse,
+    summary="Create a new session and send a message to it",
 )
 async def send_message_to_new_session(
     request: SendMessageRequest,
@@ -261,6 +328,7 @@ async def make_streaming_response(action: evergreen.Action):
     "/sessions/{session_token}/",
     tags=["sessions"],
     response_model=ChatResponse,
+    summary="Send a message to an existing session",
 )
 async def send_message_to_session(
     session_token: str,
@@ -317,6 +385,7 @@ async def send_message_to_session(
     "/sessions/{session_token}/",
     tags=["sessions"],
     response_model=SessionHistoryResponse,
+    summary="Get the latest messages and thoughts from a session up to a given session token",
 )
 async def get_session_history(session_token: str):
     """
@@ -348,135 +417,135 @@ async def get_session_history(session_token: str):
     return SessionHistoryResponse(messages=messages, thoughts=thoughts)
 
 
-# @app.get("/sessions/{session_token}/follow", tags=["sessions"])
-# async def follow_session(
-#     session_token: str,
-#     timeout: float = 10.0,
-# ):
-#     """
-#     Follow a session to get updates on new messages and thoughts.
-#     """
-#     if not session_token:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Session token is required.",
-#         )
-#
-#     if timeout <= 0:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Timeout must be a non-negative number.",
-#         )
-#
-#     if timeout > 300:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Timeout must not exceed 300 seconds.",
-#         )
-#
-#     session_info = await resolve_token(session_token)
-#     print(f"Following session {session_info.session_id} ")
-#
-#     ae = ActionEngineClient.global_instance()
-#
-#     read_messages = ae.make_action("read_store")
-#     read_messages_request = actions.redis.ReadStoreRequest(
-#         key=f"{session_info.session_id}:messages",
-#         offset=session_info.next_message_seq,
-#         count=-1,  # Read all messages after the last known message
-#         timeout=timeout,
-#     )
-#
-#     read_thoughts = ae.make_action("read_store")
-#     read_thoughts_request = actions.redis.ReadStoreRequest(
-#         key=f"{session_info.session_id}:thoughts",
-#         offset=session_info.next_thought_seq,
-#         count=-1,  # Read all thoughts after the last known thought
-#         timeout=timeout,
-#     )
-#
-#     await asyncio.gather(
-#         read_messages.call(),
-#         read_messages["request"].put_and_finalize(read_messages_request),
-#         read_thoughts.call(),
-#         read_thoughts["request"].put_and_finalize(read_thoughts_request),
-#     )
-#
-#     queue = asyncio.Queue(32)
-#
-#     asyncio.create_task(
-#         asyncio.to_thread(
-#             actions.redis.read_store_chunks_into_queue,
-#             read_messages_request,
-#             queue,
-#             "messages",
-#         )
-#     )
-#
-#     asyncio.create_task(
-#         asyncio.to_thread(
-#             actions.redis.read_store_chunks_into_queue,
-#             read_thoughts_request,
-#             queue,
-#             "thoughts",
-#         )
-#     )
-#
-#     def make_final_event(exc: Exception | None = None):
-#         token = actions.gemini.make_token_for_session_info(
-#             session_info.session_id,
-#             session_info.next_message_seq,
-#             session_info.next_thought_seq,
-#         )
-#         event = {
-#             "session_token": token,
-#         }
-#         if exc is not None:
-#             event["error"] = str(exc)
-#         return f"data: {json.dumps(event)}\nevent: session.follow.ended\n\n"
-#
-#     # iterate over both queues until both are empty or a timeout occurs
-#     async def stream_updates():
-#         nones_received = 0
-#         while True:
-#             try:
-#                 element = await asyncio.wait_for(queue.get(), timeout=timeout)
-#
-#                 if element[1] is None:
-#                     nones_received += 1
-#                     if nones_received == 2:
-#                         # Both queues have been exhausted
-#                         yield make_final_event()
-#                         break
-#                     continue
-#                 if isinstance(element[1], Exception):
-#                     # An error occurred while reading from the store
-#                     yield make_final_event(element[1])
-#                     break
-#
-#                 annotation, chunk, seq, is_final = element
-#                 fragment = evergreen.NodeFragment(
-#                     id=annotation,
-#                     seq=seq,
-#                     chunk=chunk,
-#                     continued=not is_final,
-#                 )
-#                 if annotation == "messages":
-#                     session_info.next_message_seq = seq + 1
-#                 elif annotation == "thoughts":
-#                     session_info.next_thought_seq = seq + 1
-#                 yield f"data: {json.dumps(fragment_to_json(fragment))}\n\n"
-#
-#             except asyncio.TimeoutError:
-#                 yield make_final_event(
-#                     HTTPException(
-#                         status_code=408,
-#                         detail="Timeout while waiting for updates.",
-#                     )
-#                 )
-#                 break
-#
-#     return StreamingResponse(
-#         stream_updates(),
-#         media_type="text/event-stream",
-#     )
+@app.get("/sessions/{session_token}/follow", tags=["sessions"])
+async def follow_session(
+    session_token: str,
+    timeout: float = 10.0,
+):
+    """
+    Follow a session to get updates on new messages and thoughts.
+    """
+    if not session_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Session token is required.",
+        )
+
+    if timeout <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Timeout must be a non-negative number.",
+        )
+
+    if timeout > 300:
+        raise HTTPException(
+            status_code=400,
+            detail="Timeout must not exceed 300 seconds.",
+        )
+
+    session_info = await resolve_token(session_token)
+    print(f"Following session {session_info.session_id} ")
+
+    # ae = ActionEngineClient.global_instance()
+    #
+    # read_messages = ae.make_action("read_store")
+    read_messages_request = actions.redis.ReadStoreRequest(
+        key=f"{session_info.session_id}:messages",
+        offset=session_info.next_message_seq,
+        count=-1,  # Read all messages after the last known message
+        timeout=timeout,
+    )
+    #
+    # read_thoughts = ae.make_action("read_store")
+    read_thoughts_request = actions.redis.ReadStoreRequest(
+        key=f"{session_info.session_id}:thoughts",
+        offset=session_info.next_thought_seq,
+        count=-1,  # Read all thoughts after the last known thought
+        timeout=timeout,
+    )
+    #
+    # await asyncio.gather(
+    #     read_messages.call(),
+    #     read_messages["request"].put_and_finalize(read_messages_request),
+    #     read_thoughts.call(),
+    #     read_thoughts["request"].put_and_finalize(read_thoughts_request),
+    # )
+
+    queue = asyncio.Queue(32)
+
+    read_messages_task = asyncio.create_task(
+        actions.redis.read_store_chunks_into_queue(
+            read_messages_request,
+            queue,
+            "messages",
+        )
+    )
+
+    read_thoughts_task = asyncio.create_task(
+        actions.redis.read_store_chunks_into_queue(
+            read_thoughts_request,
+            queue,
+            "thoughts",
+        )
+    )
+
+    def make_final_event(exc: Exception | None = None):
+        token = actions.gemini.make_token_for_session_info(
+            session_info.session_id,
+            session_info.next_message_seq,
+            session_info.next_thought_seq,
+        )
+        event = {
+            "session_token": token,
+        }
+        if exc is not None:
+            event["error"] = str(exc)
+        return f"data: {json.dumps(event)}\nevent: session.follow.ended\n\n"
+
+    # iterate over both queues until both are empty or a timeout occurs
+    async def stream_updates():
+        nones_received = 0
+        while True:
+            try:
+                element = await asyncio.wait_for(queue.get(), timeout=timeout)
+
+                if element[1] is None:
+                    nones_received += 1
+                    if nones_received == 2:
+                        # Both queues have been exhausted
+                        yield make_final_event()
+                        break
+                    continue
+                if isinstance(element[1], Exception):
+                    # An error occurred while reading from the store
+                    yield make_final_event(element[1])
+                    break
+
+                annotation, chunk, seq, is_final = element
+                fragment = evergreen.NodeFragment(
+                    id=annotation,
+                    seq=seq,
+                    chunk=chunk,
+                    continued=not is_final,
+                )
+                if annotation == "messages":
+                    session_info.next_message_seq = seq + 1
+                elif annotation == "thoughts":
+                    session_info.next_thought_seq = seq + 1
+                yield f"data: {json.dumps(fragment_to_json(fragment))}\n\n"
+
+            except asyncio.TimeoutError:
+                yield make_final_event(
+                    HTTPException(
+                        status_code=408,
+                        detail="Timeout while waiting for updates.",
+                    )
+                )
+                break
+        await read_messages_task
+        await read_thoughts_task
+
+    return StreamingResponse(
+        stream_updates(),
+        media_type="text/event-stream",
+    )

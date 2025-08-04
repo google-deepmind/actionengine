@@ -18,7 +18,11 @@ async def run(action: evergreen.Action) -> None:
 
 
 class EchoRequest(BaseModel):
-    text: str | list[str] = Field(..., description="Text to echo back")
+    text: str | list[str] = Field(
+        ...,
+        description="Text to echo back",
+        examples=["Hello, world!", ["Hello", "world!"]],
+    )
 
 
 async def stream_echo_response(action: evergreen.Action):

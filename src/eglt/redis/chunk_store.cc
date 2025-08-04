@@ -102,11 +102,12 @@ ChunkStore::~ChunkStore() {
   eglt::MutexLock lock(&mu_);
 
   allow_new_gets_ = false;
+  cv_.SignalAll();
   while (num_pending_gets_ > 0) {
     cv_.Wait(&mu_);
   }
 
-  redis_->Unsubscribe(GetKey("events")).IgnoreError();
+  redis_->RemoveSubscription(GetKey("events"), subscription_);
   subscription_.reset();
 }
 
@@ -127,6 +128,13 @@ absl::StatusOr<Chunk> ChunkStore::Get(int64_t seq, absl::Duration timeout) {
   while (absl::Now() < deadline) {
     if (cv_.WaitWithDeadline(&mu_, deadline)) {
       break;  // Timeout reached.
+    }
+
+    if (!allow_new_gets_) {
+      --num_pending_gets_;
+      cv_.SignalAll();
+      return absl::FailedPreconditionError(
+          "ChunkStore is closed for new gets.");
     }
 
     absl::StatusOr<std::optional<Chunk>> chunk_or_error = TryGet(seq);

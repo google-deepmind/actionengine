@@ -188,58 +188,66 @@ async def generate_content_gemini(
     prompt = await action["prompt"].consume()
     chat_input = await action["chat_input"].consume()
 
-    retries_left = 3
-    while retries_left > 0:
-        try:
-            stream = await gemini_client.models.generate_content_stream(
-                model="gemini-2.5-flash-preview-05-20",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(
-                        include_thoughts=True,
-                        thinking_budget=-1,
+    try:
+        retries_left = 3
+        while retries_left > 0:
+            try:
+                stream = await gemini_client.models.generate_content_stream(
+                    model="gemini-2.5-flash-preview-05-20",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        thinking_config=types.ThinkingConfig(
+                            include_thoughts=True,
+                            thinking_budget=-1,
+                        ),
+                        tools=[types.Tool(google_search=types.GoogleSearch())],
                     ),
-                    tools=[types.Tool(google_search=types.GoogleSearch())],
-                ),
-            )
+                )
 
-            output = ""
-            thought = ""
+                output = ""
+                thought = ""
 
-            async for chunk in stream:
-                for candidate in chunk.candidates:
-                    if not candidate.content:
-                        continue
-                    if not candidate.content.parts:
-                        continue
+                async for chunk in stream:
+                    for candidate in chunk.candidates:
+                        if not candidate.content:
+                            continue
+                        if not candidate.content.parts:
+                            continue
 
-                    for part in candidate.content.parts:
-                        if not part.thought:
-                            await action["output"].put(part.text)
-                            output += part.text
-                        else:
-                            await action["thoughts"].put(part.text)
-                            thought += part.text
+                        for part in candidate.content.parts:
+                            if not part.thought:
+                                await action["output"].put(part.text)
+                                output += part.text
+                            else:
+                                await action["thoughts"].put(part.text)
+                                thought += part.text
 
-            session_token = await save_message_turn(
-                session_id,
-                chat_input,
-                output,
-                thought,
-                next_output_seq,
-                next_thought_seq,
-            )
-            await action["new_session_token"].put_and_finalize(session_token)
-            break
-        except Exception:
-            retries_left -= 1
-            await action["output"].put(
-                f"Retrying due to an internal error... {retries_left} retries left."
-            )
-            if retries_left == 0:
-                await action["output"].put("Failed to connect to Gemini API.")
-                traceback.print_exc()
-                return
+                session_token = await save_message_turn(
+                    session_id,
+                    chat_input,
+                    output,
+                    thought,
+                    next_output_seq,
+                    next_thought_seq,
+                )
+                await action["new_session_token"].put_and_finalize(
+                    session_token
+                )
+                break
+            except Exception:
+                retries_left -= 1
+                await action["output"].put(
+                    f"Retrying due to an internal error... {retries_left} retries left."
+                )
+                if retries_left == 0:
+                    await action["output"].put(
+                        "Failed to connect to Gemini API."
+                    )
+                    traceback.print_exc()
+                    return
+    finally:
+        await action["output"].finalize()
+        await action["thoughts"].finalize()
 
 
 async def generate_content_ollama(action: evergreen.Action):
@@ -255,8 +263,8 @@ async def generate_content_ollama(action: evergreen.Action):
         node_map=action.get_node_map(),
         stream=None,  # No stream needed for this action
     )
-    rehydrate_task = rehydrate_action.run()
     await rehydrate_action["session_token"].put_and_finalize(session_token)
+    await rehydrate_action.run()
 
     messages = [
         {
@@ -278,59 +286,61 @@ async def generate_content_ollama(action: evergreen.Action):
     async for thought in rehydrate_action["previous_thoughts"]:
         thoughts.append(thought)
 
-    think = True
     chat_input = await action["chat_input"].consume()
-    if ("--nothink" in chat_input) or ("--no-think" in chat_input):
-        think = False
-        chat_input = (
-            chat_input.replace("--nothink", "")
-            .replace("--no-think", "")
-            .strip()
-        )
     messages.append({"role": "user", "content": chat_input})
 
-    retries_left = 3
-    while retries_left > 0:
-        try:
-            stream = chat(
-                model="deepseek-r1:8b",
-                messages=messages,
-                stream=True,
-                think=think,
-                options=Options(seed=random.randint(0, 2**31 - 1)),
-            )
+    try:
+        retries_left = 3
+        while retries_left > 0:
+            try:
+                stream = chat(
+                    model="deepseek-r1:8b",
+                    messages=messages,
+                    stream=True,
+                    think=True,
+                    options=Options(seed=random.randint(0, 2**31 - 1)),
+                )
 
-            output = ""
-            thought = ""
+                output = ""
+                thought = ""
 
-            for chunk in stream:
-                if "content" in chunk["message"]:
-                    await action["output"].put(chunk["message"]["content"])
-                    output += chunk["message"]["content"]
+                for chunk in stream:
+                    if "content" in chunk["message"]:
+                        await action["output"].put(chunk["message"]["content"])
+                        output += chunk["message"]["content"]
 
-                if "thinking" in chunk["message"]:
-                    await action["thoughts"].put(chunk["message"]["thinking"])
-                    thought += chunk["message"]["thinking"]
+                    if "thinking" in chunk["message"]:
+                        await action["thoughts"].put(
+                            chunk["message"]["thinking"]
+                        )
+                        thought += chunk["message"]["thinking"]
 
-            session_token = await save_message_turn(
-                session_id,
-                chat_input,
-                output,
-                thought,
-                next_output_seq,
-                next_thought_seq,
-            )
-            await action["new_session_token"].put_and_finalize(session_token)
-            break
-        except Exception:
-            retries_left -= 1
-            await action["output"].put(
-                f"Retrying due to an internal error... {retries_left} retries left."
-            )
-            if retries_left == 0:
-                await action["output"].put("Failed to connect to Gemini API.")
-                traceback.print_exc()
-                return
+                session_token = await save_message_turn(
+                    session_id,
+                    chat_input,
+                    output,
+                    thought,
+                    next_output_seq,
+                    next_thought_seq,
+                )
+                await action["new_session_token"].put_and_finalize(
+                    session_token
+                )
+                break
+            except Exception:
+                retries_left -= 1
+                await action["output"].put(
+                    f"Retrying due to an internal error... {retries_left} retries left."
+                )
+                if retries_left == 0:
+                    await action["output"].put(
+                        "Failed to connect to Gemini API."
+                    )
+                    traceback.print_exc()
+                    return
+    finally:
+        await action["output"].finalize()
+        await action["thoughts"].finalize()
 
 
 async def generate_content(action: evergreen.Action):
@@ -348,16 +358,10 @@ async def generate_content(action: evergreen.Action):
     ):
         api_key = os.environ.get("GEMINI_API_KEY")
 
-    try:
-        if api_key not in ("", "ollama"):
-            await generate_content_gemini(action, api_key)
-        else:
-            await generate_content_ollama(action)
-    except Exception:
-        traceback.print_exc()
-    finally:
-        await action["output"].finalize()
-        await action["thoughts"].finalize()
+    if api_key not in ("", "ollama"):
+        await generate_content_gemini(action, api_key)
+    else:
+        await generate_content_ollama(action)
 
 
 REHYDRATE_SESSION_SCHEMA = evergreen.ActionSchema(

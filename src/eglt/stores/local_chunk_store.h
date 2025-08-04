@@ -46,7 +46,10 @@ class LocalChunkStore final : public ChunkStore {
   LocalChunkStore(const LocalChunkStore& other);
   LocalChunkStore& operator=(const LocalChunkStore& other);
 
-  ~LocalChunkStore() override { ClosePutsAndAwaitPendingOperations(); }
+  ~LocalChunkStore() override {
+    eglt::MutexLock lock(&mu_);
+    ClosePutsAndAwaitPendingOperations();
+  }
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetRef(
       int64_t seq, absl::Duration timeout) override {
@@ -60,7 +63,7 @@ class LocalChunkStore final : public ChunkStore {
 
     if (no_further_puts_) {
       return absl::FailedPreconditionError(
-          "Cannot get chunks after the store has been closed.");
+          "Cannot get chunks after the store has been closed for writes.");
     }
 
     absl::Status status;
@@ -191,6 +194,7 @@ class LocalChunkStore final : public ChunkStore {
     id_ = id;
     return absl::OkStatus();
   }
+
   std::string_view GetId() const override { return id_; }
 
   absl::StatusOr<int64_t> GetSeqForArrivalOffset(
@@ -208,9 +212,7 @@ class LocalChunkStore final : public ChunkStore {
   }
 
  private:
-  void ClosePutsAndAwaitPendingOperations() {
-    eglt::MutexLock lock(&mu_);
-
+  void ClosePutsAndAwaitPendingOperations() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     no_further_puts_ = true;
     // Notify all waiters because they will not be able to get any more chunks.
     cv_.SignalAll();

@@ -26,7 +26,6 @@ Subscription::Subscription(absl::AnyInvocable<void(Reply)> on_message)
 }
 
 Subscription::~Subscription() {
-  thread::Select({OnUnsubscribe()});
   eglt::MutexLock lock(&mu_);
   CloseWriter();
 }

@@ -19,6 +19,7 @@
 #include <string_view>
 #include <uvw.hpp>
 
+#include <absl/container/flat_hash_set.h>
 #include <g3fiber/channel.h>
 #include <hiredis/adapters/libuv.h>
 #include <hiredis/async.h>
@@ -246,6 +247,15 @@ class Redis {
 
   absl::Status Unsubscribe(std::string_view channel);
 
+  void RemoveSubscription(std::string_view channel,
+                          const std::shared_ptr<Subscription>& subscription) {
+    eglt::MutexLock lock(&mu_);
+    auto it = subscriptions_.find(channel);
+    if (it != subscriptions_.end()) {
+      it->second.erase(subscription);
+    }
+  }
+
   absl::StatusOr<HelloReply> Hello(int protocol_version = 3,
                                    std::string_view client_name = "",
                                    std::string_view username = "",
@@ -295,9 +305,7 @@ class Redis {
 
   void OnDisconnect(int status) ABSL_LOCKS_EXCLUDED(mu_);
 
-  void OnPubsubReply(void* absl_nonnull hiredis_reply,
-                     Subscription* absl_nonnull subscription)
-      ABSL_LOCKS_EXCLUDED(mu_);
+  void OnPubsubReply(void* absl_nonnull hiredis_reply) ABSL_LOCKS_EXCLUDED(mu_);
 
   void OnPushReply(redisReply* absl_nonnull hiredis_reply)
       ABSL_LOCKS_EXCLUDED(mu_);
@@ -313,8 +321,9 @@ class Redis {
   bool connected_ ABSL_GUARDED_BY(mu_) = false;
   absl::Status status_ ABSL_GUARDED_BY(mu_) = absl::OkStatus();
 
-  absl::flat_hash_map<std::string, std::shared_ptr<Subscription>> subscriptions_
-      ABSL_GUARDED_BY(mu_);
+  absl::flat_hash_map<std::string,
+                      absl::flat_hash_set<std::shared_ptr<Subscription>>>
+      subscriptions_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, Script> scripts_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<redisAsyncContext, internal::RedisContextDeleter> context_;
 };

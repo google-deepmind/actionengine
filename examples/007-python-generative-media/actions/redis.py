@@ -20,6 +20,7 @@ def get_eglt_redis_client_for_sub():
             "localhost"
         )
     return get_eglt_redis_client_for_sub.client
+    # return evergreen.redis.Redis.connect("localhost")
 
 
 def get_eglt_redis_client_for_pub():
@@ -61,7 +62,7 @@ class ReadStoreRequest(BaseModel):
     )
 
 
-def read_store_chunks_into_queue(
+async def read_store_chunks_into_queue(
     request: ReadStoreRequest,
     queue: asyncio.Queue,
     annotation: str | None = None,
@@ -76,18 +77,19 @@ def read_store_chunks_into_queue(
     redis_client = get_eglt_redis_client_for_sub()
     store = evergreen.redis.ChunkStore(redis_client, request.key, TTL)
     hi = request.offset + request.count if request.count > 0 else 2147483647
-    if (final_seq := store.get_final_seq()) != -1:
+    if (final_seq := await asyncio.to_thread(store.get_final_seq)) != -1:
         hi = min(hi, final_seq + 1)
     try:
         for seq in range(request.offset, hi):
-            chunk = store.get(seq, request.timeout)
-            final_seq = store.get_final_seq()
-            queue.put_nowait(annotate((chunk, seq, seq == final_seq)))
+            chunk = await asyncio.to_thread(store.get, seq, request.timeout)
+            final_seq = await asyncio.to_thread(store.get_final_seq)
+            await queue.put(annotate((chunk, seq, seq == final_seq)))
             if seq == final_seq:
                 break
     except Exception as exc:
-        queue.put_nowait(annotate(exc))
-    queue.put_nowait(annotate(None))  # Signal that no more chunks will be added
+        print(f"Error reading from store {request.key}: {exc}")
+        await queue.put(annotate(exc))
+    await queue.put(annotate(None))  # Signal that no more chunks will be added
 
 
 async def read_store_run(action: evergreen.Action) -> None:
@@ -98,15 +100,9 @@ async def read_store_run(action: evergreen.Action) -> None:
 
         request: ReadStoreRequest = await action["request"].consume()
 
-        print(
-            f"Reading from stream {request.key} with offset {request.offset} and count {request.count}"
-        )
-
         maxsize = request.count + 1 if request.count > 0 else 32
         queue = asyncio.Queue(maxsize=maxsize)
-        asyncio.create_task(
-            asyncio.to_thread(read_store_chunks_into_queue, request, queue)
-        )
+        _ = asyncio.create_task(read_store_chunks_into_queue(request, queue))
 
         while True:
             element = await queue.get()
@@ -201,40 +197,52 @@ async def read_store_http_handler_impl(
     # )
 
     queue = asyncio.Queue(maxsize=request.count + 1)
-    asyncio.create_task(
-        asyncio.to_thread(read_store_chunks_into_queue, request, queue)
+    read_task = asyncio.create_task(
+        read_store_chunks_into_queue(request, queue)
     )
 
-    current_mimetype = None
-    while True:
-        element = await queue.get()
-        if element is None:
-            break
-
-        if isinstance(element, Exception):
-            exc = HTTPException(
-                status_code=500,
-                detail=f"Error reading from store: {str(element)}",
-            )
-            if not stream:
-                raise exc from element
-            else:
-                yield f"data: {json.dumps({'error': str(element)})}\n\n"
+    try:
+        current_mimetype = None
+        while True:
+            try:
+                element = await queue.get()
+            except asyncio.CancelledError:
+                break
+            if element is None:
                 break
 
-        chunk, seq, is_final = element
-        fragment = evergreen.NodeFragment(
-            id=request.key,
-            seq=seq,
-            chunk=chunk,
-            continued=not is_final,
-        )
-        include_metadata = current_mimetype != fragment.chunk.metadata.mimetype
-        current_mimetype = fragment.chunk.metadata.mimetype
-        if stream:
-            yield f"data: {json.dumps(fragment_to_json(fragment, include_metadata=include_metadata))}\n\n"
-        else:
-            yield fragment
+            if isinstance(element, Exception):
+                exc = HTTPException(
+                    status_code=500,
+                    detail=f"Error reading from store: {str(element)}",
+                )
+                if not stream:
+                    raise exc from element
+                else:
+                    yield f"data: {json.dumps({'error': str(element)})}\n\n"
+                    break
+
+            chunk, seq, is_final = element
+            fragment = evergreen.NodeFragment(
+                id=request.key,
+                seq=seq,
+                chunk=chunk,
+                continued=not is_final,
+            )
+            include_metadata = (
+                current_mimetype != fragment.chunk.metadata.mimetype
+            )
+            current_mimetype = fragment.chunk.metadata.mimetype
+            if stream:
+                yield f"data: {json.dumps(fragment_to_json(fragment, include_metadata=include_metadata))}\n\n"
+            else:
+                yield fragment
+    finally:
+        read_task.cancel()
+        try:
+            await read_task
+        except asyncio.CancelledError:
+            pass
 
 
 async def read_store_http_handler(
@@ -313,6 +321,32 @@ def register_http_routes(
     streams.get(
         "/read",
         summary="Read from a chunk store",
+        response_description="List or stream of NodeFragments",
+        responses={
+            200: {
+                "description": "List of NodeFragments or a stream of NodeFragments",
+                "content": {
+                    "application/json": {
+                        "example": [
+                            {
+                                "id": "stream_id",
+                                "seq": 0,
+                                "chunk": {
+                                    "metadata": {"mimetype": "text/plain"},
+                                    "data": "Hello, world!",
+                                },
+                                "continued": False,
+                            }
+                        ]
+                    },
+                    "text/event-stream": {
+                        "example": 'data: {"id": "stream_id", "seq": 0, "chunk": {"metadata": {"mimetype": "text/plain"}, "data": "Hello, world!"}, "continued": false}\n\n'
+                    },
+                },
+            },
+            400: {"description": "Invalid request parameters"},
+            500: {"description": "Error reading from store"},
+        },
     )(read_store_http_handler)
     app.include_router(streams)
 

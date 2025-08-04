@@ -41,6 +41,8 @@ internal::EventLoop::EventLoop() : loop_(uvw::loop::create()) {
     // TODO: this is a hack, and a better way to slash CPU usage should exist.
     eglt::SleepFor(absl::Milliseconds(2));
   });
+  handle_->on<uvw::close_event>(
+      [](const uvw::close_event&, uvw::idle_handle& h) { h.close(); });
 
   thread_ = std::make_unique<std::thread>([this]() {
     handle_->start();
@@ -115,12 +117,11 @@ void Redis::PubsubCallback(redisAsyncContext* context, void* hiredis_reply,
       << "Redis::PubsubCallback called with redisAsyncContext not "
          "bound to Redis instance.";
 
-  const auto subscription = static_cast<Subscription*>(privdata);
   if (hiredis_reply == nullptr) {
     return;
   }
 
-  return redis->OnPubsubReply(hiredis_reply, subscription);
+  return redis->OnPubsubReply(hiredis_reply);
 }
 
 void Redis::ReplyCallback(redisAsyncContext* context, void* hiredis_reply,
@@ -218,8 +219,15 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
 Redis::~Redis() {
   eglt::MutexLock lock(&mu_);
 
-  // for (const auto& [channel, subscription] : subscriptions_) {
-  //   ExecuteCommandWithGuards("UNSUBSCRIBE", {channel}).IgnoreError();
+  LOG(INFO) << "~Redis: Disconnecting from Redis server.";
+
+  for (const auto& [channel, subscription] : subscriptions_) {
+    ExecuteCommandWithGuards("UNSUBSCRIBE", {channel}).IgnoreError();
+  }
+  // for (auto& [channel, subscription_set] : subscriptions_) {
+  //   for (const auto& subscription : subscription_set) {
+  //     thread::Select({subscription->OnUnsubscribe()});
+  //   }
   // }
   // subscriptions_.clear();
 
@@ -237,11 +245,6 @@ absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
     return nullptr;
   }
 
-  if (subscriptions_.contains(channel)) {
-    LOG(INFO) << "Already subscribed to channel: " << channel;
-    return subscriptions_[channel];
-  }
-
   std::shared_ptr<Subscription> subscription;
   if (on_message) {
     // If a callback is provided, create a subscription with the callback.
@@ -250,14 +253,23 @@ absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
     // Otherwise, create a subscription without a callback.
     subscription = std::make_shared<Subscription>();
   }
-  subscriptions_[channel] = subscription;
 
-  ASSIGN_OR_RETURN(const Reply reply,
-                   ExecuteCommandWithGuards("SUBSCRIBE", {channel}));
-  if (reply.type != ReplyType::Nil) {
-    LOG(ERROR) << "Unexpected reply type for SUBSCRIBE command: "
-               << static_cast<int>(reply.type);
-    return absl::InternalError("Unexpected reply type for SUBSCRIBE command.");
+  subscriptions_[channel].insert(subscription);
+  if (subscriptions_[channel].size() == 1) {
+    const absl::StatusOr<Reply> reply =
+        ExecuteCommandWithGuards("SUBSCRIBE", {channel});
+    if (!reply.ok()) {
+      subscriptions_[channel].erase(subscription);
+      LOG(ERROR) << "Failed to subscribe to channel: " << channel
+                 << ", error: " << reply.status().message();
+      return reply.status();
+    }
+    if (reply->type != ReplyType::Nil) {
+      LOG(ERROR) << "Unexpected reply type for SUBSCRIBE command: "
+                 << static_cast<int>(reply->type);
+      return absl::InternalError(
+          "Unexpected reply type for SUBSCRIBE command.");
+    }
   }
 
   return subscription;
@@ -278,9 +290,6 @@ absl::Status Redis::Unsubscribe(std::string_view channel) {
 
   ASSIGN_OR_RETURN(const Reply reply,
                    ExecuteCommandWithGuards("UNSUBSCRIBE", {channel}));
-
-  auto subscription = it->second;
-  subscriptions_.erase(it);
 
   if (reply.type != ReplyType::Nil) {
     LOG(ERROR) << "Unexpected reply type for UNSUBSCRIBE command: "
@@ -381,14 +390,7 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
           "channel at a time.");
     }
     subscribe = true;
-    if (subscriptions_.contains(args[0])) {
-      privdata = subscriptions_[args[0]].get();
-    } else {
-      // Create a new subscription.
-      auto subscription = std::make_shared<Subscription>();
-      privdata = subscription.get();
-      subscriptions_[args[0]] = std::move(subscription);
-    }
+    privdata = nullptr;
     callback = Redis::PubsubCallback;
   }
 
@@ -403,11 +405,11 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
   // mu_.Lock();
 
   if (subscribe) {
-    // For subscription commands, we don't expect an immediate reply.
-    const auto subscription = static_cast<Subscription*>(privdata);
-    mu_.Unlock();
-    thread::Select({subscription->OnSubscribe()});
-    mu_.Lock();
+    // // For subscription commands, we don't expect an immediate reply.
+    // const auto subscription = static_cast<Subscription*>(privdata);
+    // mu_.Unlock();
+    // thread::Select({subscription->OnSubscribe()});
+    // mu_.Lock();
     return Reply{.type = ReplyType::Nil, .data = NilReplyData{}};
   }
 
@@ -449,32 +451,39 @@ void Redis::OnDisconnect(int status) {
   cv_.SignalAll();
 }
 
-void Redis::OnPubsubReply(void* hiredis_reply, Subscription* subscription) {
+void Redis::OnPubsubReply(void* hiredis_reply) {
   eglt::MutexLock lock(&mu_);
-
   Reply reply;
   if (!ParseReply(static_cast<redisReply*>(hiredis_reply), &reply)) {
-    LOG(ERROR) << "Failed to parse pubsub reply for subscription at "
-               << subscription;
+    LOG(ERROR) << "Failed to parse pubsub reply";
     return;
   }
 
   auto reply_elements = ConvertToOrDie<std::vector<Reply>>(std::move(reply));
+  auto channel = ConvertToOrDie<std::string>(reply_elements[1]);
   if (reply_elements.empty()) {
-    LOG(WARNING)
-        << "Received empty reply in PubsubCallback for subscription at "
-        << subscription;
+    LOG(WARNING) << "Received empty reply in PubsubCallback for subscriptions "
+                    "to channel: "
+                 << channel;
     return;
   }
 
   if (const auto message_type = ConvertToOrDie<std::string>(reply_elements[0]);
       message_type == "subscribe" || message_type == "psubscribe") {
-    subscription->Subscribe();
+    for (const auto& subscription : subscriptions_[channel]) {
+      // Notify all subscriptions about the new subscription.
+      subscription->Subscribe();
+    }
   } else if (message_type == "unsubscribe" || message_type == "punsubscribe") {
-    subscription->Unsubscribe();
+    for (const auto& subscription : subscriptions_[channel]) {
+      // Notify all subscriptions about the unsubscription.
+      subscription->Unsubscribe();
+    }
   } else {
     // For regular messages, we pass the reply to the subscription.
-    subscription->Message(std::move(reply_elements[2]));
+    for (const auto& subscription : subscriptions_[channel]) {
+      subscription->Message(reply_elements[2]);
+    }
   }
 }
 
