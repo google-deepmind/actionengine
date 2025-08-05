@@ -289,8 +289,8 @@ inline absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk) {
       .mimetype = "__status__",
       .timestamp = absl::Now(),
   };
-  chunk->data =
-      absl::StrCat(static_cast<uint8_t>(status.raw_code()), status.message());
+  chunk->data = absl::StrCat(" ", status.message());
+  chunk->data[0] = static_cast<uint8_t>(status.raw_code());
   return absl::OkStatus();
 }
 

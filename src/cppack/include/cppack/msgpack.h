@@ -25,7 +25,6 @@
 
 #include <array>
 #include <bitset>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -43,6 +42,7 @@
 
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
+#include <cmath>
 
 namespace cppack {
 enum class UnpackerError { OutOfRange = 1 };
@@ -1146,6 +1146,22 @@ absl::StatusOr<PackableType> Unpack(const std::vector<uint8_t>& data) {
 
   Unpacker unpacker;
   unpacker.set_data(data.data(), data.size());
+  unpacker.process(obj);
+
+  const std::error_code ec = unpacker.GetErrorCode();
+  if (!ec) {
+    return obj;
+  }
+
+  return absl::InternalError(ec.message());
+}
+
+template <typename PackableType>
+absl::StatusOr<PackableType> Unpack(std::string_view data) {
+  PackableType obj;
+
+  Unpacker unpacker;
+  unpacker.set_data(reinterpret_cast<const uint8_t*>(data.data()), data.size());
   unpacker.process(obj);
 
   const std::error_code ec = unpacker.GetErrorCode();

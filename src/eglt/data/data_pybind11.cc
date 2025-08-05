@@ -19,10 +19,13 @@
 #include <vector>
 
 #include <pybind11/pybind11.h>
+#include <pybind11_abseil/no_throw_status.h>
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
+#include "cppack/msgpack.h"
 #include "eglt/data/eg_structs.h"
+#include "eglt/data/msgpack.h"
 #include "eglt/data/serialization.h"
 #include "eglt/pybind11_headers.h"
 #include "eglt/util/status_macros.h"
@@ -344,10 +347,39 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
       py::arg("obj"), py::arg_v("mimetype", ""),
       py::arg_v("registry", nullptr));
 
+  data.def("to_chunk",
+           [](const NodeFragment& fragment) -> absl::StatusOr<Chunk> {
+             std::vector<uint8_t> bytes = cppack::Pack(fragment);
+             Chunk result;
+             result.metadata.mimetype = "__eglt:NodeFragment__";
+             result.data = std::string(bytes.begin(), bytes.end());
+             return result;
+           });
+
+  data.def("to_chunk", [](const absl::Status& status) -> absl::StatusOr<Chunk> {
+    ASSIGN_OR_RETURN(auto chunk, ConvertTo<Chunk>(status));
+    return std::move(chunk);
+  });
+
   data.def(
       "from_chunk",
       [](Chunk chunk, std::string_view mimetype = "",
-         const SerializerRegistry* registry = nullptr) {
+         const SerializerRegistry* registry =
+             nullptr) -> absl::StatusOr<py::object> {
+        if (mimetype.empty()) {
+          mimetype = chunk.metadata.mimetype;
+        }
+        if (mimetype == "__status__") {
+          ASSIGN_OR_RETURN(absl::Status unpacked_status,
+                           ConvertTo<absl::Status>(std::move(chunk)));
+          return py::cast(
+              pybind11::google::DoNotThrowStatus(std::move(unpacked_status)));
+        }
+        if (mimetype == "__eglt:NodeFragment__") {
+          ASSIGN_OR_RETURN(NodeFragment fragment,
+                           cppack::Unpack<NodeFragment>(chunk.data));
+          return py::cast(fragment);
+        }
         return pybindings::PyFromChunk(std::move(chunk), mimetype, registry);
       },
       py::arg("chunk"), py::arg_v("mimetype", ""),

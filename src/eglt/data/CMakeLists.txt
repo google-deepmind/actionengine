@@ -53,6 +53,7 @@ target_sources(
 )
 target_link_libraries(
         egltDataPybind11 PRIVATE
+        cppack
         eglt::data
         ${EGLT_PYBIND11_DEPENDENCIES}
 )

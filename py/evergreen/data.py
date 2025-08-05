@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from evergreen.evergreen_pybind11 import chunk_store as chunk_store_pybind11
 from evergreen.evergreen_pybind11 import data as data_pybind11
+from evergreen.pybind11_abseil import status
 from evergreen import pydantic_helpers
 from PIL import Image
 from pydantic import BaseModel
@@ -35,6 +36,16 @@ def to_chunk(
     mimetype: str = "",
     registry: SerializerRegistry = None,
 ) -> Chunk:
+    if isinstance(obj, NodeFragment) and mimetype in (
+        "",
+        "__eglt:NodeFragment__",
+    ):
+        return data_pybind11.to_chunk(obj)
+    if isinstance(obj, status.Status) and mimetype in (
+        "",
+        "__status__",
+    ):
+        return data_pybind11.to_chunk(obj)
     return data_pybind11.to_chunk(obj, mimetype, registry)
 
 

@@ -285,13 +285,13 @@ class AsyncNode(evergreen_pybind11.AsyncNode):
             self.finalize()
 
     @contextlib.contextmanager
-    def deserialize_automatically(self):
+    def deserialize_automatically(self, deserialize: bool = True):
         """Returns the node which automatically deserialises objects."""
-        self._deserialize_automatically = True
+        self._deserialize_automatically_preference = deserialize
         try:
             yield self
         finally:
-            self._deserialize_automatically = None
+            self._deserialize_automatically_preference = None
 
     def __aiter__(self):
         return self

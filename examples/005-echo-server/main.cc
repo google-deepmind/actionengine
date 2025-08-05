@@ -18,6 +18,7 @@
 #include <eglt/service/service.h>
 
 ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");
+ABSL_FLAG(std::string, identity, "server", "WebRTC signalling identity.");
 
 // Simply some type aliases to make the code more readable.
 using Action = eglt::Action;
@@ -70,11 +71,14 @@ int main(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);
 
   const uint16_t port = absl::GetFlag(FLAGS_port);
+  const std::string identity = absl::GetFlag(FLAGS_identity);
+
   ActionRegistry action_registry = MakeActionRegistry();
   eglt::Service service(&action_registry);
   eglt::net::WebRtcEvergreenServer server(
       &service, "0.0.0.0", port,
-      /*signalling_address=*/"demos.helena.direct", /*signalling_port=*/19000);
+      /*signalling_address=*/"demos.helena.direct", /*signalling_port=*/19000,
+      /*signalling_identity=*/identity);
   // eglt::net::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
   server.Run();
   server.Join().IgnoreError();

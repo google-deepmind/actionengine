@@ -20,7 +20,7 @@
 #include <string>
 #include <string_view>
 
-#include "absl/container/flat_hash_map.h"
+#include <absl/container/flat_hash_map.h>
 
 #include "eglt/data/eg_structs.h"
 
@@ -121,6 +121,7 @@ class SerializerRegistry {
   }
 
   [[nodiscard]] void* GetUserData() const { return user_data_.get(); }
+
   void SetUserData(std::shared_ptr<void> user_data) {
     user_data_ = std::move(user_data);
   }
@@ -135,6 +136,7 @@ class SerializerRegistry {
 };
 
 static inline absl::once_flag kInitSerializerRegistryFlag;
+
 static void InitSerializerRegistryWithDefaults(SerializerRegistry* registry) {
   // Initialize the global serializer registry with default serializers.
   // This can be extended to include more serializers as needed.
