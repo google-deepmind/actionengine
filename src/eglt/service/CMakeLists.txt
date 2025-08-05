@@ -17,6 +17,7 @@ target_link_libraries(
 )
 target_link_libraries(
         egltService PUBLIC
+        eglt::actions
         eglt::concurrency
         eglt::data
 )
