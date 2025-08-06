@@ -61,7 +61,6 @@ int main(int argc, char** argv) {
     }
 
     const auto stream = std::move(*std::move(status_or_stream));
-    LOG(INFO) << "Client started a WebRTC stream with ID: " << stream->GetId();
 
     eglt::SessionMessage session_message;
     session_message.node_fragments.push_back({
@@ -75,7 +74,12 @@ int main(int argc, char** argv) {
         .continued = false,
     });
 
-    stream->Send(std::move(session_message)).IgnoreError();
+    absl::Status send_status = stream->Send(std::move(session_message));
+    if (!send_status.ok()) {
+      LOG(ERROR) << "Failed to send message over WebRTC stream: "
+                 << send_status.message();
+      return 1;
+    }
     // eglt::SleepFor(absl::Seconds(0.5));
   }
 

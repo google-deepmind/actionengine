@@ -25,8 +25,8 @@ SignallingClient::SignallingClient(std::string_view address, uint16_t port)
 
 SignallingClient::~SignallingClient() {
   eglt::MutexLock lock(&mu_);
-  closing_ = true;
-  CloseStreamAndJoinLoop();
+  CancelInternal();
+  JoinInternal();
 }
 
 absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
@@ -93,10 +93,6 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (!status.ok()) {
       break;
     }
-    if (closing_) {
-      DLOG(INFO) << "SignallingClient is closing, exiting loop.";
-      break;
-    }
 
     boost::system::error_code error;
     parsed_message = boost::json::parse(message, error);
@@ -156,7 +152,6 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 
 void SignallingClient::CloseStreamAndJoinLoop()
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-  stream_.Close().IgnoreError();
   if (loop_ != nullptr) {
     loop_->Cancel();
     loop_->Join();

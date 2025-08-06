@@ -127,15 +127,6 @@ class Service : public std::enable_shared_from_this<Service> {
   auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
       -> absl::Status;
 
-  void CloseStreams() ABSL_LOCKS_EXCLUDED(mu_) {
-    eglt::MutexLock lock(&mu_);
-    for (const auto& [_, stream] : streams_) {
-      if (const auto status = stream->HalfClose(); !status.ok()) {
-        DLOG(ERROR) << "Error while half-closing stream: " << status.message();
-      }
-    }
-  }
-
   auto SetActionRegistry(const ActionRegistry& action_registry) const -> void;
 
  private:
@@ -178,7 +169,7 @@ class Service : public std::enable_shared_from_this<Service> {
         DLOG(ERROR) << "Error while closing stream: " << status.message();
       }
     }
-    // extracted_stream.reset();
+    extracted_stream.reset();
 
     extracted_node_map.reset();
     auto fiber = connection_fibers_.extract(connection.stream_id);

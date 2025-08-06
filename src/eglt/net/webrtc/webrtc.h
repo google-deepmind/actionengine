@@ -169,10 +169,10 @@ class WebRtcWireStream final : public WireStream {
       half_close_callback(this);
       mu_.Lock();
 
-      if (const auto status = HalfCloseInternal(); !status.ok()) {
-        LOG(ERROR) << "WebRtcWireStream HalfCloseInternal failed: "
-                   << status.message();
-      }
+      // if (const auto status = HalfCloseInternal(); !status.ok()) {
+      //   LOG(ERROR) << "WebRtcWireStream HalfCloseInternal failed: "
+      //              << status.message();
+      // }
 
       return std::nullopt;
     }

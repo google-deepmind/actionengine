@@ -71,6 +71,16 @@ class SignallingClient {
 
   void Cancel() {
     eglt::MutexLock lock(&mu_);
+    CancelInternal();
+  }
+
+  void Join() {
+    eglt::MutexLock lock(&mu_);
+    JoinInternal();
+  }
+
+ private:
+  void CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (const absl::Status status = stream_.Close(); !status.ok()) {
       LOG(ERROR) << "SignallingClient::Cancel failed: " << status;
     }
@@ -78,14 +88,15 @@ class SignallingClient {
     loop_status_ = absl::CancelledError("WebsocketEvergreenServer cancelled");
   }
 
-  void Join() {
+  void JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (loop_ != nullptr) {
+      mu_.Unlock();
       loop_->Join();
+      mu_.Lock();
       loop_ = nullptr;
     }
   }
 
- private:
   void RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   void CloseStreamAndJoinLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
@@ -102,7 +113,6 @@ class SignallingClient {
   std::unique_ptr<thread::Fiber> loop_;
   absl::Status loop_status_ ABSL_GUARDED_BY(mu_);
   mutable eglt::Mutex mu_;
-  bool closing_ ABSL_GUARDED_BY(mu_) = false;
   thread::PermanentEvent error_event_;
 };
 
