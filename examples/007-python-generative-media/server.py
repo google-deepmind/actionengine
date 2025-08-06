@@ -1,5 +1,7 @@
 import argparse
 import asyncio
+import logging
+import os
 
 import evergreen
 
@@ -25,6 +27,9 @@ def make_action_registry():
     )
 
     actions.redis.register_actions(registry)
+
+    evergreen.to_bytes(actions.redis.ReadStoreRequest(key=""))
+    evergreen.to_bytes(actions.redis.WriteRedisStoreRequest(key="", data=b""))
 
     return registry
 
@@ -52,6 +57,12 @@ async def main(args: argparse.Namespace):
     action_registry = make_action_registry()
     service = evergreen.Service(action_registry)
     # server = evergreen.websockets.WebsocketEvergreenServer(service)
+    rtc_config = evergreen.webrtc.RtcConfig()
+    rtc_config.turn_servers = [
+        evergreen.webrtc.TurnServer.from_string(
+            "helena:actionengine-webrtc-testing@demos.helena.direct",
+        ),
+    ]
     server = evergreen.webrtc.WebRtcEvergreenServer(
         service,
         args.host,
@@ -59,6 +70,7 @@ async def main(args: argparse.Namespace):
         args.webrtc_signalling_server,
         args.webrtc_signalling_port,
         args.webrtc_identity,
+        rtc_config,
     )
 
     server.run()
@@ -74,10 +86,12 @@ async def main(args: argparse.Namespace):
 
 def sync_main(args: argparse.Namespace):
     setup_action_engine()
-    asyncio.run(main(args))
+    asyncio.run(main(args), debug=False)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+
     parser = argparse.ArgumentParser(
         description="Run the Action Engine text-to-image server."
     )
@@ -113,8 +127,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--webrtc-identity",
         type=str,
-        default="demoserver",
+        default=os.environ.get("WEBRTC_SIGNALLING_IDENTITY", "demoserver"),
         help="Our ID for the WebRTC signalling server.",
+    )
+    print(
+        "Using WebRTC identity:",
+        os.environ.get("WEBRTC_SIGNALLING_IDENTITY", "demoserver"),
     )
 
     sync_main(parser.parse_args())

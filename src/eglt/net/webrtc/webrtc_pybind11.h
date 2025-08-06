@@ -24,6 +24,10 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
+void BindTurnServer(py::handle scope, std::string_view name = "TurnServer");
+
+void BindRtcConfig(py::handle scope, std::string_view name = "RtcConfig");
+
 void BindWebRtcWireStream(py::handle scope,
                           std::string_view name = "WebRtcWireStream");
 

@@ -30,6 +30,7 @@
 #include <pybind11/detail/descr.h>
 #include <pybind11/detail/internals.h>
 #include <pybind11/gil.h>
+#include <pybind11/stl.h>
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
@@ -42,6 +43,51 @@
 namespace eglt::pybindings {
 
 namespace py = ::pybind11;
+
+void BindTurnServer(py::handle scope, std::string_view name) {
+  py::class_<net::TurnServer, std::shared_ptr<net::TurnServer>>(
+      scope, std::string(name).c_str(), "A TURN server configuration.")
+      .def_static(
+          "from_string",
+          [](std::string_view server) {
+            return net::TurnServer::FromString(server);
+          },
+          py::arg("server"))
+      .def_readwrite("hostname", &net::TurnServer::hostname)
+      .def_readwrite("port", &net::TurnServer::port)
+      .def_readwrite("username", &net::TurnServer::username)
+      .def_readwrite("password", &net::TurnServer::password)
+      .def("__repr__",
+           [](const net::TurnServer& self) {
+             return absl::StrFormat("TurnServer(%s:%d)", self.hostname,
+                                    self.port);
+           })
+      .doc() = "A TURN server configuration.";
+}
+
+void BindRtcConfig(py::handle scope, std::string_view name) {
+  py::class_<net::RtcConfig, std::shared_ptr<net::RtcConfig>>(
+      scope, std::string(name).c_str(), "A WebRTC configuration.")
+      .def(py::init([]() { return net::RtcConfig{}; }))
+      .def_readwrite("max_message_size", &net::RtcConfig::max_message_size,
+                     "The maximum message size for WebRTC data channels.")
+      .def_readwrite("port_range_begin", &net::RtcConfig::port_range_begin,
+                     "The beginning of the port range for WebRTC connections.")
+      .def_readwrite("port_range_end", &net::RtcConfig::port_range_end,
+                     "The end of the port range for WebRTC connections.")
+      .def_readwrite("enable_ice_udp_mux", &net::RtcConfig::enable_ice_udp_mux,
+                     "Whether to enable ICE UDP multiplexing.")
+      .def_readwrite("stun_servers", &net::RtcConfig::stun_servers,
+                     "A list of STUN servers to use for WebRTC connections.")
+      .def_readwrite("turn_servers", &net::RtcConfig::turn_servers,
+                     "A list of TURN servers to use for WebRTC connections.")
+      .def("__repr__",
+           [](const net::RtcConfig& self) {
+             return absl::StrFormat("RtcConfig(turn_servers=%zu)",
+                                    self.turn_servers.size());
+           })
+      .doc() = "A WebRTC configuration.";
+}
 
 void BindWebRtcWireStream(py::handle scope, std::string_view name) {
   py::class_<net::WebRtcWireStream, WireStream,
@@ -72,15 +118,17 @@ void BindWebRtcEvergreenServer(py::handle scope, std::string_view name) {
       scope, std::string(name).c_str(), "A WebRtcEvergreenServer interface.")
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port, std::string_view signalling_address,
-                       uint16_t signalling_port, std::string_view identity) {
+                       uint16_t signalling_port, std::string_view identity,
+                       net::RtcConfig rtc_config) {
              return std::make_shared<net::WebRtcEvergreenServer>(
                  service, address, port, signalling_address, signalling_port,
-                 identity);
+                 identity, std::move(rtc_config));
            }),
            py::arg("service"), py::arg_v("address", "0.0.0.0"),
            py::arg_v("port", 20000),
            py::arg_v("signalling_address", "localhost"),
            py::arg_v("signalling_port", 80), py::arg_v("identity", "server"),
+           py::arg_v("rtc_config", net::RtcConfig{}),
            pybindings::keep_event_loop_memo())
       .def("run", &net::WebRtcEvergreenServer::Run,
            py::call_guard<py::gil_scoped_release>())
@@ -102,6 +150,9 @@ void BindWebRtcEvergreenServer(py::handle scope, std::string_view name) {
 py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
   pybind11::module_ webrtc = scope.def_submodule(
       std::string(module_name).c_str(), "Evergreen WebRTC interface.");
+
+  BindTurnServer(webrtc, "TurnServer");
+  BindRtcConfig(webrtc, "RtcConfig");
 
   BindWebRtcWireStream(webrtc, "WebRtcWireStream");
   BindWebRtcEvergreenServer(webrtc, "WebRtcEvergreenServer");
