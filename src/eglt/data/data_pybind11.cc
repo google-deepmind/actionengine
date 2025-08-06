@@ -366,18 +366,17 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
       [](Chunk chunk, std::string_view mimetype = "",
          const SerializerRegistry* registry =
              nullptr) -> absl::StatusOr<py::object> {
-        if (mimetype.empty()) {
-          mimetype = chunk.metadata.mimetype;
-        }
-        if (mimetype == "__status__") {
+        if (chunk.metadata.mimetype == "__status__") {
           ASSIGN_OR_RETURN(absl::Status unpacked_status,
                            ConvertTo<absl::Status>(std::move(chunk)));
           return py::cast(
               pybind11::google::DoNotThrowStatus(std::move(unpacked_status)));
         }
-        if (mimetype == "__eglt:NodeFragment__") {
+        if (chunk.metadata.mimetype == "__eglt:NodeFragment__") {
+          const std::vector<uint8_t> data_bytes(chunk.data.begin(),
+                                                chunk.data.end());
           ASSIGN_OR_RETURN(NodeFragment fragment,
-                           cppack::Unpack<NodeFragment>(chunk.data));
+                           cppack::Unpack<NodeFragment>(data_bytes));
           return py::cast(fragment);
         }
         return pybindings::PyFromChunk(std::move(chunk), mimetype, registry);
