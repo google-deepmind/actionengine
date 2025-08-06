@@ -70,13 +70,12 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
       thread::NewTree({}, [action = std::move(action), this]() mutable {
         eglt::MutexLock lock(&mu_);
 
-        {
-          concurrency::ScopedUnlock unlock(&mu_);
-          if (const auto run_status = action->Run(&cancellation_);
-              !run_status.ok()) {
-            LOG(ERROR) << "Failed to run action: " << run_status;
-          }
+        mu_.Unlock();
+        if (const auto run_status = action->Run(&cancellation_);
+            !run_status.ok()) {
+          LOG(ERROR) << "Failed to run action: " << run_status;
         }
+        mu_.Lock();
 
         thread::Detach(ExtractActionFiber(action.get()));
         cv_.SignalAll();

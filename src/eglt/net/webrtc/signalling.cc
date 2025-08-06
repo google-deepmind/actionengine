@@ -24,6 +24,8 @@ SignallingClient::SignallingClient(std::string_view address, uint16_t port)
     : address_(address), port_(port) {}
 
 SignallingClient::~SignallingClient() {
+  eglt::MutexLock lock(&mu_);
+  closing_ = true;
   CloseStreamAndJoinLoop();
 }
 
@@ -51,21 +53,17 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
       boost::beast::websocket::stream_base::timeout::suggested(
           boost::beast::role_type::server)));
 
-  {
-    concurrency::ScopedUnlock unlock(&mu_);
-
-    if (absl::Status status =
-            ResolveAndConnect(boost_stream.get(), address_, port_);
-        !status.ok()) {
-      return status;
-    }
-
-    stream_ = FiberAwareWebsocketStream(
-        std::move(boost_stream), [this](BoostWebsocketStream* stream) {
-          return DoHandshake(stream, absl::StrFormat("%s:%d", address_, port_),
-                             absl::StrFormat("/%s", identity_));
-        });
+  if (absl::Status status =
+          ResolveAndConnect(boost_stream.get(), address_, port_);
+      !status.ok()) {
+    return status;
   }
+
+  stream_ = FiberAwareWebsocketStream(
+      std::move(boost_stream), [this](BoostWebsocketStream* stream) {
+        return DoHandshake(stream, absl::StrFormat("%s:%d", address_, port_),
+                           absl::StrFormat("/%s", identity_));
+      });
 
   loop_status_ = stream_.Start();
   if (!loop_status_.ok()) {
@@ -88,12 +86,16 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   while (!thread::Cancelled()) {
     message.clear();
 
-    {
-      concurrency::ScopedUnlock unlock(&mu_);
-      status = stream_.ReadText(&message);
-      if (!status.ok()) {
-        break;
-      }
+    mu_.Unlock();
+    status = stream_.ReadText(&message);
+    mu_.Lock();
+
+    if (!status.ok()) {
+      break;
+    }
+    if (closing_) {
+      DLOG(INFO) << "SignallingClient is closing, exiting loop.";
+      break;
     }
 
     boost::system::error_code error;
@@ -130,23 +132,19 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       continue;
     }
 
-    {
-      concurrency::ScopedUnlock unlock(&mu_);
+    if (type == "offer" && on_offer_) {
+      on_offer_(client_id, std::move(parsed_message));
+      continue;
+    }
 
-      if (type == "offer" && on_offer_) {
-        on_offer_(client_id, std::move(parsed_message));
-        continue;
-      }
+    if (type == "candidate" && on_candidate_) {
+      on_candidate_(client_id, std::move(parsed_message));
+      continue;
+    }
 
-      if (type == "candidate" && on_candidate_) {
-        on_candidate_(client_id, std::move(parsed_message));
-        continue;
-      }
-
-      if (type == "answer" && on_answer_) {
-        on_answer_(client_id, std::move(parsed_message));
-        continue;
-      }
+    if (type == "answer" && on_answer_) {
+      on_answer_(client_id, std::move(parsed_message));
+      continue;
     }
   }
 
@@ -156,7 +154,8 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   }
 }
 
-void SignallingClient::CloseStreamAndJoinLoop() {
+void SignallingClient::CloseStreamAndJoinLoop()
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   stream_.Close().IgnoreError();
   if (loop_ != nullptr) {
     loop_->Cancel();
