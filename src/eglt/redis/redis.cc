@@ -270,22 +270,17 @@ absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
       return absl::InternalError(
           "Unexpected reply type for SUBSCRIBE command.");
     }
+  } else {
+    subscription->Subscribe();
   }
 
   return subscription;
 }
 
-absl::Status Redis::Unsubscribe(std::string_view channel) {
-  eglt::MutexLock lock(&mu_);
-
+absl::Status Redis::UnsubscribeInternal(std::string_view channel)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (channel.empty()) {
     return absl::InvalidArgumentError("Channel cannot be empty.");
-  }
-
-  auto it = subscriptions_.find(channel);
-  if (it == subscriptions_.end()) {
-    return absl::NotFoundError(
-        absl::StrCat("Not subscribed to channel: ", channel));
   }
 
   ASSIGN_OR_RETURN(const Reply reply,

@@ -95,6 +95,7 @@ ChunkStore::ChunkStore(Redis* redis, std::string_view id, absl::Duration ttl)
       });
   CHECK_OK(subscription.status())
       << "Failed to subscribe to chunk store events: " << subscription.status();
+  thread::Select({subscription->get()->OnSubscribe()});
   subscription_ = std::move(subscription.value());
 }
 

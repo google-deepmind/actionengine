@@ -245,7 +245,10 @@ class Redis {
       std::string_view channel,
       absl::AnyInvocable<void(Reply)> on_message = {});
 
-  absl::Status Unsubscribe(std::string_view channel);
+  absl::Status Unsubscribe(std::string_view channel) {
+    eglt::MutexLock lock(&mu_);
+    return UnsubscribeInternal(channel);
+  }
 
   void RemoveSubscription(std::string_view channel,
                           const std::shared_ptr<Subscription>& subscription) {
@@ -253,6 +256,15 @@ class Redis {
     auto it = subscriptions_.find(channel);
     if (it != subscriptions_.end()) {
       it->second.erase(subscription);
+    }
+    if (it->second.empty()) {
+      // If no more subscriptions to this channel, unsubscribe from the channel.
+      absl::Status status = UnsubscribeInternal(channel);
+      subscription->Unsubscribe();
+      if (!status.ok()) {
+        LOG(ERROR) << "Failed to unsubscribe from channel: " << channel
+                   << ", error: " << status.message();
+      }
     }
   }
 
@@ -278,6 +290,8 @@ class Redis {
     }
     return absl::OkStatus();
   }
+
+  absl::Status UnsubscribeInternal(std::string_view channel);
 
   absl::StatusOr<Reply> ExecuteCommandWithGuards(std::string_view command,
                                                  const CommandArgs& args = {})
