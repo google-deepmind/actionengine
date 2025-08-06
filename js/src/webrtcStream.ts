@@ -463,12 +463,18 @@ export class WebRtcEvergreenStream implements BaseEvergreenStream {
     signalingUrl: string,
     identity: string = '',
     serverId: string = 'server',
+    turnServer: RTCIceServer | null = null,
   ) {
     this.signalingUrl = signalingUrl;
 
     this.identity = identity || uuidv4();
 
-    this.connection = new RTCPeerConnection(kRtcConfig);
+    const rtcConfig = { ...kRtcConfig };
+    if (turnServer) {
+      rtcConfig.iceServers.push(turnServer);
+    }
+
+    this.connection = new RTCPeerConnection(rtcConfig);
     this.rtcDataChannel = this.connection.createDataChannel(this.identity, {
       ordered: false,
     });

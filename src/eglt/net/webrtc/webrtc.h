@@ -32,6 +32,7 @@
 #include <absl/log/log.h>
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
+#include <absl/strings/str_split.h>
 #include <absl/time/clock.h>
 #include <absl/time/time.h>
 #include <rtc/datachannel.hpp>
@@ -46,6 +47,49 @@
 
 namespace eglt::net {
 
+struct TurnServer {
+  static absl::StatusOr<TurnServer> FromString(std::string_view url);
+
+  bool operator==(const TurnServer& other) const {
+    return hostname == other.hostname && port == other.port &&
+           username == other.username && password == other.password;
+  }
+
+  std::string hostname;
+  uint16_t port = 3478;
+  std::string username;
+  std::string password;
+};
+
+bool AbslParseFlag(std::string_view text, TurnServer* absl_nonnull server,
+                   std::string* absl_nonnull error);
+
+std::string AbslUnparseFlag(const TurnServer& server);
+
+bool AbslParseFlag(std::string_view text,
+                   std::vector<eglt::net::TurnServer>* absl_nonnull servers,
+                   std::string* absl_nonnull error);
+
+std::string AbslUnparseFlag(const std::vector<eglt::net::TurnServer>& servers);
+
+struct RtcConfig {
+  static constexpr int kDefaultMaxMessageSize =
+      16384;  // 16 KiB to match the defaults of several browsers
+
+  [[nodiscard]] rtc::Configuration BuildLibdatachannelConfig() const;
+
+  std::optional<size_t> max_message_size = kDefaultMaxMessageSize;
+
+  uint16_t port_range_begin = 19002;
+  uint16_t port_range_end = 19002;
+  bool enable_ice_udp_mux = true;
+
+  std::vector<std::string> stun_servers = {
+      "stun.l.google.com:19302",
+  };
+  std::vector<TurnServer> turn_servers;
+};
+
 struct WebRtcDataChannelConnection {
   std::shared_ptr<rtc::PeerConnection> connection;
   std::shared_ptr<rtc::DataChannel> data_channel;
@@ -54,12 +98,14 @@ struct WebRtcDataChannelConnection {
 absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
     std::string_view identity = "server",
     std::string_view signalling_address = "localhost",
-    uint16_t signalling_port = 80);
+    uint16_t signalling_port = 80,
+    std::optional<RtcConfig> rtc_config = std::nullopt);
 
 absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     std::string_view identity, std::string_view peer_identity = "server",
     std::string_view signalling_address = "localhost",
-    uint16_t signalling_port = 80);
+    uint16_t signalling_port = 80,
+    std::optional<RtcConfig> rtc_config = std::nullopt);
 
 class WebRtcWireStream final : public WireStream {
  public:
@@ -214,7 +260,8 @@ class WebRtcEvergreenServer {
       eglt::Service* absl_nonnull service, std::string_view address = "0.0.0.0",
       uint16_t port = 20000, std::string_view signalling_address = "localhost",
       uint16_t signalling_port = 80,
-      std::string_view signalling_identity = "server");
+      std::string_view signalling_identity = "server",
+      std::optional<RtcConfig> rtc_config = std::nullopt);
 
   ~WebRtcEvergreenServer();
 
@@ -249,6 +296,7 @@ class WebRtcEvergreenServer {
   const std::string signalling_address_;
   const uint16_t signalling_port_;
   const std::string signalling_identity_;
+  const std::optional<RtcConfig> rtc_config_;
 
   thread::Channel<WebRtcDataChannelConnection> ready_data_connections_;
   eglt::Mutex mu_;

@@ -2,23 +2,58 @@
 #include <memory>
 
 #include <absl/debugging/failure_signal_handler.h>
+#include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
 #include <eglt/net/webrtc/webrtc.h>
+
+ABSL_FLAG(std::string, webrtc_signalling_address, "demos.helena.direct",
+          "Signalling address for WebRTC connections.");
+
+ABSL_FLAG(uint16_t, webrtc_signalling_port, 19000,
+          "Signalling port for WebRTC connections.");
+
+ABSL_FLAG(std::string, webrtc_signalling_identity, "server",
+          "Signalling identity for WebRTC connections. "
+          "This is used to identify the server in the signalling process.");
+
+ABSL_FLAG(std::string, webrtc_bind_address, "0.0.0.0",
+          "Address for WebRTC connections. This is the address on which the "
+          "server will listen for incoming WebRTC connections.");
+
+ABSL_FLAG(uint16_t, webrtc_port, 20000,
+          "Port for WebRTC connections. This is the port on which the server "
+          "will listen for incoming WebRTC connections.");
+
+ABSL_FLAG(
+    std::vector<eglt::net::TurnServer>, webrtc_turn_servers, {},
+    "List of TURN servers to use for WebRTC connections. Format: "
+    "username1:password1@hostname1:port1,username2:password2@hostname2:port2");
 
 int main(int argc, char** argv) {
   absl::InstallFailureSignalHandler({});
   absl::ParseCommandLine(argc, argv);
 
   eglt::Service service;
+
+  eglt::net::RtcConfig rtc_config;
+  rtc_config.turn_servers = absl::GetFlag(FLAGS_webrtc_turn_servers);
   eglt::net::WebRtcEvergreenServer server(
-      &service, "0.0.0.0", 20000,
-      /*signalling_address=*/"demos.helena.direct", /*signalling_port=*/19000);
+      &service, /*address=*/absl::GetFlag(FLAGS_webrtc_bind_address),
+      /*port=*/absl::GetFlag(FLAGS_webrtc_port),
+      /*signalling_address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
+      /*signalling_port=*/absl::GetFlag(FLAGS_webrtc_signalling_port),
+      /*signalling_identity=*/absl::GetFlag(FLAGS_webrtc_signalling_identity),
+      /*rtc_config=*/std::move(rtc_config));
   server.Run();
+
   eglt::SleepFor(absl::Milliseconds(200));
 
   for (int i = 0; i < 10; ++i) {
     auto status_or_stream = eglt::net::StartStreamWithSignalling(
-        eglt::GenerateUUID4(), "server", "demos.helena.direct", 19000);
+        /*identity=*/eglt::GenerateUUID4(),
+        /*peer_identity=*/absl::GetFlag(FLAGS_webrtc_signalling_identity),
+        /*address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
+        /*port=*/absl::GetFlag(FLAGS_webrtc_signalling_port));
     if (!status_or_stream.ok()) {
       LOG(ERROR) << "Failed to start WebRTC stream: "
                  << status_or_stream.status().message();
@@ -31,11 +66,11 @@ int main(int argc, char** argv) {
     eglt::SessionMessage session_message;
     session_message.node_fragments.push_back({
         .id = "test",
-        .chunk =
-            eglt::Chunk{
-                .metadata = eglt::ChunkMetadata{.mimetype = "text/plain",
-                                                .timestamp = absl::Now()},
-                .data = absl::StrFormat("Hello, Evergreen from client %v!", i)},
+        .chunk = eglt::Chunk{.metadata =
+                                 eglt::ChunkMetadata{.mimetype = "text/plain",
+                                                     .timestamp = absl::Now()},
+                             .data = absl::StrFormat(
+                                 "Hello, Action Engine from client %v!", i)},
         .seq = 0,
         .continued = false,
     });

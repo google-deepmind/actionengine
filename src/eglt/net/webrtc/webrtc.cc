@@ -187,29 +187,134 @@ absl::Status WebRtcWireStream::Send(SessionMessage message) {
   return status;
 }
 
-static constexpr int kMaxMessageSize = 16384;  // 16 KiB
-static constexpr uint16_t kDefaultRtcPort = 19002;
-static constexpr auto kDefaultStunServer = "stun.l.google.com:19302";
+absl::StatusOr<TurnServer> TurnServer::FromString(std::string_view url) {
+  std::string_view username_password;
+  std::string_view hostname_port;
 
-static rtc::Configuration GetDefaultRtcConfig() {
+  if (size_t at_pos = url.find('@'); at_pos != std::string_view::npos) {
+    username_password = url.substr(0, at_pos);
+    hostname_port = url.substr(at_pos + 1);
+  }
+
+  if (hostname_port.empty()) {
+    return absl::InvalidArgumentError(
+        "TurnServer URL must contain a hostname and port");
+  }
+
+  std::string_view hostname;
+  uint16_t port = 3478;  // Default TURN port
+
+  if (size_t colon_pos = hostname_port.find(':');
+      colon_pos == std::string_view::npos) {
+    hostname = hostname_port;
+  } else {
+    hostname = hostname_port.substr(0, colon_pos);
+    std::string_view port_str = hostname_port.substr(colon_pos + 1);
+    if (!absl::SimpleAtoi(port_str, &port)) {
+      return absl::InvalidArgumentError(
+          "TurnServer URL contains an invalid port");
+    }
+  }
+
+  std::string username;
+  std::string password;
+  if (username_password.empty()) {
+    username = "actionengine";
+    password = "";
+  } else {
+    if (size_t colon_pos = username_password.find(':');
+        colon_pos == std::string_view::npos) {
+      username = username_password;
+      password = "";
+    } else {
+      username = username_password.substr(0, colon_pos);
+      password = username_password.substr(colon_pos + 1);
+    }
+  }
+
+  TurnServer server;
+  server.hostname = std::string(hostname);
+  server.port = port;
+  server.username = std::move(username);
+  server.password = std::move(password);
+
+  return server;
+}
+
+bool AbslParseFlag(std::string_view text, TurnServer* server,
+                   std::string* error) {
+  auto result = TurnServer::FromString(text);
+  if (!result.ok()) {
+    *error = result.status().message();
+    return false;
+  }
+  *server = std::move(result.value());
+  return true;
+}
+
+std::string AbslUnparseFlag(const TurnServer& server) {
+  if (server.username.empty()) {
+    return absl::StrFormat("%s:%d", server.hostname, server.port);
+  }
+
+  return absl::StrFormat("%s:%s@%s:%d", server.username, server.password,
+                         server.hostname, server.port);
+}
+
+bool AbslParseFlag(std::string_view text,
+                   std::vector<eglt::net::TurnServer>* servers,
+                   std::string* error) {
+  if (text.empty()) {
+    return true;
+  }
+  for (const auto& server_str : absl::StrSplit(text, ',')) {
+    eglt::net::TurnServer server;
+    if (!AbslParseFlag(server_str, &server, error)) {
+      return false;
+    }
+    servers->push_back(std::move(server));
+  }
+  return true;
+}
+
+std::string AbslUnparseFlag(const std::vector<eglt::net::TurnServer>& servers) {
+  if (servers.empty()) {
+    return "";
+  }
+  return absl::StrJoin(servers, ",",
+                       [](std::string* out, const TurnServer& server) {
+                         *out = AbslUnparseFlag(server);
+                       });
+}
+
+rtc::Configuration RtcConfig::BuildLibdatachannelConfig() const {
   rtc::Configuration config;
-  config.maxMessageSize = kMaxMessageSize;
-  config.portRangeBegin = kDefaultRtcPort;
-  config.portRangeEnd = kDefaultRtcPort;
-  config.iceServers.emplace_back(kDefaultStunServer);
+  config.maxMessageSize = max_message_size;
+  config.portRangeBegin = port_range_begin;
+  config.portRangeEnd = port_range_end;
+  config.enableIceUdpMux = enable_ice_udp_mux;
+
+  for (const auto& server : stun_servers) {
+    config.iceServers.emplace_back(server);
+  }
+  for (const auto& server : turn_servers) {
+    config.iceServers.emplace_back(server.hostname, server.port,
+                                   server.username, server.password);
+  }
+
   return config;
 }
 
 absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
     std::string_view identity, std::string_view signalling_address,
-    uint16_t signalling_port) {
+    uint16_t signalling_port, std::optional<RtcConfig> rtc_config) {
   SignallingClient signalling_client{signalling_address, signalling_port};
 
   std::string client_id;
 
-  auto config = GetDefaultRtcConfig();
-  config.enableIceUdpMux = true;
-  auto connection = std::make_unique<rtc::PeerConnection>(std::move(config));
+  const RtcConfig config = std::move(rtc_config).value_or(RtcConfig());
+  auto connection =
+      std::make_unique<rtc::PeerConnection>(config.BuildLibdatachannelConfig());
 
   std::shared_ptr<rtc::DataChannel> data_channel;
   thread::PermanentEvent data_channel_event;
@@ -327,14 +432,16 @@ absl::StatusOr<WebRtcDataChannelConnection> AcceptWebRtcDataChannel(
 
 absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     std::string_view identity, std::string_view peer_identity,
-    std::string_view signalling_address, uint16_t signalling_port) {
+    std::string_view signalling_address, uint16_t signalling_port,
+    std::optional<RtcConfig> rtc_config) {
   SignallingClient signalling_client{signalling_address, signalling_port};
 
-  rtc::Configuration config = GetDefaultRtcConfig();
-  config.portRangeBegin = 1025;
-  config.portRangeEnd = 65535;
+  RtcConfig config = std::move(rtc_config).value_or(RtcConfig());
+  config.port_range_begin = 1025;
+  config.port_range_end = 65535;
 
-  auto connection = std::make_unique<rtc::PeerConnection>(std::move(config));
+  auto connection =
+      std::make_unique<rtc::PeerConnection>(config.BuildLibdatachannelConfig());
 
   signalling_client.OnAnswer(
       [&connection, peer_identity = std::string(peer_identity)](
@@ -449,14 +556,16 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
 WebRtcEvergreenServer::WebRtcEvergreenServer(
     eglt::Service* absl_nonnull service, std::string_view address,
     uint16_t port, std::string_view signalling_address,
-    uint16_t signalling_port, std::string_view signalling_identity)
+    uint16_t signalling_port, std::string_view signalling_identity,
+    std::optional<RtcConfig> rtc_config)
     : service_(service),
       address_(address),
       port_(port),
       signalling_address_(signalling_address),
       signalling_port_(signalling_port),
       signalling_identity_(signalling_identity),
-      ready_data_connections_(32) {}
+      ready_data_connections_(32),
+      rtc_config_(std::move(rtc_config)) {}
 
 WebRtcEvergreenServer::~WebRtcEvergreenServer() {
   eglt::MutexLock lock(&mu_);
@@ -626,13 +735,19 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
       description = desc_ptr->as_string().c_str();
     }
 
-    rtc::Configuration config = GetDefaultRtcConfig();
-    config.enableIceUdpMux = true;
-    config.bindAddress = address_;
-    config.portRangeBegin = port_;
-    config.portRangeEnd = port_;
+    RtcConfig config = rtc_config_.value_or(RtcConfig());
+    config.enable_ice_udp_mux = true;
+    config.port_range_begin = port_;
+    config.port_range_end = port_;
+    if (config.stun_servers.empty()) {
+      config.stun_servers.emplace_back("stun.l.google.com:19302");
+    }
+    rtc::Configuration libdatachannel_config =
+        config.BuildLibdatachannelConfig();
+    libdatachannel_config.bindAddress = address_;
 
-    auto connection = std::make_unique<rtc::PeerConnection>(std::move(config));
+    auto connection =
+        std::make_unique<rtc::PeerConnection>(std::move(libdatachannel_config));
 
     connection->onLocalDescription([this, peer_id = std::string(peer_id),
                                     connections, signalling_client](
