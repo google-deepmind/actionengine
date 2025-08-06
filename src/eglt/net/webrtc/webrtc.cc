@@ -554,9 +554,6 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
         "connection.");
   }
 
-  // signalling_client.Cancel();
-  // signalling_client.Join();
-
   return WebRtcDataChannelConnection{
       .data_channel = std::move(data_channel),
       .connection = std::move(connection),
@@ -606,11 +603,12 @@ absl::Status WebRtcEvergreenServer::CancelInternal()
 absl::Status WebRtcEvergreenServer::JoinInternal()
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 
-  mu_.Unlock();
-  main_loop_->Join();
-  mu_.Lock();
-
-  main_loop_ = nullptr;
+  if (main_loop_ != nullptr) {
+    mu_.Unlock();
+    main_loop_->Join();
+    mu_.Lock();
+    main_loop_ = nullptr;
+  }
 
   return absl::OkStatus();
 }
