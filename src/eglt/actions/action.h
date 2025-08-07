@@ -322,8 +322,8 @@ class Action : public std::enable_shared_from_this<Action> {
     AsyncNode* node = node_map_->Get(GetInputId(name));
     if (stream_ != nullptr &&
         bind_stream.value_or(bind_streams_on_inputs_default_)) {
-      absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers;
-      peers.insert({std::string(stream_->GetId()), stream_});
+      absl::flat_hash_map<std::string, WireStream*> peers;
+      peers.insert({std::string(stream_->GetId()), stream_.get()});
       node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }
@@ -520,6 +520,8 @@ class Action : public std::enable_shared_from_this<Action> {
     }
     reffed_readers_.clear();
 
+    UnbindStreams();
+
     absl::Status full_run_status = handler_status;
     auto handler_status_chunk = ConvertToOrDie<Chunk>(handler_status);
     if (stream_ != nullptr) {
@@ -541,8 +543,6 @@ class Action : public std::enable_shared_from_this<Action> {
         GetOutputInternal("__status__", /*bind_stream=*/false);
     full_run_status.Update(status_node->Put(std::move(handler_status_chunk),
                                             /*seq=*/0, /*final=*/true));
-
-    UnbindStreams();
 
     run_status_ = full_run_status;
     cv_.SignalAll();
@@ -631,9 +631,10 @@ class Action : public std::enable_shared_from_this<Action> {
 
     AsyncNode* node = node_map_->Get(GetOutputId(name));
     if (stream_ != nullptr &&
-        bind_stream.value_or(bind_streams_on_outputs_default_)) {
-      absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers;
-      peers.insert({std::string(stream_->GetId()), stream_});
+        bind_stream.value_or(bind_streams_on_outputs_default_) &&
+        name != "__status__") {
+      absl::flat_hash_map<std::string, WireStream*> peers;
+      peers.insert({std::string(stream_->GetId()), stream_.get()});
       node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }

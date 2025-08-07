@@ -101,8 +101,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           "bind_stream",
           [](const std::shared_ptr<AsyncNode>& self,
              const std::shared_ptr<WireStream>& stream) {
-            absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers;
-            peers[stream->GetId()] = stream;
+            absl::flat_hash_map<std::string, WireStream*> peers;
+            peers[stream->GetId()] = stream.get();
             self->BindPeers(std::move(peers));
           },
           py::arg("stream"), py::call_guard<py::gil_scoped_release>())

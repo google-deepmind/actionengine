@@ -84,8 +84,7 @@ AsyncNode::~AsyncNode() {
   }
 }
 
-void AsyncNode::BindPeers(
-    absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers) {
+void AsyncNode::BindPeers(absl::flat_hash_map<std::string, WireStream*> peers) {
   eglt::MutexLock lock(&mu_);
   peers_ = std::move(peers);
 }

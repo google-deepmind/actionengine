@@ -58,8 +58,7 @@ class AsyncNode {
 
   ~AsyncNode();
 
-  void BindPeers(
-      absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers);
+  void BindPeers(absl::flat_hash_map<std::string, WireStream*> peers);
 
   auto Put(Chunk value, int seq = -1, bool final = false) -> absl::Status;
   auto Put(NodeFragment value) -> absl::Status;
@@ -165,8 +164,7 @@ class AsyncNode {
   mutable eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mu_);
-  absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> peers_
-      ABSL_GUARDED_BY(mu_);
+  absl::flat_hash_map<std::string, WireStream*> peers_ ABSL_GUARDED_BY(mu_);
 };
 
 // -----------------------------------------------------------------------------
