@@ -29,6 +29,13 @@ SignallingClient::~SignallingClient() {
   JoinInternal();
 }
 
+void SignallingClient::ResetCallbacks() {
+  eglt::MutexLock lock(&mu_);
+  on_offer_ = nullptr;
+  on_candidate_ = nullptr;
+  on_answer_ = nullptr;
+}
+
 absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
   eglt::MutexLock l(&mu_);
 

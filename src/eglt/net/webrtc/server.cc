@@ -43,19 +43,20 @@
 
 namespace eglt::net {
 
-WebRtcServer::WebRtcServer(
-    eglt::Service* absl_nonnull service, std::string_view address,
-    uint16_t port, std::string_view signalling_address,
-    uint16_t signalling_port, std::string_view signalling_identity,
-    std::optional<RtcConfig> rtc_config)
-  : service_(service),
-    address_(address),
-    port_(port),
-    signalling_address_(signalling_address),
-    signalling_port_(signalling_port),
-    signalling_identity_(signalling_identity),
-    rtc_config_(std::move(rtc_config)),
-    ready_data_connections_(32) {}
+WebRtcServer::WebRtcServer(eglt::Service* absl_nonnull service,
+                           std::string_view address, uint16_t port,
+                           std::string_view signalling_address,
+                           uint16_t signalling_port,
+                           std::string_view signalling_identity,
+                           std::optional<RtcConfig> rtc_config)
+    : service_(service),
+      address_(address),
+      port_(port),
+      signalling_address_(signalling_address),
+      signalling_port_(signalling_port),
+      signalling_identity_(signalling_identity),
+      rtc_config_(std::move(rtc_config)),
+      ready_data_connections_(32) {}
 
 WebRtcServer::~WebRtcServer() {
   eglt::MutexLock lock(&mu_);
@@ -71,8 +72,7 @@ void WebRtcServer::Run() {
   });
 }
 
-absl::Status WebRtcServer::CancelInternal()
-ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+absl::Status WebRtcServer::CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (main_loop_ == nullptr) {
     return absl::FailedPreconditionError(
         "WebRtcServer Cancel called on either unstarted or already "
@@ -83,8 +83,7 @@ ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   return absl::OkStatus();
 }
 
-absl::Status WebRtcServer::JoinInternal()
-ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+absl::Status WebRtcServer::JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 
   if (main_loop_ != nullptr) {
     mu_.Unlock();
@@ -109,8 +108,8 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       signalling_client = InitSignallingClient(signalling_address_,
                                                signalling_port_, &connections);
       if (const auto status =
-            signalling_client->ConnectWithIdentity(signalling_identity_);
-        !status.ok()) {
+              signalling_client->ConnectWithIdentity(signalling_identity_);
+          !status.ok()) {
         LOG(ERROR) << "WebRtcServer failed to connect to "
                       "signalling server: "
                    << status;
@@ -160,9 +159,9 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
 
     if (next_connection.connection->state() ==
-        rtc::PeerConnection::State::Failed ||
+            rtc::PeerConnection::State::Failed ||
         next_connection.connection->state() ==
-        rtc::PeerConnection::State::Closed) {
+            rtc::PeerConnection::State::Closed) {
       LOG(ERROR) << "WebRtcServer RunLoop could not accept a new "
                     "connection because the connection is in a failed or "
                     "closed state.";
@@ -170,9 +169,8 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
 
     if (next_connection.data_channel == nullptr) {
-      LOG(ERROR)
-          << "WebRtcServer RunLoop received a connection without"
-             "a data channel. This should not happen.";
+      LOG(ERROR) << "WebRtcServer RunLoop received a connection without"
+                    "a data channel. This should not happen.";
       continue;
     }
 
@@ -181,8 +179,8 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
         std::move(next_connection.connection));
 
     if (auto service_connection =
-          service_->EstablishConnection(std::move(stream));
-      !service_connection.ok()) {
+            service_->EstablishConnection(std::move(stream));
+        !service_connection.ok()) {
       LOG(ERROR) << "WebRtcServer EstablishConnection failed: "
                  << service_connection.status();
       continue;
@@ -191,9 +189,8 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     // of the WebRtcServer is done. The service will handle the
     // connection from here on out.
   }
-  signalling_client->Cancel();
-  signalling_client->Join();
 
+  // Clean up all connections that might not be ready yet.
   for (auto& [peer_id, connection] : connections) {
     connection.data_channel->resetCallbacks();
     connection.connection->resetCallbacks();
@@ -205,6 +202,16 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
   }
   connections.clear();
+
+  // Very important: callbacks for the signalling client must be reset
+  // because their closures contain shared pointers to the client itself.
+  // If we don't reset them, the client will never be destroyed.
+  signalling_client->ResetCallbacks();
+  DCHECK(signalling_client.use_count() == 1)
+      << "WebRtcServer signalling client should be the only owner of "
+         "the SignallingClient instance at this point, but it is not. "
+         "This indicates a bug in the code.";
+  signalling_client.reset();
 }
 
 std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
@@ -214,146 +221,148 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
       std::make_shared<SignallingClient>(signalling_address, signalling_port);
 
   signalling_client->OnOffer([this, connections, signalling_client](
-      std::string_view peer_id,
-      const boost::json::value& message) {
-        if (connections->contains(std::string(peer_id))) {
-          LOG(ERROR) << "WebRtcServer already accepting a connection from "
+                                 std::string_view peer_id,
+                                 const boost::json::value& message) {
+    if (connections->contains(std::string(peer_id))) {
+      LOG(ERROR) << "WebRtcServer already accepting a connection from "
                     "peer: "
                  << peer_id;
-          return;
-        }
+      return;
+    }
 
-        boost::system::error_code error;
+    boost::system::error_code error;
 
-        std::string description;
-        if (const auto desc_ptr = message.find_pointer("/description", error);
-          desc_ptr == nullptr || error) {
-          LOG(ERROR) << "WebRtcServer no 'description' field in offer: "
+    std::string description;
+    if (const auto desc_ptr = message.find_pointer("/description", error);
+        desc_ptr == nullptr || error) {
+      LOG(ERROR) << "WebRtcServer no 'description' field in offer: "
                  << boost::json::serialize(message);
-          return;
-        } else {
-          description = desc_ptr->as_string().c_str();
+      return;
+    } else {
+      description = desc_ptr->as_string().c_str();
+    }
+
+    RtcConfig config = rtc_config_.value_or(RtcConfig());
+    config.enable_ice_udp_mux = true;
+    config.port_range_begin = port_;
+    config.port_range_end = port_;
+    if (config.stun_servers.empty()) {
+      config.stun_servers.emplace_back("stun.l.google.com:19302");
+    }
+    rtc::Configuration libdatachannel_config =
+        config.BuildLibdatachannelConfig();
+    libdatachannel_config.bindAddress = address_;
+
+    auto connection =
+        std::make_unique<rtc::PeerConnection>(std::move(libdatachannel_config));
+
+    connection->onLocalDescription([peer_id = std::string(peer_id),
+                                    signalling_client](
+                                       const rtc::Description& description) {
+      const std::string sdp = description.generateSdp("\r\n");
+
+      boost::json::object answer;
+      answer["id"] = peer_id;
+      answer["type"] = "answer";
+      answer["description"] = sdp;
+
+      const auto message = boost::json::serialize(answer);
+      if (const auto status = signalling_client->Send(message); !status.ok()) {
+        LOG(ERROR) << "WebRtcServer Send answer failed: " << status;
+      }
+    });
+
+    connection->onLocalCandidate([peer_id = std::string(peer_id),
+                                  signalling_client](
+                                     const rtc::Candidate& candidate) {
+      boost::json::object candidate_json;
+      candidate_json["id"] = peer_id;
+      candidate_json["type"] = "candidate";
+      candidate_json["candidate"] = std::string(candidate);
+      candidate_json["mid"] = candidate.mid();
+
+      const auto message = boost::json::serialize(candidate_json);
+      if (const auto status = signalling_client->Send(message); !status.ok()) {
+        LOG(ERROR) << "WebRtcServer Send candidate failed: " << status;
+      }
+    });
+
+    connection->onIceStateChange([peer_id = std::string(peer_id), connections,
+                                  connection_ptr = connection.get()](
+                                     rtc::PeerConnection::IceState state) {
+      // Unsuccessful connections should be cleaned up: data channel closed,
+      // if any, and connection closed.
+      if (state == rtc::PeerConnection::IceState::Failed) {
+        const auto map_node = connections->extract(peer_id);
+        CHECK(!map_node.empty())
+            << "WebRtcServer no connection for peer: " << peer_id;
+        if (map_node.mapped().data_channel) {
+          map_node.mapped().data_channel->close();
         }
+        map_node.mapped().connection->resetCallbacks();
+        map_node.mapped().connection->close();
+        return;
+      }
 
-        RtcConfig config = rtc_config_.value_or(RtcConfig());
-        config.enable_ice_udp_mux = true;
-        config.port_range_begin = port_;
-        config.port_range_end = port_;
-        if (config.stun_servers.empty()) {
-          config.stun_servers.emplace_back("stun.l.google.com:19302");
-        }
-        rtc::Configuration libdatachannel_config =
-            config.BuildLibdatachannelConfig();
-        libdatachannel_config.bindAddress = address_;
+      // Successful connections should have their callbacks reset, as the
+      // callbacks' closures contain shared pointers to the signalling client,
+      // which would prevent it from being destroyed.
+      if (state == rtc::PeerConnection::IceState::Completed) {
+        connection_ptr->onLocalDescription([](const rtc::Description&) {});
+        connection_ptr->onLocalCandidate([](const rtc::Candidate&) {});
+        connection_ptr->onIceStateChange([](rtc::PeerConnection::IceState) {});
+      }
+    });
 
-        auto connection =
-            std::make_unique<rtc::PeerConnection>(
-                std::move(libdatachannel_config));
-
-        connection->onLocalDescription([this, peer_id = std::string(peer_id),
-              signalling_client](
-            const rtc::Description& description) {
-              const std::string sdp = description.generateSdp("\r\n");
-
-              boost::json::object answer;
-              answer["id"] = peer_id;
-              answer["type"] = "answer";
-              answer["description"] = sdp;
-
-              const auto message = boost::json::serialize(answer);
-              if (const auto status = signalling_client->Send(message); !status.
-                ok()) {
-                LOG(ERROR) << "WebRtcServer Send answer failed: " << status;
-              }
-            });
-        connection->onLocalCandidate([this, peer_id = std::string(peer_id),
-              signalling_client](
-            const rtc::Candidate& candidate) {
-              boost::json::object candidate_json;
-              candidate_json["id"] = peer_id;
-              candidate_json["type"] = "candidate";
-              candidate_json["candidate"] = std::string(candidate);
-              candidate_json["mid"] = candidate.mid();
-
-              const auto message = boost::json::serialize(candidate_json);
-              if (const auto status = signalling_client->Send(message); !status.
-                ok()) {
-                LOG(ERROR) << "WebRtcServer Send candidate failed: " << status;
-              }
-            });
-        // connection->onIceStateChange([this, peer_id = std::string(peer_id),
-        //                               connections,
-        //                               connection_ptr = connection.get()](
-        //                                  rtc::PeerConnection::IceState state) {
-        //   if (state == rtc::PeerConnection::IceState::Failed) {
-        //     const auto map_node = connections->extract(peer_id);
-        //     CHECK(!map_node.empty())
-        //         << "WebRtcServer no connection for peer: " << peer_id;
-        //     if (map_node.mapped().data_channel) {
-        //       map_node.mapped().data_channel->close();
-        //     }
-        //     map_node.mapped().connection->resetCallbacks();
-        //     map_node.mapped().connection->close();
-        //     return;
-        //   }
-        //
-        //   // if (state == rtc::PeerConnection::IceState::Completed) {
-        //   //   connection_ptr->onLocalDescription([](const rtc::Description&) {});
-        //   //   connection_ptr->onLocalCandidate([](const rtc::Candidate&) {});
-        //   //   connection_ptr->onIceStateChange([](rtc::PeerConnection::IceState) {});
-        //   // }
-        // });
-
-        connection->onDataChannel([this, peer_id = std::string(peer_id),
-              connection_ptr = connection.get(), connections](
-            std::shared_ptr<rtc::DataChannel> dc) {
-              const auto map_node = connections->extract(peer_id);
-              CHECK(!map_node.empty())
+    connection->onDataChannel([this, peer_id = std::string(peer_id),
+                               connection_ptr = connection.get(), connections](
+                                  std::shared_ptr<rtc::DataChannel> dc) {
+      const auto map_node = connections->extract(peer_id);
+      CHECK(!map_node.empty())
           << "WebRtcServer no connection for peer: " << peer_id;
 
-              WebRtcDataChannelConnection connection_from_map =
-                  std::move(map_node.mapped());
-              connection_from_map.data_channel = std::move(dc);
+      WebRtcDataChannelConnection connection_from_map =
+          std::move(map_node.mapped());
+      connection_from_map.data_channel = std::move(dc);
 
-              ready_data_connections_.writer()->WriteUnlessCancelled(
-                  std::move(connection_from_map));
-            });
+      ready_data_connections_.writer()->WriteUnlessCancelled(
+          std::move(connection_from_map));
+    });
 
-        connections->emplace(peer_id, WebRtcDataChannelConnection{
-                                 .connection = std::move(connection),
-                                 .data_channel = nullptr});
+    connections->emplace(peer_id, WebRtcDataChannelConnection{
+                                      .connection = std::move(connection),
+                                      .data_channel = nullptr});
 
-        FindOrDie(*connections, peer_id)
-            .connection->setRemoteDescription(rtc::Description(description));
-      });
+    FindOrDie(*connections, peer_id)
+        .connection->setRemoteDescription(rtc::Description(description));
+  });
 
   signalling_client->OnCandidate([this, connections](
-      std::string_view peer_id,
-      const boost::json::value& message) {
-        eglt::MutexLock lock(&mu_);
-        if (!connections->contains(peer_id)) {
-          return;
-        }
+                                     std::string_view peer_id,
+                                     const boost::json::value& message) {
+    eglt::MutexLock lock(&mu_);
+    if (!connections->contains(peer_id)) {
+      return;
+    }
 
-        boost::system::error_code error;
+    boost::system::error_code error;
 
-        std::string candidate;
-        if (const auto candidate_ptr = message.find_pointer("/candidate", error)
-          ;
-          candidate_ptr == nullptr || error) {
-          LOG(ERROR) << "WebRtcServer no 'candidate' field in "
+    std::string candidate;
+    if (const auto candidate_ptr = message.find_pointer("/candidate", error);
+        candidate_ptr == nullptr || error) {
+      LOG(ERROR) << "WebRtcServer no 'candidate' field in "
                     "candidate message: "
                  << boost::json::serialize(message);
-          return;
-        } else {
-          candidate = candidate_ptr->as_string().c_str();
-        }
+      return;
+    } else {
+      candidate = candidate_ptr->as_string().c_str();
+    }
 
-        FindOrDie(*connections, peer_id)
-            .connection->addRemoteCandidate(rtc::Candidate(candidate));
-      });
+    FindOrDie(*connections, peer_id)
+        .connection->addRemoteCandidate(rtc::Candidate(candidate));
+  });
 
   return signalling_client;
 }
 
-} // namespace eglt::net
+}  // namespace eglt::net

@@ -79,44 +79,44 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
             "readers_deserialise_automatically",
         )
 
-    def _consume_sync(self):
-        item = self.next_sync()
+    def _consume_sync(self, timeout: float = -1.0):
+        item = self.next_sync(timeout)
         if item is None:
             raise RuntimeError(
                 "Node is empty while expecting exactly one item."
             )
-        if self.next_sync() is not None:
+        if self.next_sync(timeout) is not None:
             raise RuntimeError(
                 "Node has more than one item while expecting exactly one."
             )
         return item
 
-    def consume(self) -> Any | Awaitable[Any]:
+    def consume(self, timeout: float = -1.0) -> Any | Awaitable[Any]:
         try:
-            loop = asyncio.get_running_loop()
-            return loop.run_in_executor(None, self._consume_sync)
+            asyncio.get_running_loop()
+            return asyncio.to_thread(self._consume_sync, timeout)
         except RuntimeError:
-            return self._consume_sync()
+            return self._consume_sync(timeout)
 
-    async def next(self):
+    async def next(self, timeout: float = -1.0):
         if self.deserialize:
-            return await self.next_object()
+            return await self.next_object(timeout)
         else:
-            return await self.next_chunk()
+            return await self.next_chunk(timeout)
 
-    def next_sync(self):
+    def next_sync(self, timeout: float = -1.0):
         if self.deserialize:
-            return self.next_object_sync()
+            return self.next_object_sync(timeout)
         else:
-            return self.next_chunk_sync()
+            return self.next_chunk_sync(timeout)
 
-    async def next_object(self) -> Any | None:
+    async def next_object(self, timeout: float = -1.0) -> Any | None:
         """Returns the next object in the store, or None if the store is empty."""
-        return await asyncio.to_thread(self.next_object_sync)
+        return await asyncio.to_thread(self.next_object_sync, timeout)
 
-    def next_object_sync(self) -> Any:
+    def next_object_sync(self, timeout: float = -1.0) -> Any:
         """Returns the next object in the store, or None if the store is empty."""
-        chunk = self.next_chunk_sync()
+        chunk = self.next_chunk_sync(timeout)
         if chunk is None:
             return None
         return data.from_chunk(
@@ -125,11 +125,11 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
             registry=self._serializer_registry,
         )
 
-    async def next_chunk(self) -> Chunk | None:
-        return await asyncio.to_thread(self.next_chunk_sync)
+    async def next_chunk(self, timeout: float = -1.0) -> Chunk | None:
+        return await asyncio.to_thread(self.next_chunk_sync, timeout)
 
-    def next_chunk_sync(self) -> Chunk | None:
-        return super().next_chunk()  # pytype: disable=attribute-error
+    def next_chunk_sync(self, timeout: float = -1.0) -> Chunk | None:
+        return super().next_chunk(timeout)  # pytype: disable=attribute-error
 
     next_chunk = functools.wraps(next_chunk_sync)(next_chunk)
 
@@ -150,10 +150,8 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
           awaitable if the fragment was put asynchronously within an event loop.
         """
         try:
-            loop = asyncio.get_running_loop()
-            return loop.run_in_executor(
-                None, self.put_fragment_sync, fragment, seq
-            )
+            asyncio.get_running_loop()
+            return asyncio.to_thread(self.put_fragment_sync, fragment, seq)
         except RuntimeError:
             super().put_fragment(
                 fragment, seq
@@ -177,10 +175,8 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
           awaitable if the chunk was put asynchronously within an event loop.
         """
         try:
-            loop = asyncio.get_running_loop()
-            return loop.run_in_executor(
-                None, super().put_chunk, chunk, seq, final
-            )
+            asyncio.get_running_loop()
+            return asyncio.to_thread(super().put_chunk, chunk, seq, final)
         except RuntimeError:
             super().put_chunk(
                 chunk, seq, final
@@ -258,6 +254,7 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
         ordered: bool | None = None,
         remove_chunks: bool | None = None,
         n_chunks_to_buffer: int | None = None,
+        timeout: float | None = None,
     ) -> "AsyncNode":
         """Sets the options for the default reader on the node.
 
@@ -266,6 +263,8 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
           remove_chunks: Whether to remove chunks from the store after reading them.
           n_chunks_to_buffer: The number of chunks to buffer until blocking the
             internal ChunkStoreReader.
+          timeout: The timeout for reading chunks, in seconds. If None, the default
+            timeout is used, which is -1.0 (no timeout).
 
         Returns:
           The node itself.
@@ -275,6 +274,7 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
             global_setting_if_none(ordered, "readers_read_in_order"),
             global_setting_if_none(remove_chunks, "readers_remove_read_chunks"),
             global_setting_if_none(n_chunks_to_buffer, "readers_buffer_size"),
+            global_setting_if_none(timeout, "readers_timeout"),
         )
         return self
 

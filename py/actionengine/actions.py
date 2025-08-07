@@ -1,11 +1,11 @@
 """A Pythonic wrapper for the raw pybind11 Actions bindings."""
 
 import asyncio
+import inspect
 from typing import Any
 from typing import Awaitable
 from typing import Callable
 
-import actionengine
 from actionengine import async_node
 from actionengine import node_map as eg_node_map
 from actionengine import data
@@ -25,16 +25,32 @@ async def do_nothing(_: "Action") -> None:
     pass
 
 
-def wrap_handler(handler: ActionHandler) -> ActionHandler:
-    loop = None  # was asyncio.get_running_loop()
+def wrap_async_handler(handler: AsyncActionHandler) -> SyncActionHandler:
+    """Wraps the given handler to run in the event loop."""
+    loop = asyncio.get_running_loop()
 
-    def inner(action: "Action") -> None:
-        return actionengine.run_threadsafe_if_coroutine(
-            handler(utils.wrap_pybind_object(Action, action)),
-            loop=loop,
+    def sync_handler(action: Action) -> None:
+        future = asyncio.run_coroutine_threadsafe(
+            handler(utils.wrap_pybind_object(Action, action)), loop
         )
+        future.result()
 
-    return inner
+    return sync_handler
+
+
+def wrap_sync_handler(handler: SyncActionHandler) -> SyncActionHandler:
+    def sync_handler(action: Action) -> None:
+        py_action = utils.wrap_pybind_object(Action, action)
+        return handler(py_action)
+
+    return sync_handler
+
+
+def wrap_handler(handler: ActionHandler) -> ActionHandler:
+    if inspect.iscoroutinefunction(handler):
+        return wrap_async_handler(handler)
+    else:
+        return wrap_sync_handler(handler)
 
 
 class ActionSchema(actions_pybind11.ActionSchema):
@@ -242,14 +258,8 @@ class Action(actions_pybind11.Action):
             # pytype: disable=attribute-error
         )
 
-    def run(self) -> Awaitable[None]:
+    def run(self) -> asyncio.Task:
         """Runs the action."""
-        try:
-            loop = asyncio.get_running_loop()
-            return loop.run_in_executor(
-                None, super().run  # pytype: disable=attribute-error
-            )
-        except RuntimeError:
-            raise NotImplementedError(
-                "Running actions is not supported outside of an asyncio event loop."
-            )
+        return utils.schedule_global_task(
+            asyncio.to_thread(super().run)
+        )  # pytype: disable=attribute-error

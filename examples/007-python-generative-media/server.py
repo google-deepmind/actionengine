@@ -76,14 +76,13 @@ async def main(args: argparse.Namespace):
     )
 
     server.run()
-    task = asyncio.create_task(asyncio.to_thread(server.join))
     try:
         await sleep_forever()
     except asyncio.CancelledError:
         print("Shutting down Action Engine server.")
         server.cancel()
     finally:
-        await task
+        await asyncio.to_thread(server.join)
 
 
 def sync_main(args: argparse.Namespace):
@@ -92,7 +91,7 @@ def sync_main(args: argparse.Namespace):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
 
     parser = argparse.ArgumentParser(
         description="Run the Action Engine text-to-image server."

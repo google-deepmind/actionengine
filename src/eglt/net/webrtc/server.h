@@ -49,13 +49,14 @@
 namespace eglt::net {
 
 class WebRtcServer {
-public:
-  explicit WebRtcServer(
-      eglt::Service* absl_nonnull service, std::string_view address = "0.0.0.0",
-      uint16_t port = 20000, std::string_view signalling_address = "localhost",
-      uint16_t signalling_port = 80,
-      std::string_view signalling_identity = "server",
-      std::optional<RtcConfig> rtc_config = std::nullopt);
+ public:
+  explicit WebRtcServer(eglt::Service* absl_nonnull service,
+                        std::string_view address = "0.0.0.0",
+                        uint16_t port = 20000,
+                        std::string_view signalling_address = "localhost",
+                        uint16_t signalling_port = 80,
+                        std::string_view signalling_identity = "server",
+                        std::optional<RtcConfig> rtc_config = std::nullopt);
 
   ~WebRtcServer();
 
@@ -68,12 +69,14 @@ public:
 
   absl::Status Join() {
     eglt::MutexLock lock(&mu_);
-    return JoinInternal();
+    absl::Status status = JoinInternal();
+    DLOG(INFO) << "WebRtcServer Join finished with status: " << status;
+    return status;
   }
 
-private:
+ private:
   using DataChannelConnectionMap =
-  absl::flat_hash_map<std::string, WebRtcDataChannelConnection>;
+      absl::flat_hash_map<std::string, WebRtcDataChannelConnection>;
   void RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Status CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
@@ -97,6 +100,6 @@ private:
   std::unique_ptr<thread::Fiber> main_loop_;
 };
 
-} // namespace eglt::net
+}  // namespace eglt::net
 
 #endif  // EGLT_NET_WEBRTC_SERVER_H_

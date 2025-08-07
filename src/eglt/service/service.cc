@@ -159,7 +159,7 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
 
   streams_.emplace(stream_id, std::make_unique<net::RecoverableStream>(
                                   std::move(get_stream), stream_id,
-                                  /*timeout=*/absl::Seconds(10)));
+                                  /*timeout=*/absl::Seconds(5)));
 
   if (connections_.contains(stream_id)) {
     return absl::AlreadyExistsError(

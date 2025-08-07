@@ -167,7 +167,7 @@ class Session {
   bool joined_ ABSL_GUARDED_BY(mu_) = false;
   absl::flat_hash_map<WireStream*, std::unique_ptr<thread::Fiber>>
       dispatch_tasks_ ABSL_GUARDED_BY(mu_){};
-  const absl::Duration recv_timeout_ = absl::Seconds(60);
+  const absl::Duration recv_timeout_ = absl::Seconds(3600);
 
   NodeMap* absl_nonnull const node_map_;
   ActionRegistry* absl_nullable action_registry_ = nullptr;

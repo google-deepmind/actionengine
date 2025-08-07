@@ -46,6 +46,8 @@ class SignallingClient {
 
   ~SignallingClient();
 
+  void ResetCallbacks();
+
   void OnOffer(PeerJsonHandler on_offer) { on_offer_ = std::move(on_offer); }
 
   void OnCandidate(PeerJsonHandler on_candidate) {

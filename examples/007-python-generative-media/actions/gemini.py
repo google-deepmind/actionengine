@@ -346,7 +346,7 @@ async def generate_content_ollama(action: actionengine.Action):
 async def generate_content(action: actionengine.Action):
     print("Running generate_content.", flush=True)
 
-    api_key = await action["api_key"].consume()
+    api_key = await action["api_key"].consume(timeout=3.0)
     if not api_key:
         await action["output"].put_and_finalize("API key is required.")
         return

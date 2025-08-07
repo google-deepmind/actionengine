@@ -108,11 +108,22 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           py::arg("stream"), py::call_guard<py::gil_scoped_release>())
       .def(
           "next_chunk",
-          [](const std::shared_ptr<AsyncNode>& self)
-              -> absl::StatusOr<std::optional<Chunk>> {
-            return self->Next<Chunk>();
+          [](const std::shared_ptr<AsyncNode>& self,
+             double timeout = -1.0) -> absl::StatusOr<std::optional<Chunk>> {
+            absl::Duration timeout_duration =
+                timeout < 0 ? absl::InfiniteDuration() : absl::Seconds(timeout);
+            absl::StatusOr<std::optional<Chunk>> result =
+                self->Next<Chunk>(timeout_duration);
+            if (!result.ok()) {
+              absl::Status status(
+                  result.status().code(),
+                  absl::StrCat(absl::StrFormat("[%s]: ", self->GetId()),
+                               result.status().message()));
+              return status;
+            }
+            return *std::move(result);
           },
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(), py::arg_v("timeout", -1.0))
       .def("get_id",
            [](const std::shared_ptr<AsyncNode>& self) { return self->GetId(); })
       .def(
@@ -126,16 +137,19 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
       .def(
           "set_reader_options",
           [](const std::shared_ptr<AsyncNode>& self, bool ordered = false,
-             bool remove_chunks = false, int n_chunks_to_buffer = -1) {
+             bool remove_chunks = false, int n_chunks_to_buffer = -1,
+             double timeout = -1.0) {
             ChunkStoreReaderOptions options;
             options.ordered = ordered;
             options.remove_chunks = remove_chunks;
             options.n_chunks_to_buffer = n_chunks_to_buffer;
+            options.timeout =
+                timeout < 0 ? absl::InfiniteDuration() : absl::Seconds(timeout);
             self->SetReaderOptions(std::move(options));
             return self;
           },
           py::arg_v("ordered", false), py::arg_v("remove_chunks", false),
-          py::arg_v("n_chunks_to_buffer", -1),
+          py::arg_v("n_chunks_to_buffer", -1), py::arg_v("timeout", -1.0),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "set_reader_options",
