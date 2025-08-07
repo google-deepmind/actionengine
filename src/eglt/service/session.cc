@@ -46,17 +46,10 @@ ActionContext::~ActionContext() {
 
   WaitForActionsToDetachInternal();
 
-  if (!running_actions_.empty()) {
-    DLOG(WARNING)
-        << "ActionContext::~ActionContext() timed out waiting for actions to "
-           "detach. Please make sure that all actions react to cancellation "
-           "and detach themselves from the context.";
-  }
-
-  // CHECK(running_actions_.empty())
-  //     << "ActionContext::~ActionContext() timed out waiting for actions to "
-  //        "detach. Please make sure that all actions react to cancellation "
-  //        "and detach themselves from the context.";
+  CHECK(running_actions_.empty())
+      << "ActionContext::~ActionContext() timed out waiting for actions to "
+         "detach. Please make sure that all actions react to cancellation "
+         "and detach themselves from the context.";
 }
 
 absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
