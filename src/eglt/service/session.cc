@@ -40,9 +40,7 @@ ActionContext::~ActionContext() {
   eglt::MutexLock lock(&mu_);
   DLOG(INFO) << "ActionContext::~ActionContext()";
 
-  if (!cancelled_) {
-    CancelContextInternal();
-  }
+  CancelContextInternal();
 
   WaitForActionsToDetachInternal();
 
@@ -64,8 +62,7 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
         eglt::MutexLock lock(&mu_);
 
         mu_.Unlock();
-        if (const auto run_status = action->Run(&cancellation_);
-            !run_status.ok()) {
+        if (const auto run_status = action->Run(); !run_status.ok()) {
           LOG(ERROR) << "Failed to run action: " << run_status;
         }
         mu_.Lock();
@@ -78,7 +75,13 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
 }
 
 void ActionContext::CancelContextInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-  cancellation_.Notify();
+  if (cancelled_) {
+    return;
+  }
+  for (auto& [action, action_fiber] : running_actions_) {
+    action->Cancel();
+    action_fiber->Cancel();
+  }
   cancelled_ = true;
   DLOG(INFO) << absl::StrFormat(
       "Action context cancelled, actions pending: %v.",

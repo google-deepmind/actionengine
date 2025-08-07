@@ -18,6 +18,9 @@
 
 #include <boost/fiber/condition_variable.hpp>
 #include <boost/fiber/mutex.hpp>
+#include <boost/system/system_error.hpp>
+
+#include "g3fiber/fiber.h"
 
 namespace eglt::concurrency::impl {
 
@@ -41,6 +44,77 @@ void Mutex::Unlock() noexcept ABSL_UNLOCK_FUNCTION() {
 
 boost::fibers::mutex& Mutex::GetImpl() {
   return mu_;
+}
+
+void CondVar::Wait(Mutex* mu) noexcept {
+  thread::FiberProperties* props = thread::GetCurrentFiberProperties();
+
+  if (ABSL_PREDICT_TRUE(props != nullptr)) {
+    MutexLock lock(&props->fiber_->mu_);
+    props->waiting_on_ = this;
+  }
+
+  std::string error_message;
+  try {
+    cv_.wait(mu->GetImpl());
+  } catch (boost::fibers::lock_error& error) {
+    error_message = error.what();
+  }
+
+  if (ABSL_PREDICT_TRUE(props != nullptr)) {
+    MutexLock lock(&props->fiber_->mu_);
+    CHECK(props->waiting_on_ == this || props->waiting_on_ == nullptr)
+        << "CondVar::Wait() called on a different CondVar than the one we "
+           "waited on. This is a bug in the implementation.";
+    props->waiting_on_ = nullptr;
+  }
+
+  if (ABSL_PREDICT_FALSE(!error_message.empty())) {
+    // If we caught an error, we should not continue.
+    LOG(FATAL) << "Error in underlying implementation: " << error_message;
+    ABSL_ASSUME(false);
+  }
+}
+
+bool CondVar::WaitWithDeadline(Mutex* mu, const absl::Time& deadline) noexcept {
+  if (ABSL_PREDICT_TRUE(deadline == absl::InfiniteFuture())) {
+    Wait(mu);
+    return false;
+  }
+
+  thread::FiberProperties* props = thread::GetCurrentFiberProperties();
+
+  if (ABSL_PREDICT_TRUE(props != nullptr)) {
+    MutexLock lock(&props->fiber_->mu_);
+    props->waiting_on_ = this;
+  }
+
+  bool timed_out = false;
+  std::string error_message;
+  try {
+    timed_out =
+        cv_.wait_for(mu->GetImpl(),
+                     absl::ToChronoNanoseconds(deadline - absl::Now())) ==
+        boost::fibers::cv_status::timeout;
+  } catch (boost::fibers::lock_error& error) {
+    error_message = error.what();
+  }
+
+  if (ABSL_PREDICT_TRUE(props != nullptr)) {
+    MutexLock lock(&props->fiber_->mu_);
+    CHECK(props->waiting_on_ == this || props->waiting_on_ == nullptr)
+        << "CondVar::WaitWithDeadline() called on a different CondVar than the "
+           "one we waited on. This is a bug in the implementation.";
+    props->waiting_on_ = nullptr;
+  }
+
+  if (ABSL_PREDICT_FALSE(!error_message.empty())) {
+    // If we caught an error, we should not continue.
+    LOG(FATAL) << "Error in underlying implementation: " << error_message;
+    ABSL_ASSUME(false);
+  }
+
+  return timed_out;
 }
 
 }  // namespace eglt::concurrency::impl

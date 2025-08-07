@@ -46,19 +46,6 @@ InvocableWork MakeInvocable(F&& f) requires
 
 class Fiber;
 
-class FiberProperties final : public boost::fibers::fiber_properties {
- public:
-  explicit FiberProperties(boost::fibers::context* ctx) = delete;
-
-  explicit FiberProperties(Fiber* fiber)
-      : boost::fibers::fiber_properties(nullptr), fiber_(fiber) {}
-
-  [[nodiscard]] Fiber* GetFiber() const { return fiber_; }
-
- private:
-  Fiber* fiber_ = nullptr;
-};
-
 namespace internal {
 std::unique_ptr<Fiber> CreateTree(InvocableWork f, TreeOptions&& tree_options);
 }
@@ -67,6 +54,8 @@ Fiber* GetPerThreadFiberPtr();
 
 class Fiber {
  public:
+  friend class FiberProperties;
+
   template <typename F>
   explicit Fiber(F&& f) requires InvocableWithNoArgsAndReturnsVoid<F>
       : Fiber(Unstarted{}, {std::forward<F>(f)}) {
@@ -86,6 +75,7 @@ class Fiber {
   void Join();
 
   bool Cancelled() const { return cancellation_.HasBeenNotified(); }
+
   Case OnCancel() const { return cancellation_.OnEvent(); }
 
   Case OnJoinable() const { return joinable_.OnEvent(); }
@@ -145,6 +135,7 @@ class Fiber {
   std::atomic<bool> detached_ ABSL_GUARDED_BY(mu_) = false;
 
   enum State : uint8_t { RUNNING, FINISHED, JOINED };
+
   State state_ ABSL_GUARDED_BY(mu_) = RUNNING;
 
   Fiber* const parent_;
@@ -158,9 +149,29 @@ class Fiber {
   friend std::unique_ptr<Fiber> internal::CreateTree(
       InvocableWork f, TreeOptions&& tree_options);
 
+  friend class eglt::concurrency::impl::CondVar;
+
   friend struct ThreadLocalFiber;
   friend bool IsFiberDetached(const Fiber* fiber);
   friend void Detach(std::unique_ptr<Fiber> fiber);
+};
+
+class FiberProperties final : public boost::fibers::fiber_properties {
+ public:
+  friend class Fiber;
+  friend class eglt::concurrency::impl::CondVar;
+
+  explicit FiberProperties(boost::fibers::context* ctx) = delete;
+
+  explicit FiberProperties(Fiber* fiber)
+      : boost::fibers::fiber_properties(nullptr), fiber_(fiber) {}
+
+  [[nodiscard]] Fiber* GetFiber() const { return fiber_; }
+
+ private:
+  Fiber* fiber_ = nullptr;
+  eglt::concurrency::impl::CondVar* waiting_on_ ABSL_GUARDED_BY(fiber_->mu_) =
+      nullptr;
 };
 
 namespace internal {
@@ -197,6 +208,8 @@ inline void Detach(std::unique_ptr<Fiber> fiber) {
     fiber->InternalJoin();
   }
 }
+
+FiberProperties* GetCurrentFiberProperties();
 
 template <typename F>
 void Detach(TreeOptions tree_options, F&& f) {

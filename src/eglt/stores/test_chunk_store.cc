@@ -71,7 +71,7 @@ TEST(ChunkStoreTest, WrittenChunksAreReadable) {
       .IgnoreError();
 
   // Read the chunks back in order and check that they are correct.
-  eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/true);
+  eglt::ChunkStoreReader reader(&chunk_store, {.ordered = true});
 
   std::vector<std::string> read_words;
   reader >> read_words;
@@ -85,7 +85,7 @@ TEST(ChunkStoreTest, CanReadChunksAsynchronously) {
   for (int i = 0; i < 100; ++i) {
     eglt::LocalChunkStore chunk_store;
     eglt::ChunkStoreWriter writer(&chunk_store);
-    eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/true);
+    eglt::ChunkStoreReader reader(&chunk_store, {.ordered = true});
 
     std::vector<std::string> words = {"Hello", "World", "!"};
     writer << words << eglt::EndOfStream();
@@ -125,7 +125,7 @@ TEST(ChunkStoreTest, OrderedReaderOrdersChunks) {
   }
   writer << eglt::EndOfStream();
 
-  eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/true);
+  eglt::ChunkStoreReader reader(&chunk_store, {.ordered = true});
 
   for (const auto& word : words) {
     EXPECT_THAT(reader.Next<std::string>(), IsOkAndHolds(word));
@@ -158,7 +158,7 @@ TEST(ChunkStoreTest, UnorderedReaderReadsChunksAsTheyArrive) {
 
   writer << eglt::EndOfStream();
 
-  eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/false);
+  eglt::ChunkStoreReader reader(&chunk_store, {.ordered = false});
 
   for (const auto& [seq, word] : seq_and_words) {
     EXPECT_THAT(reader.Next<std::string>(), IsOkAndHolds(word));
@@ -170,8 +170,8 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
   {
     eglt::LocalChunkStore chunk_store;
     eglt::ChunkStoreWriter writer(&chunk_store);
-    eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/true,
-                                  /*remove_chunks=*/true);
+    eglt::ChunkStoreReader reader(&chunk_store,
+                                  {.ordered = true, .remove_chunks = true});
 
     writer << "Hello" << "World" << "!" << eglt::EndOfStream();
     chunk_store.GetByArrivalOrder(3, /*timeout=*/absl::InfiniteDuration())
@@ -198,8 +198,8 @@ TEST(ChunkStoreTest, ReaderRemovesChunks) {
     EXPECT_THAT(chunk_store.Size(), IsOkAndHolds(3));
     EXPECT_THAT(chunk_store.GetFinalSeq(), IsOkAndHolds(2));
 
-    eglt::ChunkStoreReader reader(&chunk_store, /*ordered=*/true,
-                                  /*remove_chunks=*/true);
+    eglt::ChunkStoreReader reader(&chunk_store,
+                                  {.ordered = true, .remove_chunks = true});
     std::vector<std::string> read_words;
     reader >> read_words;
     EXPECT_OK(reader.GetStatus());
@@ -214,12 +214,12 @@ TEST(ChunkStoreTest, OrderedReaderBlocksUntilChunksArrive) {
   thread::Fiber::Current();
 
   auto writer = std::make_unique<eglt::ChunkStoreWriter>(&chunk_store);
-  auto reader = std::make_unique<eglt::ChunkStoreReader>(
-      &chunk_store,
-      /*ordered=*/true,
-      /*remove_chunks=*/false,
-      /*n_chunks_to_buffer=*/-1,
-      /*timeout=*/absl::Seconds(0.001));
+  eglt::ChunkStoreReaderOptions options = {.ordered = true,
+                                           .remove_chunks = false,
+                                           .n_chunks_to_buffer = SIZE_MAX,
+                                           .timeout = absl::Seconds(0.001)};
+  auto reader = std::make_unique<eglt::ChunkStoreReader>(&chunk_store,
+                                                         std::move(options));
 
   EXPECT_OK(writer->Put("World", 1, /*final=*/false));
   EXPECT_OK(writer->Put("!", 2, /*final=*/false));
@@ -232,8 +232,8 @@ TEST(ChunkStoreTest, OrderedReaderBlocksUntilChunksArrive) {
   EXPECT_OK(writer->Put("Hello", 0, /*final=*/false));
 
   // The reader should now be able to read the chunks without blocking.
-  reader = std::make_unique<eglt::ChunkStoreReader>(&chunk_store,
-                                                    /*ordered=*/true);
+  reader = std::make_unique<eglt::ChunkStoreReader>(
+      &chunk_store, eglt::ChunkStoreReaderOptions{.ordered = true});
 
   std::vector<std::string> read_words;
   *reader >> read_words;

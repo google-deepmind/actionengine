@@ -158,6 +158,19 @@ absl::Status AsyncNode::GetWriterStatus() const {
   return default_writer_->GetStatus();
 }
 
+absl::StatusOr<std::optional<Chunk>> AsyncNode::Next(
+    std::optional<absl::Duration> timeout) {
+  ChunkStoreReader& reader = GetReader();
+  return reader.Next(timeout);
+}
+
+std::optional<Chunk> AsyncNode::NextOrDie(
+    std::optional<absl::Duration> timeout) {
+  auto next = Next(timeout);
+  CHECK_OK(next.status());
+  return *std::move(next);
+}
+
 ChunkStoreReader& AsyncNode::GetReader() ABSL_LOCKS_EXCLUDED(mu_) {
   eglt::MutexLock lock(&mu_);
   return *EnsureReader();
@@ -172,21 +185,15 @@ absl::Status AsyncNode::GetReaderStatus() const {
 }
 
 std::unique_ptr<ChunkStoreReader> AsyncNode::MakeReader(
-    bool ordered, bool remove_chunks, int n_chunks_to_buffer) const {
-  return std::make_unique<ChunkStoreReader>(chunk_store_.get(), ordered,
-                                            remove_chunks, n_chunks_to_buffer);
+    ChunkStoreReaderOptions options) const {
+  return std::make_unique<ChunkStoreReader>(chunk_store_.get(),
+                                            std::move(options));
 }
 
-AsyncNode& AsyncNode::SetReaderOptions(bool ordered, bool remove_chunks,
-                                       int n_chunks_to_buffer) {
+AsyncNode& AsyncNode::SetReaderOptions(ChunkStoreReaderOptions options) {
 
   eglt::MutexLock lock(&mu_);
-  if (default_reader_ != nullptr) {
-    LOG(WARNING)
-        << "Reader already exists on the node, changes to reader "
-           "options will be ignored. You may want to reset the reader.";
-  }
-  EnsureReader(ordered, remove_chunks, n_chunks_to_buffer);
+  EnsureReader()->SetOptions(std::move(options));
   return *this;
 }
 
@@ -196,12 +203,9 @@ AsyncNode& AsyncNode::ResetReader() {
   return *this;
 }
 
-ChunkStoreReader* AsyncNode::EnsureReader(bool ordered, bool remove_chunks,
-                                          int n_chunks_to_buffer)
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+ChunkStoreReader* AsyncNode::EnsureReader() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (default_reader_ == nullptr) {
-    default_reader_ = std::make_unique<ChunkStoreReader>(
-        chunk_store_.get(), ordered, remove_chunks, n_chunks_to_buffer);
+    default_reader_ = std::make_unique<ChunkStoreReader>(chunk_store_.get());
   }
   return default_reader_.get();
 }

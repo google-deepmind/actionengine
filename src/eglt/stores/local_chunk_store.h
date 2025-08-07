@@ -51,6 +51,11 @@ class LocalChunkStore final : public ChunkStore {
     ClosePutsAndAwaitPendingOperations();
   }
 
+  void Notify() override {
+    eglt::MutexLock lock(&mu_);
+    cv_.SignalAll();
+  }
+
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetRef(
       int64_t seq, absl::Duration timeout) override {
     eglt::MutexLock lock(&mu_);

@@ -23,10 +23,24 @@
 
 #include "eglt/pybind11_headers.h"
 #include "eglt/stores/chunk_store.h"
+#include "eglt/stores/chunk_store_reader.h"
 #include "eglt/stores/local_chunk_store.h"
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
+
+/// @private
+void BindChunkStoreReaderOptions(py::handle scope, std::string_view name) {
+  py::class_<ChunkStoreReaderOptions>(scope, name.data(), py::module_local())
+      .def(py::init([]() { return ChunkStoreReaderOptions{}; }),
+           keep_event_loop_memo())
+      .def_readwrite("ordered", &ChunkStoreReaderOptions::ordered)
+      .def_readwrite("remove_chunks", &ChunkStoreReaderOptions::remove_chunks)
+      .def_readwrite("n_chunks_to_buffer",
+                     &ChunkStoreReaderOptions::n_chunks_to_buffer)
+      .def_readwrite("timeout", &ChunkStoreReaderOptions::timeout)
+      .doc() = "Options for reading from a ChunkStore.";
+}
 
 /// @private
 void BindChunkStore(py::handle scope, std::string_view name) {
@@ -143,6 +157,7 @@ py::module_ MakeChunkStoreModule(py::module_ scope,
   py::module_ chunk_store = scope.def_submodule(
       std::string(module_name).c_str(), "ActionEngine ChunkStore interface.");
 
+  BindChunkStoreReaderOptions(chunk_store, "ChunkStoreReaderOptions");
   BindChunkStore(chunk_store, "ChunkStore");
   BindLocalChunkStore(chunk_store, "LocalChunkStore");
 

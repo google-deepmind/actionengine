@@ -25,6 +25,7 @@
 #include "eglt/nodes/node_map.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_pybind11.h"
+#include "eglt/stores/chunk_store_reader.h"
 #include "eglt/util/utils_pybind11.h"
 
 namespace eglt::pybindings {
@@ -116,23 +117,34 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
            [](const std::shared_ptr<AsyncNode>& self) { return self->GetId(); })
       .def(
           "make_reader",
+          [](const std::shared_ptr<AsyncNode>& self,
+             ChunkStoreReaderOptions options) {
+            return std::shared_ptr(self->MakeReader(std::move(options)));
+          },
+          py::arg_v("options", ChunkStoreReaderOptions()),
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "set_reader_options",
           [](const std::shared_ptr<AsyncNode>& self, bool ordered = false,
              bool remove_chunks = false, int n_chunks_to_buffer = -1) {
-            return std::shared_ptr(
-                self->MakeReader(ordered, remove_chunks, n_chunks_to_buffer));
+            ChunkStoreReaderOptions options;
+            options.ordered = ordered;
+            options.remove_chunks = remove_chunks;
+            options.n_chunks_to_buffer = n_chunks_to_buffer;
+            self->SetReaderOptions(std::move(options));
+            return self;
           },
           py::arg_v("ordered", false), py::arg_v("remove_chunks", false),
           py::arg_v("n_chunks_to_buffer", -1),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "set_reader_options",
-          [](const std::shared_ptr<AsyncNode>& self, bool ordered = false,
-             bool remove_chunks = false, int n_chunks_to_buffer = -1) {
-            self->SetReaderOptions(ordered, remove_chunks, n_chunks_to_buffer);
+          [](const std::shared_ptr<AsyncNode>& self,
+             ChunkStoreReaderOptions options) {
+            self->SetReaderOptions(std::move(options));
             return self;
           },
-          py::arg_v("ordered", false), py::arg_v("remove_chunks", false),
-          py::arg_v("n_chunks_to_buffer", -1),
+          py::arg_v("options", ChunkStoreReaderOptions()),
           py::call_guard<py::gil_scoped_release>());
 }
 

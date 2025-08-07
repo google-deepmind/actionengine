@@ -54,8 +54,7 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   //   underlying store as they are read. Default is true.
   // ----------------------------------------------------------------------------
   auto input_text = action->GetNode("text");
-  input_text->SetReaderOptions(/*ordered=*/true,
-                                           /*remove_chunks=*/true);
+  input_text->SetReaderOptions({.ordered = true, .remove_chunks = true});
 
   // ----------------------------------------------------------------------------
   // The while loop below reads all chunks from the input stream and writes
@@ -112,13 +111,13 @@ ActionRegistry MakeActionRegistry() {
   // the action logic. There must be no two nodes with the same name within the
   // same action, even if they are an input and an output.
   registry.Register(/*name=*/"echo",
-                             /*schema=*/
-                             {
-                                 .name = "echo",
-                                 .inputs = {{"text", "text/plain"}},
-                                 .outputs = {{"response", "text/plain"}},
-                             },
-                             /*handler=*/RunEcho);
+                    /*schema=*/
+                    {
+                        .name = "echo",
+                        .inputs = {{"text", "text/plain"}},
+                        .outputs = {{"response", "text/plain"}},
+                    },
+                    /*handler=*/RunEcho);
   return registry;
 }
 
@@ -128,8 +127,9 @@ ActionRegistry MakeActionRegistry() {
 // implements the synchronous client logic which waits for the response and
 // just gives it back as a string, not a stream.
 // ----------------------------------------------------------------------------
-std::string CallEcho(std::string_view text, Session* absl_nonnull session,
-                     const std::shared_ptr<WireStream>& stream) {
+absl::StatusOr<std::string> CallEcho(
+    std::string_view text, Session* absl_nonnull session,
+    const std::shared_ptr<WireStream>& stream) {
 
   const auto echo = session->GetActionRegistry()->MakeAction(
       /*action_key=*/"echo");
@@ -164,7 +164,7 @@ std::string CallEcho(std::string_view text, Session* absl_nonnull session,
   //     .IgnoreError();
   echo->GetNode("text") << Chunk{.metadata = {.mimetype = "text/plain"},
                                  .data = std::string(text)}
-      << eglt::EndOfStream();
+                        << eglt::EndOfStream();
 
   // We will read the output to a string stream.
   std::ostringstream response;
@@ -172,10 +172,12 @@ std::string CallEcho(std::string_view text, Session* absl_nonnull session,
   // The action handler will write to the output stream asynchronously, so all
   // we need to do is to read the output(s) until the end of stream(s).
   // Each of the reads below will block until the next chunk is available.
-  std::optional<Chunk> response_chunk;
   while (true) {
-    *echo->GetNode("response") >> response_chunk;
+    const auto response_node = echo->GetNode("response");
+    ASSIGN_OR_RETURN(std::optional<Chunk> response_chunk,
+                     response_node->Next(absl::Seconds(5)));
     if (!response_chunk.has_value()) {
+      // End of stream, we are done.
       break;
     }
     if (response_chunk->metadata.mimetype == "text/plain") {
@@ -189,7 +191,7 @@ std::string CallEcho(std::string_view text, Session* absl_nonnull session,
   return response.str();
 }
 
-int main(int argc, char** argv) {
+absl::Status Main(int argc, char** argv) {
   absl::InstallFailureSignalHandler({});
   absl::ParseCommandLine(argc, argv);
 
@@ -208,35 +210,36 @@ int main(int argc, char** argv) {
 
   eglt::NodeMap node_map;
   eglt::Session session(&node_map, &action_registry);
-  auto stream = eglt::net::MakeWebsocketWireStream();
-  if (!stream.ok()) {
-    LOG(ERROR) << "Failed to create WebsocketWireStream: " << stream.status();
-    return 1;
-  }
-  auto shared_stream = std::shared_ptr(*std::move(stream));
-  session.DispatchFrom(shared_stream);
+  ASSIGN_OR_RETURN(std::shared_ptr<eglt::WireStream> stream,
+                   eglt::net::MakeWebsocketWireStream());
+
+  session.DispatchFrom(stream);
 
   std::string text = "test text to skip the long startup logs";
   std::cout << "Sending: " << text << std::endl;
-  auto response = CallEcho(text, &session, shared_stream);
+  ASSIGN_OR_RETURN(std::string response, CallEcho(text, &session, stream));
   std::cout << "Received: " << response << std::endl;
 
   std::cout << "This is an example with an ActionEngine server and a client "
-      "performing an echo action. You can type some text and it will "
-      "be echoed back. Type /quit to exit.\n"
-      << std::endl;
+               "performing an echo action. You can type some text and it will "
+               "be echoed back. Type /quit to exit.\n"
+            << std::endl;
 
   while (text != "/quit") {
     std::cout << "Enter text: ";
     std::getline(std::cin, text);
-    response = CallEcho(text, &session, shared_stream);
+    ASSIGN_OR_RETURN(response, CallEcho(text, &session, stream));
     std::cout << "Received: " << response << "\n" << std::endl;
   }
 
-  shared_stream->HalfClose().IgnoreError();
+  return absl::OkStatus();
+}
 
-  server.Cancel().IgnoreError();
-  server.Join().IgnoreError();
-
+int main(int argc, char** argv) {
+  absl::Status status = Main(argc, argv);
+  if (!status.ok()) {
+    LOG(ERROR) << "Error: " << status;
+    return 1;
+  }
   return 0;
 }

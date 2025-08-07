@@ -15,13 +15,12 @@
 #ifndef G3FIBER_BOOST_PRIMITIVES_H_
 #define G3FIBER_BOOST_PRIMITIVES_H_
 
-#include <boost/fiber/condition_variable.hpp>
-#include <boost/fiber/mutex.hpp>
-
 #include <absl/base/thread_annotations.h>
 #include <absl/log/log.h>
 #include <absl/status/status.h>
 #include <absl/time/clock.h>
+#include <boost/fiber/condition_variable.hpp>
+#include <boost/fiber/mutex.hpp>
 
 namespace eglt::concurrency::impl {
 
@@ -34,6 +33,7 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
   void Unlock() noexcept ABSL_UNLOCK_FUNCTION();
 
   void lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() { Lock(); }
+
   void unlock() noexcept ABSL_UNLOCK_FUNCTION() { Unlock(); }
 
   friend class CondVar;
@@ -68,14 +68,7 @@ class CondVar {
   CondVar(const CondVar&) = delete;
   CondVar& operator=(const CondVar&) = delete;
 
-  void Wait(Mutex* absl_nonnull mu) noexcept ABSL_SHARED_LOCKS_REQUIRED(mu) {
-    try {
-      cv_.wait(mu->GetImpl());
-    } catch (boost::fibers::lock_error& error) {
-      LOG(FATAL) << "Error in underlying implementation: " << error.what();
-      ABSL_ASSUME(false);
-    }
-  }
+  void Wait(Mutex* absl_nonnull mu) noexcept ABSL_SHARED_LOCKS_REQUIRED(mu);
 
   bool WaitWithTimeout(Mutex* absl_nonnull mu, absl::Duration timeout) noexcept
       ABSL_SHARED_LOCKS_REQUIRED(mu) {
@@ -84,21 +77,7 @@ class CondVar {
 
   bool WaitWithDeadline(Mutex* absl_nonnull mu,
                         const absl::Time& deadline) noexcept
-      ABSL_SHARED_LOCKS_REQUIRED(mu) {
-    if (ABSL_PREDICT_TRUE(deadline == absl::InfiniteFuture())) {
-      Wait(mu);
-      return false;
-    }
-
-    try {
-      return cv_.wait_for(mu->GetImpl(),
-                          absl::ToChronoNanoseconds(deadline - absl::Now())) ==
-             boost::fibers::cv_status::timeout;
-    } catch (boost::fibers::lock_error& error) {
-      LOG(FATAL) << "Error in underlying implementation: " << error.what();
-      ABSL_ASSUME(false);
-    }
-  }
+      ABSL_SHARED_LOCKS_REQUIRED(mu);
 
   void Signal() noexcept {
     try {

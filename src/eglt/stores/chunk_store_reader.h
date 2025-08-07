@@ -30,16 +30,33 @@
 
 namespace eglt {
 
+struct ChunkStoreReaderOptions {
+  /// Whether to read chunks in the explicit seq order.
+  /// If false, chunks will be read in the order they arrive in the store.
+  /// This is useful for streaming data where the order of chunks is not
+  /// important, such as parallel independent processing of chunks.
+  bool ordered = true;
+
+  /// Whether to remove chunks from the store after reading them.
+  /// If false, chunks will remain in the store after reading. This is useful
+  /// if you want to read the same chunks multiple times or if you want to
+  /// keep the chunks for later processing.
+  bool remove_chunks = true;
+
+  /// The number of chunks to buffer in memory before the background fiber
+  /// blocks on reading more chunks.
+  size_t n_chunks_to_buffer = 32;
+
+  /// The timeout for reading chunks from the store, which applies to
+  /// the Next() method.
+  absl::Duration timeout = absl::InfiniteDuration();
+};
+
 class ChunkStoreReader {
  public:
-  constexpr static absl::Duration kDefaultWaitTimeout =
-      absl::InfiniteDuration();
-  constexpr static absl::Duration kNoTimeout = absl::InfiniteDuration();
-
-  explicit ChunkStoreReader(ChunkStore* absl_nonnull chunk_store,
-                            bool ordered = true, bool remove_chunks = true,
-                            int n_chunks_to_buffer = -1,
-                            absl::Duration timeout = kDefaultWaitTimeout);
+  explicit ChunkStoreReader(
+      ChunkStore* absl_nonnull chunk_store,
+      ChunkStoreReaderOptions options = ChunkStoreReaderOptions());
 
   // This class is not copyable or movable.
   ChunkStoreReader(const ChunkStoreReader&) = delete;
@@ -47,24 +64,19 @@ class ChunkStoreReader {
 
   ~ChunkStoreReader();
 
-  void Cancel() const {
-    eglt::MutexLock lock(&mu_);
-    if (fiber_ != nullptr) {
-      fiber_->Cancel();
-    }
-  }
+  void Cancel() const;
+
+  void SetOptions(ChunkStoreReaderOptions options);
+
+  const ChunkStoreReaderOptions& GetOptions() const { return options_; }
+
+  absl::StatusOr<std::optional<Chunk>> Next(
+      std::optional<absl::Duration> timeout = std::nullopt);
 
   template <typename T>
-  absl::StatusOr<std::optional<T>> Next() {
-    std::optional<Chunk> chunk;
-    {
-      eglt::MutexLock lock(&mu_);
-      ASSIGN_OR_RETURN(chunk, GetNextChunkFromBuffer());
-      if (!chunk || chunk->IsNull()) {
-        return std::nullopt;
-      }
-    }
-
+  absl::StatusOr<std::optional<T>> Next(
+      std::optional<absl::Duration> timeout = std::nullopt) {
+    ASSIGN_OR_RETURN(std::optional<Chunk> chunk, Next(timeout));
     ASSIGN_OR_RETURN(T result, FromChunkAs<T>(*std::move(chunk)));
     return result;
   }
@@ -77,13 +89,16 @@ class ChunkStoreReader {
   absl::Status GetStatus() const;
 
  private:
+  friend class Action;
+
   void EnsurePrefetchIsRunningOrHasCompleted()
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  absl::StatusOr<std::optional<Chunk>> GetNextChunkFromBuffer()
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  absl::StatusOr<std::optional<Chunk>> GetNextChunkFromBuffer(
+      absl::Duration timeout) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   absl::StatusOr<std::optional<std::pair<int, Chunk>>>
-  GetNextSeqAndChunkFromBuffer() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  GetNextSeqAndChunkFromBuffer(absl::Duration timeout)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::StatusOr<std::optional<std::pair<int, Chunk>>>
   GetNextUnorderedSeqAndChunkFromStore() const
@@ -92,13 +107,11 @@ class ChunkStoreReader {
   absl::Status RunPrefetchLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   ChunkStore* const absl_nonnull chunk_store_;
-  const bool ordered_;
-  const bool remove_chunks_;
-  const int n_chunks_to_buffer_;
-  const absl::Duration timeout_;
+  ChunkStoreReaderOptions options_;
 
   std::unique_ptr<thread::Fiber> fiber_;
-  thread::Channel<std::optional<std::pair<int, Chunk>>> buffer_;
+  std::unique_ptr<thread::Channel<std::optional<std::pair<int, Chunk>>>>
+      buffer_;
   bool buffer_closed_ = false;
   int total_chunks_read_ = 0;
 
@@ -109,9 +122,11 @@ class ChunkStoreReader {
 // These specializations simply take the mutex and call the internal methods
 // GetNextSeqAndChunkFromBuffer and GetNextChunkFromBuffer.
 template <>
-absl::StatusOr<std::optional<std::pair<int, Chunk>>> ChunkStoreReader::Next();
+absl::StatusOr<std::optional<std::pair<int, Chunk>>> ChunkStoreReader::Next(
+    std::optional<absl::Duration> timeout);
 template <>
-absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next();
+absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
+    std::optional<absl::Duration> timeout);
 
 template <typename T>
 ChunkStoreReader& operator>>(ChunkStoreReader& reader,

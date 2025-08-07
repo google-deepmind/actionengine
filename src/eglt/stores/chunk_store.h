@@ -48,6 +48,8 @@ class ChunkStore {
 
   virtual ~ChunkStore() = default;
 
+  virtual void Notify() {}
+
   virtual absl::StatusOr<Chunk> Get(int64_t seq, absl::Duration timeout);
   virtual absl::StatusOr<Chunk> GetByArrivalOrder(int64_t seq,
                                                   absl::Duration timeout);

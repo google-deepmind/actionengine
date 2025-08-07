@@ -14,12 +14,11 @@
 
 #include "g3fiber/fiber.h"
 
-#include <latch>
-
 #include <absl/log/check.h>
 #include <boost/fiber/all.hpp>
 #include <boost/fiber/context.hpp>
 #include <boost/intrusive_ptr.hpp>
+#include <latch>
 
 #include "g3fiber/boost_primitives.h"
 #include "g3fiber/select.h"
@@ -115,6 +114,27 @@ Fiber::~Fiber() {
   DCHECK(first_child_ == nullptr);
 
   DVLOG(2) << "F " << this << " destroyed";
+}
+
+FiberProperties* GetCurrentFiberProperties() {
+  const boost::fibers::context* ctx = boost::fibers::context::active();
+  // If we do not have an internal boost::fibers::context at all,
+  // then something is wrong. We should never be called outside a fiber context.
+  if (ctx == nullptr) {
+    LOG(FATAL)
+        << "GetCurrentFiberProperties() called outside of a fiber context.";
+    ABSL_ASSUME(false);
+  }
+
+  // If we have been created through g3fiber API, there will be properties
+  // associated with the context. We can use them to get the fiber.
+  if (auto props = dynamic_cast<FiberProperties*>(ctx->get_properties());
+      ABSL_PREDICT_TRUE(props != nullptr)) {
+    return props;
+  }
+
+  // Otherwise, return nullptr.
+  return nullptr;
 }
 
 Fiber* GetPerThreadFiberPtr() {
@@ -261,6 +281,15 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
 
     while (true) {
       if (!cancelled) {
+        if (const auto props = dynamic_cast<FiberProperties*>(
+                current->context_->get_properties());
+            ABSL_PREDICT_TRUE(props != nullptr)) {
+          // If we have properties, we can wake the CondVar that the fiber
+          // is waiting on, if any.
+          if (ABSL_PREDICT_FALSE(props->waiting_on_ != nullptr)) {
+            props->waiting_on_->SignalAll();
+          }
+        }
         current->cancellation_.Notify();
       }
 
@@ -268,11 +297,13 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
        public:
         explicit ScopedMutexUnlocker(eglt::concurrency::impl::Mutex* mu)
             : mu_(*mu) {}
+
         ~ScopedMutexUnlocker() { mu_.Unlock(); }
 
        private:
         eglt::concurrency::impl::Mutex& mu_;
       };
+
       ScopedMutexUnlocker unlock_mu(&current->mu_);
 
       // Once we reach the fiber (*this) parenting cancellation, we're finished.

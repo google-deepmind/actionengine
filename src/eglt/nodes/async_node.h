@@ -80,31 +80,51 @@ class AsyncNode {
     return std::string(chunk_store_->GetId());
   }
 
-  template <typename T>
-  auto Next() -> absl::StatusOr<std::optional<T>> {
-    ChunkStoreReader& reader = GetReader();
-    return reader.Next<T>();
-  }
+  absl::StatusOr<std::optional<Chunk>> Next(
+      std::optional<absl::Duration> timeout = std::nullopt);
 
   template <typename T>
-  auto NextOrDie() -> std::optional<T> {
-    auto next = Next<T>();
+  auto Next(std::optional<absl::Duration> timeout = std::nullopt)
+      -> absl::StatusOr<std::optional<T>> {
+    ChunkStoreReader& reader = GetReader();
+    return reader.Next<T>(timeout);
+  }
+
+  std::optional<Chunk> NextOrDie(
+      std::optional<absl::Duration> timeout = std::nullopt);
+
+  template <typename T>
+  auto NextOrDie(std::optional<absl::Duration> timeout = std::nullopt)
+      -> std::optional<T> {
+    auto next = Next<T>(timeout);
     CHECK_OK(next.status());
     return *std::move(next);
   }
 
   template <typename T>
-  absl::StatusOr<T> ConsumeAs() {
+  absl::StatusOr<T> ConsumeAs(
+      std::optional<absl::Duration> timeout = std::nullopt) {
+    timeout = timeout.value_or(GetReader().GetOptions().timeout);
+    const absl::Time started_at = absl::Now();
+
     // The node being consumed must contain an element.
-    ASSIGN_OR_RETURN(std::optional<T> item, Next<T>());
+    ASSIGN_OR_RETURN(std::optional<T> item, Next<T>(*timeout));
     if (!item) {
       return absl::FailedPreconditionError(
           "AsyncNode is empty at current offset, "
           "cannot consume item as type T.");
     }
 
+    const absl::Duration elapsed = absl::Now() - started_at;
+    if (elapsed > *timeout) {
+      return absl::DeadlineExceededError(
+          absl::StrCat("Timed out after ", absl::FormatDuration(elapsed),
+                       " while consuming item as type T."));
+    }
+
     // The node must be empty after consuming the item.
-    ASSIGN_OR_RETURN(const std::optional<Chunk> must_be_nullopt, Next<Chunk>());
+    ASSIGN_OR_RETURN(const std::optional<Chunk> must_be_nullopt,
+                     Next<Chunk>(*timeout - elapsed));
     if (must_be_nullopt.has_value()) {
       return absl::FailedPreconditionError(
           "AsyncNode must be empty after consuming the item.");
@@ -115,12 +135,9 @@ class AsyncNode {
 
   ChunkStoreReader& GetReader() ABSL_LOCKS_EXCLUDED(mu_);
   auto GetReaderStatus() const -> absl::Status;
-  [[nodiscard]] auto MakeReader(bool ordered = false,
-                                bool remove_chunks = false,
-                                int n_chunks_to_buffer = -1) const
+  [[nodiscard]] auto MakeReader(ChunkStoreReaderOptions options) const
       -> std::unique_ptr<ChunkStoreReader>;
-  auto SetReaderOptions(bool ordered = false, bool remove_chunks = false,
-                        int n_chunks_to_buffer = -1) -> AsyncNode&;
+  auto SetReaderOptions(ChunkStoreReaderOptions options) -> AsyncNode&;
   auto ResetReader() -> AsyncNode&;
 
   template <typename T>
@@ -130,9 +147,7 @@ class AsyncNode {
   friend AsyncNode& operator<<(AsyncNode& node, T value);
 
  private:
-  ChunkStoreReader* absl_nonnull EnsureReader(bool ordered = false,
-                                              bool remove_chunks = false,
-                                              int n_chunks_to_buffer = -1)
+  ChunkStoreReader* absl_nonnull EnsureReader()
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   ChunkStoreWriter* absl_nonnull EnsureWriter(int n_chunks_to_buffer = -1)

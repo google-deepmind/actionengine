@@ -106,6 +106,9 @@ class PyChunkStore final : public ChunkStore {
   }
 };
 
+void BindChunkStoreReaderOptions(
+    py::handle scope, std::string_view name = "ChunkStoreReaderOptions");
+
 void BindChunkStore(py::handle scope, std::string_view name = "ChunkStore");
 
 void BindLocalChunkStore(py::handle scope,

@@ -29,16 +29,8 @@
 namespace eglt {
 
 ChunkStoreReader::ChunkStoreReader(ChunkStore* absl_nonnull chunk_store,
-                                   bool ordered, bool remove_chunks,
-                                   int n_chunks_to_buffer,
-                                   absl::Duration timeout)
-    : chunk_store_(chunk_store),
-      ordered_(ordered),
-      remove_chunks_(remove_chunks),
-      n_chunks_to_buffer_(n_chunks_to_buffer),
-      timeout_(timeout),
-      buffer_(thread::Channel<std::optional<std::pair<int, Chunk>>>(
-          n_chunks_to_buffer == -1 ? SIZE_MAX : n_chunks_to_buffer)) {}
+                                   ChunkStoreReaderOptions options)
+    : chunk_store_(chunk_store), options_(std::move(options)) {}
 
 ChunkStoreReader::~ChunkStoreReader() {
   eglt::MutexLock lock(&mu_);
@@ -56,20 +48,51 @@ ChunkStoreReader::~ChunkStoreReader() {
   mu_.Lock();
 }
 
-template <>
-absl::StatusOr<std::optional<std::pair<int, Chunk>>> ChunkStoreReader::Next() {
+void ChunkStoreReader::Cancel() const {
   eglt::MutexLock lock(&mu_);
-  return GetNextSeqAndChunkFromBuffer();
+  if (fiber_ != nullptr) {
+    fiber_->Cancel();
+    chunk_store_->Notify();
+  }
+}
+
+void ChunkStoreReader::SetOptions(ChunkStoreReaderOptions options) {
+  eglt::MutexLock lock(&mu_);
+  CHECK(fiber_ == nullptr)
+      << "Cannot set options after the reader has been started.";
+  options_ = std::move(options);
+}
+
+absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
+    std::optional<absl::Duration> timeout) {
+  std::optional<Chunk> chunk;
+  {
+    eglt::MutexLock lock(&mu_);
+    ASSIGN_OR_RETURN(
+        chunk, GetNextChunkFromBuffer(timeout.value_or(options_.timeout)));
+    if (!chunk || chunk->IsNull()) {
+      return std::nullopt;
+    }
+  }
+  return chunk;
 }
 
 template <>
-absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next() {
+absl::StatusOr<std::optional<std::pair<int, Chunk>>> ChunkStoreReader::Next(
+    std::optional<absl::Duration> timeout) {
   eglt::MutexLock lock(&mu_);
-  return GetNextChunkFromBuffer();
+  return GetNextSeqAndChunkFromBuffer(timeout.value_or(options_.timeout));
+}
+
+template <>
+absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
+    std::optional<absl::Duration> timeout) {
+  eglt::MutexLock lock(&mu_);
+  return GetNextChunkFromBuffer(timeout.value_or(options_.timeout));
 }
 
 absl::StatusOr<std::optional<std::pair<int, Chunk>>>
-ChunkStoreReader::GetNextSeqAndChunkFromBuffer()
+ChunkStoreReader::GetNextSeqAndChunkFromBuffer(absl::Duration timeout)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   EnsurePrefetchIsRunningOrHasCompleted();
 
@@ -77,8 +100,8 @@ ChunkStoreReader::GetNextSeqAndChunkFromBuffer()
   bool ok;
   mu_.Unlock();
   const int selected = thread::SelectUntil(
-      absl::Now() + timeout_,
-      {buffer_.reader()->OnRead(&seq_and_chunk, &ok), thread::OnCancel()});
+      absl::Now() + timeout,
+      {buffer_->reader()->OnRead(&seq_and_chunk, &ok), thread::OnCancel()});
   mu_.Lock();
 
   if (selected == -1) {
@@ -87,7 +110,11 @@ ChunkStoreReader::GetNextSeqAndChunkFromBuffer()
   if (selected == 1) {
     return absl::CancelledError("Cancelled waiting for chunk.");
   }
+
   if (!ok) {
+    // If the prefetcher finished with an error, return the error.
+    RETURN_IF_ERROR(status_);
+    // Otherwise it simply finished reading.
     return std::nullopt;
   }
   return seq_and_chunk;
@@ -105,8 +132,8 @@ ChunkStoreReader::GetNextUnorderedSeqAndChunkFromStore() const
   // }
 
   mu_.Unlock();
-  auto chunk_or_status =
-      chunk_store_->GetByArrivalOrder(next_read_offset, kNoTimeout);
+  auto chunk_or_status = chunk_store_->GetByArrivalOrder(
+      next_read_offset, absl::InfiniteDuration());
   mu_.Lock();
 
   if (!chunk_or_status.ok()) {
@@ -135,8 +162,12 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
   absl::Status status;
 
   while (!thread::Cancelled()) {
-    if (const auto final_seq = chunk_store_->GetFinalSeqOrDie();
-        final_seq >= 0 && total_chunks_read_ > final_seq) {
+    if (const absl::StatusOr<int64_t> final_seq = chunk_store_->GetFinalSeq();
+        !final_seq.ok()) {
+      status = final_seq.status();
+      break;
+    } else if (*final_seq >= 0 && total_chunks_read_ > *final_seq) {
+      // If we have read all chunks, we can stop.
       status = absl::OkStatus();
       break;
     }
@@ -146,9 +177,10 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
     Chunk next_chunk;
     int next_seq = -1;
 
-    if (ordered_) {
+    if (options_.ordered) {
       mu_.Unlock();
-      auto chunk = chunk_store_->Get(total_chunks_read_, timeout_);
+      auto chunk =
+          chunk_store_->Get(total_chunks_read_, absl::InfiniteDuration());
       mu_.Lock();
       if (!chunk.ok()) {
         status = chunk.status();
@@ -177,7 +209,7 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
       }
     }
 
-    if (remove_chunks_ && next_seq >= 0) {
+    if (options_.remove_chunks && next_seq >= 0) {
       mu_.Unlock();
       absl::Status pop_status = chunk_store_->Pop(next_seq).status();
       mu_.Lock();
@@ -190,9 +222,14 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
 
     ++total_chunks_read_;
 
-    buffer_.writer()->Write(std::make_pair(next_seq, std::move(next_chunk)));
+    buffer_->writer()->Write(std::make_pair(next_seq, std::move(next_chunk)));
   }
-  buffer_.writer()->Close();
+
+  buffer_->writer()->Close();
+
+  if (thread::Cancelled()) {
+    status.Update(absl::CancelledError("Prefetcher fiber was cancelled."));
+  }
   return status;
 }
 
@@ -203,9 +240,14 @@ absl::Status ChunkStoreReader::GetStatus() const {
 
 void ChunkStoreReader::EnsurePrefetchIsRunningOrHasCompleted()
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-  if (fiber_ != nullptr) {
+  if (fiber_ != nullptr || buffer_ != nullptr) {
     return;
   }
+
+  buffer_ =
+      std::make_unique<thread::Channel<std::optional<std::pair<int, Chunk>>>>(
+          options_.n_chunks_to_buffer);
+
   status_ = absl::OkStatus();
   fiber_ = thread::NewTree({}, [this] {
     eglt::MutexLock lock(&mu_);
@@ -213,10 +255,10 @@ void ChunkStoreReader::EnsurePrefetchIsRunningOrHasCompleted()
   });
 }
 
-absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::GetNextChunkFromBuffer()
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::GetNextChunkFromBuffer(
+    absl::Duration timeout) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   absl::StatusOr<std::optional<std::pair<int, Chunk>>> seq_and_chunk =
-      GetNextSeqAndChunkFromBuffer();
+      GetNextSeqAndChunkFromBuffer(timeout);
   RETURN_IF_ERROR(seq_and_chunk.status());
 
   if (!seq_and_chunk->has_value()) {

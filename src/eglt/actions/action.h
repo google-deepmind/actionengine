@@ -217,7 +217,6 @@ class Action : public std::enable_shared_from_this<Action> {
     node_map_ = other.node_map_;
     session_ = other.session_;
     cancelled_ = std::move(other.cancelled_);
-    cancelled_externally_ = other.cancelled_externally_;
     nodes_with_bound_streams_ = std::move(other.nodes_with_bound_streams_);
     bind_streams_on_inputs_default_ = other.bind_streams_on_inputs_default_;
     bind_streams_on_outputs_default_ = other.bind_streams_on_outputs_default_;
@@ -226,6 +225,9 @@ class Action : public std::enable_shared_from_this<Action> {
 
   ~Action() {
     eglt::MutexLock lock(&mu_);
+
+    reffed_readers_.clear();
+
     for (const auto& [output_name, output_id] : output_name_to_id_) {
       node_map_->Extract(output_id).reset();
     }
@@ -325,6 +327,17 @@ class Action : public std::enable_shared_from_this<Action> {
       node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }
+
+    ChunkStoreReader* reader = &node->GetReader();
+
+    if (!reffed_readers_.contains(reader)) {
+      reffed_readers_.insert(reader);
+    }
+
+    if (cancelled_->HasBeenNotified()) {
+      reader->Cancel();
+    }
+
     return node;
   }
 
@@ -491,18 +504,21 @@ class Action : public std::enable_shared_from_this<Action> {
    * @return
    *   The status returned by the action handler.
    */
-  absl::Status Run(
-      thread::PermanentEvent* absl_nullable cancelled_externally = nullptr) {
+  absl::Status Run() {
     eglt::MutexLock lock(&mu_);
     bind_streams_on_inputs_default_ = false;
     bind_streams_on_outputs_default_ = true;
 
-    cancelled_externally_ = cancelled_externally;
     has_been_run_ = true;
 
     mu_.Unlock();
     absl::Status handler_status = handler_(shared_from_this());
     mu_.Lock();
+
+    for (auto& reader : reffed_readers_) {
+      reader->Cancel();
+    }
+    reffed_readers_.clear();
 
     absl::Status full_run_status = handler_status;
     auto handler_status_chunk = ConvertToOrDie<Chunk>(handler_status);
@@ -572,25 +588,18 @@ class Action : public std::enable_shared_from_this<Action> {
       return;
     }
 
+    for (auto& reader : reffed_readers_) {
+      reader->Cancel();
+    }
+
     cancelled_->Notify();
   }
 
   thread::Case OnCancel() const { return cancelled_->OnEvent(); }
 
-  thread::Case OnExternalCancel() const {
-    if (cancelled_externally_ == nullptr) {
-      return thread::NonSelectableCase();
-    }
-    return cancelled_externally_->OnEvent();
-  }
-
   bool Cancelled() const {
     eglt::MutexLock lock(&mu_);
-    bool result = cancelled_->HasBeenNotified();
-    if (cancelled_externally_ != nullptr) {
-      result = result || cancelled_externally_->HasBeenNotified();
-    }
-    return result;
+    return cancelled_->HasBeenNotified();
   }
 
  private:
@@ -657,13 +666,14 @@ class Action : public std::enable_shared_from_this<Action> {
   std::shared_ptr<WireStream> stream_ ABSL_GUARDED_BY(mu_) = nullptr;
   Session* absl_nullable session_ ABSL_GUARDED_BY(mu_) = nullptr;
 
+  absl::flat_hash_set<ChunkStoreReader*> reffed_readers_ ABSL_GUARDED_BY(mu_);
+
   bool bind_streams_on_inputs_default_ = true;
   bool bind_streams_on_outputs_default_ = false;
   absl::flat_hash_set<AsyncNode*> nodes_with_bound_streams_
       ABSL_GUARDED_BY(mu_);
 
   std::unique_ptr<thread::PermanentEvent> cancelled_;
-  thread::PermanentEvent* absl_nullable cancelled_externally_ = nullptr;
 
   bool clear_inputs_after_run_ ABSL_GUARDED_BY(mu_) = false;
   bool clear_outputs_after_run_ ABSL_GUARDED_BY(mu_) = false;

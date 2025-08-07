@@ -91,9 +91,7 @@ class ActionContext {
       return;
     }
 
-    for (auto& [_, action_fiber] : running_actions_) {
-      action_fiber->Cancel();
-    }
+    CancelContextInternal();
     DLOG(INFO) << "Some actions are still running: sent cancellations and "
                   "waiting for them to detach.";
 
@@ -108,7 +106,6 @@ class ActionContext {
   eglt::Mutex mu_;
   absl::flat_hash_map<Action*, std::unique_ptr<thread::Fiber>> running_actions_
       ABSL_GUARDED_BY(mu_);
-  thread::PermanentEvent cancellation_;
   bool cancelled_ ABSL_GUARDED_BY(mu_) = false;
   eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
 };
