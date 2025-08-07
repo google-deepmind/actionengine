@@ -1,9 +1,11 @@
 add_library(
         egltNetWebrtc STATIC
+        server.cc
+        server.h
         signalling.h
         signalling.cc
-        webrtc.h
-        webrtc.cc
+        wire_stream.cc
+        wire_stream.h
 )
 add_library(eglt::net::webrtc ALIAS egltNetWebrtc)
 target_include_directories(

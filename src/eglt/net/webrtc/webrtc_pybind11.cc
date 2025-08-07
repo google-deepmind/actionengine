@@ -35,7 +35,8 @@
 #include <pybind11_abseil/statusor_caster.h>
 
 #include "eglt/net/stream.h"
-#include "eglt/net/webrtc/webrtc.h"
+#include "eglt/net/webrtc/server.h"
+#include "eglt/net/webrtc/wire_stream.h"
 #include "eglt/service/service.h"
 #include "eglt/util/status_macros.h"
 #include "eglt/util/utils_pybind11.h"

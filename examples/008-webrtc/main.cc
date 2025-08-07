@@ -4,7 +4,8 @@
 #include <absl/debugging/failure_signal_handler.h>
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
-#include <eglt/net/webrtc/webrtc.h>
+#include <eglt/net/webrtc/server.h>
+#include <eglt/net/webrtc/wire_stream.h>
 
 ABSL_FLAG(std::string, webrtc_signalling_address, "demos.helena.direct",
           "Signalling address for WebRTC connections.");
