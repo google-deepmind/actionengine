@@ -29,7 +29,7 @@ namespace py = ::pybind11;
 void BindWebsocketWireStream(py::handle scope, std::string_view name) {
   py::class_<net::WebsocketWireStream, WireStream,
              std::shared_ptr<net::WebsocketWireStream>>(
-      scope, std::string(name).c_str())
+          scope, std::string(name).c_str())
       .def("send", &net::WebsocketWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
       .def("receive", &net::WebsocketWireStream::Receive,
@@ -49,33 +49,33 @@ void BindWebsocketWireStream(py::handle scope, std::string_view name) {
       .doc() = "A WebsocketWireStream interface.";
 }
 
-void BindWebsocketActionEngineServer(py::handle scope, std::string_view name) {
-  py::class_<net::WebsocketActionEngineServer,
-             std::shared_ptr<net::WebsocketActionEngineServer>>(
-      scope, std::string(name).c_str(),
-      "A WebsocketActionEngineServer interface.")
+void BindWebsocketServer(py::handle scope, std::string_view name) {
+  py::class_<net::WebsocketServer,
+             std::shared_ptr<net::WebsocketServer>>(
+          scope, std::string(name).c_str(),
+          "A WebsocketServer interface.")
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port) {
-             return std::make_shared<net::WebsocketActionEngineServer>(
+             return std::make_shared<net::WebsocketServer>(
                  service, address, port);
            }),
            py::arg("service"), py::arg_v("address", "0.0.0.0"),
            py::arg_v("port", 20000), pybindings::keep_event_loop_memo())
-      .def("run", &net::WebsocketActionEngineServer::Run,
+      .def("run", &net::WebsocketServer::Run,
            py::call_guard<py::gil_scoped_release>())
       .def(
           "cancel",
-          [](const std::shared_ptr<net::WebsocketActionEngineServer>& self) {
+          [](const std::shared_ptr<net::WebsocketServer>& self) {
             return self->Cancel();
           },
           py::call_guard<py::gil_scoped_release>())
       .def(
           "join",
-          [](const std::shared_ptr<net::WebsocketActionEngineServer>& self) {
+          [](const std::shared_ptr<net::WebsocketServer>& self) {
             return self->Join();
           },
           py::call_guard<py::gil_scoped_release>())
-      .doc() = "A WebsocketActionEngineServer interface.";
+      .doc() = "A WebsocketServer interface.";
 }
 
 py::module_ MakeWebsocketsModule(py::module_ scope,
@@ -84,12 +84,12 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
       std::string(module_name).c_str(), "ActionEngine Websocket interface.");
 
   BindWebsocketWireStream(websockets, "WebsocketWireStream");
-  BindWebsocketActionEngineServer(websockets, "WebsocketActionEngineServer");
+  BindWebsocketServer(websockets, "WebsocketServer");
 
   websockets.def(
       "make_websocket_actionengine_stream",
       [](std::string_view address, std::string_view target, int32_t port)
-          -> absl::StatusOr<std::shared_ptr<net::WebsocketWireStream>> {
+    -> absl::StatusOr<std::shared_ptr<net::WebsocketWireStream>> {
         ASSIGN_OR_RETURN(std::unique_ptr<net::WebsocketWireStream> stream,
                          net::MakeWebsocketWireStream(address, port, target));
         return stream;
@@ -100,4 +100,4 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
   return websockets;
 }
 
-}  // namespace eglt::pybindings
+} // namespace eglt::pybindings

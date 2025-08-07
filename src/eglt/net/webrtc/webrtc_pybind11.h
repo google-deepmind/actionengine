@@ -31,7 +31,7 @@ void BindRtcConfig(py::handle scope, std::string_view name = "RtcConfig");
 void BindWebRtcWireStream(py::handle scope,
                           std::string_view name = "WebRtcWireStream");
 
-void BindWebRtcActionEngineServer(
+void BindWebRtcServer(
     py::handle scope, std::string_view name = "WebRtcActionEngineServer");
 
 py::module_ MakeWebRtcModule(py::module_ scope,

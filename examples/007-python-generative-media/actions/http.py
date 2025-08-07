@@ -73,7 +73,7 @@ class ActionEngineClient:
             _initialize_global_settings()
 
             ActionEngineClient._global_instance = ActionEngineClient(
-                stream=actionengine.webrtc.make_webrtc_actionengine_stream(
+                stream=actionengine.webrtc.make_webrtc_stream(
                     str(uuid.uuid4()),
                     "demoserver",
                     "demos.helena.direct",

@@ -24,4 +24,4 @@ else
 fi
 
 echo "Validating installation."
-python3 -c "import actionengine; print('ActionEngine imports successfully!')"
+python3 -c "import actionengine; print('Action Engine imports successfully!')"

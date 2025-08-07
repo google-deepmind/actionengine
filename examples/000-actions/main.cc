@@ -55,7 +55,7 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   // ----------------------------------------------------------------------------
   auto input_text = action->GetNode("text");
   input_text->SetReaderOptions(/*ordered=*/true,
-                               /*remove_chunks=*/true);
+                                           /*remove_chunks=*/true);
 
   // ----------------------------------------------------------------------------
   // The while loop below reads all chunks from the input stream and writes
@@ -112,13 +112,13 @@ ActionRegistry MakeActionRegistry() {
   // the action logic. There must be no two nodes with the same name within the
   // same action, even if they are an input and an output.
   registry.Register(/*name=*/"echo",
-                    /*schema=*/
-                    {
-                        .name = "echo",
-                        .inputs = {{"text", "text/plain"}},
-                        .outputs = {{"response", "text/plain"}},
-                    },
-                    /*handler=*/RunEcho);
+                             /*schema=*/
+                             {
+                                 .name = "echo",
+                                 .inputs = {{"text", "text/plain"}},
+                                 .outputs = {{"response", "text/plain"}},
+                             },
+                             /*handler=*/RunEcho);
   return registry;
 }
 
@@ -164,7 +164,7 @@ std::string CallEcho(std::string_view text, Session* absl_nonnull session,
   //     .IgnoreError();
   echo->GetNode("text") << Chunk{.metadata = {.mimetype = "text/plain"},
                                  .data = std::string(text)}
-                        << eglt::EndOfStream();
+      << eglt::EndOfStream();
 
   // We will read the output to a string stream.
   std::ostringstream response;
@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   eglt::Service service(&action_registry);
-  eglt::net::WebsocketActionEngineServer server(&service, "0.0.0.0", port);
+  eglt::net::WebsocketServer server(&service, "0.0.0.0", port);
   server.Run();
 
   eglt::NodeMap node_map;
@@ -222,9 +222,9 @@ int main(int argc, char** argv) {
   std::cout << "Received: " << response << std::endl;
 
   std::cout << "This is an example with an ActionEngine server and a client "
-               "performing an echo action. You can type some text and it will "
-               "be echoed back. Type /quit to exit.\n"
-            << std::endl;
+      "performing an echo action. You can type some text and it will "
+      "be echoed back. Type /quit to exit.\n"
+      << std::endl;
 
   while (text != "/quit") {
     std::cout << "Enter text: ";

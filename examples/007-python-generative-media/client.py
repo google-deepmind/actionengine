@@ -21,7 +21,7 @@ async def main():
     # stream = actionengine.websockets.make_websocket_actionengine_stream(
     #     "localhost", "/", 20000
     # )
-    stream = actionengine.webrtc.make_webrtc_actionengine_stream(
+    stream = actionengine.webrtc.make_webrtc_stream(
         str(uuid.uuid4()), "demoserver", "demos.helena.direct", 19000
     )
 

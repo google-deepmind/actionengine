@@ -25,7 +25,7 @@ async def main(args: argparse.Namespace):
     node_map = actionengine.NodeMap()
     target = "/"
     print(f"Connecting to ws://{args.host}:{args.port}{target}.")
-    stream = actionengine.websockets.make_websocket_actionengine_stream(
+    stream = actionengine.websockets.make_websocket_stream(
         args.host, target, args.port
     )
 

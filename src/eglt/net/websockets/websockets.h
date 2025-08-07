@@ -88,9 +88,9 @@ class WebsocketWireStream final : public WireStream {
   };
 };
 
-class WebsocketActionEngineServer {
+class WebsocketServer {
  public:
-  explicit WebsocketActionEngineServer(eglt::Service* absl_nonnull service,
+  explicit WebsocketServer(eglt::Service* absl_nonnull service,
                                        std::string_view address = "0.0.0.0",
                                        uint16_t port = 20000)
       : service_(service),
@@ -101,7 +101,7 @@ class WebsocketActionEngineServer {
     acceptor_->open(boost::asio::ip::tcp::v4(), error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketActionEngineServer open() failed: " << status_;
+      LOG(FATAL) << "WebsocketServer open() failed: " << status_;
       ABSL_ASSUME(false);
     }
 
@@ -109,7 +109,7 @@ class WebsocketActionEngineServer {
     acceptor_->set_option(boost::asio::socket_base::reuse_address(true), error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketActionEngineServer set_option() failed: "
+      LOG(FATAL) << "WebsocketServer set_option() failed: "
                  << status_;
       ABSL_ASSUME(false);
     }
@@ -119,26 +119,26 @@ class WebsocketActionEngineServer {
                     error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketActionEngineServer bind() failed: " << status_;
+      LOG(FATAL) << "WebsocketServer bind() failed: " << status_;
       ABSL_ASSUME(false);
     }
 
     acceptor_->listen(boost::asio::socket_base::max_listen_connections, error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketActionEngineServer listen() failed: " << status_;
+      LOG(FATAL) << "WebsocketServer listen() failed: " << status_;
       ABSL_ASSUME(false);
     }
 
-    DLOG(INFO) << "WebsocketActionEngineServer created at " << address << ":"
+    DLOG(INFO) << "WebsocketServer created at " << address << ":"
                << port;
   }
 
-  ~WebsocketActionEngineServer() {
+  ~WebsocketServer() {
     eglt::MutexLock lock(&mu_);
     CancelInternal().IgnoreError();
     JoinInternal().IgnoreError();
-    DLOG(INFO) << "WebsocketActionEngineServer::~WebsocketActionEngineServer()";
+    DLOG(INFO) << "WebsocketServer::~WebsocketServer()";
   }
 
   void Run() {
@@ -169,20 +169,20 @@ class WebsocketActionEngineServer {
                      error == boost::system::errc::operation_canceled ||
                      cancelled_;
         if (cancelled_) {
-          DLOG(INFO) << "WebsocketActionEngineServer canceled and is exiting "
+          DLOG(INFO) << "WebsocketServer canceled and is exiting "
                         "its main loop";
           break;
         }
 
         if (error) {
-          DLOG(ERROR) << "WebsocketActionEngineServer accept() failed: "
+          DLOG(ERROR) << "WebsocketServer accept() failed: "
                       << error.message();
           switch (error.value()) {
             case boost::system::errc::operation_canceled:
               status_ = absl::OkStatus();
               break;
             default:
-              DLOG(ERROR) << "WebsocketActionEngineServer accept() failed.";
+              DLOG(ERROR) << "WebsocketServer accept() failed.";
               status_ = absl::InternalError(error.message());
               break;
           }
@@ -200,7 +200,7 @@ class WebsocketActionEngineServer {
         if (!connection.ok()) {
           status_ = connection.status();
           DLOG(ERROR)
-              << "WebsocketActionEngineServer EstablishConnection failed: "
+              << "WebsocketServer EstablishConnection failed: "
               << status_;
           // continuing here
         }
@@ -225,7 +225,7 @@ class WebsocketActionEngineServer {
       return absl::OkStatus();
     }
     cancelled_ = true;
-    DLOG(INFO) << "WebsocketActionEngineServer Cancel()";
+    DLOG(INFO) << "WebsocketServer Cancel()";
     acceptor_->close();
     // util::GetDefaultAsioExecutionContext()->stop();
     main_loop_->Cancel();
@@ -255,7 +255,7 @@ class WebsocketActionEngineServer {
     joining_ = false;
     join_cv_.SignalAll();
 
-    DLOG(INFO) << "WebsocketActionEngineServer main_loop_ joined";
+    DLOG(INFO) << "WebsocketServer main_loop_ joined";
     return status_;
   }
 

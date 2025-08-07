@@ -126,10 +126,10 @@ void BindService(py::handle scope, std::string_view name) {
   py::class_<Service, std::shared_ptr<Service>>(scope,
                                                 std::string(name).c_str())
       .def(py::init([](ActionRegistry* action_registry = nullptr,
-                       ActionEngineConnectionHandler connection_handler =
-                           RunSimpleActionEngineSession) {
+                       ConnectionHandler connection_handler =
+                           RunSimpleSession) {
              if (connection_handler == nullptr) {
-               connection_handler = RunSimpleActionEngineSession;
+               connection_handler = RunSimpleSession;
              }
              return std::make_shared<Service>(action_registry,
                                               std::move(connection_handler));

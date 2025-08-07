@@ -66,7 +66,7 @@ void BindActionSchema(py::handle scope, std::string_view name) {
       .def_readwrite("outputs", &ActionSchema::outputs)
       .def("__repr__",
            [](const ActionSchema& def) { return absl::StrCat(def); })
-      .doc() = "An ActionEngine ActionSchema.";
+      .doc() = "An action schema.";
 }
 
 /// @private

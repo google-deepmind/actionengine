@@ -20,7 +20,7 @@ async def main():
 
     action_registry = make_action_registry()
     service = actionengine.Service(action_registry)
-    server = actionengine.websockets.WebsocketActionEngineServer(service)
+    server = actionengine.websockets.WebsocketServer(service)
 
     print("Starting Action Engine server.")
     server.run()

@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
   auto action_registry = MakeActionRegistry();
 
   eglt::Service service(&action_registry);
-  eglt::net::WebsocketActionEngineServer server(&service, "0.0.0.0", port);
+  eglt::net::WebsocketServer server(&service, "0.0.0.0", port);
   server.Run();
 
   eglt::NodeMap node_map;

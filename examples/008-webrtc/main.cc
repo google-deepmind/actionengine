@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
 
   eglt::net::RtcConfig rtc_config;
   rtc_config.turn_servers = absl::GetFlag(FLAGS_webrtc_turn_servers);
-  eglt::net::WebRtcActionEngineServer server(
+  eglt::net::WebRtcServer server(
       &service, /*address=*/absl::GetFlag(FLAGS_webrtc_bind_address),
       /*port=*/absl::GetFlag(FLAGS_webrtc_port),
       /*signalling_address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
@@ -52,9 +52,10 @@ int main(int argc, char** argv) {
   for (int i = 0; i < 10; ++i) {
     auto status_or_stream = eglt::net::StartStreamWithSignalling(
         /*identity=*/eglt::GenerateUUID4(),
-        /*peer_identity=*/absl::GetFlag(FLAGS_webrtc_signalling_identity),
-        /*address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
-        /*port=*/absl::GetFlag(FLAGS_webrtc_signalling_port));
+                     /*peer_identity=*/
+                     absl::GetFlag(FLAGS_webrtc_signalling_identity),
+                     /*address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
+                     /*port=*/absl::GetFlag(FLAGS_webrtc_signalling_port));
     if (!status_or_stream.ok()) {
       LOG(ERROR) << "Failed to start WebRTC stream: "
                  << status_or_stream.status().message();
@@ -67,8 +68,8 @@ int main(int argc, char** argv) {
     session_message.node_fragments.push_back({
         .id = "test",
         .chunk = eglt::Chunk{.metadata =
-                                 eglt::ChunkMetadata{.mimetype = "text/plain",
-                                                     .timestamp = absl::Now()},
+                             eglt::ChunkMetadata{.mimetype = "text/plain",
+                                                 .timestamp = absl::Now()},
                              .data = absl::StrFormat(
                                  "Hello, Action Engine from client %v!", i)},
         .seq = 0,

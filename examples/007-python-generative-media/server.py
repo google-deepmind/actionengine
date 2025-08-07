@@ -65,7 +65,7 @@ async def main(args: argparse.Namespace):
             "helena:actionengine-webrtc-testing@demos.helena.direct",
         ),
     ]
-    server = actionengine.webrtc.WebRtcActionEngineServer(
+    server = actionengine.webrtc.WebRtcServer(
         service,
         args.host,
         args.port,

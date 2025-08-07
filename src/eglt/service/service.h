@@ -67,11 +67,11 @@ std::unique_ptr<Action> MakeActionInConnection(
     const StreamToSessionConnection& connection, std::string_view action_name,
     std::string_view action_id = "");
 
-using ActionEngineConnectionHandler = std::function<absl::Status(
+using ConnectionHandler = std::function<absl::Status(
     const std::shared_ptr<WireStream>&, Session* absl_nonnull)>;
 
 /// @callgraph
-absl::Status RunSimpleActionEngineSession(
+absl::Status RunSimpleSession(
     const std::shared_ptr<WireStream>& stream, Session* absl_nonnull session);
 
 /**
@@ -84,7 +84,7 @@ absl::Status RunSimpleActionEngineSession(
  * The service can be instantiated with an optional action registry and
  * connection handler. If the action registry is not provided, it will be
  * initialized with an empty registry. If the connection handler is not
- * provided, it will be initialized with RunSimpleActionEngineSession. The chunk
+ * provided, it will be initialized with RunSimpleSession. The chunk
  * store factory is used to create chunk stores for new sessions. By default,
  * `LocalChunkStore`s are created.
  *
@@ -103,8 +103,8 @@ absl::Status RunSimpleActionEngineSession(
 class Service : public std::enable_shared_from_this<Service> {
  public:
   explicit Service(ActionRegistry* absl_nullable action_registry = nullptr,
-                   ActionEngineConnectionHandler connection_handler =
-                       RunSimpleActionEngineSession,
+                   ConnectionHandler connection_handler =
+                       RunSimpleSession,
                    ChunkStoreFactory chunk_store_factory = {});
 
   ~Service();
@@ -118,11 +118,11 @@ class Service : public std::enable_shared_from_this<Service> {
 
   auto EstablishConnection(
       std::shared_ptr<WireStream>&& stream,
-      ActionEngineConnectionHandler connection_handler = nullptr)
+      ConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto EstablishConnection(
       net::GetStreamFn get_stream,
-      ActionEngineConnectionHandler connection_handler = nullptr)
+      ConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
       -> absl::Status;
@@ -179,7 +179,7 @@ class Service : public std::enable_shared_from_this<Service> {
   }
 
   std::unique_ptr<ActionRegistry> action_registry_;
-  ActionEngineConnectionHandler connection_handler_;
+  ConnectionHandler connection_handler_;
   ChunkStoreFactory chunk_store_factory_;
 
   mutable eglt::Mutex mu_;
