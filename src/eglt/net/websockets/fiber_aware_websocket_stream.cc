@@ -14,7 +14,11 @@
 
 #include "eglt/net/websockets/fiber_aware_websocket_stream.h"
 
+#include <boost/asio/bind_cancellation_slot.hpp>
+#include <boost/asio/cancellation_signal.hpp>
+
 #include "eglt/util/boost_asio_utils.h"
+#include "eglt/util/status_macros.h"
 
 namespace eglt::net {
 
@@ -382,12 +386,18 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
 }
 
 absl::Status FiberAwareWebsocketStream::Read(
-    std::vector<uint8_t>* absl_nonnull buffer,
+    absl::Duration timeout, std::vector<uint8_t>* absl_nonnull buffer,
     bool* absl_nullable got_text) noexcept {
+  const absl::Time deadline = absl::Now() + timeout;
+
   eglt::MutexLock lock(&mu_);
 
   while (read_pending_) {
-    cv_.Wait(&mu_);
+    if (!cv_.WaitWithDeadline(&mu_, deadline)) {
+      return absl::DeadlineExceededError(
+          "FiberAwareWebsocketStream Read operation timed out waiting for "
+          "another read to complete.");
+    }
   }
 
   if (!stream_->is_open()) {
@@ -402,21 +412,46 @@ absl::Status FiberAwareWebsocketStream::Read(
   std::vector<uint8_t> temp_buffer;
   temp_buffer.reserve(64);  // Reserve some space to avoid some reallocations
   auto dynamic_buffer = boost::asio::dynamic_buffer(temp_buffer);
+
+  boost::asio::cancellation_signal cancel_signal;
   stream_->async_read(
       dynamic_buffer,
-      [&error, &read_done](const boost::system::error_code& ec, std::size_t) {
-        error = ec;
-        read_done.Notify();
-      });
+      boost::asio::bind_cancellation_slot(
+          cancel_signal.slot(),
+          [&error, &read_done](const boost::system::error_code& ec,
+                               std::size_t) {
+            error = ec;
+            read_done.Notify();
+          }));
 
   mu_.Unlock();
-  thread::Select({read_done.OnEvent()});
+  const int selected = thread::SelectUntil(deadline, {read_done.OnEvent()});
   mu_.Lock();
-  *buffer = std::move(temp_buffer);
+
+  if (selected == -1) {
+    cancel_signal.emit(boost::asio::cancellation_type::total);
+    mu_.Unlock();
+    // We still need to wait for the read_done event to be processed because
+    // it is a local variable, and we need to ensure that the callback has
+    // completed before we return to avoid memory corruption.
+    thread::Select({read_done.OnEvent()});
+    mu_.Lock();
+  }
+
+  // Only here we can safely let other read operations proceed.
   read_pending_ = false;
   cv_.SignalAll();
 
+  // Only after we have notified other threads that the read is done,
+  // we can return if the read was cancelled or timed out.
+  if (selected == -1) {
+    // Timed out.
+    return absl::DeadlineExceededError(
+        "FiberAwareWebsocketStream Read operation timed out.");
+  }
+
   if (thread::Cancelled()) {
+    // Cancelled without timing out.
     if (stream_->is_open()) {
       stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_receive,
                                      error);
@@ -428,6 +463,9 @@ absl::Status FiberAwareWebsocketStream::Read(
     }
     return absl::CancelledError("WsRead cancelled");
   }
+
+  // Finally, we can move the received data to the output buffer.
+  *buffer = std::move(temp_buffer);
 
   if (got_text != nullptr) {
     *got_text = stream_->got_text();
@@ -451,13 +489,13 @@ absl::Status FiberAwareWebsocketStream::Read(
 }
 
 absl::Status FiberAwareWebsocketStream::ReadText(
-    std::string* absl_nonnull buffer) noexcept {
+    absl::Duration timeout, std::string* absl_nonnull buffer) noexcept {
   bool got_text = false;
   std::vector<uint8_t> temp_buffer;
 
-  if (absl::Status status = Read(&temp_buffer, &got_text); !status.ok()) {
-    return status;
-  }
+  RETURN_IF_ERROR(
+      Read(timeout, &temp_buffer, &got_text));  // Reuse the Read method.
+
   if (!got_text) {
     return absl::FailedPreconditionError(
         "Websocket stream did not receive text data");

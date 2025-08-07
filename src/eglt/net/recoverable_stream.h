@@ -129,7 +129,8 @@ class RecoverableStream final : public eglt::WireStream {
     return status;
   }
 
-  std::optional<SessionMessage> Receive() override {
+  absl::StatusOr<std::optional<SessionMessage>> Receive(
+      absl::Duration timeout) override {
     eglt::MutexLock lock(&mu_);
     auto stream = GetObservedStream();
     if (!stream.ok()) {
@@ -137,7 +138,7 @@ class RecoverableStream final : public eglt::WireStream {
     }
 
     concurrency::PreventExclusiveAccess pending(&finalization_guard_);
-    return (*stream)->Receive();
+    return (*stream)->Receive(timeout);
   }
 
   thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
@@ -184,22 +185,6 @@ class RecoverableStream final : public eglt::WireStream {
     return absl::OkStatus();
   }
 
-  void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override {
-    eglt::MutexLock lock(&mu_);
-
-    auto stream = GetObservedStream();
-    if (!stream.ok()) {
-      LOG(ERROR) << "Trying to set half-close callback on unavailable stream: "
-                 << stream.status();
-      return;
-    }
-
-    CHECK(*stream != nullptr)
-        << "Cannot set half-close callback on a null stream";
-
-    (*stream)->OnHalfClose(std::move(fn));
-  }
-
   [[nodiscard]] absl::Status GetStatus() const override {
     eglt::MutexLock lock(&mu_);
     if (closed_) {
@@ -225,7 +210,7 @@ class RecoverableStream final : public eglt::WireStream {
     return stream->GetStatus();
   }
 
-  [[nodiscard]] std::string_view GetId() const override { return id_; }
+  [[nodiscard]] std::string GetId() const override { return id_; }
 
   [[nodiscard]] const void* GetImpl() const override {
     // TODO: determine whether this method should return observed stream or

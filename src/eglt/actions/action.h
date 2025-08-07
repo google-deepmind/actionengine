@@ -473,9 +473,8 @@ class Action : public std::enable_shared_from_this<Action> {
     bind_streams_on_inputs_default_ = true;
     bind_streams_on_outputs_default_ = false;
 
-    const auto status =
-        stream_->Send(SessionMessage{.actions = {GetActionMessage()}});
-    RETURN_IF_ERROR(status);
+    RETURN_IF_ERROR(
+        stream_->Send(SessionMessage{.actions = {GetActionMessage()}}));
 
     has_been_called_ = true;
     return absl::OkStatus();

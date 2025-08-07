@@ -70,7 +70,8 @@ class PyWireStream final : public WireStream {
     return absl::OkStatus();
   }
 
-  std::optional<SessionMessage> Receive() override {
+  absl::StatusOr<std::optional<SessionMessage>> Receive(
+      absl::Duration timeout) override {
     py::gil_scoped_acquire gil;
     const py::function function = py::get_override(this, "receive");
 
@@ -79,7 +80,7 @@ class PyWireStream final : public WireStream {
                     "WireStream.";
       ABSL_ASSUME(false);
     }
-    const py::object py_result = function();
+    const py::object py_result = function(absl::ToDoubleSeconds(timeout));
 
     absl::StatusOr<py::object> result =
         pybindings::RunThreadsafeIfCoroutine(py_result);
@@ -148,8 +149,6 @@ class PyWireStream final : public WireStream {
                                 HalfClose, );
   }
 
-  void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override {}
-
   absl::Status GetStatus() const override {
     PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyWireStream, "get_status",
                                 GetStatus, );
@@ -160,9 +159,8 @@ class PyWireStream final : public WireStream {
                                 GetLoop, );
   }
 
-  [[nodiscard]] std::string_view GetId() const override {
-    PYBIND11_OVERRIDE_PURE_NAME(std::string_view, PyWireStream, "get_id",
-                                GetId, );
+  [[nodiscard]] std::string GetId() const override {
+    PYBIND11_OVERRIDE_PURE_NAME(std::string, PyWireStream, "get_id", GetId, );
   }
 };
 

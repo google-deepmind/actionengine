@@ -109,7 +109,8 @@ class WebRtcWireStream final : public WireStream {
 
   absl::Status Send(SessionMessage message) override;
 
-  std::optional<SessionMessage> Receive() override;
+  absl::StatusOr<std::optional<SessionMessage>> Receive(
+      absl::Duration timeout) override;
 
   thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
                          absl::Status* absl_nonnull status) override {
@@ -126,17 +127,18 @@ class WebRtcWireStream final : public WireStream {
     return HalfCloseInternal();
   }
 
-  void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override;
-
   absl::Status GetStatus() const override;
 
-  [[nodiscard]] std::string_view GetId() const override { return id_; }
+  [[nodiscard]] std::string GetId() const override { return id_; }
 
   [[nodiscard]] const void* GetImpl() const override {
     return data_channel_.get();
   }
 
  private:
+  absl::Status SendInternal(SessionMessage message)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
   absl::Status HalfCloseInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   void CloseOnError(absl::Status status) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
@@ -159,8 +161,6 @@ class WebRtcWireStream final : public WireStream {
   bool closed_ ABSL_GUARDED_BY(mu_) = false;
 
   bool half_closed_ ABSL_GUARDED_BY(mu_) = false;
-  absl::AnyInvocable<void(WireStream*)> half_close_callback_ = [](WireStream*) {
-  };
 };
 
 absl::StatusOr<std::unique_ptr<WebRtcWireStream>> StartStreamWithSignalling(

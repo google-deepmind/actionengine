@@ -273,26 +273,37 @@ WebRtcWireStream::~WebRtcWireStream() {
 }
 
 absl::Status WebRtcWireStream::Send(SessionMessage message) {
-  uint64_t transient_id = 0;
-  {
-    eglt::MutexLock lock(&mu_);
-    if (!status_.ok()) {
-      return status_;
-    }
+  eglt::MutexLock lock(&mu_);
 
-    while (!opened_ && !closed_) {
-      cv_.Wait(&mu_);
-    }
-
-    if (closed_) {
-      return absl::CancelledError("WebRtcWireStream is closed");
-    }
-    transient_id = next_transient_id_++;
+  if (!status_.ok()) {
+    return status_;
   }
 
-  std::vector<uint8_t> message_uint8_t = cppack::Pack(std::move(message));
+  if (half_closed_) {
+    return absl::FailedPreconditionError(
+        "WebRtcWireStream is half-closed, cannot send messages");
+  }
 
-  std::vector<data::BytePacket> packets = data::SplitBytesIntoPackets(
+  return SendInternal(std::move(message));
+}
+
+absl::Status WebRtcWireStream::SendInternal(SessionMessage message)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  while (!opened_ && !closed_) {
+    cv_.Wait(&mu_);
+  }
+
+  if (closed_) {
+    return absl::CancelledError("WebRtcWireStream is closed");
+  }
+
+  const uint64_t transient_id = next_transient_id_++;
+
+  mu_.Unlock();
+
+  const std::vector<uint8_t> message_uint8_t = cppack::Pack(std::move(message));
+
+  const std::vector<data::BytePacket> packets = data::SplitBytesIntoPackets(
       message_uint8_t, transient_id,
       static_cast<int64_t>(connection_->remoteMaxMessageSize()));
 
@@ -305,15 +316,18 @@ absl::Status WebRtcWireStream::Send(SessionMessage message) {
         message_chunk_data, message_chunk_data + serialized_packet.size());
     data_channel_->send(std::move(message_chunk_bytes));
   }
+
+  mu_.Lock();
   return status;
 }
 
-std::optional<SessionMessage> WebRtcWireStream::Receive() {
+absl::StatusOr<std::optional<SessionMessage>> WebRtcWireStream::Receive(
+    absl::Duration timeout) {
   const absl::Time now = absl::Now();
   eglt::MutexLock lock(&mu_);
 
   const absl::Time deadline =
-      !half_closed_ ? absl::InfiniteFuture() : now + kHalfCloseTimeout;
+      !half_closed_ ? now + timeout : now + kHalfCloseTimeout;
 
   SessionMessage message;
   bool ok;
@@ -327,15 +341,14 @@ std::optional<SessionMessage> WebRtcWireStream::Receive() {
     return std::nullopt;
   }
 
-  if (message.actions.empty() && message.node_fragments.empty() ||
-      selected == -1) {
+  if (selected == -1) {
+    return absl::DeadlineExceededError(
+        "WebRtcWireStream Receive timed out while waiting for a message.");
+  }
+
+  if (message.actions.empty() && message.node_fragments.empty()) {
     // If the message is empty, it means the stream was half-closed by the
     // other end, or the other end has acknowledged our half-close.
-
-    if (selected == -1 && half_closed_) {
-      LOG(INFO) << "No acknowledgement received for a previous half-close "
-                   "message within the timeout period. ";
-    }
 
     // Check this because we might have already closed the channel due to
     // an error or onClosed() for the underlying data channel.
@@ -352,28 +365,15 @@ std::optional<SessionMessage> WebRtcWireStream::Receive() {
       return std::nullopt;
     }
 
-    auto half_close_callback = std::move(half_close_callback_);
-    mu_.Unlock();
-    half_close_callback(this);
-    mu_.Lock();
-
-    if (const auto status = HalfCloseInternal(); !status.ok()) {
-      LOG(ERROR) << "WebRtcWireStream HalfCloseInternal failed: "
-                 << status.message();
+    if (absl::Status half_close_status = HalfCloseInternal();
+        !half_close_status.ok()) {
+      return half_close_status;
     }
 
     return std::nullopt;
   }
 
   return std::move(message);
-}
-
-void WebRtcWireStream::OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) {
-  eglt::MutexLock lock(&mu_);
-  CHECK(!half_closed_)
-      << "WebRtcWireStream::OnHalfClose called after the stream was already "
-         "half-closed";
-  half_close_callback_ = std::move(fn);
 }
 
 absl::Status WebRtcWireStream::GetStatus() const {
@@ -383,11 +383,12 @@ absl::Status WebRtcWireStream::GetStatus() const {
 
 absl::Status WebRtcWireStream::HalfCloseInternal() {
   if (half_closed_) {
-    return absl::FailedPreconditionError(
-        "WebRtcWireStream already half-closed");
+    return absl::OkStatus();
   }
 
   half_closed_ = true;
+  RETURN_IF_ERROR(SendInternal(SessionMessage{}));
+
   return absl::OkStatus();
 }
 

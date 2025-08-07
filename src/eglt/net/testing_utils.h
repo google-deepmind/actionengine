@@ -62,12 +62,19 @@ class PairableInMemoryStream final : public WireStream {
         "Cannot send message, partner stream is not set");
   }
 
-  std::optional<SessionMessage> Receive() override {
+  absl::StatusOr<std::optional<SessionMessage>> Receive(
+      absl::Duration timeout) override {
     SessionMessage message;
-    if (recv_queue_.reader()->Read(&message)) {
-      return message;
+    bool ok;
+    if (thread::SelectUntil(absl::Now() + timeout,
+                            {recv_queue_.reader()->OnRead(&message, &ok)}) ==
+        -1) {
+      return absl::DeadlineExceededError("Receive operation timed out.");
     }
-    return std::nullopt;
+    if (!ok) {
+      return std::nullopt;
+    }
+    return message;
   }
 
   thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
@@ -118,7 +125,7 @@ class PairableInMemoryStream final : public WireStream {
     return status;
   }
 
-  [[nodiscard]] std::string_view GetId() const override { return id_; }
+  [[nodiscard]] std::string GetId() const override { return id_; }
 
   [[nodiscard]] const void* GetImpl() const override { return nullptr; }
 
@@ -143,9 +150,11 @@ class PairableInMemoryStream final : public WireStream {
     }
     return absl::OkStatus();
   }
+
   absl::Status AcknowledgeAccept() ABSL_LOCKS_EXCLUDED(mu_) {
     return absl::OkStatus();
   }
+
   absl::Status AcknowledgeStart() ABSL_LOCKS_EXCLUDED(mu_) {
     return absl::OkStatus();
   }

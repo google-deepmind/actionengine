@@ -45,7 +45,8 @@ class WireStream {
   //! Sends an ActionEngine session message over the stream.
   virtual auto Send(SessionMessage message) -> absl::Status = 0;
   //! Receives an ActionEngine session message from the stream.
-  virtual auto Receive() -> std::optional<SessionMessage> = 0;
+  virtual auto Receive(absl::Duration timeout)
+      -> absl::StatusOr<std::optional<SessionMessage>> = 0;
 
   virtual auto OnReceive(std::optional<SessionMessage>* absl_nonnull message,
                          absl::Status* absl_nonnull status) -> thread::Case = 0;
@@ -58,18 +59,11 @@ class WireStream {
   //! client first.
   virtual auto HalfClose() -> absl::Status = 0;
 
-  //! Registers a callback to be called when the stream is half-closed by the
-  //! other end. This callback will be invoked with a pointer to the WireStream
-  //! that was half-closed. This callback must NOT call HalfClose() on the
-  /// stream itself.
-  virtual auto OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn)
-      -> void = 0;
-
   //! Returns the status of the last operation.
   virtual auto GetStatus() const -> absl::Status = 0;
 
   //! Returns the implementation-dependent identifier of the stream.
-  [[nodiscard]] virtual auto GetId() const -> std::string_view = 0;
+  [[nodiscard]] virtual auto GetId() const -> std::string = 0;
 
   //! Returns the underlying implementation of the stream.
   /*!

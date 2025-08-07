@@ -48,8 +48,15 @@ void BindStream(py::handle scope, std::string_view name) {
   py::class_<WireStream, std::shared_ptr<WireStream>>(
       scope, absl::StrCat(name, "VirtualBase").c_str())
       .def("send", &WireStream::Send, py::call_guard<py::gil_scoped_release>())
-      .def("receive", &WireStream::Receive,
-           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "receive",
+          [](const std::shared_ptr<WireStream>& self,
+             double timeout) -> absl::StatusOr<std::optional<SessionMessage>> {
+            const absl::Duration timeout_duration =
+                timeout < 0 ? absl::InfiniteDuration() : absl::Seconds(timeout);
+            return self->Receive(timeout_duration);
+          },
+          py::arg_v("timeout", -1.0), py::call_guard<py::gil_scoped_release>())
       .def("accept", &WireStream::Accept)
       .def("start", &WireStream::Start)
       .def("close", &WireStream::HalfClose)
@@ -125,17 +132,17 @@ void BindSession(py::handle scope, std::string_view name) {
 void BindService(py::handle scope, std::string_view name) {
   py::class_<Service, std::shared_ptr<Service>>(scope,
                                                 std::string(name).c_str())
-      .def(py::init([](ActionRegistry* action_registry = nullptr,
-                       ConnectionHandler connection_handler =
-                           RunSimpleSession) {
-             if (connection_handler == nullptr) {
-               connection_handler = RunSimpleSession;
-             }
-             return std::make_shared<Service>(action_registry,
-                                              std::move(connection_handler));
-           }),
-           py::arg("action_registry"),
-           py::arg_v("connection_handler", py::none()))
+      .def(
+          py::init([](ActionRegistry* action_registry = nullptr,
+                      ConnectionHandler connection_handler = RunSimpleSession) {
+            if (connection_handler == nullptr) {
+              connection_handler = RunSimpleSession;
+            }
+            return std::make_shared<Service>(action_registry,
+                                             std::move(connection_handler));
+          }),
+          py::arg("action_registry"),
+          py::arg_v("connection_handler", py::none()))
       .def(
           "get_stream",
           [](const std::shared_ptr<Service>& self,

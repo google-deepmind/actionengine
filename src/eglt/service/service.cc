@@ -36,16 +36,26 @@
 
 namespace eglt {
 
-absl::Status RunSimpleSession(
-    const std::shared_ptr<WireStream>& stream, Session* absl_nonnull session) {
+absl::Status RunSimpleSession(const std::shared_ptr<WireStream>& stream,
+                              Session* absl_nonnull session) {
   const auto owned_stream = stream;
   absl::Status status;
   while (!thread::Cancelled()) {
-    std::optional<SessionMessage> message = owned_stream->Receive();
-    if (!message.has_value()) {
+    absl::StatusOr<std::optional<SessionMessage>> message =
+        owned_stream->Receive(session->GetRecvTimeout());
+    if (!message.ok()) {
+      status = message.status();
+      status.Update(stream->HalfClose());
+      DLOG(ERROR) << "Failed to receive message: " << status
+                  << " from stream: " << owned_stream->GetId()
+                  << ". Stopping dispatch and half-closing stream.";
       break;
     }
-    status = session->DispatchMessage(message.value(), owned_stream);
+    if (!message->has_value()) {
+      break;
+    }
+    status =
+        session->DispatchMessage(std::move(message)->value(), owned_stream);
   }
 
   if (thread::Cancelled()) {
@@ -67,7 +77,7 @@ std::unique_ptr<Action> MakeActionInConnection(
   }
 
   auto action = connection.session->GetActionRegistry()->MakeAction(action_name,
-    action_id);
+                                                                    action_id);
   action->BindNodeMap(connection.session->GetNodeMap());
   action->BindStream(connection.stream);
   action->BindSession(connection.session);
@@ -77,12 +87,12 @@ std::unique_ptr<Action> MakeActionInConnection(
 Service::Service(ActionRegistry* absl_nullable action_registry,
                  ConnectionHandler connection_handler,
                  ChunkStoreFactory chunk_store_factory)
-  : action_registry_(
-        action_registry == nullptr
-          ? nullptr
-          : std::make_unique<ActionRegistry>(*action_registry)),
-    connection_handler_(std::move(connection_handler)),
-    chunk_store_factory_(std::move(chunk_store_factory)) {}
+    : action_registry_(
+          action_registry == nullptr
+              ? nullptr
+              : std::make_unique<ActionRegistry>(*action_registry)),
+      connection_handler_(std::move(connection_handler)),
+      chunk_store_factory_(std::move(chunk_store_factory)) {}
 
 Service::~Service() {
   JoinConnectionsAndCleanUp(/*cancel=*/true);
@@ -148,8 +158,8 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
   }
 
   streams_.emplace(stream_id, std::make_unique<net::RecoverableStream>(
-                       std::move(get_stream), stream_id,
-                       /*timeout=*/absl::Seconds(10)));
+                                  std::move(get_stream), stream_id,
+                                  /*timeout=*/absl::Seconds(10)));
 
   if (connections_.contains(stream_id)) {
     return absl::AlreadyExistsError(
@@ -161,10 +171,10 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
     sessions_.emplace(session_id,
                       std::make_unique<Session>(
                           /*node_map=*/node_maps_.at(session_id).get(),
-                                       /*action_registry=*/
-                                       action_registry_.get(),
-                                       /*chunk_store_factory=*/
-                                       chunk_store_factory_));
+                          /*action_registry=*/
+                          action_registry_.get(),
+                          /*chunk_store_factory=*/
+                          chunk_store_factory_));
   }
 
   streams_per_session_[session_id].insert(stream_id);
@@ -177,8 +187,7 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
           .stream_id = stream_id,
       });
 
-  ConnectionHandler resolved_handler =
-      std::move(connection_handler);
+  ConnectionHandler resolved_handler = std::move(connection_handler);
   if (resolved_handler == nullptr) {
     resolved_handler = connection_handler_;
   }
@@ -217,13 +226,13 @@ absl::Status Service::JoinConnection(
   {
     eglt::MutexLock lock(&mu_);
     if (const auto node = connections_.extract(connection->stream_id);
-      !node.empty()) {
+        !node.empty()) {
       std::shared_ptr<StreamToSessionConnection> service_owned_connection =
           std::move(node.mapped());
     }
 
     if (const auto node = connection_fibers_.extract(connection->stream_id);
-      !node.empty()) {
+        !node.empty()) {
       fiber = std::move(node.mapped());
     }
   }
@@ -282,4 +291,4 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
   DLOG(INFO) << "Connections cleaned up.";
 }
 
-} // namespace eglt
+}  // namespace eglt

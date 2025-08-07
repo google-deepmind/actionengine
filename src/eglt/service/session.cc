@@ -125,9 +125,27 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
   dispatch_tasks_.emplace(
       stream.get(), thread::NewTree({}, [this, stream]() {
         while (true) {
-          if (auto message = stream->Receive(); message.has_value()) {
-            DispatchMessage(std::move(*message), stream).IgnoreError();
-          } else {
+          absl::StatusOr<std::optional<SessionMessage>> message =
+              stream->Receive(GetRecvTimeout());
+          if (!message.ok()) {
+            DLOG(ERROR) << "Failed to receive message: " << message.status()
+                        << " from stream: " << stream->GetId()
+                        << ". Stopping dispatch.";
+          }
+          if (!message.ok() || !message->has_value()) {
+            if (const absl::Status close_status = stream->HalfClose();
+                !close_status.ok()) {
+              DLOG(ERROR) << "Failed to half-close stream: " << close_status
+                          << ".";
+            }
+            break;
+          }
+          if (absl::Status dispatch_status =
+                  DispatchMessage(**std::move(message), stream);
+              !dispatch_status.ok()) {
+            DLOG(ERROR) << "Failed to dispatch message: " << dispatch_status
+                        << " from stream: " << stream->GetId()
+                        << ". Stopping dispatch.";
             break;
           }
         }

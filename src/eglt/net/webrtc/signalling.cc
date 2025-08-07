@@ -87,7 +87,7 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     message.clear();
 
     mu_.Unlock();
-    status = stream_.ReadText(&message);
+    status = stream_.ReadText(absl::InfiniteDuration(), &message);
     mu_.Lock();
 
     if (!status.ok()) {

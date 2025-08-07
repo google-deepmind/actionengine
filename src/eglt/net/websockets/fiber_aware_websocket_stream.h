@@ -22,9 +22,9 @@
 #include <boost/asio/thread_pool.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
+
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-
 #include "eglt/concurrency/concurrency.h"
 
 namespace eglt::net {
@@ -68,12 +68,14 @@ class FiberAwareWebsocketStream {
 
   absl::Status Accept() const noexcept;
   absl::Status Close() const noexcept;
-  absl::Status Read(std::vector<uint8_t>* absl_nonnull buffer,
+  absl::Status Read(absl::Duration timeout,
+                    std::vector<uint8_t>* absl_nonnull buffer,
                     bool* absl_nullable got_text = nullptr) noexcept;
-  absl::Status ReadText(std::string* buffer) noexcept;
+  absl::Status ReadText(absl::Duration timeout, std::string* buffer) noexcept;
   absl::Status Start() const noexcept;
   absl::Status Write(const std::vector<uint8_t>& message_bytes) noexcept;
   absl::Status WriteText(const std::string& message) noexcept;
+
   template <typename Sink>
   friend void AbslStringify(Sink& sink,
                             const FiberAwareWebsocketStream& stream) {

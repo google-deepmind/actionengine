@@ -48,7 +48,8 @@ class WebsocketWireStream final : public WireStream {
 
   absl::Status Send(SessionMessage message) override;
 
-  std::optional<SessionMessage> Receive() override;
+  absl::StatusOr<std::optional<SessionMessage>> Receive(
+      absl::Duration timeout) override;
 
   thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
                          absl::Status* absl_nonnull status) override {
@@ -61,13 +62,9 @@ class WebsocketWireStream final : public WireStream {
 
   absl::Status HalfClose() override;
 
-  void OnHalfClose(absl::AnyInvocable<void(WireStream*)> fn) override {
-    half_close_callback_ = std::move(fn);
-  }
-
   absl::Status GetStatus() const override { return status_; }
 
-  [[nodiscard]] std::string_view GetId() const override { return id_; }
+  [[nodiscard]] std::string GetId() const override { return id_; }
 
   [[nodiscard]] const void* absl_nonnull GetImpl() const override {
     return &stream_;
@@ -80,19 +77,26 @@ class WebsocketWireStream final : public WireStream {
   }
 
  private:
+  absl::Status SendInternal(SessionMessage message)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  absl::Status HalfCloseInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  mutable eglt::Mutex mu_;
+
   FiberAwareWebsocketStream stream_;
+  bool half_closed_ ABSL_GUARDED_BY(mu_) = false;
+  bool closed_ ABSL_GUARDED_BY(mu_) = false;
   std::string id_;
 
   absl::Status status_;
-  absl::AnyInvocable<void(WireStream*)> half_close_callback_ = [](WireStream*) {
-  };
 };
 
 class WebsocketServer {
  public:
   explicit WebsocketServer(eglt::Service* absl_nonnull service,
-                                       std::string_view address = "0.0.0.0",
-                                       uint16_t port = 20000)
+                           std::string_view address = "0.0.0.0",
+                           uint16_t port = 20000)
       : service_(service),
         acceptor_(std::make_unique<boost::asio::ip::tcp::acceptor>(
             *util::GetDefaultAsioExecutionContext())) {
@@ -109,8 +113,7 @@ class WebsocketServer {
     acceptor_->set_option(boost::asio::socket_base::reuse_address(true), error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketServer set_option() failed: "
-                 << status_;
+      LOG(FATAL) << "WebsocketServer set_option() failed: " << status_;
       ABSL_ASSUME(false);
     }
 
@@ -130,8 +133,7 @@ class WebsocketServer {
       ABSL_ASSUME(false);
     }
 
-    DLOG(INFO) << "WebsocketServer created at " << address << ":"
-               << port;
+    DLOG(INFO) << "WebsocketServer created at " << address << ":" << port;
   }
 
   ~WebsocketServer() {
@@ -175,8 +177,7 @@ class WebsocketServer {
         }
 
         if (error) {
-          DLOG(ERROR) << "WebsocketServer accept() failed: "
-                      << error.message();
+          DLOG(ERROR) << "WebsocketServer accept() failed: " << error.message();
           switch (error.value()) {
             case boost::system::errc::operation_canceled:
               status_ = absl::OkStatus();
@@ -199,9 +200,8 @@ class WebsocketServer {
 
         if (!connection.ok()) {
           status_ = connection.status();
-          DLOG(ERROR)
-              << "WebsocketServer EstablishConnection failed: "
-              << status_;
+          DLOG(ERROR) << "WebsocketServer EstablishConnection failed: "
+                      << status_;
           // continuing here
         }
       }

@@ -113,6 +113,13 @@ class ActionContext {
   eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
 };
 
+struct StreamDispatchTask {
+  std::shared_ptr<WireStream> stream;
+  std::unique_ptr<thread::Fiber> fiber;
+  absl::Status status;
+  thread::PermanentEvent done;
+};
+
 /**
  * @brief
  *   A session for handling ActionEngine actions.
@@ -144,6 +151,8 @@ class Session {
   void StopDispatchingFrom(WireStream* absl_nonnull stream);
   void StopDispatchingFromAll();
 
+  [[nodiscard]] absl::Duration GetRecvTimeout() const { return recv_timeout_; }
+
   [[nodiscard]] NodeMap* absl_nullable GetNodeMap() const { return node_map_; }
 
   [[nodiscard]] ActionRegistry* absl_nullable GetActionRegistry() const {
@@ -157,10 +166,11 @@ class Session {
  private:
   void JoinDispatchers(bool cancel = false) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  eglt::Mutex mu_{};
+  eglt::Mutex mu_;
   bool joined_ ABSL_GUARDED_BY(mu_) = false;
   absl::flat_hash_map<WireStream*, std::unique_ptr<thread::Fiber>>
       dispatch_tasks_ ABSL_GUARDED_BY(mu_){};
+  const absl::Duration recv_timeout_ = absl::Seconds(60);
 
   NodeMap* absl_nonnull const node_map_;
   ActionRegistry* absl_nullable action_registry_ = nullptr;

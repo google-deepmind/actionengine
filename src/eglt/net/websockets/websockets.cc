@@ -31,27 +31,70 @@ WebsocketWireStream::WebsocketWireStream(FiberAwareWebsocketStream stream,
       id_(id.empty() ? GenerateUUID4() : std::string(id)) {}
 
 absl::Status WebsocketWireStream::Send(SessionMessage message) {
-  const auto message_bytes = cppack::Pack(std::move(message));
-  return stream_.Write(message_bytes);
+  eglt::MutexLock lock(&mu_);
+
+  if (half_closed_) {
+    return absl::FailedPreconditionError(
+        "WebsocketWireStream is half-closed, cannot send messages");
+  }
+
+  if (!status_.ok()) {
+    return status_;
+  }
+
+  return SendInternal(std::move(message));
 }
 
-std::optional<SessionMessage> WebsocketWireStream::Receive() {
+absl::StatusOr<std::optional<SessionMessage>> WebsocketWireStream::Receive(
+    absl::Duration timeout) {
+  eglt::MutexLock lock(&mu_);
+
+  if (closed_) {
+    return absl::FailedPreconditionError(
+        "WebsocketWireStream is closed, cannot receive messages");
+  }
+
   std::vector<uint8_t> buffer;
 
   // Receive from underlying websocket stream.
-  if (const absl::Status status = stream_.Read(&buffer); !status.ok()) {
-    return std::nullopt;
+  mu_.Unlock();
+  absl::Status status = stream_.Read(timeout, &buffer);
+  mu_.Lock();
+  if (!status.ok()) {
+    return status;
   }
 
   // Unpack the received data into a SessionMessage.
-  if (auto unpacked = cppack::Unpack<SessionMessage>(buffer); unpacked.ok()) {
-    return *std::move(unpacked);
-  } else {
-    LOG(ERROR) << absl::StrFormat("WESt %s Receive failed: %v", id_,
-                                  unpacked.status());
+  mu_.Unlock();
+  absl::StatusOr<SessionMessage> unpacked =
+      cppack::Unpack<SessionMessage>(buffer);
+  mu_.Lock();
+  if (!unpacked.ok()) {
+    return unpacked.status();
   }
 
-  return std::nullopt;
+  // Empty SessionMessage indicates a half-close.
+  if (unpacked->actions.empty() && unpacked->node_fragments.empty()) {
+    // If the message is empty, it means the stream was half-closed by the
+    // other end, or the other end has acknowledged our half-close.
+
+    if (half_closed_) {
+      // We initiated the half-close, so we don't need to call the
+      // half-close callback, only to acknowledge
+      return std::nullopt;
+    }
+
+    if (absl::Status half_close_status = HalfCloseInternal();
+        !half_close_status.ok()) {
+      return half_close_status;
+    }
+
+    // If we reach here, it means we have successfully half-closed the stream
+    // in response to the other end's half-close message.
+    return std::nullopt;
+  }
+
+  return *std::move(unpacked);
 }
 
 absl::Status WebsocketWireStream::Start() {
@@ -65,7 +108,27 @@ absl::Status WebsocketWireStream::Accept() {
 }
 
 absl::Status WebsocketWireStream::HalfClose() {
-  return stream_.Close();
+  eglt::MutexLock lock(&mu_);
+  return HalfCloseInternal();
+}
+
+absl::Status WebsocketWireStream::SendInternal(SessionMessage message) {
+  mu_.Unlock();
+  auto status = stream_.Write(cppack::Pack(std::move(message)));
+  mu_.Lock();
+
+  return status;
+}
+
+absl::Status WebsocketWireStream::HalfCloseInternal() {
+  if (half_closed_) {
+    return absl::OkStatus();
+  }
+
+  half_closed_ = true;
+  RETURN_IF_ERROR(SendInternal(SessionMessage{}));
+
+  return absl::OkStatus();
 }
 
 }  // namespace eglt::net
