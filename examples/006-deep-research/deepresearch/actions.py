@@ -1,6 +1,6 @@
 import asyncio
 
-import evergreen
+import actionengine
 from google.genai import types
 from google.genai.types import (
     GenerateContentConfig,
@@ -11,7 +11,7 @@ from google.genai.types import (
 from .gemini import get_gemini_client
 
 
-async def create_plan(action: evergreen.Action):
+async def create_plan(action: actionengine.Action):
     topic = await action["topic"].consume()
 
     response_parts = []
@@ -64,7 +64,7 @@ async def create_plan(action: evergreen.Action):
         await plan_items.finalize()
 
 
-CREATE_PLAN_SCHEMA = evergreen.ActionSchema(
+CREATE_PLAN_SCHEMA = actionengine.ActionSchema(
     name="create_plan",
     inputs=[
         ("api_key", "text/plain"),
@@ -74,7 +74,7 @@ CREATE_PLAN_SCHEMA = evergreen.ActionSchema(
 )
 
 
-async def investigate_plan_item(action: evergreen.Action):
+async def investigate_plan_item(action: actionengine.Action):
     topic = await action["topic"].consume()
     brief = await action["brief"].consume()
 
@@ -116,7 +116,7 @@ async def investigate_plan_item(action: evergreen.Action):
     )
 
 
-INVESTIGATE_PLAN_ITEM_SCHEMA = evergreen.ActionSchema(
+INVESTIGATE_PLAN_ITEM_SCHEMA = actionengine.ActionSchema(
     name="investigate_plan_item",
     inputs=[
         ("api_key", "text/plain"),
@@ -127,7 +127,7 @@ INVESTIGATE_PLAN_ITEM_SCHEMA = evergreen.ActionSchema(
 )
 
 
-async def synthesise_findings(action: evergreen.Action):
+async def synthesise_findings(action: actionengine.Action):
     topic = await action.get_input("topic").consume()
     brief = await action.get_input("brief").consume()
     report_ids = [
@@ -171,7 +171,7 @@ async def synthesise_findings(action: evergreen.Action):
     )
 
 
-SYNTHESISE_FINDINGS_SCHEMA = evergreen.ActionSchema(
+SYNTHESISE_FINDINGS_SCHEMA = actionengine.ActionSchema(
     name="synthesise_findings",
     inputs=[
         ("api_key", "text/plain"),
@@ -183,12 +183,12 @@ SYNTHESISE_FINDINGS_SCHEMA = evergreen.ActionSchema(
 )
 
 
-async def do_deep_research(action: evergreen.Action):
+async def do_deep_research(action: actionengine.Action):
     pass
 
 
 def make_action_registry():
-    registry = evergreen.ActionRegistry()
+    registry = actionengine.ActionRegistry()
     registry.register(
         "create_plan",
         CREATE_PLAN_SCHEMA,

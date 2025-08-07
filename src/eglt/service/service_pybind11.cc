@@ -126,10 +126,10 @@ void BindService(py::handle scope, std::string_view name) {
   py::class_<Service, std::shared_ptr<Service>>(scope,
                                                 std::string(name).c_str())
       .def(py::init([](ActionRegistry* action_registry = nullptr,
-                       EvergreenConnectionHandler connection_handler =
-                           RunSimpleEvergreenSession) {
+                       ActionEngineConnectionHandler connection_handler =
+                           RunSimpleActionEngineSession) {
              if (connection_handler == nullptr) {
-               connection_handler = RunSimpleEvergreenSession;
+               connection_handler = RunSimpleActionEngineSession;
              }
              return std::make_shared<Service>(action_registry,
                                               std::move(connection_handler));
@@ -194,7 +194,7 @@ void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
 pybind11::module_ MakeServiceModule(pybind11::module_ scope,
                                     std::string_view module_name) {
   pybind11::module_ service = scope.def_submodule(
-      std::string(module_name).c_str(), "Evergreen Service interface.");
+      std::string(module_name).c_str(), "ActionEngine Service interface.");
 
   BindStream(service, "WireStream");
   BindSession(service, "Session");

@@ -3,13 +3,13 @@ import asyncio
 import logging
 import os
 
-import evergreen
+import actionengine
 
 import actions
 
 
 def make_action_registry():
-    registry = evergreen.ActionRegistry()
+    registry = actionengine.ActionRegistry()
 
     registry.register("echo", actions.echo.SCHEMA, actions.echo.run)
     registry.register(
@@ -28,20 +28,22 @@ def make_action_registry():
 
     actions.redis.register_actions(registry)
 
-    evergreen.to_bytes(actions.redis.ReadStoreRequest(key=""))
-    evergreen.to_bytes(actions.redis.WriteRedisStoreRequest(key="", data=b""))
+    actionengine.to_bytes(actions.redis.ReadStoreRequest(key=""))
+    actionengine.to_bytes(
+        actions.redis.WriteRedisStoreRequest(key="", data=b"")
+    )
 
     return registry
 
 
 def setup_action_engine():
-    settings = evergreen.get_global_eglt_settings()
+    settings = actionengine.get_global_eglt_settings()
     settings.readers_deserialise_automatically = True
     settings.readers_read_in_order = True
     settings.readers_remove_read_chunks = True
 
     # will not be needed later:
-    evergreen.to_chunk(
+    actionengine.to_chunk(
         actions.text_to_image.DiffusionRequest(
             prompt="a hack to get the schema registered for serialization",
         )
@@ -55,15 +57,15 @@ async def sleep_forever():
 
 async def main(args: argparse.Namespace):
     action_registry = make_action_registry()
-    service = evergreen.Service(action_registry)
-    # server = evergreen.websockets.WebsocketEvergreenServer(service)
-    rtc_config = evergreen.webrtc.RtcConfig()
+    service = actionengine.Service(action_registry)
+    # server = actionengine.websockets.WebsocketActionEngineServer(service)
+    rtc_config = actionengine.webrtc.RtcConfig()
     rtc_config.turn_servers = [
-        evergreen.webrtc.TurnServer.from_string(
+        actionengine.webrtc.TurnServer.from_string(
             "helena:actionengine-webrtc-testing@demos.helena.direct",
         ),
     ]
-    server = evergreen.webrtc.WebRtcEvergreenServer(
+    server = actionengine.webrtc.WebRtcActionEngineServer(
         service,
         args.host,
         args.port,

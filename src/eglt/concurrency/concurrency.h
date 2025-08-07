@@ -15,9 +15,9 @@
 /**
  * @file
  * @brief
- *   Concurrency utilities for Evergreen.
+ *   Concurrency utilities for ActionEngine.
  *
- * This file provides a set of concurrency utilities for use in Evergreen.
+ * This file provides a set of concurrency utilities for use in ActionEngine.
  * It includes classes and functions for managing fibers, channels, and
  * synchronization primitives.
  */

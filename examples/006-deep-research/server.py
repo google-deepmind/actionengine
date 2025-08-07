@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-import evergreen
+import actionengine
 
 from deepresearch.serialisation import register_serialisers
 from deepresearch.actions import make_action_registry
@@ -11,7 +11,7 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 
 async def main():
     action_registry = make_action_registry()
-    node_map = evergreen.NodeMap()
+    node_map = actionengine.NodeMap()
 
     topic_prompt = input("Enter a topic to perform deep research on: ")
 
@@ -76,12 +76,12 @@ def test_deserialiser(data: bytes) -> str:
 
 
 def sync_main():
-    registry = evergreen.data.get_global_serializer_registry()
+    registry = actionengine.data.get_global_serializer_registry()
 
     registry.register_serializer("text/plain", test_serialiser, str)
     register_serialisers()
 
-    settings = evergreen.get_global_eglt_settings()
+    settings = actionengine.get_global_eglt_settings()
     settings.readers_deserialise_automatically = True
     settings.readers_read_in_order = True
     settings.readers_remove_read_chunks = True

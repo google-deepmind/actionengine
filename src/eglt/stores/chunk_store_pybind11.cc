@@ -86,7 +86,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
       .def("__len__", &PyChunkStore::Size)
       .def("__contains__", &PyChunkStore::Contains)
 
-      .doc() = "An Evergreen ChunkStore interface.";
+      .doc() = "An ActionEngine ChunkStore interface.";
 }
 
 /// @private
@@ -134,14 +134,14 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
            py::call_guard<py::gil_scoped_release>())
       .def("__len__", &LocalChunkStore::Size)
       .def("__contains__", &LocalChunkStore::Contains)
-      .doc() = "Evergreen LocalChunkStore.";
+      .doc() = "ActionEngine LocalChunkStore.";
 }
 
 /// @private
 py::module_ MakeChunkStoreModule(py::module_ scope,
                                  std::string_view module_name) {
   py::module_ chunk_store = scope.def_submodule(
-      std::string(module_name).c_str(), "Evergreen ChunkStore interface.");
+      std::string(module_name).c_str(), "ActionEngine ChunkStore interface.");
 
   BindChunkStore(chunk_store, "ChunkStore");
   BindLocalChunkStore(chunk_store, "LocalChunkStore");

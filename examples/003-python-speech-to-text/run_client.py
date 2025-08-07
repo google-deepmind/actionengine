@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 
-import evergreen
+import actionengine
 from RealtimeSTT import AudioToTextRecorder
 
 from stt.actions import has_stop_command
@@ -12,7 +12,7 @@ from stt.serialisation import register_stt_serialisers
 def setup_action_engine():
     register_stt_serialisers()
 
-    settings = evergreen.get_global_eglt_settings()
+    settings = actionengine.get_global_eglt_settings()
     settings.readers_deserialise_automatically = True
     settings.readers_read_in_order = True
     settings.readers_remove_read_chunks = True
@@ -22,15 +22,15 @@ async def main(args: argparse.Namespace):
     setup_action_engine()
 
     action_registry = make_action_registry()
-    node_map = evergreen.NodeMap()
+    node_map = actionengine.NodeMap()
     target = "/"
     print(f"Connecting to ws://{args.host}:{args.port}{target}.")
-    stream = evergreen.websockets.make_websocket_evergreen_stream(
+    stream = actionengine.websockets.make_websocket_actionengine_stream(
         args.host, target, args.port
     )
 
     print("Connected, starting session.")
-    session = evergreen.Session(node_map, action_registry)
+    session = actionengine.Session(node_map, action_registry)
     session.dispatch_from(stream)
 
     action = action_registry.make_action(

@@ -97,7 +97,7 @@ absl::StatusOr<BytePacket> ParseBytePacket(std::vector<Byte>&& data) {
   if (type == BytePacketType::kLengthSuffixedByteChunk) {
     if (remaining_data_size < sizeof(uint32_t)) {
       return absl::InvalidArgumentError(
-          "Invalid WebRtcEvergreenPacket: marked as "
+          "Invalid WebRtcActionEnginePacket: marked as "
           "LengthSuffixedSessionMessageChunk but data size is less than 13");
     }
 
@@ -115,7 +115,7 @@ absl::StatusOr<BytePacket> ParseBytePacket(std::vector<Byte>&& data) {
 
   // If we reach here, it means the type is not recognized.
   return absl::InvalidArgumentError(
-      "WebRtcEvergreenPacket type is not supported");
+      "WebRtcActionEnginePacket type is not supported");
 }
 
 std::vector<BytePacket> SplitBytesIntoPackets(const std::vector<Byte>& data,
@@ -309,7 +309,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
     return chunk_store_.SizeOrDie() == total_expected_chunks_;
   }
 
-  return absl::InvalidArgumentError("Unknown WebRtcEvergreenPacket type");
+  return absl::InvalidArgumentError("Unknown WebRtcActionEnginePacket type");
 }
 
 absl::StatusOr<bool> ChunkedBytes::FeedSerializedPacket(

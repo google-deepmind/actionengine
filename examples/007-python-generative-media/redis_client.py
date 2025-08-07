@@ -1,14 +1,14 @@
 import asyncio
 import uuid
 
-import evergreen
-import evergreen.data
+import actionengine
+import actionengine.data
 
 import actions
 
 
 def make_action_registry():
-    registry = evergreen.ActionRegistry()
+    registry = actionengine.ActionRegistry()
     registry.register(
         "read_store",
         actions.redis.READ_STORE_SCHEMA,
@@ -22,8 +22,8 @@ def make_action_registry():
     return registry
 
 
-ACTION_REGISTRY: evergreen.ActionRegistry | None = None
-NODE_MAP: evergreen.NodeMap | None = None
+ACTION_REGISTRY: actionengine.ActionRegistry | None = None
+NODE_MAP: actionengine.NodeMap | None = None
 
 
 async def write_text_chunk(
@@ -73,15 +73,15 @@ async def read_text_chunks(
 
 def get_global_redis_client():
     if not hasattr(get_global_redis_client, "client"):
-        get_global_redis_client.client = evergreen.redis.Redis.connect(
+        get_global_redis_client.client = actionengine.redis.Redis.connect(
             "localhost"
         )
     return get_global_redis_client.client
 
 
-def make_redis_chunk_store(node_id: str) -> evergreen.redis.ChunkStore:
+def make_redis_chunk_store(node_id: str) -> actionengine.redis.ChunkStore:
     redis_client = get_global_redis_client()
-    store = evergreen.redis.ChunkStore(redis_client, node_id, -1)  # No TTL
+    store = actionengine.redis.ChunkStore(redis_client, node_id, -1)  # No TTL
     return store
 
 
@@ -93,7 +93,7 @@ async def main():
     global ACTION_REGISTRY, NODE_MAP
 
     ACTION_REGISTRY = make_action_registry()
-    NODE_MAP = evergreen.NodeMap()
+    NODE_MAP = actionengine.NodeMap()
 
     key = f"hello-{uuid.uuid4()}"
     num_chunks = 10
@@ -110,7 +110,7 @@ async def main():
 
 
 def setup_action_engine():
-    settings = evergreen.get_global_eglt_settings()
+    settings = actionengine.get_global_eglt_settings()
     settings.readers_deserialise_automatically = True
     settings.readers_read_in_order = True
     settings.readers_remove_read_chunks = True

@@ -38,10 +38,10 @@ using WireStream = eglt::WireStream;
 // how to implement an action handler. Every handler must take a shared_ptr to
 // the Action object as an argument. This object provides accessors to input and
 // output nodes (as streams), as well as to underlying Session and
-// transport-level Evergreen stream.
+// transport-level ActionEngine stream.
 absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   // ----------------------------------------------------------------------------
-  // Evergreen actions are asynchronous, so to read inputs, we need a streaming
+  // ActionEngine actions are asynchronous, so to read inputs, we need a streaming
   // reader. Conversely, to write outputs, we need a streaming writer. The
   // .GetNode() method return an instance of the
   // AsyncNode class, which combines a reader and a writer into a single object.
@@ -96,7 +96,7 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
 }
 
 // ----------------------------------------------------------------------------
-// The Evergreen service takes care of the dispatching of nodes and actions.
+// The ActionEngine service takes care of the dispatching of nodes and actions.
 // Specifically how it does this is customizable and is shown in other examples.
 // The default implementation only manages nodes in the lifetime of a single
 // connection, and runs actions from the action registry. Therefore, we need to
@@ -137,7 +137,7 @@ std::string CallEcho(std::string_view text, Session* absl_nonnull session,
   echo->BindSession(session);
   echo->BindStream(stream);
 
-  // Evergreen actions are asynchronous, so we can call the action even before
+  // ActionEngine actions are asynchronous, so we can call the action even before
   // supplying all the inputs. The server will run the action handler in a
   // separate fiber, which will just block on reading an input which is still
   // not available or being streamed. This _does_ mean that if part of the
@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   eglt::Service service(&action_registry);
-  eglt::net::WebsocketEvergreenServer server(&service, "0.0.0.0", port);
+  eglt::net::WebsocketActionEngineServer server(&service, "0.0.0.0", port);
   server.Run();
 
   eglt::NodeMap node_map;
@@ -221,7 +221,7 @@ int main(int argc, char** argv) {
   auto response = CallEcho(text, &session, shared_stream);
   std::cout << "Received: " << response << std::endl;
 
-  std::cout << "This is an example with an Evergreen server and a client "
+  std::cout << "This is an example with an ActionEngine server and a client "
                "performing an echo action. You can type some text and it will "
                "be echoed back. Type /quit to exit.\n"
             << std::endl;

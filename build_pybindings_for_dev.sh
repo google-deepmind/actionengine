@@ -6,13 +6,13 @@ repo_root=$(pwd)
 
 echo "Building project..."
 cd build
-CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target evergreen_pybind11
+CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target actionengine_pybind11
 CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target pybind11_abseil
 
 echo "Moving compiled files to Python code directory..."
 cd "$repo_root"
-mv build/src/evergreen_pybind11*.so py/evergreen/
-mv build/src/pybind11_abseil_module/pybind11_abseil*.so py/evergreen/
+mv build/src/actionengine_pybind11*.so py/actionengine/
+mv build/src/pybind11_abseil_module/pybind11_abseil*.so py/actionengine/
 rm -rf install
 
 if [[ "$1" == "--only-rebuild-pybind11" ]]; then
@@ -24,4 +24,4 @@ else
 fi
 
 echo "Validating installation."
-python3 -c "import evergreen; print('Evergreen imports successfully!')"
+python3 -c "import actionengine; print('ActionEngine imports successfully!')"

@@ -5,12 +5,12 @@ from typing import Any
 from typing import Awaitable
 from typing import Callable
 
-import evergreen
-from evergreen import async_node
-from evergreen import node_map as eg_node_map
-from evergreen import data
-from evergreen import utils
-from evergreen.evergreen_pybind11 import actions as actions_pybind11
+import actionengine
+from actionengine import async_node
+from actionengine import node_map as eg_node_map
+from actionengine import data
+from actionengine import utils
+from actionengine.actionengine_pybind11 import actions as actions_pybind11
 from pydantic import BaseModel
 
 AsyncNode = async_node.AsyncNode
@@ -29,7 +29,7 @@ def wrap_handler(handler: ActionHandler) -> ActionHandler:
     loop = None  # was asyncio.get_running_loop()
 
     def inner(action: "Action") -> None:
-        return evergreen.run_threadsafe_if_coroutine(
+        return actionengine.run_threadsafe_if_coroutine(
             handler(utils.wrap_pybind_object(Action, action)),
             loop=loop,
         )
@@ -38,7 +38,7 @@ def wrap_handler(handler: ActionHandler) -> ActionHandler:
 
 
 class ActionSchema(actions_pybind11.ActionSchema):
-    """A schema of an Evergreen Action."""
+    """A schema of an ActionEngine Action."""
 
     # pylint: disable-next=[useless-parent-delegation]
     def __init__(

@@ -4,7 +4,7 @@ if (APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "Minimum OS X deployment version")
 endif ()
 
-project(eglt-oss
+project(actionengine
         VERSION 0.1
         LANGUAGES C CXX
 )

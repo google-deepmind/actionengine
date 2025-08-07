@@ -1,7 +1,7 @@
 # Serving a speech-to-text model with actions
 
 This example demonstrates how you can serve a speech-to-text experience by
-wrapping an external model with an Evergreen action. To run this example,
+wrapping an external model with an ActionEngine action. To run this example,
 you will need to have [RealtimeSTT](https://github.com/KoljaB/RealtimeSTT)
 installed:
 

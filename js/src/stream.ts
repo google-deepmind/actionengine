@@ -132,13 +132,13 @@ class WSWorkerManager {
   }
 }
 
-export interface BaseEvergreenStream {
+export interface BaseActionEngineStream {
   receive(): Promise<SessionMessage>;
   send(message: SessionMessage): Promise<void>;
   close(): Promise<void>;
 }
 
-export class EvergreenStream implements BaseEvergreenStream {
+export class ActionEngineStream implements BaseActionEngineStream {
   private readonly uid: string;
 
   private channel: Channel<SessionMessage | null>;

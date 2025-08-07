@@ -3,7 +3,7 @@ import os
 import random
 import traceback
 
-import evergreen
+import actionengine
 from google import genai
 from google.genai import types
 from ollama import chat, Options
@@ -19,7 +19,7 @@ def get_gemini_client(api_key: str):
 
 def get_redis_client():
     if not hasattr(get_redis_client, "_redis_client"):
-        get_redis_client._redis_client = evergreen.redis.Redis.connect(
+        get_redis_client._redis_client = actionengine.redis.Redis.connect(
             "localhost"
         )
     return get_redis_client._redis_client
@@ -66,7 +66,7 @@ async def resolve_session_token_to_session_id_and_seqs(
     return session_id, next_message_seq, next_thought_seq
 
 
-async def run_rehydrate_session(action: evergreen.Action):
+async def run_rehydrate_session(action: actionengine.Action):
     session_token = await action["session_token"].consume()
     session_id, next_message_seq, next_thought_seq = (
         await resolve_session_token_to_session_id_and_seqs(session_token)
@@ -81,12 +81,12 @@ async def run_rehydrate_session(action: evergreen.Action):
     message_offset = max(0, next_message_seq - 20)
     thought_offset = max(0, next_thought_seq - 10)
 
-    message_store = evergreen.redis.ChunkStore(
+    message_store = actionengine.redis.ChunkStore(
         redis_client,
         f"{session_id}:messages",
         -1,  # no TTL
     )
-    thought_store = evergreen.redis.ChunkStore(
+    thought_store = actionengine.redis.ChunkStore(
         redis_client,
         f"{session_id}:thoughts",
         -1,  # no TTL
@@ -110,8 +110,8 @@ async def run_rehydrate_session(action: evergreen.Action):
 
 
 def get_text_chunk(text: str):
-    return evergreen.Chunk(
-        metadata=evergreen.ChunkMetadata(mimetype="text/plain"),
+    return actionengine.Chunk(
+        metadata=actionengine.ChunkMetadata(mimetype="text/plain"),
         data=text.encode("utf-8"),
     )
 
@@ -144,7 +144,7 @@ async def save_message_turn(
         flush=True,
     )
     redis_client = get_redis_client()
-    message_store = evergreen.redis.ChunkStore(
+    message_store = actionengine.redis.ChunkStore(
         redis_client,
         f"{session_id}:messages",
         -1,  # no TTL
@@ -155,7 +155,7 @@ async def save_message_turn(
     next_message_seq += 2
 
     if thought:
-        thought_store = evergreen.redis.ChunkStore(
+        thought_store = actionengine.redis.ChunkStore(
             redis_client,
             f"{session_id}:thoughts",
             -1,  # no TTL
@@ -173,7 +173,7 @@ async def save_message_turn(
 
 
 async def generate_content_gemini(
-    action: evergreen.Action,
+    action: actionengine.Action,
     api_key: str = "",
 ):
     session_token = await action["session_token"].consume()
@@ -250,7 +250,7 @@ async def generate_content_gemini(
         await action["thoughts"].finalize()
 
 
-async def generate_content_ollama(action: evergreen.Action):
+async def generate_content_ollama(action: actionengine.Action):
     session_token = await action["session_token"].consume()
     session_id, next_output_seq, next_thought_seq = (
         await resolve_session_token_to_session_id_and_seqs(session_token)
@@ -343,7 +343,7 @@ async def generate_content_ollama(action: evergreen.Action):
         await action["thoughts"].finalize()
 
 
-async def generate_content(action: evergreen.Action):
+async def generate_content(action: actionengine.Action):
     print("Running generate_content.", flush=True)
 
     api_key = await action["api_key"].consume()
@@ -364,7 +364,7 @@ async def generate_content(action: evergreen.Action):
         await generate_content_ollama(action)
 
 
-REHYDRATE_SESSION_SCHEMA = evergreen.ActionSchema(
+REHYDRATE_SESSION_SCHEMA = actionengine.ActionSchema(
     name="rehydrate_session",
     inputs=[
         ("session_token", "text/plain"),
@@ -376,7 +376,7 @@ REHYDRATE_SESSION_SCHEMA = evergreen.ActionSchema(
 )
 
 
-GENERATE_CONTENT_SCHEMA = evergreen.ActionSchema(
+GENERATE_CONTENT_SCHEMA = actionengine.ActionSchema(
     name="generate_content",
     inputs=[
         ("api_key", "text/plain"),

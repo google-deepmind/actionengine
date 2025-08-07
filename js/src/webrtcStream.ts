@@ -1,5 +1,5 @@
 import { LocalChunkStore } from './chunkStore';
-import { BaseEvergreenStream } from './stream';
+import { BaseActionEngineStream } from './stream';
 import { v4 as uuidv4 } from 'uuid';
 import { Channel, CondVar, Mutex } from './utils';
 import { decodeSessionMessage, encodeSessionMessage } from './msgpack';
@@ -318,7 +318,7 @@ class ChunkedMessage {
 
 const setupDataChannel = (
   channel: RTCDataChannel,
-  stream: WebRtcEvergreenStream,
+  stream: WebRtcActionEngineStream,
   socket?: WebSocket,
 ) => {
   channel.onopen = async () => {
@@ -443,7 +443,7 @@ const openSignaling = async (url: string, connection: RTCPeerConnection) => {
   return await promise;
 };
 
-export class WebRtcEvergreenStream implements BaseEvergreenStream {
+export class WebRtcActionEngineStream implements BaseActionEngineStream {
   private readonly signalingUrl: string;
   private readonly identity: string;
   // private id: string
@@ -488,7 +488,7 @@ export class WebRtcEvergreenStream implements BaseEvergreenStream {
     this.chunkedMessages = new Map<number, ChunkedMessage>();
 
     console.log(
-      `WebRtcEvergreenStream initializing with identity: ${this.identity}`,
+      `WebRtcActionEngineStream initializing with identity: ${this.identity}`,
     );
 
     this._initialize(serverId).then();

@@ -51,10 +51,10 @@ class Session;
 /**
  * @file
  * @brief
- *   An interface for Evergreen Action launch helper / handler context.
+ *   An interface for ActionEngine Action launch helper / handler context.
  *
  * This file contains the definition of the Action class, which is used to
- * call Evergreen actions and provide context in handlers (e.g. node map,
+ * call ActionEngine actions and provide context in handlers (e.g. node map,
  * session, stream).
  */
 
@@ -133,10 +133,10 @@ class ActionRegistry {
   absl::flat_hash_map<std::string, ActionHandler> handlers_;
 };
 
-//! An accessor class for an Evergreen action.
+//! An accessor class for an ActionEngine action.
 /*!
  * This class provides an interface for creating and managing actions in the
- * Evergreen V2 format. It includes methods for setting up input and output nodes,
+ * ActionEngine V2 format. It includes methods for setting up input and output nodes,
  * calling the action, and running the action handler.
  * @headerfile eglt/actions/action.h
  */
@@ -458,7 +458,7 @@ class Action : public std::enable_shared_from_this<Action> {
 
   /**
    * @brief
-   *   Calls the action by sending an Evergreen action message to associated
+   *   Calls the action by sending an ActionEngine action message to associated
    *   stream.
    *
    * This method should normally be called by the client. It only creates the

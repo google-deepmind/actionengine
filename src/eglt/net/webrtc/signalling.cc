@@ -34,7 +34,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
 
   if (!on_answer_ && !on_offer_ && !on_candidate_) {
     return absl::FailedPreconditionError(
-        "WebsocketEvergreenServer no handlers set: connecting in this "
+        "WebsocketActionEngineServer no handlers set: connecting in this "
         "state would lose messages");
   }
 
@@ -46,7 +46,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
   boost_stream->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::request_type& req) {
         req.set(boost::beast::http::field::user_agent,
-                "Action Engine / Evergreen Light 0.1.0 "
+                "Action Engine / ActionEngine Light 0.1.0 "
                 "WebsocketWireStream client");
       }));
   boost_stream->set_option(boost::beast::websocket::stream_base::timeout(
@@ -97,7 +97,7 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     boost::system::error_code error;
     parsed_message = boost::json::parse(message, error);
     if (error) {
-      LOG(ERROR) << "WebsocketEvergreenServer parse() failed: "
+      LOG(ERROR) << "WebsocketActionEngineServer parse() failed: "
                  << error.message();
       continue;
     }
@@ -105,7 +105,7 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     std::string client_id;
     if (auto id_ptr = parsed_message.find_pointer("/id", error);
         id_ptr == nullptr || error) {
-      LOG(ERROR) << "WebsocketEvergreenServer no 'id' field in message: "
+      LOG(ERROR) << "WebsocketActionEngineServer no 'id' field in message: "
                  << message;
       continue;
     } else {
@@ -115,7 +115,7 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     std::string type;
     if (auto type_ptr = parsed_message.find_pointer("/type", error);
         type_ptr == nullptr || error) {
-      LOG(ERROR) << "WebsocketEvergreenServer no 'type' field in message: "
+      LOG(ERROR) << "WebsocketActionEngineServer no 'type' field in message: "
                  << message;
       continue;
     } else {
@@ -123,7 +123,7 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
 
     if (type != "offer" && type != "candidate" && type != "answer") {
-      LOG(ERROR) << "WebsocketEvergreenServer unknown message type: " << type
+      LOG(ERROR) << "WebsocketActionEngineServer unknown message type: " << type
                  << " in message: " << message;
       continue;
     }

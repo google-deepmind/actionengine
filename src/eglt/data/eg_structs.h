@@ -15,7 +15,7 @@
 /**
  * @file
  * @brief
- *   Evergreen data structures used to implement actions and nodes (data
+ *   ActionEngine data structures used to implement actions and nodes (data
  *   streams).
  */
 
@@ -51,10 +51,10 @@ std::vector<std::string> Indent(std::vector<std::string> fields,
 std::string Indent(std::string field, int num_spaces = 0,
                    bool indent_first_line = false);
 
-/// Evergreen chunk metadata.
+/// ActionEngine chunk metadata.
 ///
 /// This structure is used to store metadata about a chunk of data in the
-/// Evergreen format. It includes fields for mimetype and timestamp.
+/// ActionEngine format. It includes fields for mimetype and timestamp.
 /// @headerfile eglt/data/eg_structs.h
 struct ChunkMetadata {
   std::string mimetype =
@@ -84,9 +84,9 @@ struct ChunkMetadata {
   }
 };
 
-/// Evergreen chunk.
+/// ActionEngine chunk.
 ///
-/// This structure is used to store a chunk of data in the Evergreen format.
+/// This structure is used to store a chunk of data in the ActionEngine format.
 /// It includes fields for metadata, a reference to the data, and the actual
 /// data itself. Data can be either a reference or the actual data, but not both.
 /// However, this is not enforced in the structure itself at this time.
@@ -127,7 +127,7 @@ struct Chunk {
   }
 };
 
-/// Evergreen node fragment.
+/// ActionEngine node fragment.
 /// @headerfile eglt/data/eg_structs.h
 struct NodeFragment {
   /// The node ID for this fragment.
@@ -184,9 +184,9 @@ struct Port {
 };
 
 /**
- * @brief Evergreen action message.
+ * @brief ActionEngine action message.
  *
- * This structure represents an Evergreen action call, which can be sent on the
+ * This structure represents an ActionEngine action call, which can be sent on the
  * wire level (in a SessionMessage).
  */
 struct ActionMessage {

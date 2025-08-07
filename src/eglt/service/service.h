@@ -67,16 +67,16 @@ std::unique_ptr<Action> MakeActionInConnection(
     const StreamToSessionConnection& connection, std::string_view action_name,
     std::string_view action_id = "");
 
-using EvergreenConnectionHandler = std::function<absl::Status(
+using ActionEngineConnectionHandler = std::function<absl::Status(
     const std::shared_ptr<WireStream>&, Session* absl_nonnull)>;
 
 /// @callgraph
-absl::Status RunSimpleEvergreenSession(
+absl::Status RunSimpleActionEngineSession(
     const std::shared_ptr<WireStream>& stream, Session* absl_nonnull session);
 
 /**
  * @brief
- *   The Evergreen service class. Manages sessions, streams, and connections.
+ *   The ActionEngine service class. Manages sessions, streams, and connections.
  *
  * This class provides methods to establish and join connections, as well as
  * to set the action registry.
@@ -84,7 +84,7 @@ absl::Status RunSimpleEvergreenSession(
  * The service can be instantiated with an optional action registry and
  * connection handler. If the action registry is not provided, it will be
  * initialized with an empty registry. If the connection handler is not
- * provided, it will be initialized with RunSimpleEvergreenSession. The chunk
+ * provided, it will be initialized with RunSimpleActionEngineSession. The chunk
  * store factory is used to create chunk stores for new sessions. By default,
  * `LocalChunkStore`s are created.
  *
@@ -102,10 +102,10 @@ absl::Status RunSimpleEvergreenSession(
  */
 class Service : public std::enable_shared_from_this<Service> {
  public:
-  explicit Service(
-      ActionRegistry* absl_nullable action_registry = nullptr,
-      EvergreenConnectionHandler connection_handler = RunSimpleEvergreenSession,
-      ChunkStoreFactory chunk_store_factory = {});
+  explicit Service(ActionRegistry* absl_nullable action_registry = nullptr,
+                   ActionEngineConnectionHandler connection_handler =
+                       RunSimpleActionEngineSession,
+                   ChunkStoreFactory chunk_store_factory = {});
 
   ~Service();
 
@@ -118,11 +118,11 @@ class Service : public std::enable_shared_from_this<Service> {
 
   auto EstablishConnection(
       std::shared_ptr<WireStream>&& stream,
-      EvergreenConnectionHandler connection_handler = nullptr)
+      ActionEngineConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto EstablishConnection(
       net::GetStreamFn get_stream,
-      EvergreenConnectionHandler connection_handler = nullptr)
+      ActionEngineConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
       -> absl::Status;
@@ -179,7 +179,7 @@ class Service : public std::enable_shared_from_this<Service> {
   }
 
   std::unique_ptr<ActionRegistry> action_registry_;
-  EvergreenConnectionHandler connection_handler_;
+  ActionEngineConnectionHandler connection_handler_;
   ChunkStoreFactory chunk_store_factory_;
 
   mutable eglt::Mutex mu_;

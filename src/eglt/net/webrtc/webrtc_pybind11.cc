@@ -113,15 +113,15 @@ void BindWebRtcWireStream(py::handle scope, std::string_view name) {
       .doc() = "A WebRtcWireStream interface.";
 }
 
-void BindWebRtcEvergreenServer(py::handle scope, std::string_view name) {
-  py::class_<net::WebRtcEvergreenServer,
-             std::shared_ptr<net::WebRtcEvergreenServer>>(
-      scope, std::string(name).c_str(), "A WebRtcEvergreenServer interface.")
+void BindWebRtcActionEngineServer(py::handle scope, std::string_view name) {
+  py::class_<net::WebRtcActionEngineServer,
+             std::shared_ptr<net::WebRtcActionEngineServer>>(
+      scope, std::string(name).c_str(), "A WebRtcActionEngineServer interface.")
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port, std::string_view signalling_address,
                        uint16_t signalling_port, std::string_view identity,
                        net::RtcConfig rtc_config) {
-             return std::make_shared<net::WebRtcEvergreenServer>(
+             return std::make_shared<net::WebRtcActionEngineServer>(
                  service, address, port, signalling_address, signalling_port,
                  identity, std::move(rtc_config));
            }),
@@ -131,35 +131,35 @@ void BindWebRtcEvergreenServer(py::handle scope, std::string_view name) {
            py::arg_v("signalling_port", 80), py::arg_v("identity", "server"),
            py::arg_v("rtc_config", net::RtcConfig{}),
            pybindings::keep_event_loop_memo())
-      .def("run", &net::WebRtcEvergreenServer::Run,
+      .def("run", &net::WebRtcActionEngineServer::Run,
            py::call_guard<py::gil_scoped_release>())
       .def(
           "cancel",
-          [](const std::shared_ptr<net::WebRtcEvergreenServer>& self) {
+          [](const std::shared_ptr<net::WebRtcActionEngineServer>& self) {
             return self->Cancel();
           },
           py::call_guard<py::gil_scoped_release>())
       .def(
           "join",
-          [](const std::shared_ptr<net::WebRtcEvergreenServer>& self) {
+          [](const std::shared_ptr<net::WebRtcActionEngineServer>& self) {
             return self->Join();
           },
           py::call_guard<py::gil_scoped_release>())
-      .doc() = "A WebRtcEvergreenServer interface.";
+      .doc() = "A WebRtcActionEngineServer interface.";
 }
 
 py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
   pybind11::module_ webrtc = scope.def_submodule(
-      std::string(module_name).c_str(), "Evergreen WebRTC interface.");
+      std::string(module_name).c_str(), "ActionEngine WebRTC interface.");
 
   BindTurnServer(webrtc, "TurnServer");
   BindRtcConfig(webrtc, "RtcConfig");
 
   BindWebRtcWireStream(webrtc, "WebRtcWireStream");
-  BindWebRtcEvergreenServer(webrtc, "WebRtcEvergreenServer");
+  BindWebRtcActionEngineServer(webrtc, "WebRtcActionEngineServer");
 
   webrtc.def(
-      "make_webrtc_evergreen_stream",
+      "make_webrtc_actionengine_stream",
       [](std::string_view identity, std::string_view peer_identity,
          std::string_view signalling_address, uint16_t port)
           -> absl::StatusOr<std::shared_ptr<net::WebRtcWireStream>> {

@@ -43,7 +43,7 @@
 
 namespace eglt::net {
 
-WebRtcEvergreenServer::WebRtcEvergreenServer(
+WebRtcActionEngineServer::WebRtcActionEngineServer(
     eglt::Service* absl_nonnull service, std::string_view address,
     uint16_t port, std::string_view signalling_address,
     uint16_t signalling_port, std::string_view signalling_identity,
@@ -57,13 +57,13 @@ WebRtcEvergreenServer::WebRtcEvergreenServer(
       rtc_config_(std::move(rtc_config)),
       ready_data_connections_(32) {}
 
-WebRtcEvergreenServer::~WebRtcEvergreenServer() {
+WebRtcActionEngineServer::~WebRtcActionEngineServer() {
   eglt::MutexLock lock(&mu_);
   CancelInternal().IgnoreError();
   JoinInternal().IgnoreError();
 }
 
-void WebRtcEvergreenServer::Run() {
+void WebRtcActionEngineServer::Run() {
   eglt::MutexLock l(&mu_);
   main_loop_ = thread::NewTree({}, [this]() {
     eglt::MutexLock lock(&mu_);
@@ -71,11 +71,11 @@ void WebRtcEvergreenServer::Run() {
   });
 }
 
-absl::Status WebRtcEvergreenServer::CancelInternal()
+absl::Status WebRtcActionEngineServer::CancelInternal()
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (main_loop_ == nullptr) {
     return absl::FailedPreconditionError(
-        "WebRtcEvergreenServer Cancel called on either unstarted or already "
+        "WebRtcActionEngineServer Cancel called on either unstarted or already "
         "cancelled server.");
   }
   ready_data_connections_.writer()->Close();
@@ -83,7 +83,7 @@ absl::Status WebRtcEvergreenServer::CancelInternal()
   return absl::OkStatus();
 }
 
-absl::Status WebRtcEvergreenServer::JoinInternal()
+absl::Status WebRtcActionEngineServer::JoinInternal()
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 
   if (main_loop_ != nullptr) {
@@ -96,7 +96,7 @@ absl::Status WebRtcEvergreenServer::JoinInternal()
   return absl::OkStatus();
 }
 
-void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+void WebRtcActionEngineServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   DataChannelConnectionMap connections;
   std::shared_ptr<SignallingClient> signalling_client;
 
@@ -111,9 +111,9 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       if (const auto status =
               signalling_client->ConnectWithIdentity(signalling_identity_);
           !status.ok()) {
-        LOG(ERROR)
-            << "WebRtcEvergreenServer failed to connect to signalling server: "
-            << status;
+        LOG(ERROR) << "WebRtcActionEngineServer failed to connect to "
+                      "signalling server: "
+                   << status;
         break;
       }
     }
@@ -136,12 +136,12 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     // we still have retries left.
     if (selected == 1) {
       if (retries_remaining <= 0) {
-        LOG(ERROR) << "WebRtcEvergreenServer signalling client error: "
+        LOG(ERROR) << "WebRtcActionEngineServer signalling client error: "
                    << signalling_client->GetStatus()
                    << ". No more retries left. Exiting.";
         break;
       }
-      LOG(ERROR) << "WebRtcEvergreenServer signalling client error: "
+      LOG(ERROR) << "WebRtcActionEngineServer signalling client error: "
                  << signalling_client->GetStatus()
                  << ". Restarting in 0.5 seconds.";
       mu_.Unlock();
@@ -155,7 +155,7 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     // This happens when the channel is closed for writing and does not have
     // any more data to read.
     if (!channel_open) {
-      LOG(INFO) << "WebRtcEvergreenServer RunLoop was cancelled by externally "
+      LOG(INFO) << "WebRtcActionEngineServer RunLoop was cancelled by externally "
                    "closing the channel for new connections.";
     }
 
@@ -163,7 +163,7 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
             rtc::PeerConnection::State::Failed ||
         next_connection.connection->state() ==
             rtc::PeerConnection::State::Closed) {
-      LOG(ERROR) << "WebRtcEvergreenServer RunLoop could not accept a new "
+      LOG(ERROR) << "WebRtcActionEngineServer RunLoop could not accept a new "
                     "connection because the connection is in a failed or "
                     "closed state.";
       continue;
@@ -171,7 +171,7 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 
     if (next_connection.data_channel == nullptr) {
       LOG(ERROR)
-          << "WebRtcEvergreenServer RunLoop received a connection without"
+          << "WebRtcActionEngineServer RunLoop received a connection without"
              "a data channel. This should not happen.";
       continue;
     }
@@ -183,12 +183,12 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (auto service_connection =
             service_->EstablishConnection(std::move(stream));
         !service_connection.ok()) {
-      LOG(ERROR) << "WebRtcEvergreenServer EstablishConnection failed: "
+      LOG(ERROR) << "WebRtcActionEngineServer EstablishConnection failed: "
                  << service_connection.status();
       continue;
     }
     // At this point, the connection is established and the responsibility
-    // of the WebRtcEvergreenServer is done. The service will handle the
+    // of the WebRtcActionEngineServer is done. The service will handle the
     // connection from here on out.
   }
   signalling_client->Cancel();
@@ -207,7 +207,7 @@ void WebRtcEvergreenServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   connections.clear();
 }
 
-std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
+std::shared_ptr<SignallingClient> WebRtcActionEngineServer::InitSignallingClient(
     std::string_view signalling_address, uint16_t signalling_port,
     DataChannelConnectionMap* absl_nonnull connections) {
   auto signalling_client =
@@ -217,7 +217,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
                                  std::string_view peer_id,
                                  const boost::json::value& message) {
     if (connections->contains(std::string(peer_id))) {
-      LOG(ERROR) << "WebRtcEvergreenServer already accepting a connection from "
+      LOG(ERROR) << "WebRtcActionEngineServer already accepting a connection from "
                     "peer: "
                  << peer_id;
       return;
@@ -228,7 +228,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
     std::string description;
     if (const auto desc_ptr = message.find_pointer("/description", error);
         desc_ptr == nullptr || error) {
-      LOG(ERROR) << "WebRtcEvergreenServer no 'description' field in offer: "
+      LOG(ERROR) << "WebRtcActionEngineServer no 'description' field in offer: "
                  << boost::json::serialize(message);
       return;
     } else {
@@ -261,7 +261,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
 
       const auto message = boost::json::serialize(answer);
       if (const auto status = signalling_client->Send(message); !status.ok()) {
-        LOG(ERROR) << "WebRtcEvergreenServer Send answer failed: " << status;
+        LOG(ERROR) << "WebRtcActionEngineServer Send answer failed: " << status;
       }
     });
     connection->onLocalCandidate([this, peer_id = std::string(peer_id),
@@ -275,7 +275,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
 
       const auto message = boost::json::serialize(candidate_json);
       if (const auto status = signalling_client->Send(message); !status.ok()) {
-        LOG(ERROR) << "WebRtcEvergreenServer Send candidate failed: " << status;
+        LOG(ERROR) << "WebRtcActionEngineServer Send candidate failed: " << status;
       }
     });
     // connection->onIceStateChange([this, peer_id = std::string(peer_id),
@@ -285,7 +285,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
     //   if (state == rtc::PeerConnection::IceState::Failed) {
     //     const auto map_node = connections->extract(peer_id);
     //     CHECK(!map_node.empty())
-    //         << "WebRtcEvergreenServer no connection for peer: " << peer_id;
+    //         << "WebRtcActionEngineServer no connection for peer: " << peer_id;
     //     if (map_node.mapped().data_channel) {
     //       map_node.mapped().data_channel->close();
     //     }
@@ -306,7 +306,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
                                   std::shared_ptr<rtc::DataChannel> dc) {
       const auto map_node = connections->extract(peer_id);
       CHECK(!map_node.empty())
-          << "WebRtcEvergreenServer no connection for peer: " << peer_id;
+          << "WebRtcActionEngineServer no connection for peer: " << peer_id;
 
       WebRtcDataChannelConnection connection_from_map =
           std::move(map_node.mapped());
@@ -337,7 +337,7 @@ std::shared_ptr<SignallingClient> WebRtcEvergreenServer::InitSignallingClient(
     std::string candidate;
     if (const auto candidate_ptr = message.find_pointer("/candidate", error);
         candidate_ptr == nullptr || error) {
-      LOG(ERROR) << "WebRtcEvergreenServer no 'candidate' field in "
+      LOG(ERROR) << "WebRtcActionEngineServer no 'candidate' field in "
                     "candidate message: "
                  << boost::json::serialize(message);
       return;

@@ -66,7 +66,7 @@ void BindActionSchema(py::handle scope, std::string_view name) {
       .def_readwrite("outputs", &ActionSchema::outputs)
       .def("__repr__",
            [](const ActionSchema& def) { return absl::StrCat(def); })
-      .doc() = "An Evergreen ActionSchema.";
+      .doc() = "An ActionEngine ActionSchema.";
 }
 
 /// @private
@@ -202,7 +202,7 @@ void BindAction(py::handle scope, std::string_view name) {
 /// @private
 py::module_ MakeActionsModule(py::module_ scope, std::string_view module_name) {
   py::module_ actions = scope.def_submodule(std::string(module_name).c_str(),
-                                            "Evergreen Actions interface.");
+                                            "ActionEngine Actions interface.");
 
   BindActionSchema(actions, "ActionSchema");
   BindActionRegistry(actions, "ActionRegistry");

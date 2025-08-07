@@ -5,11 +5,11 @@ import inspect
 from typing import Awaitable
 from typing import Callable
 
-from evergreen import actions
-from evergreen import session as eg_session
-from evergreen import stream as eg_stream
-from evergreen import utils
-from evergreen.evergreen_pybind11 import service as service_pybind11
+from actionengine import actions
+from actionengine import session as eg_session
+from actionengine import stream as eg_stream
+from actionengine import utils
+from actionengine.actionengine_pybind11 import service as service_pybind11
 
 ActionRegistry = actions.ActionRegistry
 WireStream = eg_stream.WireStream

@@ -83,7 +83,7 @@ void BindChunkMetadata(py::handle scope, std::string_view name) {
       .def_readwrite("mimetype", &ChunkMetadata::mimetype)
       .def("__repr__",
            [](const ChunkMetadata& metadata) { return absl::StrCat(metadata); })
-      .doc() = "Metadata for an Evergreen Chunk.";
+      .doc() = "Metadata for an ActionEngine Chunk.";
 }
 
 /// @private
@@ -107,7 +107,7 @@ void BindChunk(py::handle scope, std::string_view name) {
           })
       .def("__repr__", [](const Chunk& chunk) { return absl::StrCat(chunk); })
       .doc() =
-      "An Evergreen Chunk containing metadata and either a reference to or "
+      "An ActionEngine Chunk containing metadata and either a reference to or "
       "the data themselves.";
 }
 
@@ -129,7 +129,7 @@ void BindNodeFragment(py::handle scope, std::string_view name) {
       .def_readwrite("continued", &NodeFragment::continued)
       .def("__repr__",
            [](const NodeFragment& fragment) { return absl::StrCat(fragment); })
-      .doc() = "An Evergreen NodeFragment.";
+      .doc() = "An ActionEngine NodeFragment.";
 }
 
 /// @private
@@ -147,7 +147,7 @@ void BindPort(py::handle scope, std::string_view name) {
       .def_readwrite("id", &Port::id)
       .def("__repr__",
            [](const Port& parameter) { return absl::StrCat(parameter); })
-      .doc() = "An Evergreen Port for an Action.";
+      .doc() = "An ActionEngine Port for an Action.";
 }
 
 /// @private
@@ -168,7 +168,7 @@ void BindActionMessage(py::handle scope, std::string_view name) {
       .def_readwrite("outputs", &ActionMessage::outputs)
       .def("__repr__",
            [](const ActionMessage& action) { return absl::StrCat(action); })
-      .doc() = "An Evergreen ActionMessage definition.";
+      .doc() = "An ActionEngine ActionMessage definition.";
 }
 
 /// @private
@@ -187,7 +187,7 @@ void BindSessionMessage(py::handle scope, std::string_view name) {
       .def_readwrite("actions", &SessionMessage::actions)
       .def("__repr__",
            [](const SessionMessage& message) { return absl::StrCat(message); })
-      .doc() = "An Evergreen SessionMessage data structure.";
+      .doc() = "An ActionEngine SessionMessage data structure.";
 }
 
 void BindSerializerRegistry(py::handle scope, std::string_view name) {
@@ -312,8 +312,9 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
 
 /// @private
 py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
-  py::module_ data = scope.def_submodule(std::string(module_name).c_str(),
-                                         "Evergreen data structures, as PODs.");
+  py::module_ data =
+      scope.def_submodule(std::string(module_name).c_str(),
+                          "ActionEngine data structures, as PODs.");
 
   BindChunkMetadata(data, "ChunkMetadata");
   BindChunk(data, "Chunk");

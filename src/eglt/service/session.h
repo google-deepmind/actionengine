@@ -115,7 +115,7 @@ class ActionContext {
 
 /**
  * @brief
- *   A session for handling Evergreen actions.
+ *   A session for handling ActionEngine actions.
  *
  * This class is used to manage the lifecycle of a session, including dispatching
  * messages and managing nodes and actions.

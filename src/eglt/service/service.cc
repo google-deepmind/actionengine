@@ -36,7 +36,7 @@
 
 namespace eglt {
 
-absl::Status RunSimpleEvergreenSession(
+absl::Status RunSimpleActionEngineSession(
     const std::shared_ptr<WireStream>& stream, Session* absl_nonnull session) {
   const auto owned_stream = stream;
   absl::Status status;
@@ -75,7 +75,7 @@ std::unique_ptr<Action> MakeActionInConnection(
 }
 
 Service::Service(ActionRegistry* absl_nullable action_registry,
-                 EvergreenConnectionHandler connection_handler,
+                 ActionEngineConnectionHandler connection_handler,
                  ChunkStoreFactory chunk_store_factory)
     : action_registry_(
           action_registry == nullptr
@@ -116,7 +116,7 @@ std::vector<std::string> Service::GetSessionKeys() const {
 
 absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
 Service::EstablishConnection(std::shared_ptr<WireStream>&& stream,
-                             EvergreenConnectionHandler connection_handler) {
+                             ActionEngineConnectionHandler connection_handler) {
   return EstablishConnection(
       [stream = std::move(stream)]() { return stream.get(); },
       std::move(connection_handler));
@@ -124,7 +124,7 @@ Service::EstablishConnection(std::shared_ptr<WireStream>&& stream,
 
 absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
 Service::EstablishConnection(net::GetStreamFn get_stream,
-                             EvergreenConnectionHandler connection_handler) {
+                             ActionEngineConnectionHandler connection_handler) {
   eglt::MutexLock lock(&mu_);
 
   std::string stream_id;
@@ -176,7 +176,8 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
           .stream_id = stream_id,
       });
 
-  EvergreenConnectionHandler resolved_handler = std::move(connection_handler);
+  ActionEngineConnectionHandler resolved_handler =
+      std::move(connection_handler);
   if (resolved_handler == nullptr) {
     resolved_handler = connection_handler_;
   }

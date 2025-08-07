@@ -1,6 +1,6 @@
 // ------------------------------------------------------------------------------
 // This example shows how to define custom types that can be serialized to
-// Evergreen chunks, completely at your own discretion and at application level.
+// ActionEngine chunks, completely at your own discretion and at application level.
 //
 // You can run this example with:
 // blaze run //third_party/eglt/examples:chunks_from_custom_types

@@ -24,8 +24,8 @@ namespace py = ::pybind11;
 void BindWebsocketWireStream(py::handle scope,
                              std::string_view name = "WebsocketWireStream");
 
-void BindWebsocketEvergreenServer(
-    py::handle scope, std::string_view name = "WebsocketEvergreenServer");
+void BindWebsocketActionEngineServer(
+    py::handle scope, std::string_view name = "WebsocketActionEngineServer");
 
 py::module_ MakeWebsocketsModule(py::module_ scope,
                                  std::string_view module_name = "websockets");

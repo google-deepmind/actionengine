@@ -54,21 +54,21 @@ add_subdirectory(pybind11_abseil_module)
 # ------------------------------------------------------------------
 
 pybind11_add_module(
-        evergreen_pybind11
-        eglt/evergreen_pybind11.cc
+        actionengine_pybind11
+        eglt/actionengine_pybind11.cc
 )
 add_library(
         eglt::pybind11 ALIAS
-        evergreen_pybind11
+        actionengine_pybind11
 )
 
 target_link_libraries(
-        evergreen_pybind11 PRIVATE
+        actionengine_pybind11 PRIVATE
         absl::failure_signal_handler
 )
 
 target_link_libraries(
-        evergreen_pybind11 PRIVATE
+        actionengine_pybind11 PRIVATE
         absl::base
         absl::flags
         absl::flags_parse
@@ -102,7 +102,7 @@ target_link_libraries(
 )
 
 target_include_directories(
-        evergreen_pybind11 PRIVATE
+        actionengine_pybind11 PRIVATE
         ${EGLT_INCLUDE_DIR}
         ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
         ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
@@ -112,7 +112,7 @@ target_include_directories(
 )
 
 install(
-        TARGETS evergreen_pybind11
+        TARGETS actionengine_pybind11
         EXPORT egltTargets
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib/eglt

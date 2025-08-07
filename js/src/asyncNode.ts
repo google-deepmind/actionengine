@@ -2,7 +2,7 @@ import { ChunkStore, LocalChunkStore } from './chunkStore.js';
 import { endOfStream } from './data.js';
 import { ChunkStoreReader, NumberedChunk } from './chunkStoreReader.js';
 import { ChunkStoreWriter } from './chunkStoreWriter.js';
-import { BaseEvergreenStream } from './stream.js';
+import { BaseActionEngineStream } from './stream.js';
 import { Mutex } from './utils.js';
 
 export class NodeMap {
@@ -34,7 +34,7 @@ export class AsyncNode {
   private defaultReader: ChunkStoreReader | null;
   private defaultWriter: ChunkStoreWriter | null;
 
-  private writerStream: BaseEvergreenStream | null;
+  private writerStream: BaseActionEngineStream | null;
   private readonly mutex: Mutex;
 
   constructor(id: string = '', chunkStore: ChunkStore | null = null) {
@@ -106,7 +106,7 @@ export class AsyncNode {
     return await this.put(chunk, seq, /*final=*/ true);
   }
 
-  async bindWriterStream(stream: BaseEvergreenStream | null = null) {
+  async bindWriterStream(stream: BaseActionEngineStream | null = null) {
     await this.mutex.runExclusive(async () => {
       this.writerStream = stream;
     });

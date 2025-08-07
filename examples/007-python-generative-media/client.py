@@ -3,13 +3,13 @@ import uuid
 
 from tqdm.auto import tqdm
 
-import evergreen
+import actionengine
 
 import actions
 
 
 def make_action_registry():
-    registry = evergreen.ActionRegistry()
+    registry = actionengine.ActionRegistry()
     registry.register("echo", actions.echo.SCHEMA)
     registry.register("text_to_image", actions.text_to_image.SCHEMA)
     return registry
@@ -17,15 +17,15 @@ def make_action_registry():
 
 async def main():
     action_registry = make_action_registry()
-    node_map = evergreen.NodeMap()
-    # stream = evergreen.websockets.make_websocket_evergreen_stream(
+    node_map = actionengine.NodeMap()
+    # stream = actionengine.websockets.make_websocket_actionengine_stream(
     #     "localhost", "/", 20000
     # )
-    stream = evergreen.webrtc.make_webrtc_evergreen_stream(
+    stream = actionengine.webrtc.make_webrtc_actionengine_stream(
         str(uuid.uuid4()), "demoserver", "demos.helena.direct", 19000
     )
 
-    session = evergreen.Session(node_map, action_registry)
+    session = actionengine.Session(node_map, action_registry)
     session.dispatch_from(stream)
 
     try:
@@ -69,13 +69,13 @@ async def main():
 
 
 def setup_action_engine():
-    settings = evergreen.get_global_eglt_settings()
+    settings = actionengine.get_global_eglt_settings()
     settings.readers_deserialise_automatically = True
     settings.readers_read_in_order = True
     settings.readers_remove_read_chunks = True
 
     # a temporary hack to get the schema registered for serialization
-    evergreen.to_chunk(actions.text_to_image.ProgressMessage(step=1))
+    actionengine.to_chunk(actions.text_to_image.ProgressMessage(step=1))
 
 
 def sync_main():

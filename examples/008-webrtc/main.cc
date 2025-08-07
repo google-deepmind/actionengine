@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
 
   eglt::net::RtcConfig rtc_config;
   rtc_config.turn_servers = absl::GetFlag(FLAGS_webrtc_turn_servers);
-  eglt::net::WebRtcEvergreenServer server(
+  eglt::net::WebRtcActionEngineServer server(
       &service, /*address=*/absl::GetFlag(FLAGS_webrtc_bind_address),
       /*port=*/absl::GetFlag(FLAGS_webrtc_port),
       /*signalling_address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),

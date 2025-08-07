@@ -69,7 +69,7 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
           },
           py::arg("key"), py::arg("value"),
           py::call_guard<py::gil_scoped_release>())
-      .doc() = "Redis client for Evergreen.";
+      .doc() = "Redis client for ActionEngine.";
 
   py::class_<redis::ChunkStore, eglt::ChunkStore,
              std::shared_ptr<redis::ChunkStore>>(redis_module, "ChunkStore")
@@ -150,7 +150,7 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
             return self->Contains(seq);
           },
           py::arg("seq"), py::call_guard<py::gil_scoped_release>())
-      .doc() = "Evergreen Redis ChunkStore.";
+      .doc() = "ActionEngine Redis ChunkStore.";
 
   return redis_module;
 }

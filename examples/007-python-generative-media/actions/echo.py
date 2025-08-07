@@ -1,13 +1,13 @@
 import asyncio
 
-import evergreen
+import actionengine
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from .http import ActionEngineClient
 
 
-async def run(action: evergreen.Action) -> None:
+async def run(action: actionengine.Action) -> None:
     response = action.get_output("response")
     try:
         async for message in action.get_input("text"):
@@ -25,7 +25,7 @@ class EchoRequest(BaseModel):
     )
 
 
-async def stream_echo_response(action: evergreen.Action):
+async def stream_echo_response(action: actionengine.Action):
     async for message in action["response"]:
         yield f"data: {message}\n\n"
 
@@ -67,7 +67,7 @@ async def http_handler(
     return response
 
 
-SCHEMA = evergreen.ActionSchema(
+SCHEMA = actionengine.ActionSchema(
     name="echo",
     inputs=[("text", "text/plain")],
     outputs=[("response", "text/plain")],

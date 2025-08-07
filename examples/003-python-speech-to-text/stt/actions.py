@@ -1,6 +1,6 @@
 import asyncio
 
-import evergreen
+import actionengine
 
 from .model_server import STTModelServer
 from .serialisation import BOOL_MIMETYPE
@@ -17,7 +17,7 @@ def has_stop_command(text: str) -> bool:
   )
 
 
-async def stream_text_output(action: evergreen.Action,
+async def stream_text_output(action: actionengine.Action,
     model_server: STTModelServer):
   output_node = action.get_output("text")
   ready_node = action.get_output("ready")
@@ -43,7 +43,7 @@ async def stream_text_output(action: evergreen.Action,
     await output_node.finalize()
 
 
-async def run_speech_to_text(action: evergreen.Action):
+async def run_speech_to_text(action: actionengine.Action):
   print("Running speech_to_text action", flush=True)
   model_server = STTModelServer()
 
@@ -61,10 +61,10 @@ async def run_speech_to_text(action: evergreen.Action):
 
 
 def make_action_registry():
-  registry = evergreen.ActionRegistry()
+  registry = actionengine.ActionRegistry()
   registry.register(
       "speech_to_text",
-      evergreen.ActionSchema(
+      actionengine.ActionSchema(
           name="speech_to_text",
           inputs=[("speech", BYTEARRAY_MIMETYPE)],
           outputs=[("text", "text/plain"), ("ready", BOOL_MIMETYPE)],

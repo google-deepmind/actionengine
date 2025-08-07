@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-import evergreen
+import actionengine
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -63,12 +63,12 @@ def get_app_with_handlers() -> FastAPI:
 
 
 def register_actions(
-    registry: evergreen.ActionRegistry | None = None,
-) -> evergreen.ActionRegistry:
+    registry: actionengine.ActionRegistry | None = None,
+) -> actionengine.ActionRegistry:
     """
     Create and return an ActionRegistry with the necessary actions registered.
     """
-    registry = registry or evergreen.ActionRegistry()
+    registry = registry or actionengine.ActionRegistry()
     registry.register("echo", actions.echo.SCHEMA)
     registry.register(
         "generate_content", actions.gemini.GENERATE_CONTENT_SCHEMA
@@ -263,15 +263,15 @@ async def send_message_to_new_session(
 
 
 async def put_node_fragments_in_queue(
-    node: evergreen.AsyncNode,
+    node: actionengine.AsyncNode,
     queue: asyncio.Queue,
     name: str,
 ):
     seq = 0
     async for data in node:
-        fragment = evergreen.NodeFragment(
+        fragment = actionengine.NodeFragment(
             id=name,
-            chunk=await asyncio.to_thread(evergreen.to_chunk, data),
+            chunk=await asyncio.to_thread(actionengine.to_chunk, data),
             seq=seq,
             continued=True,
         )
@@ -303,7 +303,7 @@ async def make_response_events(
         yield f"data: {json.dumps(event)}\nevent: session.stream.fragment\n\n"
 
 
-async def make_streaming_response(action: evergreen.Action):
+async def make_streaming_response(action: actionengine.Action):
     queue = asyncio.Queue()
 
     stream_thoughts = asyncio.create_task(
@@ -522,7 +522,7 @@ async def follow_session(
                     break
 
                 annotation, chunk, seq, is_final = element
-                fragment = evergreen.NodeFragment(
+                fragment = actionengine.NodeFragment(
                     id=annotation,
                     seq=seq,
                     chunk=chunk,

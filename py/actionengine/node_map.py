@@ -1,16 +1,16 @@
 """A Pythonic wrapper for the raw pybind11 NodeMap bindings."""
 
-import evergreen.evergreen_pybind11 as evergreen_pybind11
-from evergreen import async_node
-from evergreen import data
-from evergreen import utils
+import actionengine.actionengine_pybind11 as actionengine_pybind11
+from actionengine import async_node
+from actionengine import data
+from actionengine import utils
 
 AsyncNode = async_node.AsyncNode
 ChunkStoreFactory = data.ChunkStoreFactory
 
 
-class NodeMap(evergreen_pybind11.NodeMap):
-    """An Evergreen NodeMap.
+class NodeMap(actionengine_pybind11.NodeMap):
+    """An ActionEngine NodeMap.
 
     Simply contains AsyncNodes. Calls are thread-safe.
     """

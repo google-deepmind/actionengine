@@ -33,7 +33,7 @@ namespace eglt {
 
 /**
  * @brief
- *   A thread-safe map of Evergreen nodes.
+ *   A thread-safe map of ActionEngine nodes.
  *
  * This class is used to manage a collection of nodes, allowing for the
  * retrieval and insertion of nodes by their ID. It also provides a way to

@@ -85,7 +85,8 @@ class SignallingClient {
       LOG(ERROR) << "SignallingClient::Cancel failed: " << status;
     }
     loop_->Cancel();
-    loop_status_ = absl::CancelledError("WebsocketEvergreenServer cancelled");
+    loop_status_ =
+        absl::CancelledError("WebsocketActionEngineServer cancelled");
   }
 
   void JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {

@@ -1,6 +1,6 @@
 import asyncio
 
-import evergreen
+import actionengine
 import torch
 from diffusers import StableDiffusionPipeline, UniPCMultistepScheduler
 from pydantic import BaseModel
@@ -45,7 +45,7 @@ def get_pipeline():
     return get_pipeline.pipe
 
 
-def make_progress_callback(action: evergreen.Action):
+def make_progress_callback(action: actionengine.Action):
     def callback(pipeline, step: int, timestep: int, kwargs):
         action["progress"].put(ProgressMessage(step=step))
         return kwargs
@@ -53,7 +53,7 @@ def make_progress_callback(action: evergreen.Action):
     return callback
 
 
-async def run(action: evergreen.Action):
+async def run(action: actionengine.Action):
     request: DiffusionRequest = await action["request"].consume()
 
     print("Running text_to_image with request:", str(request), flush=True)
@@ -82,7 +82,7 @@ async def run(action: evergreen.Action):
     await action["image"].put_and_finalize(images[0][0])
 
 
-SCHEMA = evergreen.ActionSchema(
+SCHEMA = actionengine.ActionSchema(
     name="text_to_image",
     inputs=[("request", DiffusionRequest)],
     outputs=[("image", "image/png"), ("progress", ProgressMessage)],

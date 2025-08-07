@@ -20,12 +20,13 @@
 
 #define BOOST_ASIO_NO_DEPRECATED
 
+#include <utility>
+
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
-#include <utility>
 
 #include "eglt/data/eg_structs.h"
 #include "eglt/data/msgpack.h"
@@ -87,11 +88,11 @@ class WebsocketWireStream final : public WireStream {
   };
 };
 
-class WebsocketEvergreenServer {
+class WebsocketActionEngineServer {
  public:
-  explicit WebsocketEvergreenServer(eglt::Service* absl_nonnull service,
-                                    std::string_view address = "0.0.0.0",
-                                    uint16_t port = 20000)
+  explicit WebsocketActionEngineServer(eglt::Service* absl_nonnull service,
+                                       std::string_view address = "0.0.0.0",
+                                       uint16_t port = 20000)
       : service_(service),
         acceptor_(std::make_unique<boost::asio::ip::tcp::acceptor>(
             *util::GetDefaultAsioExecutionContext())) {
@@ -100,7 +101,7 @@ class WebsocketEvergreenServer {
     acceptor_->open(boost::asio::ip::tcp::v4(), error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketEvergreenServer open() failed: " << status_;
+      LOG(FATAL) << "WebsocketActionEngineServer open() failed: " << status_;
       ABSL_ASSUME(false);
     }
 
@@ -108,7 +109,8 @@ class WebsocketEvergreenServer {
     acceptor_->set_option(boost::asio::socket_base::reuse_address(true), error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketEvergreenServer set_option() failed: " << status_;
+      LOG(FATAL) << "WebsocketActionEngineServer set_option() failed: "
+                 << status_;
       ABSL_ASSUME(false);
     }
 
@@ -117,26 +119,26 @@ class WebsocketEvergreenServer {
                     error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketEvergreenServer bind() failed: " << status_;
+      LOG(FATAL) << "WebsocketActionEngineServer bind() failed: " << status_;
       ABSL_ASSUME(false);
     }
 
     acceptor_->listen(boost::asio::socket_base::max_listen_connections, error);
     if (error) {
       status_ = absl::InternalError(error.message());
-      LOG(FATAL) << "WebsocketEvergreenServer listen() failed: " << status_;
+      LOG(FATAL) << "WebsocketActionEngineServer listen() failed: " << status_;
       ABSL_ASSUME(false);
     }
 
-    DLOG(INFO) << "WebsocketEvergreenServer created at " << address << ":"
+    DLOG(INFO) << "WebsocketActionEngineServer created at " << address << ":"
                << port;
   }
 
-  ~WebsocketEvergreenServer() {
+  ~WebsocketActionEngineServer() {
     eglt::MutexLock lock(&mu_);
     CancelInternal().IgnoreError();
     JoinInternal().IgnoreError();
-    DLOG(INFO) << "WebsocketEvergreenServer::~WebsocketEvergreenServer()";
+    DLOG(INFO) << "WebsocketActionEngineServer::~WebsocketActionEngineServer()";
   }
 
   void Run() {
@@ -167,20 +169,20 @@ class WebsocketEvergreenServer {
                      error == boost::system::errc::operation_canceled ||
                      cancelled_;
         if (cancelled_) {
-          DLOG(INFO) << "WebsocketEvergreenServer canceled and is exiting "
+          DLOG(INFO) << "WebsocketActionEngineServer canceled and is exiting "
                         "its main loop";
           break;
         }
 
         if (error) {
-          DLOG(ERROR) << "WebsocketEvergreenServer accept() failed: "
+          DLOG(ERROR) << "WebsocketActionEngineServer accept() failed: "
                       << error.message();
           switch (error.value()) {
             case boost::system::errc::operation_canceled:
               status_ = absl::OkStatus();
               break;
             default:
-              DLOG(ERROR) << "WebsocketEvergreenServer accept() failed.";
+              DLOG(ERROR) << "WebsocketActionEngineServer accept() failed.";
               status_ = absl::InternalError(error.message());
               break;
           }
@@ -197,8 +199,9 @@ class WebsocketEvergreenServer {
 
         if (!connection.ok()) {
           status_ = connection.status();
-          DLOG(ERROR) << "WebsocketEvergreenServer EstablishConnection failed: "
-                      << status_;
+          DLOG(ERROR)
+              << "WebsocketActionEngineServer EstablishConnection failed: "
+              << status_;
           // continuing here
         }
       }
@@ -222,7 +225,7 @@ class WebsocketEvergreenServer {
       return absl::OkStatus();
     }
     cancelled_ = true;
-    DLOG(INFO) << "WebsocketEvergreenServer Cancel()";
+    DLOG(INFO) << "WebsocketActionEngineServer Cancel()";
     acceptor_->close();
     // util::GetDefaultAsioExecutionContext()->stop();
     main_loop_->Cancel();
@@ -234,6 +237,7 @@ class WebsocketEvergreenServer {
 
     return absl::OkStatus();
   }
+
   absl::Status JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     while (joining_) {
       join_cv_.Wait(&mu_);
@@ -251,7 +255,7 @@ class WebsocketEvergreenServer {
     joining_ = false;
     join_cv_.SignalAll();
 
-    DLOG(INFO) << "WebsocketEvergreenServer main_loop_ joined";
+    DLOG(INFO) << "WebsocketActionEngineServer main_loop_ joined";
     return status_;
   }
 

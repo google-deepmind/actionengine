@@ -11,8 +11,8 @@ export {
 } from './src/data.js';
 export { Session } from './src/session.js';
 export * from './src/msgpack.js';
-export { EvergreenStream } from './src/stream.js';
-export { WebRtcEvergreenStream } from './src/webrtcStream.js';
+export { ActionEngineStream } from './src/stream.js';
+export { WebRtcActionEngineStream } from './src/webrtcStream.js';
 export {
   CondVar,
   Channel,

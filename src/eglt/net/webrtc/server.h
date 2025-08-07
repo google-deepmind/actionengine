@@ -48,16 +48,16 @@
 
 namespace eglt::net {
 
-class WebRtcEvergreenServer {
+class WebRtcActionEngineServer {
  public:
-  explicit WebRtcEvergreenServer(
+  explicit WebRtcActionEngineServer(
       eglt::Service* absl_nonnull service, std::string_view address = "0.0.0.0",
       uint16_t port = 20000, std::string_view signalling_address = "localhost",
       uint16_t signalling_port = 80,
       std::string_view signalling_identity = "server",
       std::optional<RtcConfig> rtc_config = std::nullopt);
 
-  ~WebRtcEvergreenServer();
+  ~WebRtcActionEngineServer();
 
   void Run();
 

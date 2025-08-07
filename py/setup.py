@@ -2,14 +2,9 @@ from setuptools import find_packages
 from setuptools import setup
 
 setup(
-    name="eglt",
+    name="actionengine",
     ext_modules=[],
     version="0.1.0",
-    # description=(
-    #     "An implementation of the inference pipeline of AlphaFold v2.0. This is"
-    #     " a completely new model that was entered as AlphaFold2 in CASP14 and"
-    #     " published in Nature."
-    # ),
     author="Google LLC",
     author_email="helenapankov@google.com",
     license="Apache License, Version 2.0",

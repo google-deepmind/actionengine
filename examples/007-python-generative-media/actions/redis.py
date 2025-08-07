@@ -2,7 +2,7 @@ import asyncio
 import json
 from typing import Annotated, Any
 
-import evergreen
+import actionengine
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -16,16 +16,16 @@ MAX_READ_TIMEOUT_SECONDS = 300  # Maximum read timeout in seconds
 
 def get_eglt_redis_client_for_sub():
     if not hasattr(get_eglt_redis_client_for_sub, "client"):
-        get_eglt_redis_client_for_sub.client = evergreen.redis.Redis.connect(
+        get_eglt_redis_client_for_sub.client = actionengine.redis.Redis.connect(
             "localhost"
         )
     return get_eglt_redis_client_for_sub.client
-    # return evergreen.redis.Redis.connect("localhost")
+    # return actionengine.redis.Redis.connect("localhost")
 
 
 def get_eglt_redis_client_for_pub():
     if not hasattr(get_eglt_redis_client_for_pub, "client"):
-        get_eglt_redis_client_for_pub.client = evergreen.redis.Redis.connect(
+        get_eglt_redis_client_for_pub.client = actionengine.redis.Redis.connect(
             "localhost"
         )
     return get_eglt_redis_client_for_pub.client
@@ -75,7 +75,7 @@ async def read_store_chunks_into_queue(
         return annotation, value
 
     redis_client = get_eglt_redis_client_for_sub()
-    store = evergreen.redis.ChunkStore(redis_client, request.key, TTL)
+    store = actionengine.redis.ChunkStore(redis_client, request.key, TTL)
     hi = request.offset + request.count if request.count > 0 else 2147483647
     if (final_seq := await asyncio.to_thread(store.get_final_seq)) != -1:
         hi = min(hi, final_seq + 1)
@@ -92,7 +92,7 @@ async def read_store_chunks_into_queue(
     await queue.put(annotate(None))  # Signal that no more chunks will be added
 
 
-async def read_store_run(action: evergreen.Action) -> None:
+async def read_store_run(action: actionengine.Action) -> None:
     response = action["response"]
 
     try:
@@ -118,7 +118,7 @@ async def read_store_run(action: evergreen.Action) -> None:
         await response.finalize()
 
 
-READ_STORE_SCHEMA = evergreen.ActionSchema(
+READ_STORE_SCHEMA = actionengine.ActionSchema(
     name="read_store",
     inputs=[("request", ReadStoreRequest)],
     outputs=[("response", "*")],
@@ -135,17 +135,17 @@ class WriteRedisStoreRequest(BaseModel):
     data: bytes
 
 
-async def write_store_run(action: evergreen.Action) -> None:
+async def write_store_run(action: actionengine.Action) -> None:
     action.clear_inputs_after_run()
 
     request: WriteRedisStoreRequest = await action["request"].consume()
     response = action["response"]
 
-    store = evergreen.redis.ChunkStore(
+    store = actionengine.redis.ChunkStore(
         get_eglt_redis_client_for_pub(), request.key, TTL
     )
-    chunk = evergreen.Chunk(
-        metadata=evergreen.ChunkMetadata(
+    chunk = actionengine.Chunk(
+        metadata=actionengine.ChunkMetadata(
             mimetype=request.mimetype,
         ),
         data=request.data,
@@ -154,7 +154,7 @@ async def write_store_run(action: evergreen.Action) -> None:
     await response.put_and_finalize("OK")
 
 
-WRITE_STORE_SCHEMA = evergreen.ActionSchema(
+WRITE_STORE_SCHEMA = actionengine.ActionSchema(
     name="write_store",
     inputs=[("request", WriteRedisStoreRequest)],
     outputs=[("response", "text/plain")],
@@ -162,12 +162,12 @@ WRITE_STORE_SCHEMA = evergreen.ActionSchema(
 
 
 def register_actions(
-    registry: evergreen.ActionRegistry | None = None,
-) -> evergreen.ActionRegistry:
+    registry: actionengine.ActionRegistry | None = None,
+) -> actionengine.ActionRegistry:
     """
     Create and return an ActionRegistry with the necessary actions registered.
     """
-    registry = registry or evergreen.ActionRegistry()
+    registry = registry or actionengine.ActionRegistry()
     registry.register(
         "read_store",
         READ_STORE_SCHEMA,
@@ -223,7 +223,7 @@ async def read_store_http_handler_impl(
                     break
 
             chunk, seq, is_final = element
-            fragment = evergreen.NodeFragment(
+            fragment = actionengine.NodeFragment(
                 id=request.key,
                 seq=seq,
                 chunk=chunk,

@@ -49,44 +49,45 @@ void BindWebsocketWireStream(py::handle scope, std::string_view name) {
       .doc() = "A WebsocketWireStream interface.";
 }
 
-void BindWebsocketEvergreenServer(py::handle scope, std::string_view name) {
-  py::class_<net::WebsocketEvergreenServer,
-             std::shared_ptr<net::WebsocketEvergreenServer>>(
-      scope, std::string(name).c_str(), "A WebsocketEvergreenServer interface.")
+void BindWebsocketActionEngineServer(py::handle scope, std::string_view name) {
+  py::class_<net::WebsocketActionEngineServer,
+             std::shared_ptr<net::WebsocketActionEngineServer>>(
+      scope, std::string(name).c_str(),
+      "A WebsocketActionEngineServer interface.")
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port) {
-             return std::make_shared<net::WebsocketEvergreenServer>(
+             return std::make_shared<net::WebsocketActionEngineServer>(
                  service, address, port);
            }),
            py::arg("service"), py::arg_v("address", "0.0.0.0"),
            py::arg_v("port", 20000), pybindings::keep_event_loop_memo())
-      .def("run", &net::WebsocketEvergreenServer::Run,
+      .def("run", &net::WebsocketActionEngineServer::Run,
            py::call_guard<py::gil_scoped_release>())
       .def(
           "cancel",
-          [](const std::shared_ptr<net::WebsocketEvergreenServer>& self) {
+          [](const std::shared_ptr<net::WebsocketActionEngineServer>& self) {
             return self->Cancel();
           },
           py::call_guard<py::gil_scoped_release>())
       .def(
           "join",
-          [](const std::shared_ptr<net::WebsocketEvergreenServer>& self) {
+          [](const std::shared_ptr<net::WebsocketActionEngineServer>& self) {
             return self->Join();
           },
           py::call_guard<py::gil_scoped_release>())
-      .doc() = "A WebsocketEvergreenServer interface.";
+      .doc() = "A WebsocketActionEngineServer interface.";
 }
 
 py::module_ MakeWebsocketsModule(py::module_ scope,
                                  std::string_view module_name) {
   pybind11::module_ websockets = scope.def_submodule(
-      std::string(module_name).c_str(), "Evergreen Websocket interface.");
+      std::string(module_name).c_str(), "ActionEngine Websocket interface.");
 
   BindWebsocketWireStream(websockets, "WebsocketWireStream");
-  BindWebsocketEvergreenServer(websockets, "WebsocketEvergreenServer");
+  BindWebsocketActionEngineServer(websockets, "WebsocketActionEngineServer");
 
   websockets.def(
-      "make_websocket_evergreen_stream",
+      "make_websocket_actionengine_stream",
       [](std::string_view address, std::string_view target, int32_t port)
           -> absl::StatusOr<std::shared_ptr<net::WebsocketWireStream>> {
         ASSIGN_OR_RETURN(std::unique_ptr<net::WebsocketWireStream> stream,

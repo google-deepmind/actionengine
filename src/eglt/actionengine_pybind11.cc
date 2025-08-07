@@ -32,10 +32,10 @@
 namespace eglt {
 
 /// @private
-PYBIND11_MODULE(evergreen_pybind11, m) {
+PYBIND11_MODULE(actionengine_pybind11, m) {
   absl::InstallFailureSignalHandler({});
   if (!pybind11::google::internal::IsStatusModuleImported()) {
-    py::module_::import("evergreen.pybind11_abseil.status");
+    py::module_::import("actionengine.pybind11_abseil.status");
     // importing under a custom path/name, so just in case check that the
     // library understands our import.
     py::google::internal::CheckStatusModuleImported();

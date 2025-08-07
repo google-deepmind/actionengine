@@ -32,7 +32,7 @@ using ReceiveBytesT = std::function<std::optional<Bytes>()>;
 
 namespace eglt {
 
-//! An abstract base class for an Evergreen stream.
+//! An abstract base class for an ActionEngine stream.
 /*!
  * This class provides an interface for sending and receiving messages over a
  * stream. It is intended to be used as a base class for specific stream
@@ -42,9 +42,9 @@ class WireStream {
  public:
   virtual ~WireStream() = default;
 
-  //! Sends an Evergreen session message over the stream.
+  //! Sends an ActionEngine session message over the stream.
   virtual auto Send(SessionMessage message) -> absl::Status = 0;
-  //! Receives an Evergreen session message from the stream.
+  //! Receives an ActionEngine session message from the stream.
   virtual auto Receive() -> std::optional<SessionMessage> = 0;
 
   virtual auto OnReceive(std::optional<SessionMessage>* absl_nonnull message,
