@@ -159,7 +159,7 @@ py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
   BindWebRtcServer(webrtc, "WebRtcServer");
 
   webrtc.def(
-      "make_webrtc_actionengine_stream",
+      "make_webrtc_stream",
       [](std::string_view identity, std::string_view peer_identity,
          std::string_view signalling_address, uint16_t port)
     -> absl::StatusOr<std::shared_ptr<net::WebRtcWireStream>> {

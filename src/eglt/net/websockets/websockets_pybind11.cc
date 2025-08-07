@@ -87,7 +87,7 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
   BindWebsocketServer(websockets, "WebsocketServer");
 
   websockets.def(
-      "make_websocket_actionengine_stream",
+      "make_websocket_stream",
       [](std::string_view address, std::string_view target, int32_t port)
     -> absl::StatusOr<std::shared_ptr<net::WebsocketWireStream>> {
         ASSIGN_OR_RETURN(std::unique_ptr<net::WebsocketWireStream> stream,
