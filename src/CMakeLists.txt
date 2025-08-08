@@ -1,7 +1,5 @@
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness")
 
-set(EGLT_IWYU_PATH "/Users/helenapankov/dev/include-what-you-use/build/bin/include-what-you-use")
-
 if (DEFINED ENV{EGLT_IWYU_PATH})
     set(EGLT_IWYU_PATH "$ENV{EGLT_IWYU_PATH}")
 endif ()

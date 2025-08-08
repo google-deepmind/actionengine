@@ -37,15 +37,16 @@
 
 namespace eglt {
 
+/// Options for the ChunkStoreReader.
 struct ChunkStoreReaderOptions {
   /// Whether to read chunks in the explicit seq order.
-  /// If false, chunks will be read in the order they arrive in the store.
+  /// If `false`, chunks will be read in the order they arrive in the store.
   /// This is useful for streaming data where the order of chunks is not
   /// important, such as parallel independent processing of chunks.
   bool ordered = true;
 
   /// Whether to remove chunks from the store after reading them.
-  /// If false, chunks will remain in the store after reading. This is useful
+  /// If `false`, chunks will remain in the store after reading. This is useful
   /// if you want to read the same chunks multiple times or if you want to
   /// keep the chunks for later processing.
   bool remove_chunks = true;
@@ -59,8 +60,30 @@ struct ChunkStoreReaderOptions {
   absl::Duration timeout = absl::InfiniteDuration();
 };
 
+/** @brief
+ *    A utility for reading chunks from a ChunkStore.
+ *
+ * This class provides an interface for reading chunks from a ChunkStore.
+ * It supports reading chunks in order (explicitly specified) or unordered
+ * (as ingested to the store), and can buffer chunks in memory to improve
+ * performance.
+ *
+ * The reader can be cancelled, which stops the background prefetch fiber
+ * and prevents further reading from the store. The remaining prefetched
+ * chunks can still be read until the buffer is empty.
+ */
 class ChunkStoreReader {
  public:
+  /** @brief
+   *    Constructs a ChunkStoreReader for the given ChunkStore, setting
+   *    @p options if provided.
+   *
+   * @param chunk_store
+   *   The ChunkStore to read from. Must not be null.
+   * @param options
+   *   Options for the reader, such as whether to read in order, buffer size,
+   *   and timeout.
+   */
   explicit ChunkStoreReader(
       ChunkStore* absl_nonnull chunk_store,
       ChunkStoreReaderOptions options = ChunkStoreReaderOptions());
@@ -71,15 +94,78 @@ class ChunkStoreReader {
 
   ~ChunkStoreReader();
 
+  /** @brief
+   *    Cancels the background prefetch fiber and stops reading from the store.
+   *
+   *  Does not prevent further reading of chunks that have already been
+   *  prefetched into the buffer. The buffer will be closed, and no further
+   *  chunks will be read from the store. If the reader is already cancelled,
+   *  this method does nothing.
+   */
   void Cancel() const;
 
+  /** @brief
+   *    Sets the options for the ChunkStoreReader.
+   *
+   *  This method can only be called before the reader is started (i.e., before
+   *  the first call to Next()). If called after the reader has been started,
+   *  the program will be terminated with a CHECK failure.
+   *
+   * @param options
+   *   The options to set for the reader.
+   *
+   * @note
+   *   You can use designated initializers to set only the options you want to
+   *   be different from the defaults. For example:
+   *   @code{.cc}
+   *   reader.SetOptions({.ordered = false});
+   *   @endcode
+   */
   void SetOptions(ChunkStoreReaderOptions options);
 
-  const ChunkStoreReaderOptions& GetOptions() const { return options_; }
+  /** @brief
+   *    Returns the current options of the ChunkStoreReader.
+   *
+   * @return
+   *   The current options of the reader.
+   */
+  [[nodiscard]]
+  const ChunkStoreReaderOptions& GetOptions() const {
+    return options_;
+  }
 
+  /** @brief
+   *    Reads the next chunk from the ChunkStore.
+   *
+   *  If the reader is ordered, it will read the next chunk in the order of
+   *  their seq numbers. If the reader is unordered, it will read the next
+   *  chunk that has arrived in the store. This method respects cancellation
+   *  and will return an error if the calling fiber has been cancelled.
+   *
+   * @param timeout
+   *   An optional timeout for reading the next chunk. If not provided, the
+   *   default timeout from `options_` will be used.
+   *
+   * @return
+   *   The next chunk, or `std::nullopt` if there are no more chunks to read.
+   *   If unsuccessful, returns an error status, which may indicate
+   *   cancellation or timeout.
+   *
+   * @note
+   *   Issues encountered while reading from the store are NOT returned here,
+   *   but rather in the GetStatus() method.
+   */
   absl::StatusOr<std::optional<Chunk>> Next(
       std::optional<absl::Duration> timeout = std::nullopt);
 
+  /** @brief
+   *    Same as Next(), but casts the chunk to the specified type `T`.
+   *
+   *  The cast is done using the `FromChunkAs<T>()` function, which must be
+   *  defined for the type `T`. For custom types, this is ensured by providing
+   *  the overload `EgltAssignInto(Chunk, T*)` in the global namespace or that
+   *  of the type `T`.
+   */
   template <typename T>
   absl::StatusOr<std::optional<T>> Next(
       std::optional<absl::Duration> timeout = std::nullopt) {
@@ -89,10 +175,18 @@ class ChunkStoreReader {
   }
 
   // Definitions follow in the header for some well-known types. If the next
-  // chunk cannot be read, this operator will crash.
+  // chunk cannot be read, this operator will crash. Prefer to use the Next()
+  // method instead, which returns an absl::StatusOr<std::optional<T>>,
+  // unless you are sure that the next chunk will always be available.
   template <typename T>
   friend ChunkStoreReader& operator>>(ChunkStoreReader& reader, T& value);
 
+  /** @brief
+   *    Returns the status of the background prefetch loop.
+   *
+   * This status will be `absl::OkStatus()` unless and until the prefetch
+   * loop has encountered an error, and then it will contain the error status.
+   */
   absl::Status GetStatus() const;
 
  private:

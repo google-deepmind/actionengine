@@ -65,6 +65,14 @@ struct ChunkStoreEvent {
   static ChunkStoreEvent FromString(const std::string& message);
 };
 
+/** @brief
+ *  A Redis-based implementation of the ChunkStore interface.
+ *
+ * This class provides methods to store and retrieve chunks of data in a Redis
+ * database, using Redis streams for ordered storage and retrieval.
+ *
+ * @headerfile eglt/redis/chunk_store.h
+ */
 class ChunkStore final : public eglt::ChunkStore {
  public:
   explicit ChunkStore(Redis* absl_nonnull redis, std::string_view id,

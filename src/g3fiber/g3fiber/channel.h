@@ -78,13 +78,60 @@ struct WriteSelectable final : Selectable {
 
 namespace thread {
 
+/** @brief
+ *    A Reader is used to read items from a Channel.
+ *
+ *  You can get a pointer to a Reader by calling Channel<T>::reader(), which is
+ *  the object that you should pass to code that needs to read from the channel.
+ */
 template <class T>
 class Reader {
  public:
+  // This class is not copyable or movable.
   Reader(const Reader&) = delete;
   Reader& operator=(const Reader&) = delete;
 
+  /** @brief
+   *    Reads an item from the channel, blocking until it can be read.
+   *    Returns false if and only if the channel is closed.
+   *
+   *  On returning true, the item is moved into the provided pointer.
+   *
+   *  @return
+   *    True if an item was read from the channel, false if the channel was
+   *    closed before or while reading.
+   */
   bool Read(T* absl_nonnull item);
+
+  /** @brief
+   *    Returns a Case that can be used to wait for and synchronise on reading
+   *    an item from the channel.
+   *
+   *  @note
+   *    The item is only read out of the channel if the returned Case is
+   *    selected. For example:
+   *    @code{.cc}
+   *    // `reader` is a thread::Reader<T> pointer from a channel
+   *    // with non-empty strings
+   *
+   *    std::string item;
+   *    bool ok;
+   *
+   *    const int selected = thread::Select({
+   *        thread::OnCancel(),
+   *        reader->OnRead(&item, &ok),
+   *    });
+   *
+   *    if (selected == 0) {
+   *      assert(!ok);
+   *      assert(item.empty());
+   *    }
+   *    @endcode
+   *
+   *  @return
+   *    True if an item was read from the channel, false if the channel was
+   *    closed before or while reading.
+   */
   Case OnRead(T* absl_nonnull item, bool* absl_nonnull ok);
 
  private:
@@ -94,47 +141,124 @@ class Reader {
   Channel<T>* absl_nonnull channel_;
 };
 
+/** @brief
+ *    A Writer is used to write items to a Channel.
+ *
+ *  You can get a pointer to a Writer by calling Channel<T>::writer(), which
+ *  is the object that you should pass to code that needs to write to the
+ *  channel. Writers must be closed by calling Writer::Close() when the
+ *  communication is done, to notify any waiting readers that no more items
+ *  will be written to the channel.
+ */
 template <class T>
 class Writer {
  public:
+  // This class is not copyable or movable.
   Writer(const Writer&) = delete;
   Writer& operator=(const Writer&) = delete;
 
+  /** @brief
+   *    Writes the given item to the channel, blocking until it can be written.
+   *    If the channel is closed, this will throw an exception.
+   *
+   *  @note
+   *    The item is copied into the channel, so it must be copy-constructible.
+   */
   void Write(const T& item);
+
+  /** @brief
+   *    Writes the given item to the channel, blocking until it can be written.
+   *    If the channel is closed, this will throw an exception.
+   *
+   *  @note
+   *    The item is moved into the channel, so it must be move-constructible.
+   */
   void Write(T&& item);
 
-  // Marks the channel as closed, notifying any waiting readers. See
-  // Reader::Read(). May be called at most once.
+  /** @brief
+   *    Marks the channel as closed, notifying any waiting readers. See
+   *    Reader::Read(). May be called at most once.
+   */
   void Close();
 
-  // CAUTION: The lifetime of "item" must be guaranteed to span any call to
-  // Select() with this case. Care must be taken when passing temporaries, whose
-  // lifetime may only be guaranteed for the current statement. For example:
-  //
-  //   // Legal: int(23)'s lifetime extends to end of statement.
-  //   int index = thread::Select({ c_0, c_1, writer->OnWrite(23) });
-  //   // Illegal: Lifetime of int(19) not guaranteed beyond c's declaration.
-  //   thread::Case c = writer->OnWrite(19);
-  //   int index = thread::Select({ c, ... });
-  //
+  /** @brief
+   *    Returns a Case that can be used to write the given item to the channel.
+   *
+   *  @note
+   *    The lifetime of the item must be guaranteed to span the call to
+   *    Select() with this case. Care must be taken when passing temporaries
+   *    whose lifetime may only be guaranteed for the current statement.
+   *    For example:
+   *
+   *     @code{.cc}
+   *     // Legal: int(23)'s lifetime extends to end of statement.
+   *     int index = thread::Select({ c_0, c_1, writer->OnWrite(23) });
+   *
+   *     // Illegal: Lifetime of int(19) not guaranteed beyond c's
+   *     // declaration.
+   *     thread::Case c = writer->OnWrite(19);
+   *     int index = thread::Select({ c, ... });
+   *     @endcode
+   *
+   * @param item
+   *   The item to write to the channel. If the case is selected, ownership of
+   *   the item is moved to the channel.
+   */
   Case OnWrite(const T& item);
 
-  // NOTE: "item" is not mutated (moved from) unless the returned Case is
-  // selected. E.g.:
-  //   // This is safe, ownership is only moved from if the case is selected.
-  //   auto unique_ptr = absl::make_unique<T>();
-  //   int index = thread::Select({ c_0, c_1,
-  //                                writer->OnWrite(std::move(unique_ptr)) });
-  //   if (index != 2) {
-  //     unique_ptr->Foo();
-  //   }
+  /** @brief
+   *    Returns a Case that can be used to write the given item to the channel.
+   *    The item is not mutated (moved from) unless the returned Case is
+   *    selected.
+   *
+   *  @note
+   *    The \p item is not mutated (moved from) unless the returned Case is
+   *    selected. For example:
+   *
+   *     @code{.cc}
+   *     // This is safe, ownership is only moved from if the case is selected.
+   *     auto unique_ptr = absl::make_unique<T>();
+   *     int index = thread::Select({ c_0, c_1,
+   *                                  writer->OnWrite(std::move(unique_ptr)) });
+   *     if (index != 2) {
+   *       unique_ptr->Foo();
+   *     }
+   *     @endcode
+   *
+   * @param item
+   *   The item to write to the channel. If the case is selected, ownership of
+   *   the item is moved to the channel.
+   */
   Case OnWrite(T&& item);
 
-  // Returns false iff the calling fiber is cancelled before the value can be
-  // written.
+  /** @brief
+   *    Returns false iff the calling fiber is cancelled before the value can be
+   *    written.
+   *
+   *  @param item
+   *    The item to write to the channel.
+   *
+   *  @return
+   *    True if the item was written to the channel, false if the calling fiber
+   *    was cancelled before the item could be written.
+   */
   bool WriteUnlessCancelled(const T& item);
 
-  // NOTE: item is only moved from if this function returns true.
+  /** @brief
+   *    Returns false iff the calling fiber is cancelled before the value can be
+   *    written.
+   *
+   *  @note
+   *    The item is only moved into the channel if the function returns true.
+   *
+   *  @param item
+   *    The item to write to the channel. If the function returns true, the
+   *    ownership of the item is moved to the channel.
+   *
+   *  @return
+   *    True if the item was written to the channel, false if the calling fiber
+   *    was cancelled before the item could be written.
+   */
   bool WriteUnlessCancelled(T&& item);
 
  private:
@@ -144,14 +268,31 @@ class Writer {
   Channel<T>* absl_nonnull channel_;
 };
 
+/** @brief
+ *    A Channel is a bounded FIFO queue that allows multiple readers and writers
+ *    to communicate with each other.
+ *
+ *  The channel has a fixed capacity, and will block writers if the channel is
+ *  full, and readers if the channel is empty. If the channel is closed, all
+ *  waiting readers will be notified that no more items will be written to the
+ *  channel.
+ */
 template <typename T>
 requires std::is_move_assignable_v<T> class Channel {
  public:
+  /** @brief
+   *    Constructs a Channel with the given capacity.
+   *
+   *  @param capacity
+   *    The maximum number of items that can be buffered in the channel. If the
+   *    channel is full, writers will block until space is available.
+   */
   explicit Channel(size_t capacity)
       : capacity_(capacity), closed_(false), rd_(this), wr_(this) {
     DCHECK(Invariants());
   }
 
+  // This class is not copyable or movable.
   Channel(const Channel&) = delete;
   Channel& operator=(const Channel&) = delete;
 
@@ -161,9 +302,29 @@ requires std::is_move_assignable_v<T> class Channel {
     DCHECK(Invariants());
   }
 
+  /** @brief
+   *    Returns a Reader that can be used to read items from the channel.
+   *
+   *  @return
+   *    A Reader that can be used to read items from the channel.
+   */
   Reader<T>* reader() { return &reader_; }
+
+  /** @brief
+   *    Returns a Writer that can be used to write items to the channel.
+   *
+   *  @return
+   *    A Writer that can be used to write items to the channel.
+   */
   Writer<T>* writer() { return &writer_; }
 
+  /** @brief
+   *    Returns the instantaneous length of the channel.
+   *
+   *  This method should never be used to determine whether the channel is full
+   *  or empty, as it may return a value that is not consistent with the state
+   *  of the channel at the time of the call.
+   */
   [[nodiscard]] size_t length() const { return Length(); }
 
  private:
@@ -186,6 +347,7 @@ requires std::is_move_assignable_v<T> class Channel {
   Case OnWrite(const T& item) requires(std::is_copy_constructible_v<T>) {
     return {&wr_, &item, &internal::kCopy};
   }
+
   Case OnWrite(T&& item) { return {&wr_, &item, &internal::kMove}; }
 
   const size_t capacity_;

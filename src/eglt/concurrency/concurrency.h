@@ -45,6 +45,25 @@
 #endif  // GOOGLE3
 // IWYU pragma: end_exports
 
+/** @file
+ *  @brief
+ *    Concurrency utilities for ActionEngine.
+ *
+ *  This file provides a set of concurrency utilities for use in ActionEngine.
+ *  That includes classes and functions for managing fibers, channels, and
+ *  basic synchronization primitives: mutexes and condition variables.
+ *
+ *  This implementation is based on Boost::fiber, but it is designed to mimic
+ *  closely the `thread::Fiber` and `thread::Channel` interfaces used
+ *  internally at Google. A 100% compatible implementation is neither a
+ *  guarantee nor a goal, but the API is designed to be similar enough
+ *  to be used interchangeably in most cases. The `Mutex` and `CondVar` classes
+ *  provide the same basic functionality as their counterparts in Abseil.
+ *
+ *  @headerfile eglt/concurrency/concurrency.h
+ */
+
+/** @private */
 namespace eglt::concurrency {
 
 #if GOOGLE3
@@ -63,109 +82,63 @@ using MutexLock = impl::MutexLock;
 void SleepFor(absl::Duration duration);
 #endif  // GOOGLE3
 
+/** @brief
+ *    A lock that locks two mutexes at once.
+ *
+ *  This class is used to lock two mutexes at once, ensuring that they are
+ *  locked in a deadlock-free manner. It is useful for situations where two
+ *  mutexes need to be locked together, such as when accessing shared data
+ *  structures that are protected by multiple mutexes, or in move constructors
+ *  where two mutexes need to be held to ensure thread safety.
+ *
+ *  There is no sophisticated deadlock prevention logic in this class, but
+ *  rather a simple ordering of mutexes based on their addresses.
+ */
 class ABSL_SCOPED_LOCKABLE TwoMutexLock {
  public:
   explicit TwoMutexLock(Mutex* absl_nonnull mu1, Mutex* absl_nonnull mu2)
-      ABSL_EXCLUSIVE_LOCK_FUNCTION(mu1, mu2)
-      : mu1_(mu1), mu2_(mu2) {
-    if (ABSL_PREDICT_FALSE(mu1_ == mu2_)) {
-      mu1_->Lock();
-      return;
-    }
+      ABSL_EXCLUSIVE_LOCK_FUNCTION(mu1, mu2);
 
-    if (mu1 < mu2) {
-      mu1_->Lock();
-      mu2_->Lock();
-    } else {
-      mu2_->Lock();
-      mu1_->Lock();
-    }
-  }
-
+  // This class is not copyable or movable.
   TwoMutexLock(const TwoMutexLock&) = delete;  // NOLINT(runtime/mutex)
   TwoMutexLock& operator=(const TwoMutexLock&) = delete;
 
-  ~TwoMutexLock() ABSL_UNLOCK_FUNCTION() {
-    if (ABSL_PREDICT_FALSE(mu1_ == mu2_)) {
-      mu1_->Unlock();
-      return;
-    }
-
-    if (mu1_ < mu2_) {
-      mu2_->Unlock();
-      mu1_->Unlock();
-    } else {
-      mu1_->Unlock();
-      mu2_->Unlock();
-    }
-  }
+  ~TwoMutexLock() ABSL_UNLOCK_FUNCTION();
 
  private:
   Mutex* absl_nonnull const mu1_;
   Mutex* absl_nonnull const mu2_;
 };
 
+/** @private */
 class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
  public:
   ExclusiveAccessGuard(Mutex* absl_nonnull mutex, CondVar* absl_nonnull cv)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex)
-      : mu_(mutex), cv_(cv) {}
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex);
 
+  // This class is not copyable or movable.
   ExclusiveAccessGuard(const ExclusiveAccessGuard&) = delete;
   ExclusiveAccessGuard& operator=(const ExclusiveAccessGuard&) = delete;
 
-  ~ExclusiveAccessGuard() {
-    CHECK(pending_operations_ == 0) << "FinalizationGuard destroyed with "
-                                       "pending operations";
-  }
+  ~ExclusiveAccessGuard();
 
-  void Wait() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) ABSL_UNLOCK_FUNCTION() {
-    while (pending_operations_ > 0) {
-      cv_->Wait(mu_);
-    }
-  }
+  void Wait() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) ABSL_UNLOCK_FUNCTION();
 
   [[nodiscard]] bool WaitWithTimeout(absl::Duration timeout) const
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) ABSL_UNLOCK_FUNCTION() {
-    bool timed_out = false;
-    while (pending_operations_ > 0) {
-      if (timed_out = cv_->WaitWithTimeout(mu_, timeout); timed_out) {
-        break;
-      }
-    }
-    return timed_out;
-  }
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) ABSL_UNLOCK_FUNCTION();
 
   [[nodiscard]] bool WaitWithDeadline(absl::Time deadline) const
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) ABSL_UNLOCK_FUNCTION() {
-    bool timed_out = false;
-    while (pending_operations_ > 0) {
-      if (timed_out = cv_->WaitWithDeadline(mu_, deadline); timed_out) {
-        break;
-      }
-    }
-    return timed_out;
-  }
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) ABSL_UNLOCK_FUNCTION();
 
   void StartPendingOperation() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_)
-      ABSL_UNLOCK_FUNCTION(mu_) {
-    ++pending_operations_;
-    mu_->Unlock();
-  }
+      ABSL_UNLOCK_FUNCTION(mu_);
 
-  void StartBlockingPendingOperation() { ++pending_operations_; }
+  void StartBlockingPendingOperation();
 
   void FinishPendingOperation() ABSL_LOCKS_EXCLUDED(mu_)
-      ABSL_EXCLUSIVE_LOCK_FUNCTION(mu_) {
-    mu_->Lock();
-    --pending_operations_;
-    cv_->SignalAll();
-  }
+      ABSL_EXCLUSIVE_LOCK_FUNCTION(mu_);
 
-  void FinishBlockingPendingOperation() {
-    --pending_operations_;
-    cv_->SignalAll();
-  }
+  void FinishBlockingPendingOperation();
 
  private:
   friend class EnsureExclusiveAccess;
@@ -176,87 +149,54 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
   int pending_operations_ = 0;
 };
 
+/** @private */
 class ABSL_SCOPED_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED EnsureExclusiveAccess {
  public:
   explicit EnsureExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard)
-      ABSL_EXCLUSIVE_LOCK_FUNCTION(guard)
-      : EnsureExclusiveAccess(guard, absl::InfiniteFuture()) {}
+      ABSL_EXCLUSIVE_LOCK_FUNCTION(guard);
 
   explicit EnsureExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard,
                                  absl::Time deadline)
-      ABSL_EXCLUSIVE_LOCK_FUNCTION(guard)
-      : guard_(guard) {
-    timed_out_ = guard_->WaitWithDeadline(deadline);
-  }
+      ABSL_EXCLUSIVE_LOCK_FUNCTION(guard);
 
+  // This class is not copyable or movable.
   EnsureExclusiveAccess(const EnsureExclusiveAccess&) = delete;
   EnsureExclusiveAccess& operator=(const EnsureExclusiveAccess&) = delete;
 
-  ~EnsureExclusiveAccess() ABSL_UNLOCK_FUNCTION() { guard_->cv_->SignalAll(); }
+  ~EnsureExclusiveAccess() ABSL_UNLOCK_FUNCTION();
 
   static EnsureExclusiveAccess WithDeadline(
       ExclusiveAccessGuard* absl_nonnull guard,
-      absl::Time deadline) ABSL_NO_THREAD_SAFETY_ANALYSIS {
-    return EnsureExclusiveAccess(guard, deadline);
-  }
+      absl::Time deadline) ABSL_NO_THREAD_SAFETY_ANALYSIS;
 
   static EnsureExclusiveAccess WithTimeout(
       ExclusiveAccessGuard* absl_nonnull guard,
-      absl::Duration timeout) ABSL_NO_THREAD_SAFETY_ANALYSIS {
-    return EnsureExclusiveAccess(guard, absl::Now() + timeout);
-  }
+      absl::Duration timeout) ABSL_NO_THREAD_SAFETY_ANALYSIS;
 
-  [[nodiscard]] bool TimedOut() const { return timed_out_; }
+  [[nodiscard]] bool TimedOut() const;
 
  private:
   ExclusiveAccessGuard* absl_nonnull const guard_;
   bool timed_out_{false};
 };
 
+/** @private */
 class ABSL_SCOPED_LOCKABLE PreventExclusiveAccess {
  public:
   explicit PreventExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard,
                                   bool retain_lock = false)
-      ABSL_SHARED_LOCK_FUNCTION(guard)
-      : guard_(guard), retain_lock_(retain_lock) {
-    if (retain_lock_) {
-      guard_->StartBlockingPendingOperation();
-    } else {
-      guard_->StartPendingOperation();
-    }
-  }
+      ABSL_SHARED_LOCK_FUNCTION(guard);
 
+  // This class is not copyable or movable.
   PreventExclusiveAccess(const PreventExclusiveAccess&) = delete;
   PreventExclusiveAccess& operator=(const PreventExclusiveAccess&) = delete;
 
-  ~PreventExclusiveAccess() ABSL_UNLOCK_FUNCTION() {
-    if (retain_lock_) {
-      guard_->FinishBlockingPendingOperation();
-    } else {
-      guard_->FinishPendingOperation();
-    }
-  }
+  ~PreventExclusiveAccess() ABSL_UNLOCK_FUNCTION();
 
  private:
   ExclusiveAccessGuard* absl_nonnull const guard_;
   bool retain_lock_;
 };
-
-// If fn() is void, result holder cannot be created
-template <typename Invocable, typename = std::enable_if_t<!std::is_void_v<
-                                  std::invoke_result_t<Invocable>>>>
-auto RunInFiber(Invocable&& fn) {
-  decltype(fn()) result;
-  auto fiber = thread::Fiber(
-      [&result, fn = std::forward<Invocable>(fn)]() mutable { result = fn(); });
-  fiber.Join();
-  return result;
-}
-
-inline auto RunInFiber(absl::AnyInvocable<void()>&& fn) {
-  auto fiber = thread::Fiber(std::move(fn));
-  fiber.Join();
-}
 }  // namespace eglt::concurrency
 
 namespace eglt {
@@ -265,6 +205,13 @@ using concurrency::CondVar;
 using concurrency::Mutex;
 using concurrency::MutexLock;
 
+/** @brief
+ *    Sleeps for the given duration, allowing other fibers to proceed on the
+ *    rest of the thread's quantum, and other threads to run.
+ *
+ * @param duration
+ *   The duration to sleep for.
+ */
 inline void SleepFor(absl::Duration duration) {
   concurrency::SleepFor(duration);
 }

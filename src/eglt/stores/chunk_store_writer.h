@@ -33,12 +33,28 @@
 
 namespace eglt {
 
+/** * @brief
+ *   A writer for the ChunkStore that allows writing chunks to the store in a
+ *   buffered manner.
+ *
+ * This class provides methods to write chunks to the store through
+ * a non-blocking interface. It buffers chunks in memory and writes them
+ * to the store in a separate fiber, allowing for efficient writing without
+ * blocking the calling thread.
+ *
+ */
 class ChunkStoreWriter {
-  // This class is thread-safe. Public methods can be called concurrently from
-  // different threads. Chunk store and buffer are only accessed by the writer
-  // thread, and are only set on construction. Other fields are only accessed by
-  // the internal writer fiber, so access is always synchronous.
  public:
+  /** @brief
+   *    Constructs a ChunkStoreWriter for the given ChunkStore, setting
+   *    @p n_chunks_to_buffer if provided.
+   *
+   * @param chunk_store
+   *   The ChunkStore to write to. Must not be null.
+   * @param n_chunks_to_buffer
+   *   The number of chunks to buffer in memory before writing them to the store.
+   *   If -1, the buffer will be unbounded.
+   */
   explicit ChunkStoreWriter(ChunkStore* absl_nonnull chunk_store,
                             int n_chunks_to_buffer = -1);
 

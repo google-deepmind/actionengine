@@ -65,11 +65,21 @@ struct Selector {
 class Selectable;
 }  // namespace internal
 
+/**
+ * @brief
+ *   A Case represents a selectable case in a Select statement.
+ *
+ * A Case is used to represent a selectable condition in a Select statement,
+ * allowing for passing arguments to the selectable. It contains a pointer to
+ * the Selectable and an array of arguments that can be passed to the
+ * Selectable when it is selected.
+ */
 struct [[nodiscard]] Case {
   internal::Selectable* selectable;
   absl::InlinedVector<void*, 2> arguments;
 
   Case(internal::Selectable* s = nullptr) : selectable(s) {}
+
   Case(internal::Selectable* s, internal::IsPointer auto... args)
       : selectable(s) {
     AddArgs(args...);

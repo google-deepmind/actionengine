@@ -19,32 +19,60 @@
 
 #include "g3fiber/cases.h"
 
+/** @file
+ *  @brief
+ *    Provides the Select and SelectUntil functions for selecting a fiber to
+ *    proceed if one of several cases is ready.
+ *
+ * This file defines the thread::Select and thread::SelectUntil functions,
+ * which allow a fiber to wait for (block until) one of several cases happens
+ * to proceed, either until a specified deadline or indefinitely.
+ */
+
 namespace thread {
 
-int Select(const CaseArray& cases);
-
-// SelectUntil waits at most until the absolute time value specified by the
-// deadline parameter. If a case completes before then, its index is returned.
-// Otherwise, a special index of -1 is returned, representing expiration of the
-// deadline.
-//
-// All other semantics are equivalent to Select(...).
-//
-// Example:
-//  // Try to write against the channel "c", waiting for up to 1ms when there is
-//  // no space immediately available. Returns true if the write was
-//  // successfully enqueued, false otherwise.
-//  bool TryPut(thread::Channel<int>* c, int v) {
-//    return thread::SelectUntil(
-//        absl::Now() + absl::Milliseconds(1),
-//        {c->writer()->OnWrite(v)}) == 0;
-//  }
-//
-// If a Case transitions into a ready state after the deadline has elapsed it is
-// not specified whether -1 or that case will be returned. It is however
-// guaranteed when -1 is returned that no case may have proceeded.
+/** @brief
+ *    Returns the index of the first case that is ready, or -1 if the deadline
+ *    has expired without any case becoming ready.
+ *
+ *  Example:
+ *  @code{.cc}
+ *  // Try to write against the channel "c", waiting for up to 1ms when there is
+ *  // no space immediately available. Returns true if the write was
+ *  // successfully enqueued, false otherwise.
+ *  bool TryPut(thread::Channel<int>* c, int v) {
+ *    return thread::SelectUntil(
+ *        absl::Now() + absl::Milliseconds(1),
+ *        {c->writer()->OnWrite(v)}) == 0;
+ *    }
+ *  @endcode
+ *
+ *  @note
+ *    If a Case transitions into a ready state after the deadline has expired,
+ *    but before SelectUntil returns, the return value is not guaranteed to be
+ *    -1 and may instead be the index of that case. However, if -1 is returned,
+ *    it is guaranteed that no case has proceeded.
+ *
+ * @param deadline
+ *   The absolute time until which to wait for a case to become ready.
+ * @param cases
+ *   The array of cases to select from. Usually passed as an initializer list.
+ * @return
+ *   The index of the first case that is ready, or -1 if the deadline has
+ *   expired.
+ */
 int SelectUntil(absl::Time deadline, const CaseArray& cases);
 
+/** @brief
+ *    Returns the index of the first case that is ready, blocking until one is.
+ *
+ *  This is equivalent to calling SelectUntil with an infinite deadline.
+ *
+ * @param cases
+ *   The array of cases to select from. Usually passed as an initializer list.
+ * @return
+ *   The index of the first case that is ready, or -1 if no case is ready.
+ */
 inline int Select(const CaseArray& cases) {
   CHECK(!cases.empty()) << "No cases provided";
   return SelectUntil(absl::InfiniteFuture(), cases);
