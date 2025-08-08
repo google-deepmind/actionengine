@@ -48,60 +48,22 @@ class ActionContext {
 
   absl::Status Dispatch(std::shared_ptr<Action> action);
 
-  void CancelContext() ABSL_LOCKS_EXCLUDED(mu_) {
-    eglt::MutexLock lock(&mu_);
-    CancelContextInternal();
-  }
+  void CancelContext();
 
   void WaitForActionsToDetach(
       absl::Duration cancel_timeout = kFiberCancellationTimeout,
-      absl::Duration detach_timeout = kActionDetachTimeout)
-      ABSL_LOCKS_EXCLUDED(mu_) {
-    eglt::MutexLock lock(&mu_);
-    WaitForActionsToDetachInternal(cancel_timeout, detach_timeout);
-  }
+      absl::Duration detach_timeout = kActionDetachTimeout);
 
  private:
   void CancelContextInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   std::unique_ptr<thread::Fiber> ExtractActionFiber(Action* absl_nonnull action)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    const auto map_node = running_actions_.extract(action);
-    CHECK(!map_node.empty())
-        << "Running action not found in session it was created in.";
-    return std::move(map_node.mapped());
-  }
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   void WaitForActionsToDetachInternal(
       absl::Duration cancel_timeout = kFiberCancellationTimeout,
       absl::Duration detach_timeout = kActionDetachTimeout)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    const absl::Time now = absl::Now();
-    const absl::Time fiber_cancel_by = now + cancel_timeout;
-    const absl::Time expect_actions_to_detach_by = now + detach_timeout;
-
-    while (!running_actions_.empty()) {
-      if (cv_.WaitWithDeadline(&mu_, fiber_cancel_by)) {
-        break;
-      }
-    }
-
-    if (running_actions_.empty()) {
-      DLOG(INFO) << "All actions have detached cooperatively.";
-      return;
-    }
-
-    CancelContextInternal();
-    DLOG(INFO) << "Some actions are still running: sent cancellations and "
-                  "waiting for them to detach.";
-
-    while (!running_actions_.empty()) {
-      if (cv_.WaitWithDeadline(&mu_, expect_actions_to_detach_by)) {
-        DLOG(ERROR) << "Timed out waiting for actions to detach.";
-        break;
-      }
-    }
-  }
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   eglt::Mutex mu_;
   absl::flat_hash_map<Action*, std::unique_ptr<thread::Fiber>> running_actions_

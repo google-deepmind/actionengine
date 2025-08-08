@@ -1,5 +1,6 @@
 import asyncio
 import json
+from contextlib import asynccontextmanager
 
 import actionengine
 from fastapi import FastAPI, HTTPException
@@ -20,10 +21,31 @@ management.
 """
 
 
+# Actions need to be registered in an async function, but also before the app
+# starts. As there is no explicit "main" function in FastAPI, we use a lifespan
+# context manager to handle the initialization of the ActionEngineClient and
+# register actions.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for the FastAPI application.
+    This is used to initialize the ActionEngineClient and register actions.
+    """
+    try:
+        ae = ActionEngineClient.global_instance()
+        if ae.get_action_registry() is None:
+            ae.set_action_registry(register_actions())
+        yield
+    finally:
+        # Cleanup if necessary
+        pass
+
+
 def get_app_with_handlers() -> FastAPI:
     application = FastAPI(
         title="Action Engine HTTP API",
         description=description,
+        lifespan=lifespan,
         root_path="/api",
     )
 
@@ -84,9 +106,6 @@ def init_app() -> FastAPI:
     """
     Initialize the FastAPI application with the necessary configurations.
     """
-    ae = ActionEngineClient.global_instance()
-    if ae.get_action_registry() is None:
-        ae.set_action_registry(register_actions())
 
     return get_app_with_handlers()
 

@@ -2,6 +2,10 @@ add_library(
         egltActions STATIC
         action.cc
         action.h
+        registry.cc
+        registry.h
+        schema.cc
+        schema.h
 )
 add_library(
         eglt::actions ALIAS

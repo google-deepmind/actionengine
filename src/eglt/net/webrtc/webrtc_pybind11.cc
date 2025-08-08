@@ -102,7 +102,7 @@ void BindWebRtcWireStream(py::handle scope, std::string_view name) {
            py::call_guard<py::gil_scoped_release>())
       .def("start", &net::WebRtcWireStream::Start,
            py::call_guard<py::gil_scoped_release>())
-      .def("close", &net::WebRtcWireStream::HalfClose,
+      .def("half_close", &net::WebRtcWireStream::HalfClose,
            py::call_guard<py::gil_scoped_release>())
       .def("abort", &net::WebRtcWireStream::Abort,
            py::call_guard<py::gil_scoped_release>())

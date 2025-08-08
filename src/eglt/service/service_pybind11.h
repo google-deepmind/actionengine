@@ -140,7 +140,7 @@ class PyWireStream final : public WireStream {
   }
 
   void HalfClose() override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyWireStream, "close", HalfClose, );
+    PYBIND11_OVERRIDE_PURE_NAME(void, PyWireStream, "half_close", HalfClose, );
   }
 
   void Abort() override {

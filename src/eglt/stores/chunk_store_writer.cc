@@ -14,6 +14,12 @@
 
 #include "eglt/stores/chunk_store_writer.h"
 
+#include <cstdint>
+#include <string>
+#include <string_view>
+
+#include <absl/log/check.h>
+
 namespace eglt {
 
 ChunkStoreWriter::ChunkStoreWriter(ChunkStore* chunk_store,

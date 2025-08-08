@@ -74,6 +74,17 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
   return absl::OkStatus();
 }
 
+void ActionContext::CancelContext() {
+  eglt::MutexLock lock(&mu_);
+  CancelContextInternal();
+}
+
+void ActionContext::WaitForActionsToDetach(absl::Duration cancel_timeout,
+                                           absl::Duration detach_timeout) {
+  eglt::MutexLock lock(&mu_);
+  WaitForActionsToDetachInternal(cancel_timeout, detach_timeout);
+}
+
 void ActionContext::CancelContextInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (cancelled_) {
     return;
@@ -86,6 +97,43 @@ void ActionContext::CancelContextInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   DLOG(INFO) << absl::StrFormat(
       "Action context cancelled, actions pending: %v.",
       running_actions_.size());
+}
+
+std::unique_ptr<thread::Fiber> ActionContext::ExtractActionFiber(
+    Action* action) {
+  const auto map_node = running_actions_.extract(action);
+  CHECK(!map_node.empty())
+      << "Running action not found in session it was created in.";
+  return std::move(map_node.mapped());
+}
+
+void ActionContext::WaitForActionsToDetachInternal(
+    absl::Duration cancel_timeout, absl::Duration detach_timeout) {
+  const absl::Time now = absl::Now();
+  const absl::Time fiber_cancel_by = now + cancel_timeout;
+  const absl::Time expect_actions_to_detach_by = now + detach_timeout;
+
+  while (!running_actions_.empty()) {
+    if (cv_.WaitWithDeadline(&mu_, fiber_cancel_by)) {
+      break;
+    }
+  }
+
+  if (running_actions_.empty()) {
+    DLOG(INFO) << "All actions have detached cooperatively.";
+    return;
+  }
+
+  CancelContextInternal();
+  DLOG(INFO) << "Some actions are still running: sent cancellations and "
+                "waiting for them to detach.";
+
+  while (!running_actions_.empty()) {
+    if (cv_.WaitWithDeadline(&mu_, expect_actions_to_detach_by)) {
+      DLOG(ERROR) << "Timed out waiting for actions to detach.";
+      break;
+    }
+  }
 }
 
 Session::Session(NodeMap* absl_nonnull node_map,
@@ -246,11 +294,6 @@ void Session::JoinDispatchers(bool cancel) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     task->Join();
     mu_.Lock();
   }
-}
-
-ActionRegistry* Action::GetRegistry() const {
-  eglt::MutexLock lock(&mu_);
-  return session_->GetActionRegistry();
 }
 
 }  // namespace eglt

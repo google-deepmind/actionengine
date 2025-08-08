@@ -38,7 +38,7 @@ void BindWebsocketWireStream(py::handle scope, std::string_view name) {
            py::call_guard<py::gil_scoped_release>())
       .def("start", &net::WebsocketWireStream::Start,
            py::call_guard<py::gil_scoped_release>())
-      .def("close", &net::WebsocketWireStream::HalfClose,
+      .def("half_close", &net::WebsocketWireStream::HalfClose,
            py::call_guard<py::gil_scoped_release>())
       .def("get_status", &net::WebsocketWireStream::GetStatus)
       .def("get_id", &net::WebsocketWireStream::GetId)

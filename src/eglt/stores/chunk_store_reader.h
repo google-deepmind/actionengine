@@ -18,9 +18,16 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
-#include <tuple>
 #include <utility>
 #include <vector>
+
+#include <absl/base/nullability.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/log/check.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/time/time.h>
+#include <stddef.h>
 
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"

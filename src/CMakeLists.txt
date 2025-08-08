@@ -1,4 +1,27 @@
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness")
+
+set(EGLT_IWYU_PATH "/Users/helenapankov/dev/include-what-you-use/build/bin/include-what-you-use")
+
+if (DEFINED ENV{EGLT_IWYU_PATH})
+    set(EGLT_IWYU_PATH "$ENV{EGLT_IWYU_PATH}")
+endif ()
+
+if (DEFINED ENV{INCLUDE_WHAT_YOU_USE})
+    set(EGLT_IWYU_PATH "$ENV{INCLUDE_WHAT_YOU_USE}")
+endif ()
+
+if (DEFINED ENV{IWYU_PATH})
+    set(EGLT_IWYU_PATH "$ENV{IWYU_PATH}")
+endif ()
+
+if (DEFINED EGLT_IWYU_PATH)
+    if (APPLE)
+        set(EGLT_IWYU_PATH "xcrun;${EGLT_IWYU_PATH}")
+    endif ()
+    set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE
+            "${EGLT_IWYU_PATH};-w;-std=c++20;-Xiwyu;--verbose=1;-Xiwyu;
+            --comment_style=none;-Xiwyu;--no_fwd_decls")
+endif ()
 
 # ------------------------------------------------------------------
 
