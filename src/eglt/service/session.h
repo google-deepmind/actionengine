@@ -141,9 +141,8 @@ class Session {
           const ChunkStoreFactory& chunk_store_factory = {}) const;
 
   void DispatchFrom(const std::shared_ptr<WireStream>& stream);
-  absl::Status DispatchMessage(
-      SessionMessage message,
-      const std::shared_ptr<WireStream>& stream = nullptr);
+  absl::Status DispatchMessage(SessionMessage message,
+                               WireStream* absl_nullable stream = nullptr);
 
   void StopDispatchingFrom(WireStream* absl_nonnull stream);
   void StopDispatchingFromAll();

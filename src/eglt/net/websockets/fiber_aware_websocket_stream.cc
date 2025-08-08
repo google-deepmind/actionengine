@@ -413,11 +413,10 @@ absl::Status FiberAwareWebsocketStream::Read(
   temp_buffer.reserve(64);  // Reserve some space to avoid some reallocations
   auto dynamic_buffer = boost::asio::dynamic_buffer(temp_buffer);
 
-  boost::asio::cancellation_signal cancel_signal;
   stream_->async_read(
       dynamic_buffer,
       boost::asio::bind_cancellation_slot(
-          cancel_signal.slot(),
+          cancel_signal_.slot(),
           [&error, &read_done](const boost::system::error_code& ec,
                                std::size_t) {
             error = ec;
@@ -429,7 +428,7 @@ absl::Status FiberAwareWebsocketStream::Read(
   mu_.Lock();
 
   if (selected == -1) {
-    cancel_signal.emit(boost::asio::cancellation_type::total);
+    cancel_signal_.emit(boost::asio::cancellation_type::total);
     mu_.Unlock();
     // We still need to wait for the read_done event to be processed because
     // it is a local variable, and we need to ensure that the callback has

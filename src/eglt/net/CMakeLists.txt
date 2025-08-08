@@ -2,7 +2,6 @@ add_library(
         egltNet STATIC
         client.cc
         testing_utils.h
-        peers.h
         stream.h
         recoverable_stream.h
 )

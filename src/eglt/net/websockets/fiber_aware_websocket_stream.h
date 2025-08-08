@@ -17,14 +17,15 @@
 
 #define BOOST_ASIO_NO_DEPRECATED
 
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <boost/asio/cancellation_signal.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 
-#include "absl/status/status.h"
-#include "absl/status/statusor.h"
 #include "eglt/concurrency/concurrency.h"
 
 namespace eglt::net {
@@ -76,6 +77,11 @@ class FiberAwareWebsocketStream {
   absl::Status Write(const std::vector<uint8_t>& message_bytes) noexcept;
   absl::Status WriteText(const std::string& message) noexcept;
 
+  void CancelRead() noexcept {
+    eglt::MutexLock lock(&mu_);
+    cancel_signal_.emit(boost::asio::cancellation_type::total);
+  }
+
   template <typename Sink>
   friend void AbslStringify(Sink& sink,
                             const FiberAwareWebsocketStream& stream) {
@@ -96,6 +102,7 @@ class FiberAwareWebsocketStream {
   mutable eglt::CondVar cv_ ABSL_GUARDED_BY(mu_);
   bool write_pending_ ABSL_GUARDED_BY(mu_) = false;
   bool read_pending_ ABSL_GUARDED_BY(mu_) = false;
+  boost::asio::cancellation_signal cancel_signal_ ABSL_GUARDED_BY(mu_);
 };
 
 template <typename ExecutionContext>

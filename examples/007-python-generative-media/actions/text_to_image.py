@@ -19,17 +19,19 @@ class ProgressMessage(BaseModel):
 
 
 LOCK = asyncio.Lock()
+LOCKS = (asyncio.Lock(), asyncio.Lock())
+IDX = 0
 
 
-def get_pipeline():
-    if not hasattr(get_pipeline, "pipe"):
+def get_pipeline(idx: int = 0) -> StableDiffusionPipeline:
+    if not hasattr(get_pipeline, "pipe0"):
         device = "cpu"
         if torch.backends.mps.is_available():
             device = "mps"
         if torch.cuda.is_available():
             device = "cuda"
 
-        get_pipeline.pipe = StableDiffusionPipeline.from_pretrained(
+        get_pipeline.pipe0 = StableDiffusionPipeline.from_pretrained(
             "stabilityai/stable-diffusion-2-1",
             torch_dtype=torch.float32 if device == "cpu" else torch.float16,
             safety_checker=None,
@@ -40,9 +42,34 @@ def get_pipeline():
             requires_safety_checker=False,
         )
 
-        get_pipeline.pipe.to(device)
+        get_pipeline.pipe0.to(device)
 
-    return get_pipeline.pipe
+    if not hasattr(get_pipeline, "pipe1"):
+        device = "cpu"
+        if torch.backends.mps.is_available():
+            device = "mps"
+        if torch.cuda.is_available():
+            device = "cuda"
+
+        get_pipeline.pipe1 = StableDiffusionPipeline.from_pretrained(
+            "stabilityai/stable-diffusion-2-1",
+            torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+            safety_checker=None,
+            scheduler=UniPCMultistepScheduler.from_pretrained(
+                "stabilityai/stable-diffusion-2-1",
+                subfolder="scheduler",
+            ),
+            requires_safety_checker=False,
+        )
+
+        get_pipeline.pipe1.to(device)
+
+    if idx == 0:
+        return get_pipeline.pipe0
+    elif idx == 1:
+        return get_pipeline.pipe1
+
+    raise ValueError("Invalid pipeline index. Use 0 or 1.")
 
 
 def make_progress_callback(action: actionengine.Action):
@@ -58,15 +85,19 @@ async def run(action: actionengine.Action):
 
     print("Running text_to_image with request:", str(request), flush=True)
 
+    pipe_idx = 0
     async with LOCK:
-        pipe = get_pipeline()
+        global IDX
+        pipe_idx = IDX
+        pipe = get_pipeline(pipe_idx)
+        IDX = (IDX + 1) % 2
 
     generator = torch.Generator(pipe.device)
     if request.seed is not None:
         generator = generator.manual_seed(request.seed)
 
     try:
-        async with LOCK:
+        async with LOCKS[pipe_idx]:
             images = await asyncio.to_thread(
                 pipe,
                 request.prompt,

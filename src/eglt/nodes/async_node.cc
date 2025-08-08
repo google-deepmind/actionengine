@@ -80,7 +80,9 @@ AsyncNode::~AsyncNode() {
   eglt::MutexLock lock(&mu_);
   if (default_reader_ != nullptr) {
     default_reader_->Cancel();
+    mu_.Unlock();
     default_reader_.reset();
+    mu_.Lock();
   }
 }
 
@@ -223,8 +225,8 @@ auto AsyncNode::Put(Chunk value, int seq, bool final) -> absl::Status {
   const bool continued = !final && !value.IsNull();
   return PutInternal(NodeFragment{
       .id = std::string(chunk_store_->GetId()),
-      .seq = seq,
       .chunk = std::move(value),
+      .seq = seq,
       .continued = continued,
   });
 }

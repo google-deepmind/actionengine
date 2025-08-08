@@ -98,7 +98,6 @@ Session::Session(NodeMap* absl_nonnull node_map,
 
 Session::~Session() {
   eglt::MutexLock lock(&mu_);
-  DLOG(INFO) << "Session::~Session()";
   action_context_->CancelContext();
   action_context_->WaitForActionsToDetach();
   JoinDispatchers(/*cancel=*/true);
@@ -135,16 +134,16 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
                         << " from stream: " << stream->GetId()
                         << ". Stopping dispatch.";
           }
-          if (!message.ok() || !message->has_value()) {
-            if (const absl::Status close_status = stream->HalfClose();
-                !close_status.ok()) {
-              DLOG(ERROR) << "Failed to half-close stream: " << close_status
-                          << ".";
-            }
+          if (!message.ok()) {
+            stream->Abort();
+            break;
+          }
+          if (!message->has_value()) {
+            stream->HalfClose();
             break;
           }
           if (absl::Status dispatch_status =
-                  DispatchMessage(**std::move(message), stream);
+                  DispatchMessage(**std::move(message), stream.get());
               !dispatch_status.ok()) {
             DLOG(ERROR) << "Failed to dispatch message: " << dispatch_status
                         << " from stream: " << stream->GetId()
@@ -168,8 +167,8 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
       }));
 }
 
-absl::Status Session::DispatchMessage(
-    SessionMessage message, const std::shared_ptr<WireStream>& stream) {
+absl::Status Session::DispatchMessage(SessionMessage message,
+                                      WireStream* absl_nullable stream) {
   eglt::MutexLock lock(&mu_);
   if (joined_) {
     return absl::FailedPreconditionError(

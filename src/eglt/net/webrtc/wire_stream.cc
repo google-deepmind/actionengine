@@ -55,10 +55,10 @@ absl::StatusOr<TurnServer> TurnServer::FromString(std::string_view url) {
   }
 
   std::string_view hostname;
-  uint16_t port = 3478; // Default TURN port
+  uint16_t port = 3478;  // Default TURN port
 
   if (size_t colon_pos = hostname_port.find(':');
-    colon_pos == std::string_view::npos) {
+      colon_pos == std::string_view::npos) {
     hostname = hostname_port;
   } else {
     hostname = hostname_port.substr(0, colon_pos);
@@ -76,7 +76,7 @@ absl::StatusOr<TurnServer> TurnServer::FromString(std::string_view url) {
     password = "";
   } else {
     if (size_t colon_pos = username_password.find(':');
-      colon_pos == std::string_view::npos) {
+        colon_pos == std::string_view::npos) {
       username = username_password;
       password = "";
     } else {
@@ -166,15 +166,16 @@ rtc::Configuration RtcConfig::BuildLibdatachannelConfig() const {
 WebRtcWireStream::WebRtcWireStream(
     std::shared_ptr<rtc::DataChannel> data_channel,
     std::shared_ptr<rtc::PeerConnection> connection)
-  : id_(data_channel->label()),
-    connection_(std::move(connection)),
-    data_channel_(std::move(data_channel)) {
+    : id_(data_channel->label()),
+      connection_(std::move(connection)),
+      data_channel_(std::move(data_channel)) {
 
   data_channel_->onMessage(
       [this](rtc::binary message) {
+        size_t message_size = message.size();
         const auto data = reinterpret_cast<uint8_t*>(std::move(message).data());
         absl::StatusOr<data::BytePacket> packet =
-            data::ParseBytePacket(std::vector(data, data + message.size()));
+            data::ParseBytePacket(std::vector(data, data + message_size));
 
         eglt::MutexLock lock(&mu_);
 
@@ -204,7 +205,7 @@ WebRtcWireStream::WebRtcWireStream(
         }
 
         if (!*got_full_message) {
-          return; // Not all chunks received yet, wait for more.
+          return;  // Not all chunks received yet, wait for more.
         }
 
         absl::StatusOr<std::vector<uint8_t>> message_data =
@@ -248,19 +249,27 @@ WebRtcWireStream::WebRtcWireStream(
   data_channel_->onClosed([this]() {
     eglt::MutexLock lock(&mu_);
     half_closed_ = true;
+
+    if (!closed_) {
+      status_ = absl::CancelledError("WebRtcWireStream closed");
+      recv_channel_.writer()->Close();
+    }
+
     closed_ = true;
-    status_ = absl::CancelledError("WebRtcWireStream closed");
-    recv_channel_.writer()->Close();
     cv_.SignalAll();
   });
 
   data_channel_->onError([this](const std::string& error) {
     eglt::MutexLock lock(&mu_);
     half_closed_ = true;
+
+    if (!closed_) {
+      status_ = absl::InternalError(
+          absl::StrFormat("WebRtcWireStream error: %s", error));
+      recv_channel_.writer()->Close();
+    }
+
     closed_ = true;
-    status_ = absl::InternalError(
-        absl::StrFormat("WebRtcWireStream error: %s", error));
-    recv_channel_.writer()->Close();
     cv_.SignalAll();
   });
 }
@@ -290,7 +299,7 @@ absl::Status WebRtcWireStream::Send(SessionMessage message) {
 }
 
 absl::Status WebRtcWireStream::SendInternal(SessionMessage message)
-ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   while (!opened_ && !closed_) {
     cv_.Wait(&mu_);
   }
@@ -359,6 +368,7 @@ absl::StatusOr<std::optional<SessionMessage>> WebRtcWireStream::Receive(
           << "WebRtcWireStream received a half-close message, but there are "
              "still messages in the receive channel. This should not happen.";
       recv_channel_.writer()->Close();
+      closed_ = true;
     }
 
     if (half_closed_) {
@@ -368,7 +378,7 @@ absl::StatusOr<std::optional<SessionMessage>> WebRtcWireStream::Receive(
     }
 
     if (absl::Status half_close_status = HalfCloseInternal();
-      !half_close_status.ok()) {
+        !half_close_status.ok()) {
       return half_close_status;
     }
 
@@ -376,6 +386,16 @@ absl::StatusOr<std::optional<SessionMessage>> WebRtcWireStream::Receive(
   }
 
   return std::move(message);
+}
+
+void WebRtcWireStream::Abort() {
+  eglt::MutexLock lock(&mu_);
+  if (closed_) {
+    return;
+  }
+  // TODO: communicate an -aborted- status to the other end.
+  HalfCloseInternal().IgnoreError();
+  CloseOnError(absl::CancelledError("WebRtcWireStream aborted"));
 }
 
 absl::Status WebRtcWireStream::GetStatus() const {
@@ -394,11 +414,16 @@ absl::Status WebRtcWireStream::HalfCloseInternal() {
   return absl::OkStatus();
 }
 
-void WebRtcWireStream::CloseOnError(absl::Status status) {
+void WebRtcWireStream::CloseOnError(absl::Status status)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   LOG(ERROR) << "WebRtcWireStream error: " << status.message();
+
+  if (!closed_) {
+    status_ = std::move(status);
+    recv_channel_.writer()->Close();
+  }
+
   closed_ = true;
-  status_ = std::move(status);
-  recv_channel_.writer()->Close();
   cv_.SignalAll();
 }
 
@@ -417,15 +442,15 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
 
   signalling_client.OnAnswer(
       [&connection, peer_identity = std::string(peer_identity)](
-      std::string_view received_peer_id,
-      const boost::json::value& message) {
+          std::string_view received_peer_id,
+          const boost::json::value& message) {
         if (received_peer_id != peer_identity) {
           return;
         }
 
         boost::system::error_code error;
         if (const auto desc_ptr = message.find_pointer("/description", error);
-          desc_ptr != nullptr && !error) {
+            desc_ptr != nullptr && !error) {
           const auto description = desc_ptr->as_string().c_str();
           connection->setRemoteDescription(rtc::Description(description));
         } else {
@@ -436,30 +461,29 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
       });
 
   signalling_client.OnCandidate([&connection,
-        peer_identity = std::string(peer_identity)](
-      std::string_view received_peer_id,
-      const boost::json::value& message) {
-        if (received_peer_id != peer_identity) {
-          return;
-        }
+                                 peer_identity = std::string(peer_identity)](
+                                    std::string_view received_peer_id,
+                                    const boost::json::value& message) {
+    if (received_peer_id != peer_identity) {
+      return;
+    }
 
-        boost::system::error_code error;
+    boost::system::error_code error;
 
-        if (const auto candidate_ptr = message.find_pointer("/candidate", error)
-          ;
-          candidate_ptr != nullptr && !error) {
-          const auto candidate_str = candidate_ptr->as_string().c_str();
-          connection->addRemoteCandidate(rtc::Candidate(candidate_str));
-        } else {
-          LOG(ERROR) << "WebRtcWireStream no 'candidate' field in "
+    if (const auto candidate_ptr = message.find_pointer("/candidate", error);
+        candidate_ptr != nullptr && !error) {
+      const auto candidate_str = candidate_ptr->as_string().c_str();
+      connection->addRemoteCandidate(rtc::Candidate(candidate_str));
+    } else {
+      LOG(ERROR) << "WebRtcWireStream no 'candidate' field in "
                     "candidate message: "
                  << boost::json::serialize(message);
-        }
-      });
+    }
+  });
 
   connection->onLocalCandidate(
       [peer_id = std::string(peer_identity),
-        &signalling_client](const rtc::Candidate& candidate) {
+       &signalling_client](const rtc::Candidate& candidate) {
         const auto candidate_str = std::string(candidate);
         boost::json::object candidate_json;
         candidate_json["id"] = peer_id;
@@ -484,7 +508,7 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
   data_channel->onOpen([&opened_or_failed]() { opened_or_failed.Notify(); });
   connection->onIceStateChange(
       [&opened_or_failed,
-        connection = connection.get()](rtc::PeerConnection::IceState state) {
+       connection = connection.get()](rtc::PeerConnection::IceState state) {
         if (state == rtc::PeerConnection::IceState::Failed) {
           connection->resetCallbacks();
           connection->close();
@@ -544,4 +568,4 @@ absl::StatusOr<std::unique_ptr<WebRtcWireStream>> StartStreamWithSignalling(
                                             std::move(connection->connection));
 }
 
-} // namespace eglt::net
+}  // namespace eglt::net

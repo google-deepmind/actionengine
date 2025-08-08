@@ -92,19 +92,8 @@ class RecoverableStream final : public eglt::WireStream {
 
   void CloseAndNotify(bool ignore_lost = false) {
     eglt::MutexLock lock(&mu_);
-    CHECK(!closed_) << "Cannot close stream, it is already closed";
     if (!half_closed_) {
-      if (get_stream_() != nullptr) {
-        LOG(WARNING)
-            << "Calling CloseAndNotify() on a stream that is not half-closed";
-        return;
-      }
-      if (!ignore_lost) {
-        LOG(FATAL)
-            << "Cannot close stream: the underlying stream is lost, we haven't "
-               "been half-closed, and ignore_lost is false";
-        ABSL_ASSUME(false);
-      }
+      HalfClose();
     }
     // if we're here, we're either half-closed or the stream is lost and we're
     // allowed to ignore that
@@ -141,11 +130,6 @@ class RecoverableStream final : public eglt::WireStream {
     return (*stream)->Receive(timeout);
   }
 
-  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
-                         absl::Status* absl_nonnull status) override {
-    return thread::NonSelectableCase();
-  }
-
   absl::Status Accept() override {
     eglt::MutexLock lock(&mu_);
     auto stream = GetObservedStream();
@@ -169,20 +153,24 @@ class RecoverableStream final : public eglt::WireStream {
     return (*stream)->Start();
   }
 
-  absl::Status HalfClose() override {
+  void HalfClose() override {
     eglt::MutexLock lock(&mu_);
 
-    auto stream = GetObservedStream();
-    if (!stream.ok()) {
-      LOG(ERROR) << "Trying to half-close unavailable stream: "
-                 << stream.status();
-      return stream.status();
-    }
-    if (auto s = (*stream)->HalfClose(); !s.ok()) {
-      return s;
+    if (auto stream = GetObservedStream(); stream.ok()) {
+      (*stream)->HalfClose();
     }
     half_closed_ = true;
-    return absl::OkStatus();
+  }
+
+  void Abort() override {
+    eglt::MutexLock lock(&mu_);
+    if (auto stream = get_stream_(); stream != nullptr) {
+      stream->Abort();
+    }
+    closed_ = true;
+    lost_ = false;
+    half_closed_ = false;
+    cv_.SignalAll();
   }
 
   [[nodiscard]] absl::Status GetStatus() const override {

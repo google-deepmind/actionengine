@@ -36,26 +36,27 @@
 
 namespace eglt {
 
-absl::Status RunSimpleSession(const std::shared_ptr<WireStream>& stream,
+absl::Status RunSimpleSession(std::shared_ptr<WireStream> stream,
                               Session* absl_nonnull session) {
-  const auto owned_stream = stream;
+  const auto owned_stream = std::move(stream);
   absl::Status status;
   while (!thread::Cancelled()) {
     absl::StatusOr<std::optional<SessionMessage>> message =
         owned_stream->Receive(session->GetRecvTimeout());
     if (!message.ok()) {
       status = message.status();
-      status.Update(stream->HalfClose());
+      owned_stream->Abort();
       DLOG(ERROR) << "Failed to receive message: " << status
                   << " from stream: " << owned_stream->GetId()
                   << ". Stopping dispatch and half-closing stream.";
       break;
     }
     if (!message->has_value()) {
+      owned_stream->HalfClose();
       break;
     }
-    status =
-        session->DispatchMessage(std::move(message)->value(), owned_stream);
+    status = session->DispatchMessage(std::move(message)->value(),
+                                      owned_stream.get());
   }
 
   if (thread::Cancelled()) {
@@ -79,7 +80,7 @@ std::unique_ptr<Action> MakeActionInConnection(
   auto action = connection.session->GetActionRegistry()->MakeAction(action_name,
                                                                     action_id);
   action->BindNodeMap(connection.session->GetNodeMap());
-  action->BindStream(connection.stream);
+  action->BindStream(connection.stream.get());
   action->BindSession(connection.session);
   return action;
 }
@@ -276,6 +277,11 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
     for (const auto& [_, fiber] : fibers) {
       if (fiber != nullptr) {
         fiber->Cancel();
+      }
+    }
+    for (const auto& [_, connection] : connections) {
+      if (connection != nullptr) {
+        connection->stream->Abort();
       }
     }
   }

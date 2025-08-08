@@ -228,9 +228,9 @@ class Action : public std::enable_shared_from_this<Action> {
 
     reffed_readers_.clear();
 
-    for (const auto& [output_name, output_id] : output_name_to_id_) {
-      node_map_->Extract(output_id).reset();
-    }
+    // for (const auto& [output_name, output_id] : output_name_to_id_) {
+    //   node_map_->Extract(output_id).reset();
+    // }
   }
 
   //! Makes an action message to be sent on a WireStream.
@@ -323,7 +323,7 @@ class Action : public std::enable_shared_from_this<Action> {
     if (stream_ != nullptr &&
         bind_stream.value_or(bind_streams_on_inputs_default_)) {
       absl::flat_hash_map<std::string, WireStream*> peers;
-      peers.insert({std::string(stream_->GetId()), stream_.get()});
+      peers.insert({std::string(stream_->GetId()), stream_});
       node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }
@@ -380,7 +380,7 @@ class Action : public std::enable_shared_from_this<Action> {
     return node_map_;
   }
 
-  void BindStream(std::shared_ptr<WireStream> stream) ABSL_LOCKS_EXCLUDED(mu_) {
+  void BindStream(WireStream* stream) ABSL_LOCKS_EXCLUDED(mu_) {
     eglt::MutexLock lock(&mu_);
     stream_ = std::move(stream);
   }
@@ -389,7 +389,7 @@ class Action : public std::enable_shared_from_this<Action> {
   [[nodiscard]] WireStream* absl_nullable GetStream() const
       ABSL_LOCKS_EXCLUDED(mu_) {
     eglt::MutexLock lock(&mu_);
-    return stream_.get();
+    return stream_;
   }
 
   void BindSession(Session* absl_nullable session) ABSL_LOCKS_EXCLUDED(mu_) {
@@ -512,7 +512,14 @@ class Action : public std::enable_shared_from_this<Action> {
     has_been_run_ = true;
 
     mu_.Unlock();
-    absl::Status handler_status = handler_(shared_from_this());
+    auto handler = std::move(handler_);
+    if (handler == nullptr) {
+      return absl::FailedPreconditionError(
+          absl::StrFormat("Action %s with id=%s has no handler bound. "
+                          "Cannot run the action.",
+                          schema_.name, id_));
+    }
+    absl::Status handler_status = std::move(handler)(shared_from_this());
     mu_.Lock();
 
     for (auto& reader : reffed_readers_) {
@@ -527,7 +534,7 @@ class Action : public std::enable_shared_from_this<Action> {
     if (stream_ != nullptr) {
       // If the stream is bound, we send the status chunk to it.
       // We are doing it here instead of relying on a bound stream.
-      const auto stream_ptr = stream_.get();
+      const auto stream_ptr = stream_;
       mu_.Unlock();
       full_run_status.Update(
           stream_ptr->Send(SessionMessage{.node_fragments = {NodeFragment{
@@ -588,8 +595,11 @@ class Action : public std::enable_shared_from_this<Action> {
       return;
     }
 
-    for (auto& reader : reffed_readers_) {
-      reader->Cancel();
+    for (const auto& [input_name, input_id] : input_name_to_id_) {
+      if (AsyncNode* input_node = node_map_->Get(GetInputId(input_name));
+          input_node != nullptr) {
+        input_node->GetReader().Cancel();
+      }
     }
 
     cancelled_->Notify();
@@ -634,7 +644,7 @@ class Action : public std::enable_shared_from_this<Action> {
         bind_stream.value_or(bind_streams_on_outputs_default_) &&
         name != "__status__") {
       absl::flat_hash_map<std::string, WireStream*> peers;
-      peers.insert({std::string(stream_->GetId()), stream_.get()});
+      peers.insert({std::string(stream_->GetId()), stream_});
       node->BindPeers(std::move(peers));
       nodes_with_bound_streams_.insert(node);
     }
@@ -664,7 +674,7 @@ class Action : public std::enable_shared_from_this<Action> {
   std::string id_;
 
   NodeMap* absl_nullable node_map_ ABSL_GUARDED_BY(mu_) = nullptr;
-  std::shared_ptr<WireStream> stream_ ABSL_GUARDED_BY(mu_) = nullptr;
+  WireStream* stream_ ABSL_GUARDED_BY(mu_) = nullptr;
   Session* absl_nullable session_ ABSL_GUARDED_BY(mu_) = nullptr;
 
   absl::flat_hash_set<ChunkStoreReader*> reffed_readers_ ABSL_GUARDED_BY(mu_);

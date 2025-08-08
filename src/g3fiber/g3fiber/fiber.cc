@@ -281,6 +281,7 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
 
     while (true) {
       if (!cancelled) {
+        current->cancellation_.Notify();
         if (const auto props = dynamic_cast<FiberProperties*>(
                 current->context_->get_properties());
             ABSL_PREDICT_TRUE(props != nullptr)) {
@@ -290,7 +291,6 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
             props->waiting_on_->SignalAll();
           }
         }
-        current->cancellation_.Notify();
       }
 
       class ScopedMutexUnlocker {

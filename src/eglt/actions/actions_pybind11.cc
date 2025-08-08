@@ -94,7 +94,7 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
              const std::shared_ptr<WireStream>& stream, Session* session) {
             auto action = self->MakeAction(name, id);
             action->BindNodeMap(node_map);
-            action->BindStream(stream);
+            action->BindStream(stream.get());
             action->BindSession(session);
             return std::shared_ptr(std::move(action));
           },

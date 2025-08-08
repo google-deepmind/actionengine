@@ -48,16 +48,15 @@ class WireStream {
   virtual auto Receive(absl::Duration timeout)
       -> absl::StatusOr<std::optional<SessionMessage>> = 0;
 
-  virtual auto OnReceive(std::optional<SessionMessage>* absl_nonnull message,
-                         absl::Status* absl_nonnull status) -> thread::Case = 0;
-
   //! Accept the stream on the server side. Clients should not call this.
   virtual auto Accept() -> absl::Status = 0;
   //! Start the stream on the client side. Servers should not call this.
   virtual auto Start() -> absl::Status = 0;
   //! Initiates a graceful shutdown of the stream. Should be called from the
   //! client first.
-  virtual auto HalfClose() -> absl::Status = 0;
+  virtual void HalfClose() = 0;
+
+  virtual void Abort() = 0;
 
   //! Returns the status of the last operation.
   virtual auto GetStatus() const -> absl::Status = 0;

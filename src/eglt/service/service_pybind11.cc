@@ -60,6 +60,8 @@ void BindStream(py::handle scope, std::string_view name) {
       .def("accept", &WireStream::Accept)
       .def("start", &WireStream::Start)
       .def("close", &WireStream::HalfClose)
+      .def("abort", &WireStream::Abort,
+           py::call_guard<py::gil_scoped_release>())
       .def("get_status", &WireStream::GetStatus)
       .def("get_id", &WireStream::GetId);
 
@@ -74,6 +76,8 @@ void BindStream(py::handle scope, std::string_view name) {
       .def("accept", &PyWireStream::Accept)
       .def("start", &PyWireStream::Start)
       .def("close", &PyWireStream::HalfClose)
+      .def("abort", &PyWireStream::Abort,
+           py::call_guard<py::gil_scoped_release>())
       .def("get_last_send_status", &PyWireStream::GetStatus)
       .def("get_id", &PyWireStream::GetId);
 }

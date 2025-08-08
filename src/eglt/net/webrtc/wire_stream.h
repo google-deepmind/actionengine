@@ -112,20 +112,16 @@ class WebRtcWireStream final : public WireStream {
   absl::StatusOr<std::optional<SessionMessage>> Receive(
       absl::Duration timeout) override;
 
-  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
-                         absl::Status* absl_nonnull status) override {
-    // Not implemented
-    return thread::NonSelectableCase();
-  }
-
   absl::Status Start() override { return absl::OkStatus(); }
 
   absl::Status Accept() override { return absl::OkStatus(); }
 
-  absl::Status HalfClose() override {
+  void HalfClose() override {
     eglt::MutexLock lock(&mu_);
-    return HalfCloseInternal();
+    HalfCloseInternal().IgnoreError();
   }
+
+  void Abort() override;
 
   absl::Status GetStatus() const override;
 

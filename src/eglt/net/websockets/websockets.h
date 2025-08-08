@@ -51,16 +51,13 @@ class WebsocketWireStream final : public WireStream {
   absl::StatusOr<std::optional<SessionMessage>> Receive(
       absl::Duration timeout) override;
 
-  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
-                         absl::Status* absl_nonnull status) override {
-    return thread::NonSelectableCase();
-  }
-
   absl::Status Start() override;
 
   absl::Status Accept() override;
 
-  absl::Status HalfClose() override;
+  void HalfClose() override;
+
+  void Abort() override;
 
   absl::Status GetStatus() const override { return status_; }
 

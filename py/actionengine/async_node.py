@@ -94,7 +94,9 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
     def consume(self, timeout: float = -1.0) -> Any | Awaitable[Any]:
         try:
             asyncio.get_running_loop()
-            return asyncio.to_thread(self._consume_sync, timeout)
+            return asyncio.create_task(
+                asyncio.to_thread(self._consume_sync, timeout)
+            )
         except RuntimeError:
             return self._consume_sync(timeout)
 
@@ -112,7 +114,9 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
 
     async def next_object(self, timeout: float = -1.0) -> Any | None:
         """Returns the next object in the store, or None if the store is empty."""
-        return await asyncio.to_thread(self.next_object_sync, timeout)
+        return await asyncio.create_task(
+            asyncio.to_thread(self.next_object_sync, timeout)
+        )
 
     def next_object_sync(self, timeout: float = -1.0) -> Any:
         """Returns the next object in the store, or None if the store is empty."""
@@ -126,7 +130,9 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
         )
 
     async def next_chunk(self, timeout: float = -1.0) -> Chunk | None:
-        return await asyncio.to_thread(self.next_chunk_sync, timeout)
+        return await asyncio.create_task(
+            asyncio.to_thread(self.next_chunk_sync, timeout)
+        )
 
     def next_chunk_sync(self, timeout: float = -1.0) -> Chunk | None:
         return super().next_chunk(timeout)  # pytype: disable=attribute-error

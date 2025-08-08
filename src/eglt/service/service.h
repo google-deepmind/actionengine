@@ -71,8 +71,8 @@ using ConnectionHandler = std::function<absl::Status(
     const std::shared_ptr<WireStream>&, Session* absl_nonnull)>;
 
 /// @callgraph
-absl::Status RunSimpleSession(
-    const std::shared_ptr<WireStream>& stream, Session* absl_nonnull session);
+absl::Status RunSimpleSession(std::shared_ptr<WireStream> stream,
+                              Session* absl_nonnull session);
 
 /**
  * @brief
@@ -103,8 +103,7 @@ absl::Status RunSimpleSession(
 class Service : public std::enable_shared_from_this<Service> {
  public:
   explicit Service(ActionRegistry* absl_nullable action_registry = nullptr,
-                   ConnectionHandler connection_handler =
-                       RunSimpleSession,
+                   ConnectionHandler connection_handler = RunSimpleSession,
                    ChunkStoreFactory chunk_store_factory = {});
 
   ~Service();
@@ -116,13 +115,11 @@ class Service : public std::enable_shared_from_this<Service> {
   auto GetSession(std::string_view session_id) const -> Session* absl_nullable;
   auto GetSessionKeys() const -> std::vector<std::string>;
 
-  auto EstablishConnection(
-      std::shared_ptr<WireStream>&& stream,
-      ConnectionHandler connection_handler = nullptr)
+  auto EstablishConnection(std::shared_ptr<WireStream>&& stream,
+                           ConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
-  auto EstablishConnection(
-      net::GetStreamFn get_stream,
-      ConnectionHandler connection_handler = nullptr)
+  auto EstablishConnection(net::GetStreamFn get_stream,
+                           ConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
       -> absl::Status;
@@ -164,11 +161,6 @@ class Service : public std::enable_shared_from_this<Service> {
                  << " has no more stable connections, deleted.";
     }
 
-    if (extracted_stream != nullptr) {
-      if (const auto status = extracted_stream->HalfClose(); !status.ok()) {
-        DLOG(ERROR) << "Error while closing stream: " << status.message();
-      }
-    }
     extracted_stream.reset();
 
     extracted_node_map.reset();

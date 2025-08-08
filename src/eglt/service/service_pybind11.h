@@ -91,11 +91,6 @@ class PyWireStream final : public WireStream {
     return std::move(result)->cast<SessionMessage>();
   }
 
-  thread::Case OnReceive(std::optional<SessionMessage>* absl_nonnull message,
-                         absl::Status* absl_nonnull status) override {
-    return thread::NonSelectableCase();
-  }
-
   absl::Status Accept() override {
     py::gil_scoped_acquire gil;
     const py::function function = py::get_override(this, "accept");
@@ -144,9 +139,30 @@ class PyWireStream final : public WireStream {
     return absl::OkStatus();
   }
 
-  absl::Status HalfClose() override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyWireStream, "close",
-                                HalfClose, );
+  void HalfClose() override {
+    PYBIND11_OVERRIDE_PURE_NAME(void, PyWireStream, "close", HalfClose, );
+  }
+
+  void Abort() override {
+    py::gil_scoped_acquire gil;
+    const py::function function = py::get_override(this, "abort");
+
+    if (!function) {
+      LOG(FATAL) << "abort is not implemented in the Python subclass of "
+                    "WireStream.";
+      ABSL_ASSUME(false);
+    }
+    try {
+      const py::object py_result = function();
+      const absl::StatusOr<py::object> result =
+          pybindings::RunThreadsafeIfCoroutine(py_result);
+
+      if (!result.ok()) {
+        LOG(ERROR) << "Error in abort: " << result.status();
+      }
+    } catch (const py::error_already_set& e) {
+      LOG(ERROR) << "Error in abort: " << e.what();
+    }
   }
 
   absl::Status GetStatus() const override {

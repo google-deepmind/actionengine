@@ -107,9 +107,23 @@ absl::Status WebsocketWireStream::Accept() {
   return stream_.Accept();
 }
 
-absl::Status WebsocketWireStream::HalfClose() {
+void WebsocketWireStream::HalfClose() {
   eglt::MutexLock lock(&mu_);
-  return HalfCloseInternal();
+  HalfCloseInternal().IgnoreError();
+}
+
+void WebsocketWireStream::Abort() {
+  eglt::MutexLock lock(&mu_);
+  if (closed_) {
+    return;
+  }
+
+  // TODO: communicate an -unsuccessful- close instead.
+  HalfCloseInternal().IgnoreError();
+
+  stream_.CancelRead();
+  closed_ = true;
+  status_ = absl::CancelledError("WebsocketWireStream aborted");
 }
 
 absl::Status WebsocketWireStream::SendInternal(SessionMessage message) {

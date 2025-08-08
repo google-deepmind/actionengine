@@ -44,7 +44,11 @@ namespace eglt {
 class NodeMap {
  public:
   explicit NodeMap(ChunkStoreFactory chunk_store_factory = {});
-  ~NodeMap() = default;
+
+  ~NodeMap() {
+    eglt::MutexLock lock(&mu_);
+    nodes_.clear();
+  }
 
   NodeMap(const NodeMap& other) = delete;
   NodeMap(NodeMap&& other) noexcept;
