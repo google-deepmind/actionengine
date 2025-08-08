@@ -38,24 +38,6 @@ target_link_libraries(
         uvw::uvw
 )
 
-add_executable(redis_playground
-        playground.cc
-)
-target_link_libraries(
-        redis_playground
-        absl::failure_signal_handler
-        eglt::redis
-        eglt::data
-        eglt::nodes
-        eglt::util
-)
-target_include_directories(
-        redis_playground PRIVATE
-        ${EGLT_PROJECT_TOP_LEVEL}
-        ${EGLT_INCLUDE_DIR}
-        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
-)
-
 # ------------------------------------------------------------------
 
 add_library(

@@ -25,8 +25,7 @@
 namespace eglt {
 
 /**
- * @brief
- *   A local chunk store for storing a node's chunks in memory.
+ * A local chunk store for storing a given node's chunks in memory.
  *
  * This class provides a thread-safe implementation of a chunk store that
  * stores chunks in memory. It allows for writing, reading, and waiting for
@@ -35,195 +34,47 @@ namespace eglt {
  * @headerfile eglt/stores/local_chunk_store.h
  */
 class LocalChunkStore final : public ChunkStore {
+  // For detailed documentation, see the base class, ChunkStore.
  public:
   LocalChunkStore() : ChunkStore() {}
 
-  explicit LocalChunkStore(std::string_view id) : LocalChunkStore() {
-    LocalChunkStore::SetIdOrDie(id);
-  }
+  explicit LocalChunkStore(std::string_view id);
 
   // Neither copyable nor movable.
-  LocalChunkStore(const LocalChunkStore& other);
-  LocalChunkStore& operator=(const LocalChunkStore& other);
+  LocalChunkStore(const LocalChunkStore& other) = delete;
+  LocalChunkStore& operator=(const LocalChunkStore& other) = delete;
 
-  ~LocalChunkStore() override {
-    eglt::MutexLock lock(&mu_);
-    ClosePutsAndAwaitPendingOperations();
-  }
+  ~LocalChunkStore() override;
 
-  void Notify() override {
-    eglt::MutexLock lock(&mu_);
-    cv_.SignalAll();
-  }
+  void Notify() override;
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetRef(
-      int64_t seq, absl::Duration timeout) override {
-    eglt::MutexLock lock(&mu_);
-    concurrency::PreventExclusiveAccess pending(&finalization_guard_,
-                                                /*retain_lock=*/true);
-    if (chunks_.contains(seq)) {
-      const Chunk& chunk = chunks_.at(seq);
-      return chunk;
-    }
-
-    if (no_further_puts_) {
-      return absl::FailedPreconditionError(
-          "Cannot get chunks after the store has been closed for writes.");
-    }
-
-    absl::Status status;
-    while (!chunks_.contains(seq) && !no_further_puts_ &&
-           !thread::Cancelled()) {
-      if (cv_.WaitWithTimeout(&mu_, timeout)) {
-        status = absl::DeadlineExceededError(
-            absl::StrCat("Timed out waiting for seq: ", seq));
-        break;
-      }
-      if (thread::Cancelled()) {
-        status = absl::CancelledError(
-            absl::StrCat("Cancelled waiting for seq: ", seq));
-        break;
-      }
-      if (no_further_puts_ && !chunks_.contains(seq)) {
-        status = absl::FailedPreconditionError(
-            "Cannot get chunks after the store has been closed.");
-        break;
-      }
-    }
-
-    if (!status.ok()) {
-      return status;
-    }
-    return eglt::FindOrDie(chunks_, seq);
-  }
+      int64_t seq, absl::Duration timeout) override;
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetRefByArrivalOrder(
-      int64_t arrival_offset, absl::Duration timeout) override {
-    eglt::MutexLock lock(&mu_);
-    concurrency::PreventExclusiveAccess pending(&finalization_guard_,
-                                                /*retain_lock=*/true);
-    if (arrival_order_to_seq_.contains(arrival_offset)) {
-      const int64_t seq = arrival_order_to_seq_.at(arrival_offset);
-      const Chunk& chunk = eglt::FindOrDie(chunks_, seq);
-      return chunk;
-    }
+      int64_t arrival_offset, absl::Duration timeout) override;
 
-    if (no_further_puts_) {
-      return absl::FailedPreconditionError(
-          "Cannot get chunks after the store has been closed.");
-    }
+  absl::StatusOr<std::optional<Chunk>> Pop(int64_t seq) override;
 
-    absl::Status status;
-    while (!arrival_order_to_seq_.contains(arrival_offset) &&
-           !no_further_puts_ && !thread::Cancelled()) {
+  absl::Status Put(int64_t seq, Chunk chunk, bool final) override;
 
-      if (cv_.WaitWithTimeout(&mu_, timeout)) {
-        status = absl::DeadlineExceededError(absl::StrCat(
-            "Timed out waiting for arrival offset: ", arrival_offset));
-        break;
-      }
-      if (thread::Cancelled()) {
-        status = absl::CancelledError(absl::StrCat(
-            "Cancelled waiting for arrival offset: ", arrival_offset));
-        break;
-      }
-      if (no_further_puts_ && !arrival_order_to_seq_.contains(arrival_offset)) {
-        status = absl::FailedPreconditionError(
-            "Cannot get chunks after the store has been closed.");
-        break;
-      }
-    }
+  absl::Status CloseWritesWithStatus(absl::Status) override;
 
-    if (!status.ok()) {
-      return status;
-    }
-    return eglt::FindOrDie(
-        chunks_, eglt::FindOrDie(arrival_order_to_seq_, arrival_offset));
-  }
+  absl::StatusOr<size_t> Size() override;
 
-  absl::StatusOr<std::optional<Chunk>> Pop(int64_t seq) override {
-    eglt::MutexLock lock(&mu_);
-    if (const auto map_node = chunks_.extract(seq); map_node) {
-      const int64_t arrival_order = seq_to_arrival_order_[seq];
-      seq_to_arrival_order_.erase(seq);
-      arrival_order_to_seq_.erase(arrival_order);
-      return std::move(map_node.mapped());
-    }
+  absl::StatusOr<bool> Contains(int64_t seq) override;
 
-    return std::nullopt;
-  }
+  absl::Status SetId(std::string_view id) override;
 
-  absl::Status Put(int64_t seq, Chunk chunk, bool final) override {
-    eglt::MutexLock lock(&mu_);
-
-    if (no_further_puts_) {
-      return absl::FailedPreconditionError(
-          "Cannot put chunks after the store has been closed.");
-    }
-
-    max_seq_ = std::max(max_seq_, seq);
-    final_seq_ = final ? seq : final_seq_;
-
-    arrival_order_to_seq_[total_chunks_put_] = seq;
-    seq_to_arrival_order_[seq] = total_chunks_put_;
-    chunks_[seq] = std::move(chunk);
-    ++total_chunks_put_;
-
-    cv_.SignalAll();
-    return absl::OkStatus();
-  }
-
-  absl::Status CloseWritesWithStatus(absl::Status) override {
-    eglt::MutexLock lock(&mu_);
-
-    no_further_puts_ = true;
-    if (max_seq_ != -1) {
-      final_seq_ = std::min(final_seq_, max_seq_);
-    }
-    // Notify all waiters because they will not be able to get any more chunks.
-    cv_.SignalAll();
-    return absl::OkStatus();
-  }
-
-  absl::StatusOr<size_t> Size() override {
-    eglt::MutexLock lock(&mu_);
-    return chunks_.size();
-  }
-
-  absl::StatusOr<bool> Contains(int64_t seq) override {
-    eglt::MutexLock lock(&mu_);
-    return chunks_.contains(seq);
-  }
-
-  absl::Status SetId(std::string_view id) override {
-    id_ = id;
-    return absl::OkStatus();
-  }
-
-  std::string_view GetId() const override { return id_; }
+  std::string_view GetId() const override;
 
   absl::StatusOr<int64_t> GetSeqForArrivalOffset(
-      int64_t arrival_offset) override {
-    eglt::MutexLock lock(&mu_);
-    if (!arrival_order_to_seq_.contains(arrival_offset)) {
-      return -1;
-    }
-    return arrival_order_to_seq_.at(arrival_offset);
-  }
+      int64_t arrival_offset) override;
 
-  absl::StatusOr<int64_t> GetFinalSeq() override {
-    eglt::MutexLock lock(&mu_);
-    return final_seq_;
-  }
+  absl::StatusOr<int64_t> GetFinalSeq() override;
 
  private:
-  void ClosePutsAndAwaitPendingOperations() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    no_further_puts_ = true;
-    // Notify all waiters because they will not be able to get any more chunks.
-    cv_.SignalAll();
-
-    concurrency::EnsureExclusiveAccess waiter(&finalization_guard_);
-  }
+  void ClosePutsAndAwaitPendingOperations() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   mutable eglt::Mutex mu_;
 

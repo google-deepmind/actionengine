@@ -42,8 +42,7 @@
 namespace eglt {
 
 /**
- * @brief
- *   A connection between a stream and a session.
+ * A connection between a stream and a session.
  *
  * This struct is used to represent a connection between a stream and a session.
  * It contains the stream, session, and their IDs, as well as the status of the
@@ -67,16 +66,48 @@ std::unique_ptr<Action> MakeActionInConnection(
     const StreamToSessionConnection& connection, std::string_view action_name,
     std::string_view action_id = "");
 
+/**
+ * A function type that handles a connection between a stream and a session.
+ *
+ * Most use cases will use the default handler, `RunSimpleSession`, which
+ * simply receives messages from the stream and dispatches them to the session,
+ * putting NodeFragments into the attached NodeMap and executing Actions
+ * resolved from the ActionRegistry according to the ActionMessages
+ * received from the stream.
+ *
+ * However, this type can be used to define custom connection handlers
+ * that can implement different logic for handling the connection, such as
+ * handling multiple streams in a single session, or implementing
+ * custom logic for handling ActionMessages and NodeFragments. It is allowed
+ * and safe to use multiple handlers for different connections in a single
+ * application.
+ */
 using ConnectionHandler = std::function<absl::Status(
     const std::shared_ptr<WireStream>&, Session* absl_nonnull)>;
 
-/// @callgraph
+/**
+ * Runs the default session handler for a stream.
+ *
+ * The default handler simply receives messages from the stream and dispatches
+ * them to the session. NodeFragments are sent to the attached NodeMap, and
+ * ActionMessages are materialized into Actions resolved from the
+ * ActionRegistry and executed in the context of the session, the NodeMap, and
+ * the WireStream that are attached to the session.
+ *
+ * @callgraph
+ *
+ * @param stream
+ *   The stream to run the session on. This stream must be a valid WireStream
+ *   instance that is already connected and ready to send and receive messages.
+ * @param session
+ *   The session to run the stream on. It is normally created by a Service,
+ *   but can also be created manually.
+ */
 absl::Status RunSimpleSession(std::shared_ptr<WireStream> stream,
                               Session* absl_nonnull session);
 
 /**
- * @brief
- *   The ActionEngine service class. Manages sessions, streams, and connections.
+ * The ActionEngine service class. Manages sessions, streams, and connections.
  *
  * This class provides methods to establish and join connections, as well as
  * to set the action registry.
@@ -108,67 +139,108 @@ class Service : public std::enable_shared_from_this<Service> {
 
   ~Service();
 
+  // This class is not copyable or movable.
   Service(const Service& other) = delete;
   Service& operator=(const Service& other) = delete;
 
+  /**
+   * Returns the stream with the given ID managed by this service.
+   *
+   * @param stream_id
+   *   The ID of the stream to retrieve.
+   * @return
+   *   A pointer to the WireStream if it exists, or nullptr if it does not.
+   */
   auto GetStream(std::string_view stream_id) const -> WireStream* absl_nullable;
+  /**
+   * Returns the session with the given ID managed by this service.
+   *
+   * @param session_id
+   *   The ID of the session to retrieve.
+   * @return
+   *   A pointer to the Session if it exists, or nullptr if it does not.
+   */
   auto GetSession(std::string_view session_id) const -> Session* absl_nullable;
   auto GetSessionKeys() const -> std::vector<std::string>;
 
+  /**
+   * Establishes a connection with the given stream and returns a
+   * StreamToSessionConnection object representing the connection.
+   *
+   * The stream must be a valid WireStream instance that is already connected
+   * and ready to send and receive messages. The connection handler is used to
+   * handle the connection, and if it is not provided, the default handler
+   * RunSimpleSession is used.
+   *
+   * The lifetime of the passed WireStream is guaranteed to be at least
+   * as long as the connection, so it is safe to use the stream anywhere
+   * in the connection handler.
+   *
+   * @param stream
+   *   The stream to establish the connection with.
+   * @param connection_handler
+   *   The connection handler to use for the connection. If not provided,
+   *   RunSimpleSession is used.
+   * @return
+   *   A StreamToSessionConnection object representing the established
+   *   connection, or an error status if the connection could not be established.
+   */
   auto EstablishConnection(std::shared_ptr<WireStream>&& stream,
                            ConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   auto EstablishConnection(net::GetStreamFn get_stream,
                            ConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
+  /**
+   * Joins an existing connection to the service.
+   *
+   * This method is used to join a connection that has already been established
+   * and is being managed by the service. It will move the connection out of the
+   * service, so it is no longer responsible for managing it.
+   *
+   * It is unsafe to pass a connection that has not been established by the same
+   * service, as it will not be able to join it properly and may return
+   * an error, as well as block indefinitely or even crash the application.
+   *
+   * @param connection
+   *   The connection to join. The connection must be a valid
+   *   StreamToSessionConnection object that has been established with the service.
+   * @return
+   *   An absl::Status indicating the success or failure of the operation.
+   * @note
+   *   This method will, by intention, block. Therefore, you should call it
+   *   only when you are sure that the connection is ready to be joined, i.e.
+   *   will not proceed indefinitely.
+   */
   auto JoinConnection(StreamToSessionConnection* absl_nonnull connection)
       -> absl::Status;
 
+  /**
+   * Sets the action registry for the service.
+   *
+   * This method allows you to set a custom action registry for the service.
+   * The action registry is used to resolve ActionMessages into Actions that
+   * can be executed in the context of a session.
+   *
+   * This method does not introduce a race with connection handlers, and
+   * any ActionMessage received after this call succeeds will be resolved
+   * using the new action registry. This can be used to dynamically change the
+   * behavior of the service at runtime, for example, to add, remove or modify
+   * actions that can be executed in the context of a session.
+   *
+   * No stream is interrupted by this call, so interesting applications are
+   * available, such as rapid prototyping of new actions in a Jupyter notebook.
+   *
+   * @param action_registry
+   *   The ActionRegistry to set for the service.
+   */
   auto SetActionRegistry(const ActionRegistry& action_registry) const -> void;
 
  private:
   void JoinConnectionsAndCleanUp(bool cancel = false) ABSL_LOCKS_EXCLUDED(mu_);
 
   void CleanupConnection(const StreamToSessionConnection& connection)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    connections_.erase(connection.stream_id);
-
-    std::shared_ptr<net::RecoverableStream> extracted_stream = nullptr;
-    std::unique_ptr<NodeMap> extracted_node_map = nullptr;
-    std::unique_ptr<Session> extracted_session = nullptr;
-
-    if (const auto map_node = streams_.extract(connection.stream_id);
-        !map_node.empty()) {
-      extracted_stream = std::move(map_node.mapped());
-    }
-
-    streams_per_session_.at(connection.session_id).erase(connection.stream_id);
-    if (streams_per_session_.at(connection.session_id).empty()) {
-      if (const auto map_node = sessions_.extract(connection.session_id);
-          !map_node.empty()) {
-        extracted_session = std::move(map_node.mapped());
-      }
-      if (const auto map_node = node_maps_.extract(connection.stream_id);
-          !map_node.empty()) {
-        extracted_node_map = std::move(map_node.mapped());
-      }
-      streams_per_session_.erase(connection.session_id);
-    }
-
-    if (extracted_session != nullptr) {
-      extracted_session.reset();
-      DLOG(INFO) << "session " << connection.session_id
-                 << " has no more stable connections, deleted.";
-    }
-
-    extracted_stream.reset();
-
-    extracted_node_map.reset();
-    auto fiber = connection_fibers_.extract(connection.stream_id);
-    if (!fiber.empty() && fiber.mapped() != nullptr) {
-      thread::Detach(std::move(fiber.mapped()));
-    }
-  }
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   std::unique_ptr<ActionRegistry> action_registry_;
   ConnectionHandler connection_handler_;

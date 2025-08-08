@@ -27,6 +27,7 @@ namespace eglt::pybindings {
 namespace py = ::pybind11;
 
 class PyChunkStore final : public ChunkStore {
+  // For detailed documentation, see the base class, ChunkStore.
  public:
   using ChunkStore::ChunkStore;
 

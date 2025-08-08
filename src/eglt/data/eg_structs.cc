@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "eglt/data/eg_structs.h"
+
 #include <cstddef>
 #include <string_view>
-
-#include "eglt/data/eg_structs.h"
 
 #include <absl/strings/str_cat.h>
 #include <absl/strings/str_join.h>
@@ -47,6 +47,53 @@ std::string Indent(std::string field, int num_spaces, bool indent_first_line) {
                        [](std::string* out, const std::string_view line) {
                          absl::StrAppend(out, line);
                        });
+}
+
+absl::Status EgltAssignInto(Chunk chunk, std::string* string) {
+  if (!MimetypeIsTextual(chunk.metadata.mimetype)) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Cannot move as std::string from a non-textual chunk: ",
+                     chunk.metadata.mimetype));
+  }
+  *string = std::move(chunk.data);
+  return absl::OkStatus();
+}
+
+absl::Status EgltAssignInto(std::string string, Chunk* chunk) {
+  chunk->metadata = ChunkMetadata{
+      .mimetype = kMimetypeTextPlain,
+      .timestamp = absl::Now(),
+  };
+  chunk->data = std::move(string);
+  return absl::OkStatus();
+}
+
+absl::Status EgltAssignInto(const Chunk& chunk, absl::Status* status) {
+  if (chunk.metadata.mimetype != "__status__") {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Invalid mimetype: ", chunk.metadata.mimetype));
+  }
+  if (chunk.data.empty()) {
+    return absl::InvalidArgumentError(absl::StrCat("Empty data: ", chunk.data));
+  }
+  std::string message;
+  int raw_code = static_cast<uint8_t>(chunk.data[0]);
+  if (chunk.data.size() > 1) {
+    message = chunk.data.substr(1);
+  }
+
+  *status = absl::Status(static_cast<absl::StatusCode>(raw_code), message);
+  return absl::OkStatus();
+}
+
+absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk) {
+  chunk->metadata = ChunkMetadata{
+      .mimetype = "__status__",
+      .timestamp = absl::Now(),
+  };
+  chunk->data = absl::StrCat(" ", status.message());
+  chunk->data[0] = static_cast<uint8_t>(status.raw_code());
+  return absl::OkStatus();
 }
 
 }  // namespace eglt::base

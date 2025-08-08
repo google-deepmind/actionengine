@@ -8,6 +8,7 @@ add_library(
         chunk_store_reader.cc
         chunk_store_writer.h
         chunk_store_writer.cc
+        local_chunk_store.cc
         local_chunk_store.h
 )
 add_library(eglt::stores ALIAS egltStores)

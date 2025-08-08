@@ -55,7 +55,7 @@
  *
  *  This implementation is based on Boost::fiber, but it is designed to mimic
  *  closely the `thread::Fiber` and `thread::Channel` interfaces used
- *  internally at Google. A 100% compatible implementation is neither a
+ *  internally at Google. A fully compatible implementation is neither a
  *  guarantee nor a goal, but the API is designed to be similar enough
  *  to be used interchangeably in most cases. The `Mutex` and `CondVar` classes
  *  provide the same basic functionality as their counterparts in Abseil.

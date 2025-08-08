@@ -80,8 +80,7 @@ struct StreamDispatchTask {
 };
 
 /**
- * @brief
- *   A session for handling ActionEngine actions.
+ * A session for handling ActionEngine actions.
  *
  * This class is used to manage the lifecycle of a session, including dispatching
  * messages and managing nodes and actions.
@@ -90,11 +89,24 @@ struct StreamDispatchTask {
  */
 class Session {
  public:
+  /**
+   * Constructs a Session with the given NodeMap and optional ActionRegistry.
+   *
+   * @param node_map
+   *   The NodeMap to use for this session. Must not be null.
+   * @param action_registry
+   *   The ActionRegistry to use for this session. If null, no actions will be
+   *   available in this session, only data exchange.
+   * @param chunk_store_factory
+   *   The factory to use for creating chunk stores. Defaults to an empty
+   *   factory, which means that the choice is delegated to the NodeMap.
+   */
   explicit Session(NodeMap* absl_nonnull node_map,
                    ActionRegistry* absl_nullable action_registry = nullptr,
                    ChunkStoreFactory chunk_store_factory = {});
   ~Session();
 
+  // This class is not copyable or movable.
   Session(const Session& other) = delete;
   Session& operator=(const Session& other) = delete;
 

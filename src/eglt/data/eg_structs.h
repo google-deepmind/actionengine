@@ -51,11 +51,14 @@ std::vector<std::string> Indent(std::vector<std::string> fields,
 std::string Indent(std::string field, int num_spaces = 0,
                    bool indent_first_line = false);
 
-/// ActionEngine chunk metadata.
-///
-/// This structure is used to store metadata about a chunk of data in the
-/// ActionEngine format. It includes fields for mimetype and timestamp.
-/// @headerfile eglt/data/eg_structs.h
+/**
+ *  ActionEngine chunk metadata.
+ *
+ *  This structure is used to store metadata about a chunk of data in the
+ *  ActionEngine format. It includes fields for mimetype and timestamp.
+ *
+ *  @headerfile eglt/data/eg_structs.h
+ */
 struct ChunkMetadata {
   std::string mimetype =
       kMimetypeBytes;    /// The mimetype of the data in the chunk.
@@ -84,21 +87,52 @@ struct ChunkMetadata {
   }
 };
 
-/// ActionEngine chunk.
-///
-/// This structure is used to store a chunk of data in the ActionEngine format.
-/// It includes fields for metadata, a reference to the data, and the actual
-/// data itself. Data can be either a reference or the actual data, but not both.
-/// However, this is not enforced in the structure itself at this time.
-/// @headerfile eglt/data/eg_structs.h
+/**
+ *  ActionEngine chunk.
+ *
+ *  This structure is used to store a chunk of data in the ActionEngine format.
+ *  It includes fields for metadata, a reference to the data, and the actual
+ *  data itself. Data can be either a reference or the actual data, but not both.
+ *
+ *  @headerfile eglt/data/eg_structs.h
+ */
 struct Chunk {
+  /** The metadata associated with the chunk.
+   *
+   * This includes the mimetype and timestamp of the chunk.
+   */
   ChunkMetadata metadata;
 
+  /** A reference to the data in the chunk.
+   *
+   * This is a string that can be used to reference the data in an external
+   * storage system, such as a database, object store, or file system.
+   * It is used when the data is too large to be sent directly in the chunk.
+   * If this field is set, the `data` field should be empty.
+   */
   std::string ref;
+
+  /** The inline data in the chunk.
+   *
+   * This is a (raw byte) string that contains the actual data of the chunk.
+   * It is used when the data is small enough to be sent directly in the chunk.
+   * If this field is set, the `ref` field should be empty.
+   */
   std::string data;
 
   [[nodiscard]] bool IsEmpty() const { return data.empty() && ref.empty(); }
 
+  /** Checks if the chunk is null.
+   *
+   * A chunk is considered null if it has no data and its metadata mimetype is
+   * set explicitly to kMimetypeBytes (indicating that it contains no
+   * meaningful data, disambiguating it from a chunk that has no data but
+   * may have logical meaning for the application in the context of a
+   * particular mimetype).
+   *
+   * @return
+   *   true if the chunk is empty, false otherwise.
+   */
   [[nodiscard]] bool IsNull() const {
     return metadata.mimetype == kMimetypeBytes && IsEmpty();
   }
@@ -127,16 +161,25 @@ struct Chunk {
   }
 };
 
-/// ActionEngine node fragment.
-/// @headerfile eglt/data/eg_structs.h
+/** ActionEngine node fragment.
+ *
+ * This structure represents a fragment of a node in the ActionEngine format:
+ * a data chunk, the node ID, the sequence number of the chunk, and a flag
+ * indicating whether more fragments are expected.
+ *
+ * @headerfile eglt/data/eg_structs.h
+ */
 struct NodeFragment {
-  /// The node ID for this fragment.
+  /** The node ID for this fragment. */
   std::string id;
-  /// The chunk of data associated with the node fragment. May be empty.
+
+  /** The chunk of data associated with the node fragment. May be empty. */
   std::optional<Chunk> chunk = std::nullopt;
-  /// The chunk's order in the sequence.
+
+  /** The chunk's order in the sequence. -1 means "undefined" or "not set". */
   int32_t seq = -1;
-  /// Whether more node fragments are expected.
+
+  /** A flag indicating whether more fragments are expected. */
   bool continued = false;
 
   template <typename Sink>
@@ -184,15 +227,36 @@ struct Port {
 };
 
 /**
- * @brief ActionEngine action message.
+ * An action message containing the information necessary to call an action.
  *
- * This structure represents an ActionEngine action call, which can be sent on the
- * wire level (in a SessionMessage).
+ * This structure represents an ActionEngine action call, which can be sent
+ * on the wire level (in a SessionMessage).
  */
 struct ActionMessage {
+  /** The identifier of the action instance. */
   std::string id;
+
+  /**
+   * The name of the action to call.
+   *
+   * This name is used to look up the action in the ActionRegistry.
+   */
   std::string name;
+
+  /** The input ports for the action.
+   *
+   * These are the parameters that the action expects to receive. Each port
+   * is represented by a Port structure, which contains the name and ID of the
+   * port.
+   */
   std::vector<Port> inputs;
+
+  /** The output ports for the action.
+   *
+   * These are the parameters that the action will produce as output. Each port
+   * is represented by a Port structure, which contains the name and ID of the
+   * port.
+   */
   std::vector<Port> outputs;
 
   template <typename Sink>
@@ -220,8 +284,24 @@ struct ActionMessage {
   }
 };
 
+/**
+ * A message type containing node fragments and action calls.
+ *
+ * This structure represents a message that can be sent over a stream in the
+ * ActionEngine format. It contains a list of node fragments and a list of
+ * action messages. This is the singular unit of communication in ActionEngine,
+ * and it is used to send data and actions between nodes in the system.
+ *
+ * @headerfile eglt/data/eg_structs.h
+ */
 struct SessionMessage {
+  /** A list of node fragments, each representing a piece of data for some node. */
   std::vector<NodeFragment> node_fragments;
+
+  /**
+   * A list of action messages, each representing an action to be called by
+   * the receiving node or some end destination in case of a router/proxy.
+   */
   std::vector<ActionMessage> actions;
 
   template <typename Sink>
@@ -247,56 +327,16 @@ struct SessionMessage {
   }
 };
 
-inline absl::Status EgltAssignInto(Chunk chunk, std::string* string) {
-  if (!MimetypeIsTextual(chunk.metadata.mimetype)) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Cannot move as std::string from a non-textual chunk: ",
-                     chunk.metadata.mimetype));
-  }
-  *string = std::move(chunk.data);
-  return absl::OkStatus();
-}
+absl::Status EgltAssignInto(Chunk chunk, std::string* string);
+absl::Status EgltAssignInto(std::string string, Chunk* chunk);
 
-inline absl::Status EgltAssignInto(std::string string, Chunk* chunk) {
-  chunk->metadata = ChunkMetadata{
-      .mimetype = kMimetypeTextPlain,
-      .timestamp = absl::Now(),
-  };
-  chunk->data = std::move(string);
-  return absl::OkStatus();
-}
-
-inline absl::Status EgltAssignInto(const Chunk& chunk, absl::Status* status) {
-  if (chunk.metadata.mimetype != "__status__") {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Invalid mimetype: ", chunk.metadata.mimetype));
-  }
-  if (chunk.data.empty()) {
-    return absl::InvalidArgumentError(absl::StrCat("Empty data: ", chunk.data));
-  }
-  std::string message;
-  int raw_code = static_cast<uint8_t>(chunk.data[0]);
-  if (chunk.data.size() > 1) {
-    message = chunk.data.substr(1);
-  }
-
-  *status = absl::Status(static_cast<absl::StatusCode>(raw_code), message);
-  return absl::OkStatus();
-}
-
-inline absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk) {
-  chunk->metadata = ChunkMetadata{
-      .mimetype = "__status__",
-      .timestamp = absl::Now(),
-  };
-  chunk->data = absl::StrCat(" ", status.message());
-  chunk->data[0] = static_cast<uint8_t>(status.raw_code());
-  return absl::OkStatus();
-}
+absl::Status EgltAssignInto(const Chunk& chunk, absl::Status* status);
+absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk);
 
 }  // namespace base
 
 using ChunkMetadata = base::ChunkMetadata;
+
 using Chunk = base::Chunk;
 using NodeFragment = base::NodeFragment;
 using Port = base::Port;

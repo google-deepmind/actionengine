@@ -131,7 +131,7 @@ void Redis::ReplyCallback(redisAsyncContext* context, void* hiredis_reply,
       << "Redis::ReplyCallback called with redisAsyncContext not "
          "bound to Redis instance.";
 
-  auto future = static_cast<internal::ReplyFuture*>(privdata);
+  const auto future = static_cast<internal::ReplyFuture*>(privdata);
   CHECK(future != nullptr)
       << "Redis::ReplyCallback called with null privdata (expected "
          "internal::ReplyFuture).";
@@ -236,6 +236,21 @@ Redis::~Redis() {
   }
 }
 
+void Redis::SetKeyPrefix(std::string_view prefix) {
+  eglt::MutexLock lock(&mu_);
+  key_prefix_ = std::string(prefix);
+}
+
+std::string_view Redis::GetKeyPrefix() const {
+  eglt::MutexLock lock(&mu_);
+  return key_prefix_;
+}
+
+std::string Redis::GetKey(std::string_view key) const {
+  eglt::MutexLock lock(&mu_);
+  return absl::StrCat(key_prefix_, key);
+}
+
 absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
     std::string_view channel, absl::AnyInvocable<void(Reply)> on_message) {
   eglt::MutexLock lock(&mu_);
@@ -277,6 +292,30 @@ absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
   return subscription;
 }
 
+absl::Status Redis::Unsubscribe(std::string_view channel) {
+  eglt::MutexLock lock(&mu_);
+  return UnsubscribeInternal(channel);
+}
+
+void Redis::RemoveSubscription(
+    std::string_view channel,
+    const std::shared_ptr<Subscription>& subscription) {
+  eglt::MutexLock lock(&mu_);
+  auto it = subscriptions_.find(channel);
+  if (it != subscriptions_.end()) {
+    it->second.erase(subscription);
+  }
+  if (it->second.empty()) {
+    // If no more subscriptions to this channel, unsubscribe from the channel.
+    absl::Status status = UnsubscribeInternal(channel);
+    subscription->Unsubscribe();
+    if (!status.ok()) {
+      LOG(ERROR) << "Failed to unsubscribe from channel: " << channel
+                 << ", error: " << status.message();
+    }
+  }
+}
+
 absl::Status Redis::UnsubscribeInternal(std::string_view channel)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (channel.empty()) {
@@ -294,6 +333,22 @@ absl::Status Redis::UnsubscribeInternal(std::string_view channel)
   }
 
   return absl::OkStatus();
+}
+
+absl::StatusOr<Reply> Redis::ExecuteCommandWithGuards(std::string_view command,
+                                                      const CommandArgs& args) {
+  if (command.empty()) {
+    return absl::InvalidArgumentError("Command cannot be empty.");
+  }
+  RETURN_IF_ERROR(status_);
+  RETURN_IF_ERROR(CheckConnected());
+
+  ++num_pending_commands_;
+  absl::StatusOr<Reply> reply = ExecuteCommandInternal(command, args);
+  --num_pending_commands_;
+  cv_.SignalAll();
+
+  return reply;
 }
 
 absl::StatusOr<HelloReply> Redis::Hello(int protocol_version,
@@ -353,6 +408,14 @@ bool Redis::ParseReply(redisReply* hiredis_reply, Reply* reply_out) {
 
   *reply_out = std::move(*reply);
   return true;
+}
+
+absl::Status Redis::CheckConnected() const {
+  if (!connected_) {
+    return absl::FailedPreconditionError(
+        "Redis is not connected to the Redis server.");
+  }
+  return absl::OkStatus();
 }
 
 absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
@@ -502,6 +565,95 @@ absl::Status Redis::Set(std::string_view key, std::string_view value) {
   ASSIGN_OR_RETURN(const Reply reply,
                    ExecuteCommandWithGuards("SET", {key, value}));
   return GetStatusOrErrorFrom(reply);
+}
+
+absl::StatusOr<std::string> Redis::RegisterScript(std::string_view name,
+                                                  std::string_view code,
+                                                  bool overwrite_existing) {
+  // Notice how overwrite_existing = false will NOT update the script code
+  // if it's already registered, even if the code is different.
+  eglt::MutexLock lock(&mu_);
+  bool existed = scripts_.contains(name);
+  if (existed && !overwrite_existing) {
+    return scripts_.at(name).sha1;  // Return existing script SHA1.
+  }
+  ASSIGN_OR_RETURN(Reply reply,
+                   ExecuteCommandWithGuards("SCRIPT", {"LOAD", code}));
+  if (reply.type != ReplyType::String) {
+    return absl::InternalError(absl::StrCat(
+        "Expected a string reply after SCRIPT LOAD, got: ", reply.type));
+  }
+  ASSIGN_OR_RETURN(auto sha1, ConvertTo<std::string>(std::move(reply)));
+
+  Script& script = existed ? scripts_.at(name)
+                           : scripts_.emplace(name, Script{}).first->second;
+
+  script.code = std::string(code);
+  script.sha1 = std::move(sha1);
+
+  return script.sha1;
+}
+
+absl::StatusOr<Reply> Redis::ExecuteScript(std::string_view name,
+                                           CommandArgs script_keys,
+                                           CommandArgs script_args) {
+  eglt::MutexLock lock(&mu_);
+  std::string sha1;
+  if (!scripts_.contains(name)) {
+    return absl::NotFoundError(absl::StrCat("Script not found: ", name));
+  }
+  const Script& script = scripts_.at(name);
+  sha1 = script.sha1;
+
+  const std::string num_keys_str = absl::StrCat(script_keys.size());
+  CommandArgs evalsha_args;
+  evalsha_args.reserve(script_keys.size() + script_args.size() + 2);
+  evalsha_args.push_back(sha1);
+  evalsha_args.push_back(num_keys_str);
+  evalsha_args.insert(evalsha_args.end(),
+                      std::make_move_iterator(script_keys.begin()),
+                      std::make_move_iterator(script_keys.end()));
+  evalsha_args.insert(evalsha_args.end(),
+                      std::make_move_iterator(script_args.begin()),
+                      std::make_move_iterator(script_args.end()));
+  return ExecuteCommandWithGuards("EVALSHA", evalsha_args);
+}
+
+absl::StatusOr<absl::flat_hash_map<std::string, std::optional<int64_t>>>
+Redis::ZRange(std::string_view key, int64_t start, int64_t end,
+              bool withscores) {
+  eglt::MutexLock lock(&mu_);
+  CommandArgs args;
+  args.reserve(4);
+  args.push_back(key);
+  args.push_back(absl::StrCat(start));
+  args.push_back(absl::StrCat(end));
+  if (withscores) {
+    args.push_back("WITHSCORES");
+  }
+  ASSIGN_OR_RETURN(Reply reply, ExecuteCommandWithGuards("ZRANGE", args));
+  if (reply.type != ReplyType::Array) {
+    return absl::InternalError(absl::StrCat(
+        "Expected an array reply after ZRANGE, got: ", reply.type));
+  }
+  absl::flat_hash_map<std::string, std::optional<int64_t>> result;
+  if (withscores) {
+    auto value_map =
+        ConvertTo<absl::flat_hash_map<std::string, int64_t>>(std::move(reply));
+    RETURN_IF_ERROR(value_map.status());
+    result.reserve(value_map->size());
+    for (const auto& [key, value] : *value_map) {
+      result.emplace(key, value);
+    }
+  } else {
+    auto value_array = ConvertTo<std::vector<int64_t>>(std::move(reply));
+    RETURN_IF_ERROR(value_array.status());
+    result.reserve(value_array->size());
+    for (const auto& value : *value_array) {
+      result.emplace(std::to_string(value), std::nullopt);
+    }
+  }
+  return result;
 }
 
 }  // namespace eglt::redis

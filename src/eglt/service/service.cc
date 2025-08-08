@@ -297,4 +297,44 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
   DLOG(INFO) << "Connections cleaned up.";
 }
 
+void Service::CleanupConnection(const StreamToSessionConnection& connection) {
+  connections_.erase(connection.stream_id);
+
+  std::shared_ptr<net::RecoverableStream> extracted_stream = nullptr;
+  std::unique_ptr<NodeMap> extracted_node_map = nullptr;
+  std::unique_ptr<Session> extracted_session = nullptr;
+
+  if (const auto map_node = streams_.extract(connection.stream_id);
+      !map_node.empty()) {
+    extracted_stream = std::move(map_node.mapped());
+  }
+
+  streams_per_session_.at(connection.session_id).erase(connection.stream_id);
+  if (streams_per_session_.at(connection.session_id).empty()) {
+    if (const auto map_node = sessions_.extract(connection.session_id);
+        !map_node.empty()) {
+      extracted_session = std::move(map_node.mapped());
+    }
+    if (const auto map_node = node_maps_.extract(connection.stream_id);
+        !map_node.empty()) {
+      extracted_node_map = std::move(map_node.mapped());
+    }
+    streams_per_session_.erase(connection.session_id);
+  }
+
+  if (extracted_session != nullptr) {
+    extracted_session.reset();
+    DLOG(INFO) << "session " << connection.session_id
+               << " has no more stable connections, deleted.";
+  }
+
+  extracted_stream.reset();
+
+  extracted_node_map.reset();
+  auto fiber = connection_fibers_.extract(connection.stream_id);
+  if (!fiber.empty() && fiber.mapped() != nullptr) {
+    thread::Detach(std::move(fiber.mapped()));
+  }
+}
+
 }  // namespace eglt

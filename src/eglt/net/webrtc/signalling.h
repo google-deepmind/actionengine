@@ -29,12 +29,26 @@
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/net/websockets/fiber_aware_websocket_stream.h"
 
+/**
+ * @file
+ * Provides the `SignallingClient` class for WebRTC signalling over WebSocket.
+ */
 namespace eglt::net {
 
 // void(peer_id, message)
 using PeerJsonHandler =
     std::function<void(std::string_view, boost::json::value)>;
 
+/**
+ * A client for WebRTC signalling using WebSocket.
+ *
+ * This class handles the connection to a WebSocket server for WebRTC signalling,
+ * allowing the client to send and receive offers, answers, and ICE candidates.
+ * It provides methods to set callbacks for handling these messages and to
+ * connect with a specific identity.
+ *
+ * @headerfile eglt/net/webrtc/signalling.h
+ */
 class SignallingClient {
  public:
   explicit SignallingClient(std::string_view address = "localhost",

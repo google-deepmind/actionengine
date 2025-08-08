@@ -25,6 +25,11 @@ namespace eglt {
 NodeMap::NodeMap(ChunkStoreFactory chunk_store_factory)
     : chunk_store_factory_(std::move(chunk_store_factory)) {}
 
+NodeMap::~NodeMap() {
+  eglt::MutexLock lock(&mu_);
+  nodes_.clear();
+}
+
 NodeMap::NodeMap(NodeMap&& other) noexcept {
   eglt::MutexLock lock(&other.mu_);
 
@@ -72,6 +77,14 @@ std::vector<AsyncNode*> NodeMap::Get(
   }
 
   return nodes;
+}
+
+std::unique_ptr<AsyncNode> NodeMap::Extract(std::string_view id) {
+  eglt::MutexLock lock(&mu_);
+  if (const auto map_node = nodes_.extract(id); !map_node.empty()) {
+    return std::move(map_node.mapped());
+  }
+  return nullptr;
 }
 
 AsyncNode* absl_nonnull NodeMap::operator[](std::string_view id) {

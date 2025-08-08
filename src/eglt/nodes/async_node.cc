@@ -159,6 +159,10 @@ absl::Status AsyncNode::GetWriterStatus() const {
   return default_writer_->GetStatus();
 }
 
+auto AsyncNode::GetId() const -> std::string {
+  return std::string(chunk_store_->GetId());
+}
+
 absl::StatusOr<std::optional<Chunk>> AsyncNode::Next(
     std::optional<absl::Duration> timeout) {
   ChunkStoreReader& reader = GetReader();

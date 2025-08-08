@@ -74,6 +74,7 @@ struct ChunkStoreEvent {
  * @headerfile eglt/redis/chunk_store.h
  */
 class ChunkStore final : public eglt::ChunkStore {
+  // For detailed documentation, see the base class, ChunkStore.
  public:
   explicit ChunkStore(Redis* absl_nonnull redis, std::string_view id,
                       absl::Duration ttl = absl::InfiniteDuration());

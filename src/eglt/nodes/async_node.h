@@ -42,27 +42,107 @@ namespace eglt {
 class NodeMap;
 }
 
+/**
+ * @file
+ * @brief Provides the AsyncNode class for handling asynchronous data streams.
+ *
+ * The `AsyncNode` class is designed to manage asynchronous data streams in the
+ * ActionEngine framework. It allows for the reading and writing of data chunks,
+ * supports peer binding to enable mirroring of written chunks to a party over
+ * the network, and provides methods for consuming data as specific types.
+ */
 namespace eglt {
 
+/**
+ * An asynchronous node in the ActionEngine framework.
+ *
+ * This class represents a node that can read and write data asynchronously.
+ * It supports binding to peers for mirroring data, and provides methods for
+ * consuming data as specific types. The node is backed by a `ChunkStore` for
+ * storing data chunks.
+ *
+ * @headerfile eglt/nodes/async_node.h
+ */
 class AsyncNode {
  public:
+  /**
+   * Constructs an AsyncNode with the given ID, node map, and chunk store.
+   *
+   * @param id
+   *   The unique identifier for the node.
+   * @param node_map
+   *   An optional pointer to a NodeMap for managing multiple nodes.
+   * @param chunk_store
+   *   An optional unique pointer to a ChunkStore for storing data chunks. If
+   *   not provided, a default chunk store will be created.
+   */
   explicit AsyncNode(std::string_view id = "",
                      NodeMap* absl_nullable node_map = nullptr,
                      std::unique_ptr<ChunkStore> chunk_store = nullptr);
 
+  // This class cannot be copied as each AsyncNode contains non-trivial state
+  // that cannot be shared between copies, such as reader and writer fibers.
   AsyncNode(AsyncNode& other) = delete;
-  AsyncNode(AsyncNode&& other) noexcept;
-
   AsyncNode& operator=(AsyncNode& other) = delete;
+
+  // AsyncNode objects can be moved by value.
+  AsyncNode(AsyncNode&& other) noexcept;
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
   ~AsyncNode();
 
   void BindPeers(absl::flat_hash_map<std::string, WireStream*> peers);
 
+  /**
+   * Enqueues a chunk to be written to underlying chunk store.
+   *
+   * @param value
+   *   The chunk to write to the store.
+   * @param seq
+   *  The sequence number of the chunk. If -1, the chunk will be written
+   *  without a specific sequence number.
+   * @param final
+   *   A flag indicating whether this is the final chunk in a sequence.
+   *   If true, the chunk will be marked as final, and no more chunks are
+   *   expected after this one.
+   * @return
+   *   An absl::Status indicating the success or failure of the operation.
+   *   Writers are asynchronous, so an OK status does not guarantee that
+   *   the chunk has been written to the store immediately. It only indicates
+   *   that the chunk has been successfully enqueued for writing.
+   */
   auto Put(Chunk value, int seq = -1, bool final = false) -> absl::Status;
+  /**
+   * Enqueues a NodeFragment to be written to the underlying chunk store.
+   *
+   * See Put(Chunk, int, bool) for details on the parameters, which in this
+   * case are part of the NodeFragment structure.
+   *
+   * @param value
+   *   The NodeFragment to write to the store.
+   * @return
+   *   An absl::Status indicating the success or failure of the operation.
+   */
   auto Put(NodeFragment value) -> absl::Status;
 
+  /**
+   * Enqueues a value to be written to the underlying chunk store.
+   *
+   * This method converts the value to a Chunk using `ToChunk` and then calls
+   * Put(Chunk, int, bool) with the converted chunk.
+   *
+   * @param value
+   *   The value to write to the store.
+   * @param seq
+   *  The sequence number of the chunk. If -1, the chunk will be written
+   *  without a specific sequence number.
+   * @param final
+   *   A flag indicating whether this is the final chunk in a sequence.
+   * @return
+   *   An absl::Status indicating the success or failure of the operation. In
+   *   addition to the failure cases of Put(Chunk, int, bool), this method
+   *   can also fail if the conversion from T to Chunk fails.
+   */
   template <typename T>
   auto Put(T value, int seq = -1, bool final = false) -> absl::Status {
     auto chunk = ToChunk(std::move(value));
@@ -72,13 +152,49 @@ class AsyncNode {
     return Put(*std::move(chunk), seq, final);
   }
 
-  ChunkStoreWriter& GetWriter() ABSL_LOCKS_EXCLUDED(mu_);
+  /**
+   * Returns the writer for this AsyncNode.
+   *
+   * This method ensures that a writer is created if it does not already exist,
+   * so never fails.
+   *
+   * @return
+   *   A reference to the ChunkStoreWriter associated with this AsyncNode.
+   */
+  [[nodiscard]] ChunkStoreWriter& GetWriter();
+  /**
+    * Returns the status of the writer for this AsyncNode.
+    *
+    * This method checks if the writer is in a valid state and returns an
+    * `absl::Status` indicating the status of the writer.
+    *
+    * @return
+    *   An `absl::Status` indicating the status of the writer. If the writer is
+    *   in a valid state, it returns `absl::OkStatus()`. If there is an error,
+    *   it returns an appropriate error status.
+    */
+  [[nodiscard]]
   auto GetWriterStatus() const -> absl::Status;
 
-  [[nodiscard]] auto GetId() const -> std::string {
-    return std::string(chunk_store_->GetId());
-  }
+  [[nodiscard]] auto GetId() const -> std::string;
 
+  /**
+   * Reads the next chunk from the underlying chunk store.
+   *
+   * This method reads the next chunk from the store, blocking until a chunk is
+   * available or the timeout expires. If no chunk is available within the
+   * timeout, it returns an empty optional.
+   *
+   * The default associated reader is used, but multiple readers in principle
+   * can be created for the same AsyncNode, each with its own options.
+   *
+   * @param timeout
+   *   An optional duration to wait for a chunk to become available. If not
+   *   provided, it defaults to the reader's timeout.
+   * @return
+   *   An `absl::StatusOr` containing an optional Chunk. If a chunk is available,
+   *   it will be returned; otherwise, an empty optional is returned.
+   */
   absl::StatusOr<std::optional<Chunk>> Next(
       std::optional<absl::Duration> timeout = std::nullopt);
 

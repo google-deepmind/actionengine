@@ -72,6 +72,17 @@ void WebRtcServer::Run() {
   });
 }
 
+absl::Status WebRtcServer::Cancel() {
+  eglt::MutexLock lock(&mu_);
+  return CancelInternal();
+}
+
+absl::Status WebRtcServer::Join() {
+  eglt::MutexLock lock(&mu_);
+  absl::Status status = JoinInternal();
+  return status;
+}
+
 absl::Status WebRtcServer::CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (main_loop_ == nullptr) {
     return absl::FailedPreconditionError(

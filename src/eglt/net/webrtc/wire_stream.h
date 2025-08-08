@@ -96,6 +96,16 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     uint16_t signalling_port = 80,
     std::optional<RtcConfig> rtc_config = std::nullopt);
 
+/**
+ * WebRtcWireStream is a concrete implementation of WireStream that
+ * uses WebRTC for communication.
+ *
+ * @headerfile eglt/net/webrtc/wire_stream.h
+ *
+ * It supports sending and receiving ActionEngine session messages over
+ * a WebRTC data channel. This class is designed to be used in both
+ * client and server contexts, allowing for flexible communication patterns.
+ */
 class WebRtcWireStream final : public WireStream {
  public:
   static constexpr int kBufferSize = 256;

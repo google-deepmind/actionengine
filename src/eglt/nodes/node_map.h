@@ -29,11 +29,21 @@
 #include "eglt/nodes/async_node.h"
 #include "eglt/stores/chunk_store.h"
 
+/**
+ * @file
+ * @brief Provides the NodeMap class for managing ActionEngine nodes.
+ *
+ * The `NodeMap` class is a thread-safe map that manages a collection of
+ * `AsyncNode` instances, allowing for retrieval and insertion by node ID.
+ * It also supports custom chunk store factories for creating chunk stores.
+ *
+ * @headerfile eglt/nodes/node_map.h
+ */
+
 namespace eglt {
 
 /**
- * @brief
- *   A thread-safe map of ActionEngine nodes.
+ * A thread-safe map of ActionEngine nodes.
  *
  * This class is used to manage a collection of nodes, allowing for the
  * retrieval and insertion of nodes by their ID. It also provides a way to
@@ -45,15 +55,15 @@ class NodeMap {
  public:
   explicit NodeMap(ChunkStoreFactory chunk_store_factory = {});
 
-  ~NodeMap() {
-    eglt::MutexLock lock(&mu_);
-    nodes_.clear();
-  }
+  ~NodeMap();
 
+  // This class cannot be copied as each AsyncNode contains non-trivial state
+  // that cannot be duplicated safely.
   NodeMap(const NodeMap& other) = delete;
-  NodeMap(NodeMap&& other) noexcept;
-
   NodeMap& operator=(const NodeMap& other) = delete;
+
+  // NodeMap can be safely moved by value.
+  NodeMap(NodeMap&& other) noexcept;
   NodeMap& operator=(NodeMap&& other) noexcept;
 
   auto Get(std::string_view id,
@@ -65,17 +75,9 @@ class NodeMap {
            const ChunkStoreFactory& chunk_store_factory = {})
       -> std::vector<AsyncNode*>;
 
-  [[nodiscard]] std::unique_ptr<AsyncNode> Extract(std::string_view id) {
-    eglt::MutexLock lock(&mu_);
-    if (const auto map_node = nodes_.extract(id); !map_node.empty()) {
-      return std::move(map_node.mapped());
-    }
-    return nullptr;
-  }
+  [[nodiscard]] std::unique_ptr<AsyncNode> Extract(std::string_view id);
 
-  /// @private
   auto insert(std::string_view id, AsyncNode&& node) -> AsyncNode&;
-  /// @private
   bool contains(std::string_view id) const;
 
  private:

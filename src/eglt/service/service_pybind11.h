@@ -44,6 +44,23 @@ void BindService(py::handle scope, std::string_view name = "Service");
 void BindStreamToSessionConnection(
     py::handle scope, std::string_view name = "StreamToSessionConnection");
 
+/**
+ * A Python subclass of `WireStream` that allows for custom implementations of
+ * the stream methods in Python.
+ *
+ * This class is intended to be used as a base class for Python implementations
+ * of `WireStream`. It provides default implementations that call the corresponding
+ * Python methods, allowing for easy customization. This is a so-called
+ * trampoline class in the sense implied <a href="https://pybind11.readthedocs.io/en/stable/advanced/classes.html#overriding-virtual-functions-in-python">by PyBind11</a>.
+ *
+ * Action Engine uses `pybind11_abseil`'s `Status` bindings, so any absl::Status
+ * returned is automatically converted to a Python exception. If the Python
+ * method returns a coroutine, the best effort is made to run it in a
+ * threadsafe manner, using `pybindings::RunThreadsafeIfCoroutine`. However,
+ * this is not guaranteed to work in all cases, so it is recommended to
+ * take extra care when implementing the methods in Python and be aware of
+ * potential issues with coroutines.
+ */
 class PyWireStream final : public WireStream {
  public:
   using WireStream::WireStream;

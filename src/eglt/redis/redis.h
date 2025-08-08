@@ -93,6 +93,14 @@ struct ReplyFuture {
 }  // namespace internal
 
 class Redis {
+  // A Redis client that binds hiredis for asynchronous communication with a Redis
+  // server. It supports pub/sub, command execution, Lua script execution and
+  // a subset of Redis streams. It should NOT be used as a general-purpose
+  // Redis client, but rather as a specialized client for Action Engine's needs
+  // consistent with its threading model and code style, for example, its
+  // use of `eglt::Mutex` and `eglt::CondVar` for fiber-aware synchronization,
+  // and exception-free error handling using `absl::Status` and `absl::StatusOr`
+  // for error propagation.
  public:
   // Static callbacks for hiredis async context events. They resolve to
   // instance methods to allow access to the instance state.
@@ -124,20 +132,11 @@ class Redis {
 
   ~Redis();
 
-  void SetKeyPrefix(std::string_view prefix) {
-    eglt::MutexLock lock(&mu_);
-    key_prefix_ = std::string(prefix);
-  }
+  void SetKeyPrefix(std::string_view prefix);
 
-  [[nodiscard]] std::string_view GetKeyPrefix() const {
-    eglt::MutexLock lock(&mu_);
-    return key_prefix_;
-  }
+  [[nodiscard]] std::string_view GetKeyPrefix() const;
 
-  std::string GetKey(std::string_view key) const {
-    eglt::MutexLock lock(&mu_);
-    return absl::StrCat(key_prefix_, key);
-  }
+  std::string GetKey(std::string_view key) const;
 
   absl::StatusOr<Reply> Get(std::string_view key);
   template <typename T>
@@ -154,119 +153,24 @@ class Redis {
 
   absl::StatusOr<std::string> RegisterScript(std::string_view name,
                                              std::string_view code,
-                                             bool overwrite_existing = true) {
-    // Notice how overwrite_existing = false will NOT update the script code
-    // if it's already registered, even if the code is different.
-    eglt::MutexLock lock(&mu_);
-    bool existed = scripts_.contains(name);
-    if (existed && !overwrite_existing) {
-      return scripts_.at(name).sha1;  // Return existing script SHA1.
-    }
-    ASSIGN_OR_RETURN(Reply reply,
-                     ExecuteCommandWithGuards("SCRIPT", {"LOAD", code}));
-    if (reply.type != ReplyType::String) {
-      return absl::InternalError(absl::StrCat(
-          "Expected a string reply after SCRIPT LOAD, got: ", reply.type));
-    }
-    ASSIGN_OR_RETURN(auto sha1, ConvertTo<std::string>(std::move(reply)));
-
-    Script& script = existed ? scripts_.at(name)
-                             : scripts_.emplace(name, Script{}).first->second;
-
-    script.code = std::string(code);
-    script.sha1 = std::move(sha1);
-
-    return script.sha1;
-  }
+                                             bool overwrite_existing = true);
 
   absl::StatusOr<Reply> ExecuteScript(std::string_view name,
                                       CommandArgs script_keys = {},
-                                      CommandArgs script_args = {}) {
-    eglt::MutexLock lock(&mu_);
-    std::string sha1;
-    if (!scripts_.contains(name)) {
-      return absl::NotFoundError(absl::StrCat("Script not found: ", name));
-    }
-    const Script& script = scripts_.at(name);
-    sha1 = script.sha1;
-
-    const std::string num_keys_str = absl::StrCat(script_keys.size());
-    CommandArgs evalsha_args;
-    evalsha_args.reserve(script_keys.size() + script_args.size() + 2);
-    evalsha_args.push_back(sha1);
-    evalsha_args.push_back(num_keys_str);
-    evalsha_args.insert(evalsha_args.end(),
-                        std::make_move_iterator(script_keys.begin()),
-                        std::make_move_iterator(script_keys.end()));
-    evalsha_args.insert(evalsha_args.end(),
-                        std::make_move_iterator(script_args.begin()),
-                        std::make_move_iterator(script_args.end()));
-    return ExecuteCommandWithGuards("EVALSHA", evalsha_args);
-  }
+                                      CommandArgs script_args = {});
 
   absl::StatusOr<absl::flat_hash_map<std::string, std::optional<int64_t>>>
   ZRange(std::string_view key, int64_t start, int64_t end,
-         bool withscores = false) {
-    eglt::MutexLock lock(&mu_);
-    CommandArgs args;
-    args.reserve(4);
-    args.push_back(key);
-    args.push_back(absl::StrCat(start));
-    args.push_back(absl::StrCat(end));
-    if (withscores) {
-      args.push_back("WITHSCORES");
-    }
-    ASSIGN_OR_RETURN(Reply reply, ExecuteCommandWithGuards("ZRANGE", args));
-    if (reply.type != ReplyType::Array) {
-      return absl::InternalError(absl::StrCat(
-          "Expected an array reply after ZRANGE, got: ", reply.type));
-    }
-    absl::flat_hash_map<std::string, std::optional<int64_t>> result;
-    if (withscores) {
-      auto value_map = ConvertTo<absl::flat_hash_map<std::string, int64_t>>(
-          std::move(reply));
-      RETURN_IF_ERROR(value_map.status());
-      result.reserve(value_map->size());
-      for (const auto& [key, value] : *value_map) {
-        result.emplace(key, value);
-      }
-    } else {
-      auto value_array = ConvertTo<std::vector<int64_t>>(std::move(reply));
-      RETURN_IF_ERROR(value_array.status());
-      result.reserve(value_array->size());
-      for (const auto& value : *value_array) {
-        result.emplace(std::to_string(value), std::nullopt);
-      }
-    }
-    return result;
-  }
+         bool withscores = false);
 
   absl::StatusOr<std::shared_ptr<Subscription>> Subscribe(
       std::string_view channel,
       absl::AnyInvocable<void(Reply)> on_message = {});
 
-  absl::Status Unsubscribe(std::string_view channel) {
-    eglt::MutexLock lock(&mu_);
-    return UnsubscribeInternal(channel);
-  }
+  absl::Status Unsubscribe(std::string_view channel);
 
   void RemoveSubscription(std::string_view channel,
-                          const std::shared_ptr<Subscription>& subscription) {
-    eglt::MutexLock lock(&mu_);
-    auto it = subscriptions_.find(channel);
-    if (it != subscriptions_.end()) {
-      it->second.erase(subscription);
-    }
-    if (it->second.empty()) {
-      // If no more subscriptions to this channel, unsubscribe from the channel.
-      absl::Status status = UnsubscribeInternal(channel);
-      subscription->Unsubscribe();
-      if (!status.ok()) {
-        LOG(ERROR) << "Failed to unsubscribe from channel: " << channel
-                   << ", error: " << status.message();
-      }
-    }
-  }
+                          const std::shared_ptr<Subscription>& subscription);
 
   absl::StatusOr<HelloReply> Hello(int protocol_version = 3,
                                    std::string_view client_name = "",
@@ -283,32 +187,13 @@ class Redis {
                   Reply* absl_nonnull reply_out)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  absl::Status CheckConnected() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    if (!connected_) {
-      return absl::FailedPreconditionError(
-          "Redis is not connected to the Redis server.");
-    }
-    return absl::OkStatus();
-  }
+  absl::Status CheckConnected() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Status UnsubscribeInternal(std::string_view channel);
 
   absl::StatusOr<Reply> ExecuteCommandWithGuards(std::string_view command,
                                                  const CommandArgs& args = {})
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    if (command.empty()) {
-      return absl::InvalidArgumentError("Command cannot be empty.");
-    }
-    RETURN_IF_ERROR(status_);
-    RETURN_IF_ERROR(CheckConnected());
-
-    ++num_pending_commands_;
-    absl::StatusOr<Reply> reply = ExecuteCommandInternal(command, args);
-    --num_pending_commands_;
-    cv_.SignalAll();
-
-    return reply;
-  }
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::StatusOr<Reply> ExecuteCommandInternal(std::string_view command,
                                                const CommandArgs& args = {})
