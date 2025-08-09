@@ -12,7 +12,7 @@
 #include <vector>
 
 #include <absl/debugging/failure_signal_handler.h>
-#include <eglt/data/eg_structs.h>
+#include <eglt/data/types.h>
 #include <eglt/nodes/async_node.h>
 #include <eglt/redis/chunk_store.h>
 #include <eglt/redis/redis.h>

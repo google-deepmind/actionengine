@@ -25,7 +25,7 @@
 #include <absl/hash/hash.h>
 
 #include "eglt/concurrency/concurrency.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/stores/chunk_store.h"
 
 namespace eglt {

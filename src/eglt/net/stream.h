@@ -20,8 +20,8 @@
 #include <string>
 
 #include "eglt/concurrency/concurrency.h"
-#include "eglt/data/eg_structs.h"
 #include "eglt/data/serialization.h"
+#include "eglt/data/types.h"
 
 namespace eglt {
 

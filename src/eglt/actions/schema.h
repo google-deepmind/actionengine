@@ -28,7 +28,7 @@
 #include <absl/strings/str_format.h>
 #include <absl/strings/str_join.h>
 
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 
 namespace eglt {
 class Action;

@@ -11,7 +11,7 @@
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
 #include <eglt/actions/action.h>
-#include <eglt/data/eg_structs.h>
+#include <eglt/data/types.h>
 #include <eglt/net/webrtc/server.h>
 #include <eglt/net/webrtc/wire_stream.h>
 #include <eglt/net/websockets/websockets.h>
@@ -30,7 +30,7 @@ using Service = eglt::Service;
 absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   auto input_text = action->GetNode("text");
   input_text->SetReaderOptions(/*ordered=*/true,
-                                           /*remove_chunks=*/true);
+                               /*remove_chunks=*/true);
   std::optional<Chunk> chunk;
   while (true) {
     *input_text >> chunk;
@@ -57,13 +57,13 @@ ActionRegistry MakeActionRegistry() {
   ActionRegistry registry;
 
   registry.Register(/*name=*/"echo",
-                             /*schema=*/
-                             {
-                                 .name = "echo",
-                                 .inputs = {{"text", "text/plain"}},
-                                 .outputs = {{"response", "text/plain"}},
-                             },
-                             /*handler=*/RunEcho);
+                    /*schema=*/
+                    {
+                        .name = "echo",
+                        .inputs = {{"text", "text/plain"}},
+                        .outputs = {{"response", "text/plain"}},
+                    },
+                    /*handler=*/RunEcho);
   return registry;
 }
 
@@ -76,10 +76,10 @@ int main(int argc, char** argv) {
 
   ActionRegistry action_registry = MakeActionRegistry();
   eglt::Service service(&action_registry);
-  eglt::net::WebRtcServer server(
-      &service, "0.0.0.0", port,
-      /*signalling_address=*/"demos.helena.direct", /*signalling_port=*/19000,
-      /*signalling_identity=*/identity);
+  eglt::net::WebRtcServer server(&service, "0.0.0.0", port,
+                                 /*signalling_address=*/"demos.helena.direct",
+                                 /*signalling_port=*/19000,
+                                 /*signalling_identity=*/identity);
   // eglt::net::WebsocketServer server(&service, "0.0.0.0", port);
   server.Run();
   server.Join().IgnoreError();

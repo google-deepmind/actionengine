@@ -35,8 +35,8 @@
 #include <absl/time/time.h>
 
 #include "eglt/concurrency/concurrency.h"
-#include "eglt/data/eg_structs.h"
 #include "eglt/data/serialization.h"
+#include "eglt/data/types.h"
 #include "eglt/net/stream.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_reader.h"

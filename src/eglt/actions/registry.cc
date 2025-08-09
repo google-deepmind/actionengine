@@ -18,7 +18,7 @@
 #include <utility>
 
 #include "eglt/actions/action.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/util/map_util.h"
 
 namespace eglt {

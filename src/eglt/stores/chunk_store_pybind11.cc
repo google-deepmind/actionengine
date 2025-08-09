@@ -39,7 +39,78 @@
 
 namespace eglt::pybindings {
 
-/// @private
+absl::StatusOr<Chunk> PyChunkStore::Get(int64_t seq, absl::Duration timeout) {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<Chunk>, PyChunkStore, "get", Get,
+                              seq, timeout);
+}
+
+absl::StatusOr<Chunk> PyChunkStore::GetByArrivalOrder(int64_t seq,
+                                                      absl::Duration timeout) {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<Chunk>, PyChunkStore,
+                              "get_by_arrival_order", GetByArrivalOrder, seq,
+                              timeout);
+}
+
+absl::StatusOr<std::reference_wrapper<const Chunk>> PyChunkStore::GetRef(
+    int64_t seq, absl::Duration timeout) {
+  PYBIND11_OVERRIDE_PURE_NAME(
+      absl::StatusOr<std::reference_wrapper<const Chunk>>, PyChunkStore, "get",
+      Get, seq);
+}
+
+absl::StatusOr<std::reference_wrapper<const Chunk>>
+PyChunkStore::GetRefByArrivalOrder(int64_t seq, absl::Duration timeout) {
+  PYBIND11_OVERRIDE_PURE_NAME(
+      absl::StatusOr<std::reference_wrapper<const Chunk>>, PyChunkStore,
+      "get_by_arrival_order", GetByArrivalOrder, seq);
+}
+
+absl::StatusOr<std::optional<Chunk>> PyChunkStore::Pop(int64_t seq) {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<std::optional<Chunk>>,
+                              PyChunkStore, "pop", Pop, seq);
+}
+
+absl::Status PyChunkStore::Put(int64_t seq, Chunk chunk, bool final) {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "put", Put, seq,
+                              chunk, final);
+}
+
+absl::Status PyChunkStore::CloseWritesWithStatus(absl::Status status) {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "no_further_puts",
+                              CloseWritesWithStatus, status);
+}
+
+absl::StatusOr<size_t> PyChunkStore::Size() {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<size_t>, PyChunkStore, "size",
+                              Size, );
+}
+
+absl::StatusOr<bool> PyChunkStore::Contains(int64_t seq) {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<bool>, PyChunkStore, "contains",
+                              Contains, seq);
+}
+
+absl::Status PyChunkStore::SetId(std::string_view id) {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "set_id", SetId, id);
+}
+
+std::string_view PyChunkStore::GetId() const {
+  PYBIND11_OVERRIDE_PURE_NAME(std::string_view, PyChunkStore, "get_id",
+                              GetId, );
+}
+
+absl::StatusOr<int64_t> PyChunkStore::GetSeqForArrivalOffset(
+    int64_t arrival_offset) {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, PyChunkStore,
+                              "get_seq_for_arrival_offset",
+                              GetSeqForArrivalOffset, arrival_offset);
+}
+
+absl::StatusOr<int64_t> PyChunkStore::GetFinalSeq() {
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, PyChunkStore,
+                              "get_final_seq", GetFinalSeq, );
+}
+
 void BindChunkStoreReaderOptions(py::handle scope, std::string_view name) {
   py::class_<ChunkStoreReaderOptions>(scope, name.data(), py::module_local())
       .def(py::init([]() { return ChunkStoreReaderOptions{}; }),
@@ -52,7 +123,6 @@ void BindChunkStoreReaderOptions(py::handle scope, std::string_view name) {
       .doc() = "Options for reading from a ChunkStore.";
 }
 
-/// @private
 void BindChunkStore(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
@@ -113,7 +183,6 @@ void BindChunkStore(py::handle scope, std::string_view name) {
       .doc() = "An ActionEngine ChunkStore interface.";
 }
 
-/// @private
 void BindLocalChunkStore(py::handle scope, std::string_view name) {
   py::class_<LocalChunkStore, ChunkStore, std::shared_ptr<LocalChunkStore>>(
       scope, std::string(name).c_str())
@@ -161,7 +230,6 @@ void BindLocalChunkStore(py::handle scope, std::string_view name) {
       .doc() = "ActionEngine LocalChunkStore.";
 }
 
-/// @private
 py::module_ MakeChunkStoreModule(py::module_ scope,
                                  std::string_view module_name) {
   py::module_ chunk_store = scope.def_submodule(

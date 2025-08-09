@@ -35,7 +35,7 @@
 #include <rtc/peerconnection.hpp>
 
 #include "eglt/concurrency/concurrency.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/net/stream.h"
 #include "eglt/stores/byte_chunking.h"
 

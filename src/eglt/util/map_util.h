@@ -18,7 +18,6 @@
 #include <absl/container/flat_hash_map.h>
 
 namespace eglt {
-/// @private
 template <typename RecordKey, typename Value, typename QueryKey>
 Value& FindOrDie(absl::flat_hash_map<RecordKey, Value>& map,
                  const QueryKey& key) {
@@ -27,7 +26,6 @@ Value& FindOrDie(absl::flat_hash_map<RecordKey, Value>& map,
   return it->second;
 }
 
-/// @private
 template <typename RecordKey, typename Value, typename QueryKey>
 const Value& FindOrDie(const absl::flat_hash_map<RecordKey, Value>& map,
                        const QueryKey& key) {

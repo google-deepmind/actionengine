@@ -25,7 +25,7 @@
 #include <absl/time/time.h>
 
 #include "cppack/msgpack.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 
 namespace eglt::data {
 
@@ -351,92 +351,48 @@ uint32_t LengthSuffixedByteChunkPacket::GetSerializedMetadataSize(
   return packer.vector().size();
 }
 
-std::vector<Byte> SerializeBytePacket2(const BytePacket& packet) {
-  cppack::Packer packer;
-  if (std::holds_alternative<CompleteBytesPacket>(packet)) {
-    const auto& complete_packet = std::get<CompleteBytesPacket>(packet);
-    packer.process(static_cast<Byte>(CompleteBytesPacket::kType));
-    packer.process(complete_packet.transient_id);
+BytePacket ProducePacket(std::vector<Byte>::const_iterator it,
+                         std::vector<Byte>::const_iterator end,
+                         uint64_t transient_id, uint32_t packet_size,
+                         uint32_t seq, int32_t length, bool force_no_length) {
+  const auto remaining_size = static_cast<uint32_t>(std::distance(it, end));
 
-    std::vector<Byte> result = packer.vector();
-    result.reserve(result.size() + complete_packet.serialized_message.size());
-    result.insert(result.end(), complete_packet.serialized_message.begin(),
-                  complete_packet.serialized_message.end());
-    return result;
+  const uint32_t complete_bytes_size =
+      CompleteBytesPacket::GetSerializedMetadataSize(transient_id) + 1;
+  if (seq == 0 && (complete_bytes_size + remaining_size <= packet_size)) {
+    return CompleteBytesPacket{.serialized_message = std::vector(it, end),
+                               .transient_id = transient_id};
   }
 
-  if (std::holds_alternative<ByteChunkPacket>(packet)) {
-    const auto& chunk_packet = std::get<ByteChunkPacket>(packet);
-    packer.process(static_cast<Byte>(ByteChunkPacket::kType));
-    packer.process(chunk_packet.transient_id);
-    packer.process(chunk_packet.seq);
-
-    std::vector<Byte> result = packer.vector();
-    result.reserve(result.size() + chunk_packet.chunk.size());
-    result.insert(result.end(), chunk_packet.chunk.begin(),
-                  chunk_packet.chunk.end());
-    return result;
+  const uint32_t length_suffixed_size =
+      LengthSuffixedByteChunkPacket::GetSerializedMetadataSize(
+          transient_id, seq, length >= 1 ? length : seq + 1) +
+      1;
+  CHECK(!force_no_length || length <= 0)
+      << "force_no_length is true, but length is set to " << length
+      << ". Cannot both explicitly set length and force no length.";
+  if (!force_no_length &&
+          (length_suffixed_size + remaining_size <= packet_size) ||
+      length >= 1) {
+    // if length is not explicitly defined, we want to produce a packet with
+    // length iff it is the last packet in the sequence.
+    const uint32_t payload_size =
+        std::min(packet_size - length_suffixed_size, remaining_size);
+    std::vector chunk(it, it + payload_size);
+    return LengthSuffixedByteChunkPacket{
+        .chunk = std::move(chunk),
+        .length = length >= 1 ? length : seq + 1,
+        .seq = seq,
+        .transient_id = transient_id};
   }
 
-  if (std::holds_alternative<LengthSuffixedByteChunkPacket>(packet)) {
-    const auto& length_chunk_packet =
-        std::get<LengthSuffixedByteChunkPacket>(packet);
-    packer.process(static_cast<Byte>(LengthSuffixedByteChunkPacket::kType));
-    packer.process(length_chunk_packet.transient_id);
-    packer.process(length_chunk_packet.seq);
-    packer.process(length_chunk_packet.length);
-
-    std::vector<Byte> result = packer.vector();
-    result.reserve(result.size() + length_chunk_packet.chunk.size());
-    result.insert(result.end(), length_chunk_packet.chunk.begin(),
-                  length_chunk_packet.chunk.end());
-    return result;
-  }
-
-  return {};
-}
-
-BytePacket DeserializeBytePacket2(const std::vector<Byte>& data) {
-  cppack::Unpacker unpacker(data.data(), data.size());
-
-  Byte type_byte;
-  unpacker.process(type_byte);
-  const auto type = static_cast<BytePacketType>(type_byte);
-
-  if (type == BytePacketType::kCompleteBytes) {
-    CompleteBytesPacket packet;
-    unpacker.process(packet.transient_id);
-    const Byte* offset = unpacker.GetDataPtr();
-    const auto header_size = offset - data.data();
-    packet.serialized_message =
-        std::vector(data.begin() + header_size, data.end());
-    return packet;
-  }
-
-  if (type == BytePacketType::kByteChunk) {
-    ByteChunkPacket packet;
-    unpacker.process(packet.transient_id);
-    unpacker.process(packet.seq);
-    const Byte* offset = unpacker.GetDataPtr();
-    const auto header_size = offset - data.data();
-    packet.chunk = std::vector(data.begin() + header_size, data.end());
-    return packet;
-  }
-
-  if (type == BytePacketType::kLengthSuffixedByteChunk) {
-    LengthSuffixedByteChunkPacket packet;
-    unpacker.process(packet.transient_id);
-    unpacker.process(packet.seq);
-    unpacker.process(packet.length);
-    const Byte* offset = unpacker.GetDataPtr();
-    const auto header_size = offset - data.data();
-    packet.chunk = std::vector(data.begin() + header_size, data.end());
-    return packet;
-  }
-
-  LOG(FATAL) << "Unknown BytePacketType: " << static_cast<int>(type)
-             << ". Cannot deserialize BytePacket.";
-  ABSL_ASSUME(false);
+  const uint32_t byte_chunk_size =
+      ByteChunkPacket::GetSerializedMetadataSize(transient_id, seq) + 1;
+  const auto chunk_size =
+      std::min(packet_size - byte_chunk_size, remaining_size);
+  return ByteChunkPacket{.chunk = std::vector(it, it + chunk_size),
+                         .seq = seq,
+                         .transient_id = transient_id};
 }
 
 }  // namespace eglt::data

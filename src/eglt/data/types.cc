@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eglt/data/eg_structs.h"
-
 #include <cstddef>
 #include <string_view>
 
@@ -22,8 +20,9 @@
 #include <absl/strings/str_split.h>
 #include <absl/time/clock.h>
 
-namespace eglt::base {
+#include "eglt/data/types.h"
 
+namespace eglt::internal {
 std::vector<std::string> Indent(std::vector<std::string> fields, int num_spaces,
                                 bool indent_first_line) {
   if (fields.empty()) {
@@ -49,6 +48,9 @@ std::string Indent(std::string field, int num_spaces, bool indent_first_line) {
                          absl::StrAppend(out, line);
                        });
 }
+}  // namespace eglt::internal
+
+namespace eglt {
 
 absl::Status EgltAssignInto(Chunk chunk, std::string* string) {
   if (!MimetypeIsTextual(chunk.metadata.mimetype)) {
@@ -97,4 +99,4 @@ absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk) {
   return absl::OkStatus();
 }
 
-}  // namespace eglt::base
+}  // namespace eglt

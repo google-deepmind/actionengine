@@ -35,7 +35,6 @@
 
 namespace eglt {
 
-/// @private
 PYBIND11_MODULE(actionengine_pybind11, m) {
   absl::InstallFailureSignalHandler({});
   if (!pybind11::google::internal::IsStatusModuleImported()) {

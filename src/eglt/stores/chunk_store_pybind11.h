@@ -33,7 +33,7 @@
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/stores/chunk_store.h"
 
 namespace eglt::pybindings {
@@ -47,78 +47,35 @@ class PyChunkStore final : public ChunkStore {
 
   PyChunkStore() : ChunkStore() {}
 
-  absl::StatusOr<Chunk> Get(int64_t seq, absl::Duration timeout) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<Chunk>, PyChunkStore, "get", Get,
-                                seq, timeout);
-  }
+  absl::StatusOr<Chunk> Get(int64_t seq, absl::Duration timeout) override;
 
   absl::StatusOr<Chunk> GetByArrivalOrder(int64_t seq,
-                                          absl::Duration timeout) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<Chunk>, PyChunkStore,
-                                "get_by_arrival_order", GetByArrivalOrder, seq,
-                                timeout);
-  }
+                                          absl::Duration timeout) override;
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetRef(
-      int64_t seq, absl::Duration timeout) override {
-    PYBIND11_OVERRIDE_PURE_NAME(
-        absl::StatusOr<std::reference_wrapper<const Chunk>>, PyChunkStore,
-        "get", Get, seq);
-  }
+      int64_t seq, absl::Duration timeout) override;
 
   absl::StatusOr<std::reference_wrapper<const Chunk>> GetRefByArrivalOrder(
-      int64_t seq, absl::Duration timeout) override {
-    PYBIND11_OVERRIDE_PURE_NAME(
-        absl::StatusOr<std::reference_wrapper<const Chunk>>, PyChunkStore,
-        "get_by_arrival_order", GetByArrivalOrder, seq);
-  }
+      int64_t seq, absl::Duration timeout) override;
 
-  absl::StatusOr<std::optional<Chunk>> Pop(int64_t seq) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<std::optional<Chunk>>,
-                                PyChunkStore, "pop", Pop, seq);
-  }
+  absl::StatusOr<std::optional<Chunk>> Pop(int64_t seq) override;
 
-  absl::Status Put(int64_t seq, Chunk chunk, bool final) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "put", Put, seq,
-                                chunk, final);
-  }
+  absl::Status Put(int64_t seq, Chunk chunk, bool final) override;
 
-  absl::Status CloseWritesWithStatus(absl::Status status) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "no_further_puts",
-                                CloseWritesWithStatus, status);
-  }
+  absl::Status CloseWritesWithStatus(absl::Status status) override;
 
-  absl::StatusOr<size_t> Size() override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<size_t>, PyChunkStore, "size",
-                                Size, );
-  }
+  absl::StatusOr<size_t> Size() override;
 
-  absl::StatusOr<bool> Contains(int64_t seq) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<bool>, PyChunkStore, "contains",
-                                Contains, seq);
-  }
+  absl::StatusOr<bool> Contains(int64_t seq) override;
 
-  absl::Status SetId(std::string_view id) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "set_id", SetId,
-                                id);
-  }
+  absl::Status SetId(std::string_view id) override;
 
-  [[nodiscard]] std::string_view GetId() const override {
-    PYBIND11_OVERRIDE_PURE_NAME(std::string_view, PyChunkStore, "get_id",
-                                GetId, );
-  }
+  [[nodiscard]] std::string_view GetId() const override;
 
   absl::StatusOr<int64_t> GetSeqForArrivalOffset(
-      int64_t arrival_offset) override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, PyChunkStore,
-                                "get_seq_for_arrival_offset",
-                                GetSeqForArrivalOffset, arrival_offset);
-  }
+      int64_t arrival_offset) override;
 
-  absl::StatusOr<int64_t> GetFinalSeq() override {
-    PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, PyChunkStore,
-                                "get_final_seq", GetFinalSeq, );
-  }
+  absl::StatusOr<int64_t> GetFinalSeq() override;
 };
 
 void BindChunkStoreReaderOptions(
@@ -134,7 +91,6 @@ py::module_ MakeChunkStoreModule(py::module_ scope,
 }  // namespace eglt::pybindings
 
 namespace pybind11::detail {
-/// @private
 template <>
 class type_caster<std::unique_ptr<eglt::ChunkStore>>
     : public type_caster_base<std::unique_ptr<eglt::ChunkStore>> {};

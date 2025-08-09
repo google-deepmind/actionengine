@@ -47,7 +47,6 @@ namespace eglt::pybindings {
 
 namespace py = ::pybind11;
 
-/// @private
 void BindStream(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
@@ -88,7 +87,6 @@ void BindStream(py::handle scope, std::string_view name) {
       .def("get_id", &PyWireStream::GetId);
 }
 
-/// @private
 void BindSession(py::handle scope, std::string_view name) {
   py::class_<Session, std::shared_ptr<Session>>(scope,
                                                 std::string(name).c_str())
@@ -138,7 +136,6 @@ void BindSession(py::handle scope, std::string_view name) {
            py::call_guard<py::gil_scoped_release>());
 }
 
-/// @private
 void BindService(py::handle scope, std::string_view name) {
   py::class_<Service, std::shared_ptr<Service>>(scope,
                                                 std::string(name).c_str())
@@ -182,7 +179,6 @@ void BindService(py::handle scope, std::string_view name) {
            py::arg("action_registry"));
 }
 
-/// @private
 void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
   py::class_<StreamToSessionConnection,
              std::shared_ptr<StreamToSessionConnection>>(
@@ -207,7 +203,6 @@ void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
       .def_readwrite("session_id", &StreamToSessionConnection::session_id);
 }
 
-/// @private
 pybind11::module_ MakeServiceModule(pybind11::module_ scope,
                                     std::string_view module_name) {
   pybind11::module_ service = scope.def_submodule(

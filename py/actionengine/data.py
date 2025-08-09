@@ -1,4 +1,4 @@
-"""Imports data (eg_structs) from the C++ bindings."""
+"""Imports data (types) from the C++ bindings."""
 
 import io
 from typing import Any, Callable

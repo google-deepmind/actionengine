@@ -33,7 +33,7 @@
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/net/stream.h"
 #include "eglt/stores/chunk_store.h"           // IWYU pragma: keep
 #include "eglt/stores/chunk_store_pybind11.h"  // IWYU pragma: keep
@@ -202,7 +202,6 @@ class PyWireStream final : public WireStream {
   }
 };
 
-/// @private
 py::module_ MakeServiceModule(py::module_ scope,
                               std::string_view module_name = "service");
 }  // namespace eglt::pybindings

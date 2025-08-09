@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "cppack/msgpack.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 
 namespace cppack {
 

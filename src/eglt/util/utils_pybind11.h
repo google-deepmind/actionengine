@@ -85,7 +85,6 @@ py::object& GetGloballySavedEventLoop();
  */
 void SaveEventLoopGlobally(const py::object& loop);
 
-/// @private
 void SaveFirstEncounteredEventLoop();
 
 /**

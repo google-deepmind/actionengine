@@ -34,7 +34,7 @@
 #include <boost/asio/ip/tcp.hpp>
 
 #include "eglt/concurrency/concurrency.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/net/stream.h"
 #include "eglt/net/websockets/fiber_aware_websocket_stream.h"
 #include "eglt/service/service.h"

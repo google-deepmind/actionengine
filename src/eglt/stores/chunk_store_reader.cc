@@ -25,7 +25,7 @@
 #include <absl/time/clock.h>
 
 #include "eglt/concurrency/concurrency.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/util/status_macros.h"
 

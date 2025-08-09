@@ -53,7 +53,6 @@ ActionHandler MakeStatusAwareActionHandler(VoidActionHandler handler) {
   };
 }
 
-/// @private
 void BindActionSchema(py::handle scope, std::string_view name) {
   py::class_<ActionSchema, std::shared_ptr<ActionSchema>>(
       scope, std::string(name).c_str())
@@ -78,7 +77,6 @@ void BindActionSchema(py::handle scope, std::string_view name) {
       .doc() = "An action schema.";
 }
 
-/// @private
 void BindActionRegistry(py::handle scope, std::string_view name) {
   py::class_<ActionRegistry, std::shared_ptr<ActionRegistry>>(
       scope, std::string(name).c_str())
@@ -114,7 +112,6 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
           pybindings::keep_event_loop_memo());
 }
 
-/// @private
 void BindAction(py::handle scope, std::string_view name) {
   py::class_<Action, std::shared_ptr<Action>>(scope, std::string(name).c_str())
       .def(MakeSameObjectRefConstructor<Action>(), py::keep_alive<0, 1>())
@@ -208,7 +205,6 @@ void BindAction(py::handle scope, std::string_view name) {
           py::arg("handler"), py::call_guard<py::gil_scoped_release>());
 }
 
-/// @private
 py::module_ MakeActionsModule(py::module_ scope, std::string_view module_name) {
   py::module_ actions = scope.def_submodule(std::string(module_name).c_str(),
                                             "ActionEngine Actions interface.");

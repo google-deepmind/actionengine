@@ -16,7 +16,7 @@
 
 #include <absl/log/check.h>
 
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 
 namespace eglt {
 

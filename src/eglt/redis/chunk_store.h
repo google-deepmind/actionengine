@@ -44,7 +44,7 @@
 
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/conversion.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/redis/chunk_store_ops/close_writes.lua.h"
 #include "eglt/redis/pubsub.h"
 #include "eglt/redis/redis.h"

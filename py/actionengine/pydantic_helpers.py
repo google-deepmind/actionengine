@@ -84,8 +84,8 @@ def packb_with_basic_collections(obj: Any, **kwargs):
 packb = packb_with_basic_collections
 
 
-def _numpy_outer_type_to_dtype(outer_type: Any):
-    dtype = None
+def _numpy_outer_type_to_dtype(outer_type: Any) -> np.dtype | None:
+    dtype: np.dtype | None = None
 
     assert issubclass(typing.get_origin(outer_type), np.ndarray)
     type_args = typing.get_args(outer_type)

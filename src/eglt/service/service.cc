@@ -29,7 +29,7 @@
 
 #include "eglt/actions/action.h"
 #include "eglt/concurrency/concurrency.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/net/stream.h"
 #include "eglt/nodes/node_map.h"
 #include "eglt/service/session.h"

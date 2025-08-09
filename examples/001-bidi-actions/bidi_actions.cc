@@ -30,7 +30,7 @@
 #include <absl/strings/match.h>
 #include <absl/strings/str_split.h>
 #include <eglt/actions/action.h>
-#include <eglt/data/eg_structs.h>
+#include <eglt/data/types.h>
 #include <eglt/net/websockets/websockets.h>
 #include <eglt/service/service.h>
 #include <eglt/util/status_macros.h>

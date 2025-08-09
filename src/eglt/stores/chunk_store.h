@@ -34,7 +34,7 @@
 #include <absl/status/statusor.h>
 #include <absl/time/time.h>
 
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 
 namespace eglt {
 

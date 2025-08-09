@@ -23,7 +23,7 @@
 #include <absl/container/flat_hash_map.h>
 
 #include "eglt/actions/schema.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 
 /** @file
  *  @brief

@@ -4,14 +4,14 @@ add_library(eglt::data ALIAS egltData)
 target_sources(egltData
         PUBLIC
         conversion.h
-        eg_structs.h
+        types.h
         mimetypes.h
         msgpack.h
         serialization.h
 )
 target_sources(egltData
         PRIVATE
-        eg_structs.cc
+        types.cc
         msgpack.cc
 )
 target_include_directories(

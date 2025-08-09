@@ -24,7 +24,6 @@
 
 namespace eglt {
 
-/// @private
 inline std::string GenerateUUID4() {
   // TODO(hpnkv): Check this for correctness
   absl::BitGen gen;  // Abseil random number generator

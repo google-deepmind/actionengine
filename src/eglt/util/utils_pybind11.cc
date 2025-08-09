@@ -38,7 +38,6 @@ void SaveEventLoopGlobally(const py::object& loop) {
   GetGloballySavedEventLoop() = loop;
 }
 
-/// @private
 void SaveFirstEncounteredEventLoop() {
   if (py::object& global_event_loop_object = GetGloballySavedEventLoop();
       global_event_loop_object.is_none()) {

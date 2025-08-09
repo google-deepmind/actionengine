@@ -19,8 +19,8 @@
  *   streams).
  */
 
-#ifndef EGLT_DATA_EG_STRUCTS_H_
-#define EGLT_DATA_EG_STRUCTS_H_
+#ifndef EGLT_DATA_TYPES_H_
+#define EGLT_DATA_TYPES_H_
 
 #include <concepts>
 #include <cstdint>
@@ -41,13 +41,14 @@
 
 namespace eglt {
 
-namespace base {
+namespace internal {
 std::vector<std::string> Indent(std::vector<std::string> fields,
                                 int num_spaces = 0,
                                 bool indent_first_line = false);
 
 std::string Indent(std::string field, int num_spaces = 0,
                    bool indent_first_line = false);
+}  // namespace internal
 
 /**
  *  ActionEngine chunk metadata.
@@ -55,7 +56,7 @@ std::string Indent(std::string field, int num_spaces = 0,
  *  This structure is used to store metadata about a chunk of data in the
  *  ActionEngine format. It includes fields for mimetype and timestamp.
  *
- *  @headerfile eglt/data/eg_structs.h
+ *  @headerfile eglt/data/types.h
  */
 struct ChunkMetadata {
   std::string mimetype =
@@ -70,15 +71,7 @@ struct ChunkMetadata {
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const ChunkMetadata& metadata) {
-    if (!metadata.mimetype.empty()) {
-      absl::Format(&sink, "mimetype: %s\n", metadata.mimetype);
-    }
-    if (metadata.timestamp != absl::Time()) {
-      absl::Format(&sink, "timestamp: %s\n",
-                   absl::FormatTime(metadata.timestamp));
-    }
-  }
+  friend void AbslStringify(Sink& sink, const ChunkMetadata& metadata);
 
   friend bool operator==(const ChunkMetadata& lhs, const ChunkMetadata& rhs) {
     return lhs.mimetype == rhs.mimetype && lhs.timestamp == rhs.timestamp;
@@ -92,7 +85,7 @@ struct ChunkMetadata {
  *  It includes fields for metadata, a reference to the data, and the actual
  *  data itself. Data can be either a reference or the actual data, but not both.
  *
- *  @headerfile eglt/data/eg_structs.h
+ *  @headerfile eglt/data/types.h
  */
 struct Chunk {
   /** The metadata associated with the chunk.
@@ -136,18 +129,7 @@ struct Chunk {
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const Chunk& chunk) {
-    if (!chunk.metadata.Empty()) {
-      absl::Format(&sink, "metadata: \n%s",
-                   Indent(absl::StrCat(chunk.metadata), 2, true));
-    }
-    if (!chunk.data.empty() || (chunk.data.empty() && chunk.ref.empty())) {
-      absl::Format(&sink, "data: %s\n", chunk.data);
-    }
-    if (!chunk.ref.empty()) {
-      absl::Format(&sink, "ref: %s\n", chunk.ref);
-    }
-  }
+  friend void AbslStringify(Sink& sink, const Chunk& chunk);
 
   friend bool operator==(const Chunk& lhs, const Chunk& rhs) {
     return lhs.metadata == rhs.metadata && lhs.ref == rhs.ref &&
@@ -161,7 +143,7 @@ struct Chunk {
  * a data chunk, the node ID, the sequence number of the chunk, and a flag
  * indicating whether more fragments are expected.
  *
- * @headerfile eglt/data/eg_structs.h
+ * @headerfile eglt/data/types.h
  */
 struct NodeFragment {
   /** The node ID for this fragment. */
@@ -177,21 +159,7 @@ struct NodeFragment {
   bool continued = false;
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const NodeFragment& fragment) {
-    if (!fragment.id.empty()) {
-      absl::Format(&sink, "id: %s\n", fragment.id);
-    }
-    if (fragment.chunk.has_value()) {
-      absl::Format(&sink, "chunk: \n%s",
-                   Indent(absl::StrCat(*fragment.chunk), 2, true));
-    }
-    if (fragment.seq != -1) {
-      absl::Format(&sink, "seq: %d\n", fragment.seq);
-    }
-    if (!fragment.continued) {
-      sink.Append("continued: false\n");
-    }
-  }
+  friend void AbslStringify(Sink& sink, const NodeFragment& fragment);
 
   friend bool operator==(const NodeFragment& lhs, const NodeFragment& rhs) {
     return lhs.id == rhs.id && lhs.chunk == rhs.chunk && lhs.seq == rhs.seq &&
@@ -200,20 +168,13 @@ struct NodeFragment {
 };
 
 /// A mapping of a parameter name to its node ID in an action.
-/// @headerfile eglt/data/eg_structs.h
+/// @headerfile eglt/data/types.h
 struct Port {
   std::string name;
   std::string id;
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const Port& parameter) {
-    if (!parameter.name.empty()) {
-      sink.Append(absl::StrCat("name: ", parameter.name, "\n"));
-    }
-    if (!parameter.id.empty()) {
-      sink.Append(absl::StrCat("id: ", parameter.id, "\n"));
-    }
-  }
+  friend void AbslStringify(Sink& sink, const Port& parameter);
 
   friend bool operator==(const Port& lhs, const Port& rhs) {
     return lhs.name == rhs.name && lhs.id == rhs.id;
@@ -254,23 +215,7 @@ struct ActionMessage {
   std::vector<Port> outputs;
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const ActionMessage& action) {
-    if (!action.name.empty()) {
-      absl::Format(&sink, "name: %s\n", action.name);
-    }
-    if (!action.inputs.empty()) {
-      sink.Append(absl::StrCat("inputs:\n"));
-      for (const auto& input : action.inputs) {
-        absl::Format(&sink, "%s\n", Indent(absl::StrCat(input), 2, true));
-      }
-    }
-    if (!action.outputs.empty()) {
-      sink.Append(absl::StrCat("outputs:\n"));
-      for (const auto& output : action.outputs) {
-        absl::Format(&sink, "%s\n", Indent(absl::StrCat(output), 2, true));
-      }
-    }
-  }
+  friend void AbslStringify(Sink& sink, const ActionMessage& action);
 
   friend bool operator==(const ActionMessage& lhs, const ActionMessage& rhs) {
     return lhs.id == rhs.id && lhs.name == rhs.name &&
@@ -286,7 +231,7 @@ struct ActionMessage {
  * action messages. This is the singular unit of communication in ActionEngine,
  * and it is used to send data and actions between nodes in the system.
  *
- * @headerfile eglt/data/eg_structs.h
+ * @headerfile eglt/data/types.h
  */
 struct SessionMessage {
   /** A list of node fragments, each representing a piece of data for some node. */
@@ -299,21 +244,7 @@ struct SessionMessage {
   std::vector<ActionMessage> actions;
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const SessionMessage& message) {
-    if (!message.node_fragments.empty()) {
-      sink.Append("node_fragments: \n");
-      for (const auto& node_fragment : message.node_fragments) {
-        absl::Format(&sink, "%s\n",
-                     Indent(absl::StrCat(node_fragment), 2, true));
-      }
-    }
-    if (!message.actions.empty()) {
-      sink.Append(absl::StrCat("actions: \n"));
-      for (const auto& action : message.actions) {
-        absl::Format(&sink, "%s\n", Indent(absl::StrCat(action), 2, true));
-      }
-    }
-  }
+  friend void AbslStringify(Sink& sink, const SessionMessage& message);
 
   friend bool operator==(const SessionMessage& lhs, const SessionMessage& rhs) {
     return lhs.node_fragments == rhs.node_fragments &&
@@ -327,15 +258,96 @@ absl::Status EgltAssignInto(std::string string, Chunk* chunk);
 absl::Status EgltAssignInto(const Chunk& chunk, absl::Status* status);
 absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk);
 
-}  // namespace base
+template <typename Sink>
+void AbslStringify(Sink& sink, const ChunkMetadata& metadata) {
+  if (!metadata.mimetype.empty()) {
+    absl::Format(&sink, "mimetype: %s\n", metadata.mimetype);
+  }
+  if (metadata.timestamp != absl::Time()) {
+    absl::Format(&sink, "timestamp: %s\n",
+                 absl::FormatTime(metadata.timestamp));
+  }
+}
 
-using ChunkMetadata = base::ChunkMetadata;
+template <typename Sink>
+void AbslStringify(Sink& sink, const Chunk& chunk) {
+  if (!chunk.metadata.Empty()) {
+    absl::Format(&sink, "metadata: \n%s",
+                 internal::Indent(absl::StrCat(chunk.metadata), 2, true));
+  }
+  if (!chunk.data.empty() || (chunk.data.empty() && chunk.ref.empty())) {
+    absl::Format(&sink, "data: %s\n", chunk.data);
+  }
+  if (!chunk.ref.empty()) {
+    absl::Format(&sink, "ref: %s\n", chunk.ref);
+  }
+}
 
-using Chunk = base::Chunk;
-using NodeFragment = base::NodeFragment;
-using Port = base::Port;
-using ActionMessage = base::ActionMessage;
-using SessionMessage = base::SessionMessage;
+template <typename Sink>
+void AbslStringify(Sink& sink, const NodeFragment& fragment) {
+  if (!fragment.id.empty()) {
+    absl::Format(&sink, "id: %s\n", fragment.id);
+  }
+  if (fragment.chunk.has_value()) {
+    absl::Format(&sink, "chunk: \n%s",
+                 internal::Indent(absl::StrCat(*fragment.chunk), 2, true));
+  }
+  if (fragment.seq != -1) {
+    absl::Format(&sink, "seq: %d\n", fragment.seq);
+  }
+  if (!fragment.continued) {
+    sink.Append("continued: false\n");
+  }
+}
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const Port& parameter) {
+  if (!parameter.name.empty()) {
+    sink.Append(absl::StrCat("name: ", parameter.name, "\n"));
+  }
+  if (!parameter.id.empty()) {
+    sink.Append(absl::StrCat("id: ", parameter.id, "\n"));
+  }
+}
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const ActionMessage& action) {
+  if (!action.name.empty()) {
+    absl::Format(&sink, "name: %s\n", action.name);
+  }
+  if (!action.inputs.empty()) {
+    sink.Append(absl::StrCat("inputs:\n"));
+    for (const auto& input : action.inputs) {
+      absl::Format(&sink, "%s\n",
+                   internal::Indent(absl::StrCat(input), 2, true));
+    }
+  }
+  if (!action.outputs.empty()) {
+    sink.Append(absl::StrCat("outputs:\n"));
+    for (const auto& output : action.outputs) {
+      absl::Format(&sink, "%s\n",
+                   internal::Indent(absl::StrCat(output), 2, true));
+    }
+  }
+}
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const SessionMessage& message) {
+  if (!message.node_fragments.empty()) {
+    sink.Append("node_fragments: \n");
+    for (const auto& node_fragment : message.node_fragments) {
+      absl::Format(&sink, "%s\n",
+                   internal::Indent(absl::StrCat(node_fragment), 2, true));
+    }
+  }
+  if (!message.actions.empty()) {
+    sink.Append(absl::StrCat("actions: \n"));
+    for (const auto& action : message.actions) {
+      absl::Format(&sink, "%s\n",
+                   internal::Indent(absl::StrCat(action), 2, true));
+    }
+  }
+}
 
 template <typename T>
 concept ConvertibleToChunk = requires(T t) {
@@ -360,4 +372,4 @@ constexpr Chunk EndOfStream() {
 
 }  // namespace eglt
 
-#endif  // EGLT_DATA_EG_STRUCTS_H_
+#endif  // EGLT_DATA_TYPES_H_

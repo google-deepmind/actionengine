@@ -19,7 +19,7 @@
 #include <absl/flags/parse.h>
 #include <absl/log/check.h>
 #include <eglt/actions/action.h>
-#include <eglt/data/eg_structs.h>
+#include <eglt/data/types.h>
 #include <eglt/net/websockets/websockets.h>
 #include <eglt/nodes/async_node.h>
 #include <eglt/service/service.h>
@@ -201,7 +201,7 @@ absl::Status Main(int argc, char** argv) {
   // This is enough to run the server. Notice how Service is decoupled from
   // the server implementation. We could have used any other implementation,
   // such as gRPC or WebSockets, if they provide an implementation of
-  // WireStream and (de)serialization of base types (eg_structs.h) from
+  // WireStream and (de)serialization of base types (types.h) from
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   eglt::Service service(&action_registry);

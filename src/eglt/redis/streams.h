@@ -22,7 +22,7 @@
 
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/conversion.h"
-#include "eglt/data/eg_structs.h"
+#include "eglt/data/types.h"
 #include "eglt/redis/redis.h"
 #include "eglt/redis/reply_converters.h"
 #include "eglt/util/status_macros.h"
