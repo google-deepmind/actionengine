@@ -7,6 +7,7 @@
 [submodule "third_party/pybind11"]
 	path = third_party/pybind11
 	url = https://github.com/pybind/pybind11
+	branch = v3.0
 [submodule "third_party/boost"]
 	path = third_party/boost
 	url = https://github.com/hpnkv/boost
