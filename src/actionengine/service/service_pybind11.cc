@@ -50,8 +50,7 @@ namespace py = ::pybind11;
 void BindStream(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
-  py::class_<WireStream, std::shared_ptr<WireStream>>(
-      scope, absl::StrCat(name, "VirtualBase").c_str())
+  py::classh<WireStream>(scope, absl::StrCat(name, "VirtualBase").c_str())
       .def("send", &WireStream::Send, py::call_guard<py::gil_scoped_release>())
       .def(
           "receive",
@@ -70,8 +69,7 @@ void BindStream(py::handle scope, std::string_view name) {
       .def("get_status", &WireStream::GetStatus)
       .def("get_id", &WireStream::GetId);
 
-  py::class_<PyWireStream, WireStream, std::shared_ptr<PyWireStream>>(
-      scope, name_str.c_str())
+  py::classh<PyWireStream, WireStream>(scope, name_str.c_str())
       .def(py::init<>(), pybindings::keep_event_loop_memo())
       .def(MakeSameObjectRefConstructor<PyWireStream>())
       .def("send", &PyWireStream::Send, py::arg("message"),
@@ -88,8 +86,7 @@ void BindStream(py::handle scope, std::string_view name) {
 }
 
 void BindSession(py::handle scope, std::string_view name) {
-  py::class_<Session, std::shared_ptr<Session>>(scope,
-                                                std::string(name).c_str())
+  py::classh<Session>(scope, std::string(name).c_str())
       .def(py::init([](NodeMap* node_map = nullptr,
                        ActionRegistry* action_registry = nullptr) {
              return std::make_shared<Session>(node_map, action_registry);
@@ -137,8 +134,7 @@ void BindSession(py::handle scope, std::string_view name) {
 }
 
 void BindService(py::handle scope, std::string_view name) {
-  py::class_<Service, std::shared_ptr<Service>>(scope,
-                                                std::string(name).c_str())
+  py::classh<Service>(scope, std::string(name).c_str())
       .def(
           py::init([](ActionRegistry* action_registry = nullptr,
                       ConnectionHandler connection_handler = RunSimpleSession) {
@@ -180,9 +176,7 @@ void BindService(py::handle scope, std::string_view name) {
 }
 
 void BindStreamToSessionConnection(py::handle scope, std::string_view name) {
-  py::class_<StreamToSessionConnection,
-             std::shared_ptr<StreamToSessionConnection>>(
-      scope, std::string(name).c_str())
+  py::classh<StreamToSessionConnection>(scope, std::string(name).c_str())
       .def(py::init(
                [](const std::shared_ptr<WireStream>& stream, Session* session) {
                  return std::make_shared<StreamToSessionConnection>(stream,

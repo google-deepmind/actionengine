@@ -33,14 +33,12 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
   redis_module.doc() =
       "Module for Redis chunk store and related functionality.";
 
-  py::class_<redis::Redis, std::shared_ptr<redis::Redis>>(redis_module, "Redis")
+  py::classh<redis::Redis>(redis_module, "Redis")
       .def_static(
           "connect",
           [](std::string_view host,
-             uint16_t port) -> absl::StatusOr<std::shared_ptr<redis::Redis>> {
-            ASSIGN_OR_RETURN(std::shared_ptr client,
-                             redis::Redis::Connect(host, port));
-            return client;
+             uint16_t port) -> absl::StatusOr<std::unique_ptr<redis::Redis>> {
+            return redis::Redis::Connect(host, port);
           },
           py::arg("host"), py::arg_v("port", 6379), keep_event_loop_memo(),
           py::call_guard<py::gil_scoped_release>())
@@ -71,8 +69,7 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>())
       .doc() = "Redis client for ActionEngine.";
 
-  py::class_<redis::ChunkStore, act::ChunkStore,
-             std::shared_ptr<redis::ChunkStore>>(redis_module, "ChunkStore")
+  py::classh<redis::ChunkStore, act::ChunkStore>(redis_module, "ChunkStore")
       .def(py::init([](redis::Redis* absl_nonnull redis, std::string_view id,
                        int64_t ttl = -1) {
              absl::Duration ttl_duration =

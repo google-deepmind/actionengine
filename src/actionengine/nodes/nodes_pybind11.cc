@@ -31,8 +31,7 @@
 namespace act::pybindings {
 
 void BindNodeMap(py::handle scope, std::string_view name) {
-  py::class_<NodeMap, std::shared_ptr<NodeMap>>(scope,
-                                                std::string(name).c_str())
+  py::classh<NodeMap>(scope, std::string(name).c_str())
       .def(MakeSameObjectRefConstructor<NodeMap>())
       .def(py::init([](const ChunkStoreFactory& factory = {}) {
              return std::make_shared<NodeMap>(factory);
@@ -64,8 +63,7 @@ void BindNodeMap(py::handle scope, std::string_view name) {
 }
 
 void BindAsyncNode(py::handle scope, std::string_view name) {
-  py::class_<AsyncNode, std::shared_ptr<AsyncNode>>(scope,
-                                                    std::string(name).c_str())
+  py::classh<AsyncNode>(scope, std::string(name).c_str())
       .def(py::init<>())
       .def(MakeSameObjectRefConstructor<AsyncNode>())
       // it is not possible to pass a std::unique_ptr to pybind11, so we pass

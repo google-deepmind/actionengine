@@ -34,6 +34,7 @@
 #include <pybind11/detail/descr.h>
 #include <pybind11/detail/internals.h>
 #include <pybind11/gil.h>
+#include <pybind11/stl.h>  // IWYU pragma: keep
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
@@ -51,8 +52,8 @@ namespace act::pybindings {
 namespace py = ::pybind11;
 
 void BindTurnServer(py::handle scope, std::string_view name) {
-  py::class_<net::TurnServer, std::shared_ptr<net::TurnServer>>(
-      scope, std::string(name).c_str(), "A TURN server configuration.")
+  py::classh<net::TurnServer>(scope, std::string(name).c_str(),
+                              "A TURN server configuration.")
       .def_static(
           "from_string",
           [](std::string_view server) {
@@ -72,8 +73,8 @@ void BindTurnServer(py::handle scope, std::string_view name) {
 }
 
 void BindRtcConfig(py::handle scope, std::string_view name) {
-  py::class_<net::RtcConfig, std::shared_ptr<net::RtcConfig>>(
-      scope, std::string(name).c_str(), "A WebRTC configuration.")
+  py::classh<net::RtcConfig>(scope, std::string(name).c_str(),
+                             "A WebRTC configuration.")
       .def(py::init([]() { return net::RtcConfig{}; }))
       .def_readwrite("max_message_size", &net::RtcConfig::max_message_size,
                      "The maximum message size for WebRTC data channels.")
@@ -96,9 +97,8 @@ void BindRtcConfig(py::handle scope, std::string_view name) {
 }
 
 void BindWebRtcWireStream(py::handle scope, std::string_view name) {
-  py::class_<net::WebRtcWireStream, WireStream,
-             std::shared_ptr<net::WebRtcWireStream>>(scope,
-                                                     std::string(name).c_str())
+  py::classh<net::WebRtcWireStream, WireStream>(scope,
+                                                std::string(name).c_str())
       .def("send", &net::WebRtcWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
       .def("receive", &net::WebRtcWireStream::Receive,
@@ -121,8 +121,8 @@ void BindWebRtcWireStream(py::handle scope, std::string_view name) {
 }
 
 void BindWebRtcServer(py::handle scope, std::string_view name) {
-  py::class_<net::WebRtcServer, std::shared_ptr<net::WebRtcServer>>(
-      scope, std::string(name).c_str(), "A WebRtcServer interface.")
+  py::classh<net::WebRtcServer>(scope, std::string(name).c_str(),
+                                "A WebRtcServer interface.")
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port, std::string_view signalling_address,
                        uint16_t signalling_port, std::string_view identity,

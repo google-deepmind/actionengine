@@ -257,8 +257,7 @@ void BindSessionMessage(py::handle scope, std::string_view name) {
 
 void BindSerializerRegistry(py::handle scope, std::string_view name) {
   auto registry =
-      py::class_<SerializerRegistry, std::shared_ptr<SerializerRegistry>>(
-          scope, std::string(name).c_str());
+      py::classh<SerializerRegistry>(scope, std::string(name).c_str());
   registry.def(MakeSameObjectRefConstructor<SerializerRegistry>());
 
   registry.def(

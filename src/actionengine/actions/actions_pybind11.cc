@@ -54,8 +54,7 @@ ActionHandler MakeStatusAwareActionHandler(VoidActionHandler handler) {
 }
 
 void BindActionSchema(py::handle scope, std::string_view name) {
-  py::class_<ActionSchema, std::shared_ptr<ActionSchema>>(
-      scope, std::string(name).c_str())
+  py::classh<ActionSchema>(scope, std::string(name).c_str())
       .def(py::init<>())
       .def(MakeSameObjectRefConstructor<ActionSchema>())
       .def(py::init([](std::string_view action_name,
@@ -78,8 +77,7 @@ void BindActionSchema(py::handle scope, std::string_view name) {
 }
 
 void BindActionRegistry(py::handle scope, std::string_view name) {
-  py::class_<ActionRegistry, std::shared_ptr<ActionRegistry>>(
-      scope, std::string(name).c_str())
+  py::classh<ActionRegistry>(scope, std::string(name).c_str())
       .def(py::init([]() { return std::make_shared<ActionRegistry>(); }))
       .def(MakeSameObjectRefConstructor<ActionRegistry>())
       .def(
@@ -113,7 +111,7 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
 }
 
 void BindAction(py::handle scope, std::string_view name) {
-  py::class_<Action, std::shared_ptr<Action>>(scope, std::string(name).c_str())
+  py::classh<Action>(scope, std::string(name).c_str())
       .def(MakeSameObjectRefConstructor<Action>(), py::keep_alive<0, 1>())
       .def(py::init([](ActionSchema schema, std::string_view id = "") {
         return std::make_shared<Action>(std::move(schema), id);

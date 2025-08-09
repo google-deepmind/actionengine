@@ -126,7 +126,7 @@ void BindChunkStoreReaderOptions(py::handle scope, std::string_view name) {
 void BindChunkStore(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
-  py::class_<ChunkStore, std::shared_ptr<ChunkStore>>(
+  py::classh<ChunkStore>(
       scope, absl::StrCat(name, "VirtualBase").c_str())
       .def("get", &ChunkStore::Get, py::arg("seq"), py::arg_v("timeout", -1),
            py::call_guard<py::gil_scoped_release>())
@@ -136,7 +136,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
       .def("__contains__", &ChunkStore::Contains)
       .def("__len__", &ChunkStore::Size);
 
-  py::class_<PyChunkStore, ChunkStore, std::shared_ptr<PyChunkStore>>(
+  py::classh<PyChunkStore, ChunkStore>(
       scope, name_str.c_str())
       .def(py::init<>(), keep_event_loop_memo())
       .def(
@@ -184,8 +184,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
 }
 
 void BindLocalChunkStore(py::handle scope, std::string_view name) {
-  py::class_<LocalChunkStore, ChunkStore, std::shared_ptr<LocalChunkStore>>(
-      scope, std::string(name).c_str())
+  py::classh<LocalChunkStore, ChunkStore>(scope, std::string(name).c_str())
       .def(py::init<>(), keep_event_loop_memo())
       .def(
           "get",
