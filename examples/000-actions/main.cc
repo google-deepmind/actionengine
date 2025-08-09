@@ -132,10 +132,10 @@ absl::StatusOr<std::string> CallEcho(
     const std::shared_ptr<WireStream>& stream) {
 
   const auto echo = session->GetActionRegistry()->MakeAction(
-      /*action_key=*/"echo");
+      /*name=*/"echo");
   echo->BindNodeMap(session->GetNodeMap());
   echo->BindSession(session);
-  echo->BindStream(stream);
+  echo->BindStream(stream.get());
 
   // ActionEngine actions are asynchronous, so we can call the action even before
   // supplying all the inputs. The server will run the action handler in a

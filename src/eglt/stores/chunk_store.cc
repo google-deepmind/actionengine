@@ -8,13 +8,13 @@
 namespace eglt {
 
 absl::StatusOr<Chunk> ChunkStore::Get(int64_t seq, absl::Duration timeout) {
-  ASSIGN_OR_RETURN(const Chunk& chunk, GetRef(seq, timeout));
+  ASSIGN_OR_RETURN(Chunk chunk, GetRef(seq, timeout));
   return chunk;
 }
 
 absl::StatusOr<Chunk> ChunkStore::GetByArrivalOrder(int64_t arrival_order,
                                                     absl::Duration timeout) {
-  ASSIGN_OR_RETURN(const Chunk& chunk, GetRefByArrivalOrder(arrival_order, timeout));
+  ASSIGN_OR_RETURN(Chunk chunk, GetRefByArrivalOrder(arrival_order, timeout));
   return chunk;
 }
 

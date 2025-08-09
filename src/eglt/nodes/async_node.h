@@ -257,7 +257,7 @@ class AsyncNode {
   auto GetReaderStatus() const -> absl::Status;
   [[nodiscard]] auto MakeReader(ChunkStoreReaderOptions options) const
       -> std::unique_ptr<ChunkStoreReader>;
-  auto SetReaderOptions(ChunkStoreReaderOptions options) -> AsyncNode&;
+  auto SetReaderOptions(const ChunkStoreReaderOptions& options) -> AsyncNode&;
   auto ResetReader() -> AsyncNode&;
 
   template <typename T>

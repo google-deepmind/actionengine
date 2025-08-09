@@ -141,15 +141,11 @@ struct Chunk {
       absl::Format(&sink, "metadata: \n%s",
                    Indent(absl::StrCat(chunk.metadata), 2, true));
     }
-    if (!chunk.ref.empty() && !chunk.data.empty()) {
-      LOG(FATAL) << "Chunk has both ref and data set.";
-      ABSL_ASSUME(false);
+    if (!chunk.data.empty() || (chunk.data.empty() && chunk.ref.empty())) {
+      absl::Format(&sink, "data: %s\n", chunk.data);
     }
     if (!chunk.ref.empty()) {
       absl::Format(&sink, "ref: %s\n", chunk.ref);
-    }
-    if (!chunk.data.empty()) {
-      absl::Format(&sink, "data: %s\n", chunk.data);
     }
   }
 

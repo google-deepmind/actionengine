@@ -61,7 +61,7 @@ class SerializerRegistry {
   }
 
   [[nodiscard]] absl::StatusOr<std::any> Deserialize(
-      Bytes data, std::string_view mimetype) const {
+      const Bytes& data, std::string_view mimetype) const {
     if (mimetype.empty()) {
       return absl::InvalidArgumentError(
           "Deserialize(data, mimetype) was called with an empty mimetype.");
@@ -75,7 +75,7 @@ class SerializerRegistry {
 
     for (const auto& deserializer : it->second | std::views::reverse) {
       // Attempt to deserialize the data using the registered deserializer.
-      if (auto result = deserializer(std::move(data)); result.ok()) {
+      if (auto result = deserializer(data); result.ok()) {
         return std::move(*result);
       }
     }
@@ -90,8 +90,8 @@ class SerializerRegistry {
   // a convenience wrapper for std::any_cast<T>(result)-or-status.
   template <typename T>
   [[nodiscard]] absl::StatusOr<T> DeserializeAs(
-      Bytes data, std::string_view mimetype) const {
-    auto deserialized = Deserialize(std::move(data), mimetype);
+      const Bytes& data, std::string_view mimetype) const {
+    auto deserialized = Deserialize(data, mimetype);
     if (!deserialized.ok()) {
       return deserialized.status();
     }
@@ -230,21 +230,20 @@ absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},
     return eglt::ConvertToOrDie<T>(std::move(chunk));
   }
 
-  SerializerRegistry* resolved_registry =
+  const SerializerRegistry* resolved_registry =
       registry ? registry : GetGlobalSerializerRegistryPtr();
 
   return resolved_registry->DeserializeAs<T>(std::move(chunk).data, mimetype);
 }
 
 inline absl::StatusOr<std::any> FromChunk(
-    Chunk chunk, std::string_view mimetype = {},
+    const Chunk& chunk, std::string_view mimetype = {},
     const SerializerRegistry* const registry = nullptr) {
   const SerializerRegistry* resolved_registry =
       registry ? registry : GetGlobalSerializerRegistryPtr();
 
   return resolved_registry->Deserialize(
-      std::move(chunk).data,
-      !mimetype.empty() ? mimetype : chunk.metadata.mimetype);
+      chunk.data, !mimetype.empty() ? mimetype : chunk.metadata.mimetype);
 }
 
 template <typename T>

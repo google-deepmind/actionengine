@@ -33,6 +33,7 @@
 #include <eglt/data/eg_structs.h>
 #include <eglt/net/websockets/websockets.h>
 #include <eglt/service/service.h>
+#include <eglt/util/status_macros.h>
 
 ABSL_FLAG(int32_t, port, 20000, "Port to bind to.");
 
@@ -49,11 +50,12 @@ using WireStream = eglt::WireStream;
 std::string ToLower(std::string_view text);
 
 absl::Status RunPrint(const std::shared_ptr<Action>& action) {
-  auto text = action->GetInput("text");
-  text->SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
+  const auto text = action->GetInput("text");
+  text->SetReaderOptions({.ordered = true, .remove_chunks = true});
 
   while (true) {
-    std::optional<std::string> word = text->NextOrDie<std::string>();
+    ASSIGN_OR_RETURN(std::optional<std::string> word,
+                     text->Next<std::string>(absl::Seconds(5)));
     if (!word.has_value()) {
       break;
     }
@@ -70,23 +72,24 @@ absl::Status RunBidiEcho(const std::shared_ptr<Action>& action) {
   }
 
   const auto echo_input = action->GetInput("text");
-  echo_input->SetReaderOptions(/*ordered=*/true, /*remove_chunks=*/true);
+  echo_input->SetReaderOptions({.ordered = true, .remove_chunks = true});
 
   const auto print_input = print_action->GetInput("text");
 
   absl::BitGen generator;
   while (true) {
-    std::optional<std::string> word = echo_input->NextOrDie<std::string>();
+    ASSIGN_OR_RETURN(std::optional<std::string> word,
+                     echo_input->Next<std::string>(absl::Seconds(5)));
     if (!word.has_value()) {
       break;
     }
-    print_input->Put(*word).IgnoreError();
+    RETURN_IF_ERROR(print_input->Put(*word));
 
     const double jitter = absl::Uniform(generator, -kDelayBetweenWords / 2,
                                         kDelayBetweenWords / 2);
     eglt::SleepFor(absl::Seconds(kDelayBetweenWords + jitter));
   }
-  print_input->Put(eglt::EndOfStream()).IgnoreError();
+  RETURN_IF_ERROR(print_input->Put(eglt::EndOfStream()));
 
   return absl::OkStatus();
 }
@@ -114,7 +117,7 @@ ActionRegistry MakeActionRegistry() {
   return registry;
 }
 
-int main(int argc, char** argv) {
+absl::Status Main(int argc, char** argv) {
   absl::InstallFailureSignalHandler({});
   absl::ParseCommandLine(argc, argv);
   const uint16_t port = absl::GetFlag(FLAGS_port);
@@ -126,13 +129,10 @@ int main(int argc, char** argv) {
 
   eglt::NodeMap node_map;
   eglt::Session session(&node_map, &action_registry);
-  auto stream = eglt::net::MakeWebsocketWireStream("localhost", port);
-  if (!stream.ok()) {
-    LOG(FATAL) << "Failed to connect to the server: " << stream.status();
-    ABSL_ASSUME(false);
-  }
-  auto shared_stream = std::shared_ptr(*std::move(stream));
-  session.DispatchFrom(shared_stream);
+  ASSIGN_OR_RETURN(std::shared_ptr<eglt::WireStream> stream,
+                   eglt::net::MakeWebsocketWireStream("localhost", port));
+
+  session.DispatchFrom(stream);
 
   std::cout << absl::StrFormat(
       "Bidi actions. Enter a prompt, and the server will print it back with a "
@@ -152,34 +152,33 @@ int main(int argc, char** argv) {
     const auto action = action_registry.MakeAction("bidi_echo");
     action->BindNodeMap(&node_map);
     action->BindSession(&session);
-    action->BindStream(shared_stream);
+    action->BindStream(stream.get());
 
-    if (const auto status = action->Call(); !status.ok()) {
-      LOG(ERROR) << "Error: " << status << "\n";
-      continue;
-    }
+    RETURN_IF_ERROR(action->Call());
 
     const auto text_input = action->GetInput("text");
     std::vector<std::string> words = absl::StrSplit(prompt, ' ');
     for (auto& word : words) {
-      if (const auto status = text_input->Put(absl::StrCat(word, " "));
-          !status.ok()) {
-        LOG(FATAL) << "Error: " << status;
-        ABSL_ASSUME(false);
-      }
+      RETURN_IF_ERROR(text_input->Put(absl::StrCat(word, " ")));
     }
-    text_input->Put(eglt::EndOfStream()).IgnoreError();
+    RETURN_IF_ERROR(text_input->Put(eglt::EndOfStream()));
 
     eglt::SleepFor(absl::Seconds(kDelayBetweenWords *
                                  (static_cast<double>(words.size()) + 2.0)));
     std::cout << std::endl;
   }
 
-  shared_stream->HalfClose();
+  stream->HalfClose();
 
-  server.Cancel().IgnoreError();
-  server.Join().IgnoreError();
+  RETURN_IF_ERROR(server.Cancel());
+  RETURN_IF_ERROR(server.Join());
 
+  return absl::OkStatus();
+}
+
+int main(int argc, char** argv) {
+  CHECK_OK(Main(argc, argv))
+      << "Failed to run the bidi actions example. See logs for details.";
   return 0;
 }
 

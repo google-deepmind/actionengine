@@ -121,7 +121,7 @@ class ChunkStoreReader {
    *   reader.SetOptions({.ordered = false});
    *   @endcode
    */
-  void SetOptions(ChunkStoreReaderOptions options);
+  void SetOptions(const ChunkStoreReaderOptions& options);
 
   /** @brief
    *    Returns the current options of the ChunkStoreReader.
@@ -170,6 +170,9 @@ class ChunkStoreReader {
   absl::StatusOr<std::optional<T>> Next(
       std::optional<absl::Duration> timeout = std::nullopt) {
     ASSIGN_OR_RETURN(std::optional<Chunk> chunk, Next(timeout));
+    if (!chunk) {
+      return std::nullopt;
+    }
     ASSIGN_OR_RETURN(T result, FromChunkAs<T>(*std::move(chunk)));
     return result;
   }
@@ -213,7 +216,6 @@ class ChunkStoreReader {
   std::unique_ptr<thread::Fiber> fiber_;
   std::unique_ptr<thread::Channel<std::optional<std::pair<int, Chunk>>>>
       buffer_;
-  bool buffer_closed_ = false;
   int total_chunks_read_ = 0;
 
   absl::Status status_;

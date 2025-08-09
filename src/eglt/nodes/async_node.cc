@@ -30,6 +30,7 @@
 #include "eglt/stores/chunk_store_reader.h"
 #include "eglt/stores/chunk_store_writer.h"
 #include "eglt/stores/local_chunk_store.h"
+#include "eglt/util/status_macros.h"
 
 namespace eglt {
 
@@ -101,7 +102,7 @@ absl::Status AsyncNode::PutInternal(NodeFragment fragment)
                        " does not match the node id: ", chunk_store_->GetId()));
     }
     if (node_id.empty()) {
-      chunk_store_->SetIdOrDie(fragment.id);
+      RETURN_IF_ERROR(chunk_store_->SetId(fragment.id));
     }
   }
 
@@ -126,22 +127,17 @@ absl::Status AsyncNode::PutInternal(Chunk chunk, int seq, bool final)
                      .continued = !final});
   }
 
-  auto status_or_seq = writer->Put(std::move(chunk), seq, final);
-  if (!status_or_seq.ok()) {
-    LOG(ERROR) << "Failed to put chunk: " << status_or_seq.status();
-    return status_or_seq.status();
-  }
-
   std::vector<std::string_view> dead_peers;
   for (const auto& [peer_id, peer] : peers_) {
     if (auto status = peer->Send(message_for_peers); !status.ok()) {
-      LOG(ERROR) << "Failed to send to stream: " << status;
       dead_peers.push_back(peer_id);
     }
   }
   for (const auto& peer_id : dead_peers) {
     peers_.erase(peer_id);
   }
+
+  RETURN_IF_ERROR(writer->Put(std::move(chunk), seq, final).status());
 
   return absl::OkStatus();
 }
@@ -191,14 +187,13 @@ absl::Status AsyncNode::GetReaderStatus() const {
 
 std::unique_ptr<ChunkStoreReader> AsyncNode::MakeReader(
     ChunkStoreReaderOptions options) const {
-  return std::make_unique<ChunkStoreReader>(chunk_store_.get(),
-                                            std::move(options));
+  return std::make_unique<ChunkStoreReader>(chunk_store_.get(), options);
 }
 
-AsyncNode& AsyncNode::SetReaderOptions(ChunkStoreReaderOptions options) {
+AsyncNode& AsyncNode::SetReaderOptions(const ChunkStoreReaderOptions& options) {
 
   eglt::MutexLock lock(&mu_);
-  EnsureReader()->SetOptions(std::move(options));
+  EnsureReader()->SetOptions(options);
   return *this;
 }
 

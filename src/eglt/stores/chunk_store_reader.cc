@@ -59,23 +59,20 @@ void ChunkStoreReader::Cancel() const {
   }
 }
 
-void ChunkStoreReader::SetOptions(ChunkStoreReaderOptions options) {
+void ChunkStoreReader::SetOptions(const ChunkStoreReaderOptions& options) {
   eglt::MutexLock lock(&mu_);
   CHECK(fiber_ == nullptr)
       << "Cannot set options after the reader has been started.";
-  options_ = std::move(options);
+  options_ = options;
 }
 
 absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
     std::optional<absl::Duration> timeout) {
-  std::optional<Chunk> chunk;
-  {
-    eglt::MutexLock lock(&mu_);
-    ASSIGN_OR_RETURN(
-        chunk, GetNextChunkFromBuffer(timeout.value_or(options_.timeout)));
-    if (!chunk || chunk->IsNull()) {
-      return std::nullopt;
-    }
+  eglt::MutexLock lock(&mu_);
+  ASSIGN_OR_RETURN(std::optional<Chunk> chunk,
+                   GetNextChunkFromBuffer(timeout.value_or(options_.timeout)));
+  if (!chunk || chunk->IsNull()) {
+    return std::nullopt;
   }
   return chunk;
 }
@@ -273,7 +270,7 @@ absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::GetNextChunkFromBuffer(
     //   between an empty chunk and the end of the stream. We should rethink it.
     return std::nullopt;
   }
-  return (*std::move(seq_and_chunk))->second;
+  return std::move((*seq_and_chunk)->second);
 }
 
 }  // namespace eglt
