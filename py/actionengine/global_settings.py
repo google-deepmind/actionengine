@@ -1,4 +1,4 @@
-"""eglt util to use global settings that will apply by default if not overridden."""
+"""act util to use global settings that will apply by default if not overridden."""
 
 import dataclasses
 from typing import TypeVar
@@ -8,7 +8,7 @@ T = TypeVar("T")
 
 @dataclasses.dataclass()
 class EGLTSettings:
-    """Context for eglt."""
+    """Context for act."""
 
     readers_deserialise_automatically: bool = False
     readers_read_in_order: bool = True
@@ -20,8 +20,8 @@ class EGLTSettings:
 _GLOBAL_SETTINGS = EGLTSettings()
 
 
-def get_global_eglt_settings() -> EGLTSettings:
-    """Returns the global settings for eglt."""
+def get_global_act_settings() -> EGLTSettings:
+    """Returns the global settings for act."""
     return _GLOBAL_SETTINGS
 
 

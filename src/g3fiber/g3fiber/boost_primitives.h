@@ -22,7 +22,7 @@
 #include <boost/fiber/condition_variable.hpp>
 #include <boost/fiber/mutex.hpp>
 
-namespace eglt::concurrency::impl {
+namespace act::concurrency::impl {
 
 class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
  public:
@@ -107,6 +107,6 @@ inline void SleepFor(absl::Duration duration) {
                          absl::ToChronoNanoseconds(duration));
 }
 
-}  // namespace eglt::concurrency::impl
+}  // namespace act::concurrency::impl
 
 #endif  // G3FIBER_BOOST_PRIMITIVES_H_

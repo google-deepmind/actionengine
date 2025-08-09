@@ -58,8 +58,8 @@ struct Selector {
   // kNonePicked until a case is picked, or the index of picked case
   int picked_case_index{kNonePicked};
 
-  eglt::concurrency::impl::Mutex mu;
-  eglt::concurrency::impl::CondVar cv ABSL_GUARDED_BY(mu);
+  act::concurrency::impl::Mutex mu;
+  act::concurrency::impl::CondVar cv ABSL_GUARDED_BY(mu);
 };
 
 class Selectable;

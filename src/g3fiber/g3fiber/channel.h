@@ -298,7 +298,7 @@ requires std::is_move_assignable_v<T> class Channel {
 
   ~Channel() {
     // Ensure exclusive access (to e.g. prevent concurrent Close()).
-    eglt::concurrency::impl::MutexLock lock(&mu_);
+    act::concurrency::impl::MutexLock lock(&mu_);
     DCHECK(Invariants());
   }
 
@@ -346,7 +346,7 @@ requires std::is_move_assignable_v<T> class Channel {
   bool Get(T* absl_nonnull dst);
 
   size_t Length() const {
-    eglt::concurrency::impl::MutexLock lock(&mu_);
+    act::concurrency::impl::MutexLock lock(&mu_);
     return queue_.size();
   }
 
@@ -360,7 +360,7 @@ requires std::is_move_assignable_v<T> class Channel {
 
   const size_t capacity_;
 
-  mutable eglt::concurrency::impl::Mutex mu_;
+  mutable act::concurrency::impl::Mutex mu_;
   std::deque<T> queue_ ABSL_GUARDED_BY(mu_);
   bool closed_ ABSL_GUARDED_BY(mu_);
 
@@ -380,7 +380,7 @@ requires std::is_move_assignable_v<T> class Channel {
 
 template <typename T>
 requires std::is_move_assignable_v<T> void Channel<T>::Close() {
-  eglt::concurrency::impl::MutexLock lock(&mu_);
+  act::concurrency::impl::MutexLock lock(&mu_);
   DCHECK(Invariants());
   CHECK(!closed_) << "Calling Close() on closed channel";
   CHECK(waiters_.writers == nullptr)
@@ -455,7 +455,7 @@ namespace thread::internal {
 
 template <typename T>
 bool ReadSelectable<T>::Handle(CaseInSelectClause* reader, bool enqueue) {
-  eglt::concurrency::impl::MutexLock lock(&channel->mu_);
+  act::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());
 
   T* dst_item = reader->GetCase()->GetArgPtr<T>(0);
@@ -539,13 +539,13 @@ bool ReadSelectable<T>::Handle(CaseInSelectClause* reader, bool enqueue) {
 
 template <typename T>
 void ReadSelectable<T>::Unregister(CaseInSelectClause* c) {
-  eglt::concurrency::impl::MutexLock lock(&channel->mu_);
+  act::concurrency::impl::MutexLock lock(&channel->mu_);
   internal::UnlinkFromList(&channel->waiters_.readers, c);
 }
 
 template <typename T>
 bool WriteSelectable<T>::Handle(CaseInSelectClause* writer, bool enqueue) {
-  eglt::concurrency::impl::MutexLock lock(&channel->mu_);
+  act::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());
   CHECK(!channel->closed_) << "Calling Write() on closed channel";
 
@@ -607,7 +607,7 @@ bool WriteSelectable<T>::Handle(CaseInSelectClause* writer, bool enqueue) {
 
 template <typename T>
 void WriteSelectable<T>::Unregister(CaseInSelectClause* c) {
-  eglt::concurrency::impl::MutexLock lock(&channel->mu_);
+  act::concurrency::impl::MutexLock lock(&channel->mu_);
   internal::UnlinkFromList(&channel->waiters_.writers, c);
 }
 }  // namespace thread::internal

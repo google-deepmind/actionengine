@@ -6,7 +6,7 @@
 // demonstrates how to use bidirectional actions.
 //
 // You can run this example with:
-// blaze run //third_party/eglt/examples:bidi_actions_cc
+// blaze run //third_party/actionengine/examples:bidi_actions_cc
 //
 // There is a similar example with a single-turn action, where you can read
 // more details about action usage in general.
@@ -29,23 +29,23 @@
 #include <absl/log/log.h>
 #include <absl/strings/match.h>
 #include <absl/strings/str_split.h>
-#include <eglt/actions/action.h>
-#include <eglt/data/types.h>
-#include <eglt/net/websockets/websockets.h>
-#include <eglt/service/service.h>
-#include <eglt/util/status_macros.h>
+#include <actionengine/actions/action.h>
+#include <actionengine/data/types.h>
+#include <actionengine/net/websockets/websockets.h>
+#include <actionengine/service/service.h>
+#include <actionengine/util/status_macros.h>
 
 ABSL_FLAG(int32_t, port, 20000, "Port to bind to.");
 
 double kDelayBetweenWords = 0.1;
 
 // Simply some type aliases to make the code more readable.
-using Action = eglt::Action;
-using ActionRegistry = eglt::ActionRegistry;
-using Chunk = eglt::Chunk;
-using Service = eglt::Service;
-using Session = eglt::Session;
-using WireStream = eglt::WireStream;
+using Action = act::Action;
+using ActionRegistry = act::ActionRegistry;
+using Chunk = act::Chunk;
+using Service = act::Service;
+using Session = act::Session;
+using WireStream = act::WireStream;
 
 std::string ToLower(std::string_view text);
 
@@ -87,9 +87,9 @@ absl::Status RunBidiEcho(const std::shared_ptr<Action>& action) {
 
     const double jitter = absl::Uniform(generator, -kDelayBetweenWords / 2,
                                         kDelayBetweenWords / 2);
-    eglt::SleepFor(absl::Seconds(kDelayBetweenWords + jitter));
+    act::SleepFor(absl::Seconds(kDelayBetweenWords + jitter));
   }
-  RETURN_IF_ERROR(print_input->Put(eglt::EndOfStream()));
+  RETURN_IF_ERROR(print_input->Put(act::EndOfStream()));
 
   return absl::OkStatus();
 }
@@ -123,14 +123,14 @@ absl::Status Main(int argc, char** argv) {
   const uint16_t port = absl::GetFlag(FLAGS_port);
   auto action_registry = MakeActionRegistry();
 
-  eglt::Service service(&action_registry);
-  eglt::net::WebsocketServer server(&service, "0.0.0.0", port);
+  act::Service service(&action_registry);
+  act::net::WebsocketServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::NodeMap node_map;
-  eglt::Session session(&node_map, &action_registry);
-  ASSIGN_OR_RETURN(std::shared_ptr<eglt::WireStream> stream,
-                   eglt::net::MakeWebsocketWireStream("localhost", port));
+  act::NodeMap node_map;
+  act::Session session(&node_map, &action_registry);
+  ASSIGN_OR_RETURN(std::shared_ptr<act::WireStream> stream,
+                   act::net::MakeWebsocketWireStream("localhost", port));
 
   session.DispatchFrom(stream);
 
@@ -161,10 +161,10 @@ absl::Status Main(int argc, char** argv) {
     for (auto& word : words) {
       RETURN_IF_ERROR(text_input->Put(absl::StrCat(word, " ")));
     }
-    RETURN_IF_ERROR(text_input->Put(eglt::EndOfStream()));
+    RETURN_IF_ERROR(text_input->Put(act::EndOfStream()));
 
-    eglt::SleepFor(absl::Seconds(kDelayBetweenWords *
-                                 (static_cast<double>(words.size()) + 2.0)));
+    act::SleepFor(absl::Seconds(kDelayBetweenWords *
+                                (static_cast<double>(words.size()) + 2.0)));
     std::cout << std::endl;
   }
 

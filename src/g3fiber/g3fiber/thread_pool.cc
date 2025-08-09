@@ -16,11 +16,11 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <latch>
 
 #include <absl/base/call_once.h>
 #include <boost/fiber/algo/shared_work.hpp>
 #include <boost/fiber/context.hpp>
+#include <latch>
 
 #include "g3fiber/fiber.h"
 #include "g3fiber/util.h"
@@ -28,7 +28,7 @@
 namespace thread {
 
 void WorkerThreadPool::Start(size_t num_threads) {
-  eglt::concurrency::impl::MutexLock lock(&mu_);
+  act::concurrency::impl::MutexLock lock(&mu_);
   schedulers_.resize(num_threads);
   std::latch latch(num_threads);
   for (size_t idx = 0; idx < num_threads; ++idx) {
@@ -71,7 +71,7 @@ void WorkerThreadPool::Schedule(boost::fibers::context* ctx) {
     schedulers_[worker_idx]->schedule(ctx);
   } else {
     {
-      eglt::concurrency::impl::MutexLock lock(&mu_);
+      act::concurrency::impl::MutexLock lock(&mu_);
       schedulers_[worker_idx]->attach_worker_context(ctx);
       schedulers_[worker_idx]->schedule_from_remote(ctx);
     }

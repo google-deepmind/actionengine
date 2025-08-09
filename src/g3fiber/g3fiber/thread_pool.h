@@ -50,7 +50,7 @@ class WorkerThreadPool {
 
   static constexpr bool kScheduleOnSelf = true;
 
-  eglt::concurrency::impl::Mutex mu_{};
+  act::concurrency::impl::Mutex mu_{};
   std::atomic<size_t> worker_idx_{0};
   absl::InlinedVector<Worker, 16> workers_{};
   absl::InlinedVector<boost::fibers::scheduler*, 16> schedulers_{};

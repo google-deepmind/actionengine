@@ -3,7 +3,7 @@
 // ActionEngine chunks, completely at your own discretion and at application level.
 //
 // You can run this example with:
-// blaze run //third_party/eglt/examples:chunks_from_custom_types
+// blaze run //third_party/actionengine/examples:chunks_from_custom_types
 // ------------------------------------------------------------------------------
 
 #include <iostream>
@@ -12,18 +12,18 @@
 #include <vector>
 
 #include <absl/debugging/failure_signal_handler.h>
-#include <eglt/data/types.h>
-#include <eglt/nodes/async_node.h>
-#include <eglt/redis/chunk_store.h>
-#include <eglt/redis/redis.h>
-#include <eglt/stores/local_chunk_store.h>
-#include <eglt/util/random.h>
+#include <actionengine/data/types.h>
+#include <actionengine/nodes/async_node.h>
+#include <actionengine/redis/chunk_store.h>
+#include <actionengine/redis/redis.h>
+#include <actionengine/stores/local_chunk_store.h>
+#include <actionengine/util/random.h>
 
 // Simply some type aliases to make the code more readable. These declarations
 // are not included anywhere, so it is okay to use such shorthands to make the
 // example easier to read.
-using Chunk = eglt::Chunk;
-using AsyncNode = eglt::AsyncNode;
+using Chunk = act::Chunk;
+using AsyncNode = act::AsyncNode;
 
 // A custom data type: a user with a name and an email.
 struct User {
@@ -32,8 +32,8 @@ struct User {
 };
 
 absl::Status EgltAssignInto(const User& user, Chunk* chunk) {
-  chunk->metadata = eglt::ChunkMetadata{
-      .mimetype = "application/x-eglt;User",
+  chunk->metadata = act::ChunkMetadata{
+      .mimetype = "application/x-act;User",
       .timestamp = absl::Now(),
   };
   chunk->data = absl::StrCat(user.name, ":::", user.email);
@@ -41,7 +41,7 @@ absl::Status EgltAssignInto(const User& user, Chunk* chunk) {
 }
 
 absl::Status EgltAssignInto(const Chunk& chunk, User* user) {
-  if (chunk.metadata.mimetype != "application/x-eglt;User") {
+  if (chunk.metadata.mimetype != "application/x-act;User") {
     return absl::InvalidArgumentError(
         absl::StrFormat("Invalid mimetype: %v", chunk.metadata.mimetype));
   }
@@ -58,9 +58,9 @@ absl::Status EgltAssignInto(const Chunk& chunk, User* user) {
   return absl::OkStatus();
 }
 
-std::unique_ptr<eglt::redis::Redis> GetRedisOrDie() {
-  absl::StatusOr<std::unique_ptr<eglt::redis::Redis>> redis_or =
-      eglt::redis::Redis::Connect("localhost", 6379);
+std::unique_ptr<act::redis::Redis> GetRedisOrDie() {
+  absl::StatusOr<std::unique_ptr<act::redis::Redis>> redis_or =
+      act::redis::Redis::Connect("localhost", 6379);
   if (!redis_or.ok()) {
     LOG(FATAL) << "Failed to connect to Redis: " << redis_or.status();
     ABSL_ASSUME(false);
@@ -78,15 +78,15 @@ int main(int, char**) {
       User{.name = "Bob Jones", .email = "jones@example.com"},
   };
 
-  std::string store_id = absl::StrCat("users_", eglt::GenerateUUID4());
+  std::string store_id = absl::StrCat("users_", act::GenerateUUID4());
 
-  // std::unique_ptr<eglt::redis::Redis> redis = GetRedisOrDie();
+  // std::unique_ptr<act::redis::Redis> redis = GetRedisOrDie();
   //
   //
-  // auto store = std::make_unique<eglt::redis::ChunkStore>(redis.get(), store_id,
+  // auto store = std::make_unique<act::redis::ChunkStore>(redis.get(), store_id,
   //                                                        absl::Seconds(300));
 
-  auto store = eglt::MakeChunkStore<eglt::LocalChunkStore>(store_id);
+  auto store = act::MakeChunkStore<act::LocalChunkStore>(store_id);
 
   // create a node
   auto node_that_streams_users = AsyncNode(
@@ -116,9 +116,9 @@ int main(int, char**) {
           },
           3)
       .IgnoreError();
-  node_that_streams_users.Put(eglt::EndOfStream()).IgnoreError();
+  node_that_streams_users.Put(act::EndOfStream()).IgnoreError();
 
-  eglt::SleepFor(absl::Seconds(1));
+  act::SleepFor(absl::Seconds(1));
 
   int user_number = 0;
   while (true) {

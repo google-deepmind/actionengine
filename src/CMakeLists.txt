@@ -1,31 +1,31 @@
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -Xlinker,-no_warn_duplicate_libraries")
 
-#set(EGLT_IWYU_PATH "/Users/helenapankov/dev/include-what-you-use/build/bin/include-what-you-use")
+#set(ACTIONENGINE_IWYU_PATH "/Users/helenapankov/dev/include-what-you-use/build/bin/include-what-you-use")
 
-if (DEFINED ENV{EGLT_IWYU_PATH})
-    set(EGLT_IWYU_PATH "$ENV{EGLT_IWYU_PATH}")
+if (DEFINED ENV{ACTIONENGINE_IWYU_PATH})
+    set(ACTIONENGINE_IWYU_PATH "$ENV{ACTIONENGINE_IWYU_PATH}")
 endif ()
 
 if (DEFINED ENV{INCLUDE_WHAT_YOU_USE})
-    set(EGLT_IWYU_PATH "$ENV{INCLUDE_WHAT_YOU_USE}")
+    set(ACTIONENGINE_IWYU_PATH "$ENV{INCLUDE_WHAT_YOU_USE}")
 endif ()
 
 if (DEFINED ENV{IWYU_PATH})
-    set(EGLT_IWYU_PATH "$ENV{IWYU_PATH}")
+    set(ACTIONENGINE_IWYU_PATH "$ENV{IWYU_PATH}")
 endif ()
 
-if (DEFINED EGLT_IWYU_PATH)
+if (DEFINED ACTIONENGINE_IWYU_PATH)
     if (APPLE)
-        set(EGLT_IWYU_PATH "xcrun;${EGLT_IWYU_PATH}")
+        set(ACTIONENGINE_IWYU_PATH "xcrun;${ACTIONENGINE_IWYU_PATH}")
     endif ()
     set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE
-            "${EGLT_IWYU_PATH};-w;-std=c++20;-Xiwyu;--verbose=1;-Xiwyu;
+            "${ACTIONENGINE_IWYU_PATH};-w;-std=c++20;-Xiwyu;--verbose=1;-Xiwyu;
             --comment_style=none;-Xiwyu;--no_fwd_decls")
 endif ()
 
 # ------------------------------------------------------------------
 
-set(EGLT_PYBIND11_DEPENDENCIES
+set(ACTIONENGINE_PYBIND11_DEPENDENCIES
         pybind11::module
         pybind11::embed
         pybind11_abseil::status_casters
@@ -33,55 +33,55 @@ set(EGLT_PYBIND11_DEPENDENCIES
         pybind11_abseil::import_status_module
         pybind11_abseil::statusor_caster
 )
-set(EGLT_PYBIND11_DEPENDENCIES ${EGLT_PYBIND11_DEPENDENCIES} PARENT_SCOPE)
+set(ACTIONENGINE_PYBIND11_DEPENDENCIES ${ACTIONENGINE_PYBIND11_DEPENDENCIES} PARENT_SCOPE)
 
 set(
-        EGLT_PYBIND11_INCLUDE_DIRS
-        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
+        ACTIONENGINE_PYBIND11_INCLUDE_DIRS
+        ${ACTIONENGINE_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
         ${Python_INCLUDE_DIRS}
-        ${EGLT_PYBIND11_TOP_LEVEL}
+        ${ACTIONENGINE_PYBIND11_TOP_LEVEL}
 )
-set(EGLT_PYBIND11_INCLUDE_DIRS ${EGLT_PYBIND11_INCLUDE_DIRS} PARENT_SCOPE)
+set(ACTIONENGINE_PYBIND11_INCLUDE_DIRS ${ACTIONENGINE_PYBIND11_INCLUDE_DIRS} PARENT_SCOPE)
 
 # ------------------------------------------------------------------
 
 add_library(
-        eglt_testing INTERFACE
+        act_testing INTERFACE
 )
 add_library(
-        eglt::testing ALIAS eglt_testing
+        act::testing ALIAS act_testing
 )
-set_target_properties(eglt_testing PROPERTIES
+set_target_properties(act_testing PROPERTIES
         LANGUAGE CXX
         LINKER_LANGUAGE CXX
 )
 target_include_directories(
-        eglt_testing
+        act_testing
         INTERFACE
-        ${EGLT_INCLUDE_DIR}
-        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/googletest/include
+        ${ACTIONENGINE_INCLUDE_DIR}
+        ${ACTIONENGINE_THIRD_PARTY_INSTALL_ROOT}/googletest/include
 )
 
-add_subdirectory(eglt/actions)
-add_subdirectory(eglt/concurrency)
-add_subdirectory(eglt/data)
-add_subdirectory(eglt/msgpack)
-add_subdirectory(eglt/net)
-add_subdirectory(eglt/nodes)
-add_subdirectory(eglt/redis)
-add_subdirectory(eglt/service)
-add_subdirectory(eglt/stores)
-add_subdirectory(eglt/util)
+add_subdirectory(actionengine/actions)
+add_subdirectory(actionengine/concurrency)
+add_subdirectory(actionengine/data)
+add_subdirectory(actionengine/msgpack)
+add_subdirectory(actionengine/net)
+add_subdirectory(actionengine/nodes)
+add_subdirectory(actionengine/redis)
+add_subdirectory(actionengine/service)
+add_subdirectory(actionengine/stores)
+add_subdirectory(actionengine/util)
 add_subdirectory(pybind11_abseil_module)
 
 # ------------------------------------------------------------------
 
 pybind11_add_module(
         actionengine_pybind11
-        eglt/actionengine_pybind11.cc
+        actionengine/actionengine_pybind11.cc
 )
 add_library(
-        eglt::pybind11 ALIAS
+        act::pybind11 ALIAS
         actionengine_pybind11
 )
 
@@ -102,44 +102,44 @@ target_link_libraries(
         absl::strings
         absl::strings_internal
         absl::failure_signal_handler
-        eglt::data
-        eglt::data::pybind11
-        eglt::actions
-        eglt::actions::pybind11
-        eglt::concurrency
-        eglt::net
-        eglt::service
-        eglt::service::pybind11
-        eglt::stores
-        eglt::stores::pybind11
-        eglt::nodes
-        eglt::nodes::pybind11
-        eglt::net::webrtc
-        eglt::net::webrtc::pybind11
-        eglt::net::websockets
-        eglt::net::websockets::pybind11
-        eglt::redis
-        eglt::redis::pybind11
-        eglt::util::pybind11
+        act::data
+        act::data::pybind11
+        act::actions
+        act::actions::pybind11
+        act::concurrency
+        act::net
+        act::service
+        act::service::pybind11
+        act::stores
+        act::stores::pybind11
+        act::nodes
+        act::nodes::pybind11
+        act::net::webrtc
+        act::net::webrtc::pybind11
+        act::net::websockets
+        act::net::websockets::pybind11
+        act::redis
+        act::redis::pybind11
+        act::util::pybind11
         Python::Module
         Python::Python
-        ${EGLT_PYBIND11_DEPENDENCIES}
+        ${ACTIONENGINE_PYBIND11_DEPENDENCIES}
 )
 
 target_include_directories(
         actionengine_pybind11 PRIVATE
-        ${EGLT_INCLUDE_DIR}
-        ${EGLT_THIRD_PARTY_INCLUDE_DIRS}
-        ${EGLT_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
-        ${EGLT_PROJECT_TOP_LEVEL}
-        ${EGLT_PYBIND11_INCLUDE_DIRS}
-        ${EGLT_PYBIND11_TOP_LEVEL}
+        ${ACTIONENGINE_INCLUDE_DIR}
+        ${ACTIONENGINE_THIRD_PARTY_INCLUDE_DIRS}
+        ${ACTIONENGINE_THIRD_PARTY_INSTALL_ROOT}/pybind11_abseil
+        ${ACTIONENGINE_PROJECT_TOP_LEVEL}
+        ${ACTIONENGINE_PYBIND11_INCLUDE_DIRS}
+        ${ACTIONENGINE_PYBIND11_TOP_LEVEL}
 )
 
 install(
         TARGETS actionengine_pybind11
-        EXPORT egltTargets
+        EXPORT actTargets
         RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib/eglt
-        ARCHIVE DESTINATION lib/eglt
+        LIBRARY DESTINATION lib/act
+        ARCHIVE DESTINATION lib/act
 )

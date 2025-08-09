@@ -79,7 +79,7 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
   if (!ready) {
     const bool expirable = deadline != absl::InfiniteFuture();
 
-    eglt::concurrency::impl::MutexLock lock(&selector.mu);
+    act::concurrency::impl::MutexLock lock(&selector.mu);
     expired = !selector.WaitForPickUntil(deadline);
     DCHECK(expirable || !expired);
     if (expired) {

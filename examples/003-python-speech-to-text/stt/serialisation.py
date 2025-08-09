@@ -1,7 +1,7 @@
 from actionengine import data
 
-BOOL_MIMETYPE = "x-eglt;bool"
-BYTEARRAY_MIMETYPE = "x-eglt;bytearray"
+BOOL_MIMETYPE = "x-act;bool"
+BYTEARRAY_MIMETYPE = "x-act;bytearray"
 
 
 def bool_to_bytes(value: bool) -> bytes:

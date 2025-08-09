@@ -19,7 +19,7 @@
 #include <pybind11/pytypes.h>
 #include <pybind11_abseil/register_status_bindings.h>
 
-namespace eglt {
+namespace act {
 
 namespace py = pybind11;
 
@@ -29,4 +29,4 @@ PYBIND11_MODULE(pybind11_abseil, m) {
   py::google::internal::RegisterStatusBindings(status);
 }
 
-}  // namespace eglt
+}  // namespace act

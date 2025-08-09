@@ -22,7 +22,7 @@
 
 #include "g3fiber/fiber.h"
 
-namespace eglt::concurrency::impl {
+namespace act::concurrency::impl {
 
 void Mutex::Lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() {
   try {
@@ -117,4 +117,4 @@ bool CondVar::WaitWithDeadline(Mutex* mu, const absl::Time& deadline) noexcept {
   return timed_out;
 }
 
-}  // namespace eglt::concurrency::impl
+}  // namespace act::concurrency::impl

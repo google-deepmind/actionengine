@@ -124,7 +124,7 @@ class Fiber {
     }
   }
 
-  mutable eglt::concurrency::impl::Mutex mu_;
+  mutable act::concurrency::impl::Mutex mu_;
 
   InvocableWork work_;
   boost::intrusive_ptr<boost::fibers::context> context_;
@@ -149,7 +149,7 @@ class Fiber {
   friend std::unique_ptr<Fiber> internal::CreateTree(
       InvocableWork f, TreeOptions&& tree_options);
 
-  friend class eglt::concurrency::impl::CondVar;
+  friend class act::concurrency::impl::CondVar;
 
   friend struct ThreadLocalFiber;
   friend bool IsFiberDetached(const Fiber* fiber);
@@ -159,7 +159,7 @@ class Fiber {
 class FiberProperties final : public boost::fibers::fiber_properties {
  public:
   friend class Fiber;
-  friend class eglt::concurrency::impl::CondVar;
+  friend class act::concurrency::impl::CondVar;
 
   explicit FiberProperties(boost::fibers::context* ctx) = delete;
 
@@ -170,7 +170,7 @@ class FiberProperties final : public boost::fibers::fiber_properties {
 
  private:
   Fiber* fiber_ = nullptr;
-  eglt::concurrency::impl::CondVar* waiting_on_ ABSL_GUARDED_BY(fiber_->mu_) =
+  act::concurrency::impl::CondVar* waiting_on_ ABSL_GUARDED_BY(fiber_->mu_) =
       nullptr;
 };
 
@@ -192,7 +192,7 @@ template <typename F>
 
 inline void Detach(std::unique_ptr<Fiber> fiber) {
   {
-    eglt::concurrency::impl::MutexLock lock(&fiber->mu_);
+    act::concurrency::impl::MutexLock lock(&fiber->mu_);
     DCHECK(!fiber->detached_.load(std::memory_order_relaxed))
         << "Detach() called on already detached fiber, this should not be "
            "possible without calling WrapUnique or similar on a Fiber* you do "

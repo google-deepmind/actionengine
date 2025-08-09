@@ -9,7 +9,7 @@ target_link_libraries(
         absl::flags_parse
         absl::log
         absl::failure_signal_handler
-        eglt::data
-        eglt::nodes
-        eglt::redis
+        act::data
+        act::nodes
+        act::redis
 )

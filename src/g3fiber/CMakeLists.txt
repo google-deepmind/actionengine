@@ -61,9 +61,9 @@ target_link_libraries(
 )
 target_include_directories(
         G3Fiber PUBLIC
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/intrusive/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/fiber/include
-        ${EGLT_THIRD_PARTY_ROOT}/boost/libs/smart_ptr/include
+        ${ACTIONENGINE_THIRD_PARTY_ROOT}/boost/libs/intrusive/include
+        ${ACTIONENGINE_THIRD_PARTY_ROOT}/boost/libs/fiber/include
+        ${ACTIONENGINE_THIRD_PARTY_ROOT}/boost/libs/smart_ptr/include
 )
 target_link_libraries(
         G3Fiber PUBLIC

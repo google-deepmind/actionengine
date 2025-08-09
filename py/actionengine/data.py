@@ -40,7 +40,7 @@ def to_chunk(
 ) -> Chunk:
     if isinstance(obj, NodeFragment) and mimetype in (
         "",
-        "__eglt:NodeFragment__",
+        "__act:NodeFragment__",
     ):
         return data_pybind11.to_chunk(obj)
     if isinstance(obj, status.Status) and mimetype in (

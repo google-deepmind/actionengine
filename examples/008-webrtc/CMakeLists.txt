@@ -9,10 +9,10 @@ target_link_libraries(
         absl::flags_parse
         absl::log
         absl::failure_signal_handler
-        eglt::actions
-        eglt::data
-        eglt::msgpack
-        eglt::nodes
-        eglt::service
-        eglt::net::webrtc
+        act::actions
+        act::data
+        act::msgpack
+        act::nodes
+        act::service
+        act::net::webrtc
 )

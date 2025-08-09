@@ -10,22 +10,22 @@
 #include <absl/debugging/failure_signal_handler.h>
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
-#include <eglt/actions/action.h>
-#include <eglt/data/types.h>
-#include <eglt/net/webrtc/server.h>
-#include <eglt/net/webrtc/wire_stream.h>
-#include <eglt/net/websockets/websockets.h>
-#include <eglt/nodes/async_node.h>
-#include <eglt/service/service.h>
+#include <actionengine/actions/action.h>
+#include <actionengine/data/types.h>
+#include <actionengine/net/webrtc/server.h>
+#include <actionengine/net/webrtc/wire_stream.h>
+#include <actionengine/net/websockets/websockets.h>
+#include <actionengine/nodes/async_node.h>
+#include <actionengine/service/service.h>
 
 ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");
 ABSL_FLAG(std::string, identity, "server", "WebRTC signalling identity.");
 
 // Simply some type aliases to make the code more readable.
-using Action = eglt::Action;
-using ActionRegistry = eglt::ActionRegistry;
-using Chunk = eglt::Chunk;
-using Service = eglt::Service;
+using Action = act::Action;
+using ActionRegistry = act::ActionRegistry;
+using Chunk = act::Chunk;
+using Service = act::Service;
 
 absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   auto input_text = action->GetNode("text");
@@ -48,7 +48,7 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   }
 
   // This is necessary and indicates the end of stream.
-  action->GetNode("response") << eglt::EndOfStream();
+  action->GetNode("response") << act::EndOfStream();
 
   return absl::OkStatus();
 }
@@ -75,12 +75,12 @@ int main(int argc, char** argv) {
   const std::string identity = absl::GetFlag(FLAGS_identity);
 
   ActionRegistry action_registry = MakeActionRegistry();
-  eglt::Service service(&action_registry);
-  eglt::net::WebRtcServer server(&service, "0.0.0.0", port,
-                                 /*signalling_address=*/"demos.helena.direct",
-                                 /*signalling_port=*/19000,
-                                 /*signalling_identity=*/identity);
-  // eglt::net::WebsocketServer server(&service, "0.0.0.0", port);
+  act::Service service(&action_registry);
+  act::net::WebRtcServer server(&service, "0.0.0.0", port,
+                                /*signalling_address=*/"demos.helena.direct",
+                                /*signalling_port=*/19000,
+                                /*signalling_identity=*/identity);
+  // act::net::WebsocketServer server(&service, "0.0.0.0", port);
   server.Run();
   server.Join().IgnoreError();
 

@@ -991,7 +991,7 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = ../src/eglt, ../src/g3fiber
+INPUT                  = ../src/act, ../src/g3fiber
 
 # This tag can be used to specify the character encoding of the source files
 # that Doxygen parses. Internally Doxygen uses the UTF-8 encoding. Doxygen uses
@@ -1121,7 +1121,7 @@ EXCLUDE_PATTERNS       =
 # ANamespace::AClass, ANamespace::*Test
 
 EXCLUDE_SYMBOLS        = pybind11::detail::*, *::internal::*, \
-                         eglt::concurrency*, *EgltAssignInto, \
+                         act::concurrency*, *EgltAssignInto, \
                          *operator<<, *operator>>, multiline_raw_string*, \
                          pybind11::detail, cppack, cppack::*, \
                          AbslStringify, *operator==, thread::internal::*, \

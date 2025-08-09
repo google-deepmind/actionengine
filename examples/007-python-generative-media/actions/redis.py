@@ -14,21 +14,21 @@ TTL = 120  # Time to live for Redis keys in seconds
 MAX_READ_TIMEOUT_SECONDS = 300  # Maximum read timeout in seconds
 
 
-def get_eglt_redis_client_for_sub():
-    if not hasattr(get_eglt_redis_client_for_sub, "client"):
-        get_eglt_redis_client_for_sub.client = actionengine.redis.Redis.connect(
+def get_act_redis_client_for_sub():
+    if not hasattr(get_act_redis_client_for_sub, "client"):
+        get_act_redis_client_for_sub.client = actionengine.redis.Redis.connect(
             "localhost"
         )
-    return get_eglt_redis_client_for_sub.client
+    return get_act_redis_client_for_sub.client
     # return actionengine.redis.Redis.connect("localhost")
 
 
-def get_eglt_redis_client_for_pub():
-    if not hasattr(get_eglt_redis_client_for_pub, "client"):
-        get_eglt_redis_client_for_pub.client = actionengine.redis.Redis.connect(
+def get_act_redis_client_for_pub():
+    if not hasattr(get_act_redis_client_for_pub, "client"):
+        get_act_redis_client_for_pub.client = actionengine.redis.Redis.connect(
             "localhost"
         )
-    return get_eglt_redis_client_for_pub.client
+    return get_act_redis_client_for_pub.client
 
 
 class ReadStoreRequest(BaseModel):
@@ -74,7 +74,7 @@ async def read_store_chunks_into_queue(
             return annotation, *value
         return annotation, value
 
-    redis_client = get_eglt_redis_client_for_sub()
+    redis_client = get_act_redis_client_for_sub()
     store = actionengine.redis.ChunkStore(redis_client, request.key, TTL)
     hi = request.offset + request.count if request.count > 0 else 2147483647
     if (final_seq := await asyncio.to_thread(store.get_final_seq)) != -1:
@@ -142,7 +142,7 @@ async def write_store_run(action: actionengine.Action) -> None:
     response = action["response"]
 
     store = actionengine.redis.ChunkStore(
-        get_eglt_redis_client_for_pub(), request.key, TTL
+        get_act_redis_client_for_pub(), request.key, TTL
     )
     chunk = actionengine.Chunk(
         metadata=actionengine.ChunkMetadata(

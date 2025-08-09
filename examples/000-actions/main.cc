@@ -18,21 +18,21 @@
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
 #include <absl/log/check.h>
-#include <eglt/actions/action.h>
-#include <eglt/data/types.h>
-#include <eglt/net/websockets/websockets.h>
-#include <eglt/nodes/async_node.h>
-#include <eglt/service/service.h>
+#include <actionengine/actions/action.h>
+#include <actionengine/data/types.h>
+#include <actionengine/net/websockets/websockets.h>
+#include <actionengine/nodes/async_node.h>
+#include <actionengine/service/service.h>
 
 ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");
 
 // Simply some type aliases to make the code more readable.
-using Action = eglt::Action;
-using ActionRegistry = eglt::ActionRegistry;
-using Chunk = eglt::Chunk;
-using Service = eglt::Service;
-using Session = eglt::Session;
-using WireStream = eglt::WireStream;
+using Action = act::Action;
+using ActionRegistry = act::ActionRegistry;
+using Chunk = act::Chunk;
+using Service = act::Service;
+using Session = act::Session;
+using WireStream = act::WireStream;
 
 // Server side implementation of the echo action. This is a simple example of
 // how to implement an action handler. Every handler must take a shared_ptr to
@@ -89,7 +89,7 @@ absl::Status RunEcho(const std::shared_ptr<Action>& action) {
   }
 
   // This is necessary and indicates the end of stream.
-  action->GetNode("response") << eglt::EndOfStream();
+  action->GetNode("response") << act::EndOfStream();
 
   return absl::OkStatus();
 }
@@ -164,7 +164,7 @@ absl::StatusOr<std::string> CallEcho(
   //     .IgnoreError();
   echo->GetNode("text") << Chunk{.metadata = {.mimetype = "text/plain"},
                                  .data = std::string(text)}
-                        << eglt::EndOfStream();
+                        << act::EndOfStream();
 
   // We will read the output to a string stream.
   std::ostringstream response;
@@ -204,14 +204,14 @@ absl::Status Main(int argc, char** argv) {
   // WireStream and (de)serialization of base types (types.h) from
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
-  eglt::Service service(&action_registry);
-  eglt::net::WebsocketServer server(&service, "0.0.0.0", port);
+  act::Service service(&action_registry);
+  act::net::WebsocketServer server(&service, "0.0.0.0", port);
   server.Run();
 
-  eglt::NodeMap node_map;
-  eglt::Session session(&node_map, &action_registry);
-  ASSIGN_OR_RETURN(std::shared_ptr<eglt::WireStream> stream,
-                   eglt::net::MakeWebsocketWireStream());
+  act::NodeMap node_map;
+  act::Session session(&node_map, &action_registry);
+  ASSIGN_OR_RETURN(std::shared_ptr<act::WireStream> stream,
+                   act::net::MakeWebsocketWireStream());
 
   session.DispatchFrom(stream);
 

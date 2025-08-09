@@ -29,7 +29,7 @@ bool PermanentEvent::Handle(internal::CaseInSelectClause* c, bool enqueue) {
   boost::fibers::detail::spinlock_lock l1(splk_);
 
   if (notified_.load(std::memory_order_relaxed)) {  // Synchronized by lock_
-    eglt::concurrency::impl::MutexLock l2(&c->selector->mu);
+    act::concurrency::impl::MutexLock l2(&c->selector->mu);
     // Consider that in the presence of a race with another Selectable,
     // c->TryPick() may return false in this case. This is safe as we are not
     // required to maintain an active list after notification has been
@@ -64,7 +64,7 @@ void PermanentEvent::Notify() {
   // future in both the Handle(..., true) and Unregister cases.
   while (cases_to_be_selected_) {
     internal::CaseInSelectClause* case_in_select_clause = cases_to_be_selected_;
-    eglt::concurrency::impl::MutexLock l2(&case_in_select_clause->selector->mu);
+    act::concurrency::impl::MutexLock l2(&case_in_select_clause->selector->mu);
     case_in_select_clause->TryPick();
     // Continued storage of enqueued_list_ after TryPick() is guaranteed by selector->mu
     internal::UnlinkFromList(&cases_to_be_selected_, case_in_select_clause);
@@ -84,6 +84,7 @@ class NonSelectable final : public internal::Selectable {
   bool Handle(internal::CaseInSelectClause* c, bool enqueue) override {
     return false;
   }
+
   void Unregister(internal::CaseInSelectClause* c) override {}
 };
 
@@ -99,12 +100,13 @@ class AlwaysSelectable final : public internal::Selectable {
   ~AlwaysSelectable() override = default;
 
   bool Handle(internal::CaseInSelectClause* c, bool enqueue) override {
-    eglt::concurrency::impl::MutexLock lock(&c->selector->mu);
+    act::concurrency::impl::MutexLock lock(&c->selector->mu);
     // This selectable is always ready, so ask the selector to pick it.
     // Note: the selector still does not *have to* pick it if there are
     // other ready candidates.
     return c->TryPick();
   }
+
   void Unregister(internal::CaseInSelectClause* c) override {}
 };
 
