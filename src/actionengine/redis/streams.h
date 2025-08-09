@@ -82,18 +82,13 @@ struct StreamMessage {
   }
 };
 
-absl::Status EgltAssignInto(Reply from, StreamMessage* to);
+absl::Status EgltAssignInto(Reply from, StreamMessage* absl_nonnull to);
 
 class RedisStream {
  public:
-  RedisStream(redis::Redis* absl_nonnull redis, std::string_view key)
-      : redis_(redis), key_(key) {
-    absl::flat_hash_map<std::string, std::string> params;
-    CHECK(redis != nullptr)
-        << "RedisStream requires a non-null Redis instance.";
-    CHECK(!key.empty()) << "RedisStream key must not be empty.";
-  }
+  RedisStream(redis::Redis* absl_nonnull redis, std::string_view key);
 
+  // Non-copyable, non-moveable.
   RedisStream(const RedisStream&) = delete;
   RedisStream& operator=(const RedisStream&) = delete;
 
@@ -121,10 +116,7 @@ class RedisStream {
   absl::StatusOr<StreamMessageId> XAdd(
       std::initializer_list<std::pair<std::string_view, std::string_view>>
           fields,
-      std::string_view id = "*") const {
-    ASSIGN_OR_RETURN(const auto message_id, StreamMessageId::FromString(id));
-    return XAdd(fields.begin(), fields.end(), message_id);
-  }
+      std::string_view id = "*") const;
 
   absl::StatusOr<std::vector<StreamMessage>> XRead(
       std::string_view offset_id = "0", int count = -1,

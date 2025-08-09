@@ -29,6 +29,10 @@ set(ACTIONENGINE_HIREDIS_ROOT ${ACTIONENGINE_THIRD_PARTY_INSTALL_ROOT}/hiredis)
 set(ACTIONENGINE_LIBUV_ROOT ${ACTIONENGINE_THIRD_PARTY_INSTALL_ROOT}/libuv)
 set(ACTIONENGINE_UVW_ROOT ${ACTIONENGINE_THIRD_PARTY_INSTALL_ROOT}/uvw)
 
+if (APPLE)
+    add_link_options(-Xlinker -no_warn_duplicate_libraries)
+endif ()
+
 add_compile_definitions(
         BOOST_FIBERS_SPINLOCK_TTAS_FUTEX
 )

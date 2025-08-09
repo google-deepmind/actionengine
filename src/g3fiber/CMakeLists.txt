@@ -27,24 +27,24 @@ target_include_directories(
 target_sources(
         G3Fiber PRIVATE
         g3fiber/boost_primitives.cc
-        g3fiber/channel.h
         g3fiber/channel/waiter_state.cc
         g3fiber/channel/waiter_state.h
         g3fiber/fiber.cc
         g3fiber/select.cc
-        g3fiber/cases.h
         g3fiber/selectables.cc
         g3fiber/thread_pool.cc
-        g3fiber/thread_pool.h
         g3fiber/util.cc
 )
 target_sources(
         G3Fiber PUBLIC
+        g3fiber/cases.h
         g3fiber/boost_primitives.h
+        g3fiber/channel.h
         g3fiber/concurrency.h
         g3fiber/fiber.h
         g3fiber/select.h
         g3fiber/selectables.h
+        g3fiber/thread_pool.h
         g3fiber/util.h
 )
 target_link_libraries(
@@ -68,6 +68,10 @@ target_include_directories(
 target_link_libraries(
         G3Fiber PUBLIC
         Boost::fiber
+)
+target_compile_options(
+        G3Fiber PRIVATE
+        -Wall -Wextra -Wno-nullability-completeness -Wno-sign-compare -Wthread-safety -Werror=thread-safety
 )
 message(${G3FIBER_BOOST_ROOT}/../../boost/include)
 set(G3FIBER_INCLUDE_DIRS

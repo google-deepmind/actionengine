@@ -36,8 +36,7 @@ namespace act::msgpack {
 
 class Packer {
  public:
-  explicit Packer(SerializedBytesVector bytes = {})
-      : bytes_(std::move(bytes)) {}
+  explicit Packer(SerializedBytesVector bytes = {});
 
   template <typename T>
   absl::Status Pack(const T& value) {
@@ -61,34 +60,17 @@ class Packer {
     return absl::OkStatus();
   }
 
-  void Reset() {
-    bytes_.clear();
-    offset_ = 0;
-  }
+  void Reset();
 
-  void Reserve(size_t size) { bytes_.reserve(size); }
+  void Reserve(size_t size);
 
-  [[nodiscard]] const SerializedBytesVector& GetVector() const {
-    return bytes_;
-  }
+  [[nodiscard]] const SerializedBytesVector& GetVector() const;
 
-  [[nodiscard]] std::vector<Byte> GetStdVector() const {
-    return ToStdVector(bytes_);
-  }
+  [[nodiscard]] std::vector<Byte> GetStdVector() const;
 
-  SerializedBytesVector ReleaseVector() {
-    SerializedBytesVector result = std::move(bytes_);
-    bytes_.clear();
-    offset_ = 0;
-    return result;
-  }
+  SerializedBytesVector ReleaseVector();
 
-  std::vector<Byte> ReleaseStdVector() {
-    std::vector<Byte> result = ToStdVector(std::move(bytes_));
-    bytes_.clear();
-    offset_ = 0;
-    return result;
-  }
+  std::vector<Byte> ReleaseStdVector();
 
  private:
   SerializedBytesVector bytes_;

@@ -149,13 +149,7 @@ class AsyncNode {
    *   can also fail if the conversion from T to Chunk fails.
    */
   template <typename T>
-  auto Put(T value, int seq = -1, bool final = false) -> absl::Status {
-    auto chunk = ToChunk(std::move(value));
-    if (!chunk.ok()) {
-      return chunk.status();
-    }
-    return Put(*std::move(chunk), seq, final);
-  }
+  auto Put(T value, int seq = -1, bool final = false) -> absl::Status;
 
   /**
    * Returns the writer for this AsyncNode.
@@ -205,53 +199,18 @@ class AsyncNode {
 
   template <typename T>
   auto Next(std::optional<absl::Duration> timeout = std::nullopt)
-      -> absl::StatusOr<std::optional<T>> {
-    ChunkStoreReader& reader = GetReader();
-    return reader.Next<T>(timeout);
-  }
+      -> absl::StatusOr<std::optional<T>>;
 
   std::optional<Chunk> NextOrDie(
       std::optional<absl::Duration> timeout = std::nullopt);
 
   template <typename T>
   auto NextOrDie(std::optional<absl::Duration> timeout = std::nullopt)
-      -> std::optional<T> {
-    auto next = Next<T>(timeout);
-    CHECK_OK(next.status());
-    return *std::move(next);
-  }
+      -> std::optional<T>;
 
   template <typename T>
   absl::StatusOr<T> ConsumeAs(
-      std::optional<absl::Duration> timeout = std::nullopt) {
-    timeout = timeout.value_or(GetReader().GetOptions().timeout);
-    const absl::Time started_at = absl::Now();
-
-    // The node being consumed must contain an element.
-    ASSIGN_OR_RETURN(std::optional<T> item, Next<T>(*timeout));
-    if (!item) {
-      return absl::FailedPreconditionError(
-          "AsyncNode is empty at current offset, "
-          "cannot consume item as type T.");
-    }
-
-    const absl::Duration elapsed = absl::Now() - started_at;
-    if (elapsed > *timeout) {
-      return absl::DeadlineExceededError(
-          absl::StrCat("Timed out after ", absl::FormatDuration(elapsed),
-                       " while consuming item as type T."));
-    }
-
-    // The node must be empty after consuming the item.
-    ASSIGN_OR_RETURN(const std::optional<Chunk> must_be_nullopt,
-                     Next<Chunk>(*timeout - elapsed));
-    if (must_be_nullopt.has_value()) {
-      return absl::FailedPreconditionError(
-          "AsyncNode must be empty after consuming the item.");
-    }
-
-    return *std::move(item);
-  }
+      std::optional<absl::Duration> timeout = std::nullopt);
 
   ChunkStoreReader& GetReader() ABSL_LOCKS_EXCLUDED(mu_);
   auto GetReaderStatus() const -> absl::Status;
@@ -287,6 +246,61 @@ class AsyncNode {
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<std::string, WireStream*> peers_ ABSL_GUARDED_BY(mu_);
 };
+
+template <typename T>
+auto AsyncNode::Put(T value, int seq, bool final) -> absl::Status {
+  auto chunk = ToChunk(std::move(value));
+  if (!chunk.ok()) {
+    return chunk.status();
+  }
+  return Put(*std::move(chunk), seq, final);
+}
+
+template <typename T>
+auto AsyncNode::Next(std::optional<absl::Duration> timeout)
+    -> absl::StatusOr<std::optional<T>> {
+  ChunkStoreReader& reader = GetReader();
+  return reader.Next<T>(timeout);
+}
+
+template <typename T>
+auto AsyncNode::NextOrDie(std::optional<absl::Duration> timeout)
+    -> std::optional<T> {
+  auto next = Next<T>(timeout);
+  CHECK_OK(next.status());
+  return *std::move(next);
+}
+
+template <typename T>
+absl::StatusOr<T> AsyncNode::ConsumeAs(std::optional<absl::Duration> timeout) {
+  timeout = timeout.value_or(GetReader().GetOptions().timeout);
+  const absl::Time started_at = absl::Now();
+
+  // The node being consumed must contain an element.
+  ASSIGN_OR_RETURN(std::optional<T> item, Next<T>(*timeout));
+  if (!item) {
+    return absl::FailedPreconditionError(
+        "AsyncNode is empty at current offset, "
+        "cannot consume item as type T.");
+  }
+
+  const absl::Duration elapsed = absl::Now() - started_at;
+  if (elapsed > *timeout) {
+    return absl::DeadlineExceededError(
+        absl::StrCat("Timed out after ", absl::FormatDuration(elapsed),
+                     " while consuming item as type T."));
+  }
+
+  // The node must be empty after consuming the item.
+  ASSIGN_OR_RETURN(const std::optional<Chunk> must_be_nullopt,
+                   Next<Chunk>(*timeout - elapsed));
+  if (must_be_nullopt.has_value()) {
+    return absl::FailedPreconditionError(
+        "AsyncNode must be empty after consuming the item.");
+  }
+
+  return *std::move(item);
+}
 
 // -----------------------------------------------------------------------------
 // IO operators for AsyncNode. These templates have concrete instantiations for
@@ -330,7 +344,7 @@ AsyncNode& operator>>(AsyncNode& node, std::optional<Chunk>& value);
 
 // Helpers for the operator>> on pointers to AsyncNode.
 template <typename T>
-AsyncNode*& operator>>(AsyncNode*& node, T& value) {
+AsyncNode* absl_nullable operator>>(AsyncNode* absl_nullable node, T& value) {
   *node >> value;
   return node;
 }

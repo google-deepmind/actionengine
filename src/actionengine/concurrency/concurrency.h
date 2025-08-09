@@ -145,7 +145,7 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED ExclusiveAccessGuard {
 };
 
 /** @private */
-class ABSL_SCOPED_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED EnsureExclusiveAccess {
+class ABSL_SCOPED_LOCKABLE [[maybe_unused]] EnsureExclusiveAccess {
  public:
   explicit EnsureExclusiveAccess(ExclusiveAccessGuard* absl_nonnull guard)
       ABSL_EXCLUSIVE_LOCK_FUNCTION(guard);

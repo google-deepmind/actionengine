@@ -169,13 +169,13 @@ struct Reply {
   absl::StatusOr<double> ToDouble() const;
   absl::StatusOr<int64_t> ToInt() const;
 
-  bool ToBoolOrDie() const {
+  [[nodiscard]] bool ToBoolOrDie() const {
     auto status_or_value = ToBool();
     CHECK_OK(status_or_value);
     return *status_or_value;
   }
 
-  double ToDoubleOrDie() const {
+  [[nodiscard]] double ToDoubleOrDie() const {
     auto status_or_value = ToDouble();
     CHECK_OK(status_or_value);
     return *status_or_value;

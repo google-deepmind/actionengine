@@ -3,6 +3,7 @@ add_library(
         client.cc
         testing_utils.h
         stream.h
+        recoverable_stream.cc
         recoverable_stream.h
 )
 add_library(act::net ALIAS actNet)

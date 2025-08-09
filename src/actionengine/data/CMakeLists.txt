@@ -11,8 +11,9 @@ target_sources(actData
 )
 target_sources(actData
         PRIVATE
-        types.cc
         msgpack.cc
+        serialization.cc
+        types.cc
 )
 target_include_directories(
         actData PUBLIC

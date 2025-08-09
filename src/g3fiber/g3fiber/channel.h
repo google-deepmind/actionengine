@@ -32,7 +32,7 @@ static constexpr auto kCopy = CopyOrMove::Copy;
 static constexpr auto kMove = CopyOrMove::Move;
 
 template <typename T>
-T CopyOrMoveOut(T* item, CopyOrMove strategy) {
+T CopyOrMoveOut(T* absl_nonnull item, CopyOrMove strategy) {
   if (strategy == kCopy) {
     return *static_cast<const T*>(item);
   }
@@ -58,10 +58,10 @@ struct ReadSelectable final : Selectable {
   explicit ReadSelectable(Channel<T>* absl_nonnull channel)
       : channel(channel) {}
 
-  bool Handle(CaseInSelectClause* reader, bool enqueue) override;
-  void Unregister(CaseInSelectClause* c) override;
+  bool Handle(CaseInSelectClause* absl_nonnull reader, bool enqueue) override;
+  void Unregister(CaseInSelectClause* absl_nonnull c) override;
 
-  Channel<T>* channel;
+  Channel<T>* absl_nonnull channel;
 };
 
 template <typename T>
@@ -69,10 +69,10 @@ struct WriteSelectable final : Selectable {
   explicit WriteSelectable(Channel<T>* absl_nonnull channel)
       : channel(channel) {}
 
-  bool Handle(CaseInSelectClause* writer, bool enqueue) override;
-  void Unregister(CaseInSelectClause* c) override;
+  bool Handle(CaseInSelectClause* absl_nonnull writer, bool enqueue) override;
+  void Unregister(CaseInSelectClause* absl_nonnull c) override;
 
-  Channel<T>* channel;
+  Channel<T>* absl_nonnull channel;
 };
 }  // namespace thread::internal
 
@@ -311,7 +311,7 @@ requires std::is_move_assignable_v<T> class Channel {
    * @return
    *   A Reader that can be used to read items from the channel.
    */
-  Reader<T>* reader() { return &reader_; }
+  Reader<T>* absl_nonnull reader() { return &reader_; }
 
   /**
    * Returns a Writer that can be used to write items to the channel.
@@ -324,7 +324,7 @@ requires std::is_move_assignable_v<T> class Channel {
    * @return
    *   A Writer that can be used to write items to the channel.
    */
-  Writer<T>* writer() { return &writer_; }
+  Writer<T>* absl_nonnull writer() { return &writer_; }
 
   /**
    * Returns the instantaneous length of the channel.
@@ -350,7 +350,9 @@ requires std::is_move_assignable_v<T> class Channel {
     return queue_.size();
   }
 
-  Case OnRead(T* dst, bool* ok) { return {&rd_, dst, ok}; }
+  Case OnRead(T* absl_nonnull dst, bool* absl_nonnull ok) {
+    return {&rd_, dst, ok};
+  }
 
   Case OnWrite(const T& item) requires(std::is_copy_constructible_v<T>) {
     return {&wr_, &item, &internal::kCopy};
@@ -391,7 +393,8 @@ requires std::is_move_assignable_v<T> void Channel<T>::Close() {
 }
 
 template <typename T>
-requires std::is_move_assignable_v<T> bool Channel<T>::Get(T* dst) {
+requires std::is_move_assignable_v<T> bool Channel<T>::Get(
+    T* absl_nonnull dst) {
   bool result;
   Select({OnRead(dst, &result)});
   return result;
@@ -454,12 +457,13 @@ bool Writer<T>::WriteUnlessCancelled(T&& item) {
 namespace thread::internal {
 
 template <typename T>
-bool ReadSelectable<T>::Handle(CaseInSelectClause* reader, bool enqueue) {
+bool ReadSelectable<T>::Handle(CaseInSelectClause* absl_nonnull reader,
+                               bool enqueue) {
   act::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());
 
-  T* dst_item = reader->GetCase()->GetArgPtr<T>(0);
-  bool* dst_ok = reader->GetCase()->GetArgPtr<bool>(1);
+  T* absl_nonnull dst_item = reader->GetCase()->GetArgPtr<T>(0);
+  bool* absl_nonnull dst_ok = reader->GetCase()->GetArgPtr<bool>(1);
 
   // Is there a buffered item to read?
   if (!channel->queue_.empty()) {
@@ -476,9 +480,9 @@ bool ReadSelectable<T>::Handle(CaseInSelectClause* reader, bool enqueue) {
       channel->waiters_.UnlockAndReleaseReader(reader);
 
       // Potentially admit a waiting writer.
-      if (CaseInSelectClause * unblocked_writer;
+      if (CaseInSelectClause * absl_nonnull unblocked_writer;
           channel->waiters_.GetWaitingWriter(&unblocked_writer)) {
-        auto* item = unblocked_writer->GetCase()->GetArgPtr<T>(0);
+        auto* absl_nonnull item = unblocked_writer->GetCase()->GetArgPtr<T>(0);
         auto copy_or_move =
             *unblocked_writer->GetCase()->GetArgPtr<CopyOrMove>(1);
 
@@ -495,9 +499,9 @@ bool ReadSelectable<T>::Handle(CaseInSelectClause* reader, bool enqueue) {
   }
 
   // Try to transfer directly from waiting writer to reader
-  if (CaseInSelectClause * writer;
+  if (CaseInSelectClause * absl_nonnull writer;
       channel->waiters_.GetMatchingWriter(reader, &writer)) {
-    auto* item = writer->GetCase()->GetArgPtr<T>(0);
+    auto* absl_nonnull item = writer->GetCase()->GetArgPtr<T>(0);
     auto copy_or_move = *writer->GetCase()->GetArgPtr<CopyOrMove>(1);
 
     *dst_item = CopyOrMoveOut(item, copy_or_move);
@@ -538,25 +542,26 @@ bool ReadSelectable<T>::Handle(CaseInSelectClause* reader, bool enqueue) {
 }
 
 template <typename T>
-void ReadSelectable<T>::Unregister(CaseInSelectClause* c) {
+void ReadSelectable<T>::Unregister(CaseInSelectClause* absl_nonnull c) {
   act::concurrency::impl::MutexLock lock(&channel->mu_);
   internal::UnlinkFromList(&channel->waiters_.readers, c);
 }
 
 template <typename T>
-bool WriteSelectable<T>::Handle(CaseInSelectClause* writer, bool enqueue) {
+bool WriteSelectable<T>::Handle(CaseInSelectClause* absl_nonnull writer,
+                                bool enqueue) {
   act::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());
   CHECK(!channel->closed_) << "Calling Write() on closed channel";
 
   // First try to transfer directly from writer to a waiting reader
-  if (CaseInSelectClause * reader;
+  if (CaseInSelectClause * absl_nonnull reader;
       channel->waiters_.GetMatchingReader(writer, &reader)) {
-    auto* writer_item = writer->GetCase()->GetArgPtr<T>(0);
+    auto* absl_nonnull writer_item = writer->GetCase()->GetArgPtr<T>(0);
     auto copy_or_move = *writer->GetCase()->GetArgPtr<CopyOrMove>(1);
 
-    auto* reader_item = reader->GetCase()->GetArgPtr<T>(0);
-    bool* reader_ok = reader->GetCase()->GetArgPtr<bool>(1);
+    auto* absl_nonnull reader_item = reader->GetCase()->GetArgPtr<T>(0);
+    bool* absl_nonnull reader_ok = reader->GetCase()->GetArgPtr<bool>(1);
 
     *reader_item = CopyOrMoveOut(writer_item, copy_or_move);
     *reader_ok = true;
@@ -583,7 +588,7 @@ bool WriteSelectable<T>::Handle(CaseInSelectClause* writer, bool enqueue) {
   if (channel->queue_.size() < channel->capacity_) {
     DVLOG(2) << "Add to buffer";
 
-    T* item = writer->GetCase()->GetArgPtr<T>(0);
+    T* absl_nonnull item = writer->GetCase()->GetArgPtr<T>(0);
     const CopyOrMove copy_or_move =
         *writer->GetCase()->GetArgPtr<CopyOrMove>(1);
 
@@ -606,7 +611,7 @@ bool WriteSelectable<T>::Handle(CaseInSelectClause* writer, bool enqueue) {
 }
 
 template <typename T>
-void WriteSelectable<T>::Unregister(CaseInSelectClause* c) {
+void WriteSelectable<T>::Unregister(CaseInSelectClause* absl_nonnull c) {
   act::concurrency::impl::MutexLock lock(&channel->mu_);
   internal::UnlinkFromList(&channel->waiters_.writers, c);
 }

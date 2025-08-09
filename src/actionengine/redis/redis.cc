@@ -37,11 +37,6 @@
 
 namespace act::redis {
 
-static constexpr redisOptions GetDefaultRedisOptions() {
-  constexpr redisOptions options{};
-  return options;
-}
-
 internal::EventLoop::EventLoop() : loop_(uvw::loop::create()) {
   handle_ = loop_->resource<uvw::idle_handle>();
   handle_->init();
@@ -116,8 +111,9 @@ void Redis::DisconnectCallback(const redisAsyncContext* context, int status) {
   redis->OnDisconnect(status);
 }
 
-void Redis::PubsubCallback(redisAsyncContext* context, void* hiredis_reply,
-                           void* privdata) {
+void Redis::PubsubCallback(redisAsyncContext* absl_nonnull context,
+                           void* absl_nonnull hiredis_reply,
+                           void* absl_nullable) {
   const auto redis = static_cast<Redis*>(context->data);
   CHECK(redis != nullptr)
       << "Redis::PubsubCallback called with redisAsyncContext not "
@@ -130,8 +126,9 @@ void Redis::PubsubCallback(redisAsyncContext* context, void* hiredis_reply,
   return redis->OnPubsubReply(hiredis_reply);
 }
 
-void Redis::ReplyCallback(redisAsyncContext* context, void* hiredis_reply,
-                          void* privdata) {
+void Redis::ReplyCallback(redisAsyncContext* absl_nonnull context,
+                          void* absl_nonnull hiredis_reply,
+                          void* absl_nonnull privdata) {
   const auto redis = static_cast<Redis*>(context->data);
   CHECK(redis != nullptr)
       << "Redis::ReplyCallback called with redisAsyncContext not "

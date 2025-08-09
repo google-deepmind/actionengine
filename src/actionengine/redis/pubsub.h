@@ -43,13 +43,7 @@ class Subscription {
   void Subscribe();
   void Unsubscribe();
 
-  void CloseWriter() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    if (writer_closed_) {
-      return;
-    }
-    writer_closed_ = true;
-    channel_.writer()->Close();
-  }
+  void CloseWriter() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   mutable act::Mutex mu_;
   bool writer_closed_ ABSL_GUARDED_BY(mu_) = false;

@@ -1,5 +1,3 @@
-add_subdirectory(chunk_store_ops)
-
 add_library(actRedis STATIC
         chunk_store.cc
         chunk_store.h
@@ -30,7 +28,6 @@ target_link_libraries(
         act::concurrency
         act::data
         act::msgpack
-        act::redis::chunk_store_ops
         act::stores
         act::util
         G3Fiber

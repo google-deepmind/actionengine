@@ -51,7 +51,7 @@ namespace internal {
 // A custom deleter for redisContext to ensure proper cleanup of C structures
 // when the Redis object is destroyed.
 struct RedisContextDeleter {
-  void operator()(redisAsyncContext* context) const {
+  void operator()(redisAsyncContext* absl_nullable context) const {
     if (context != nullptr) {
       redisAsyncFree(context);
     }
@@ -69,7 +69,7 @@ class EventLoop {
     thread_->join();
   }
 
-  uvw::loop* Get() { return loop_.get(); }
+  uvw::loop* absl_nonnull Get() { return loop_.get(); }
 
  private:
   std::shared_ptr<uvw::idle_handle> handle_;
@@ -123,10 +123,12 @@ class Redis {
                                  int status);
 
   static void PubsubCallback(redisAsyncContext* absl_nonnull context,
-                             void* absl_nullable hiredis_reply, void* privdata);
+                             void* absl_nonnull hiredis_reply,
+                             void* absl_nullable);
 
   static void ReplyCallback(redisAsyncContext* absl_nonnull context,
-                            void* absl_nonnull hiredis_reply, void* privdata);
+                            void* absl_nonnull hiredis_reply,
+                            void* absl_nonnull privdata);
 
   // ReSharper disable once CppParameterMayBeConstPtrOrRef
   static void PushReplyCallback(redisAsyncContext* absl_nonnull context,

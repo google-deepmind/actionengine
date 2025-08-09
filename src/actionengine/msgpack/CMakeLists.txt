@@ -7,6 +7,7 @@ add_library(
         msgpack.cc
         int.h
         msgpack.h
+        strbin.cc
         strbin.h
 )
 add_library(act::msgpack ALIAS actMsgpack)

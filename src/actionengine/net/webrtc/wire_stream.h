@@ -131,7 +131,7 @@ class WebRtcWireStream final : public WireStream {
 
   [[nodiscard]] std::string GetId() const override { return id_; }
 
-  [[nodiscard]] const void* GetImpl() const override {
+  [[nodiscard]] const void* absl_nullable GetImpl() const override {
     return data_channel_.get();
   }
 

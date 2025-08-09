@@ -59,4 +59,12 @@ void Subscription::Unsubscribe() {
   unsubscribe_event_.Notify();
 }
 
+void Subscription::CloseWriter() {
+  if (writer_closed_) {
+    return;
+  }
+  writer_closed_ = true;
+  channel_.writer()->Close();
+}
+
 }  // namespace act::redis

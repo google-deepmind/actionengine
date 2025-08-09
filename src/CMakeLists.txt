@@ -1,4 +1,8 @@
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -Xlinker,-no_warn_duplicate_libraries")
+string(FIND ${CMAKE_CXX_COMPILER_ID} "Clang" USING_CLANG)
+message(STATUS "CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID}")
+if (USING_CLANG GREATER -1)
+    add_compile_options(-Wall -Wthread-safety -Werror=thread-safety -Wnullability-completeness)
+endif ()
 
 #set(ACTIONENGINE_IWYU_PATH "/Users/helenapankov/dev/include-what-you-use/build/bin/include-what-you-use")
 

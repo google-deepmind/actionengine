@@ -34,55 +34,10 @@ class SerializerRegistry {
  public:
   template <typename T>
   [[nodiscard]] absl::StatusOr<Bytes> Serialize(
-      T value, std::string_view mimetype) const {
-    if (mimetype.empty()) {
-      return absl::InvalidArgumentError(
-          "Serialize(value, mimetype) was called with an empty mimetype.");
-    }
-
-    const auto it = mime_serializers_.find(mimetype);
-    if (it == mime_serializers_.end()) {
-      return absl::UnimplementedError(absl::StrFormat(
-          "No serializer is registered for mimetype %v.", mimetype));
-    }
-
-    for (const auto& serializer : it->second | std::views::reverse) {
-      // Attempt to serialize the value using the registered serializer.
-      auto result = serializer(std::move(value));
-      if (result.ok()) {
-        return std::move(*result);
-      }
-    }
-
-    return absl::UnimplementedError(
-        absl::StrFormat("No serializer could handle value of type %s for "
-                        "mimetype %v.",
-                        typeid(T).name(), mimetype));
-  }
+      T value, std::string_view mimetype) const;
 
   [[nodiscard]] absl::StatusOr<std::any> Deserialize(
-      const Bytes& data, std::string_view mimetype) const {
-    if (mimetype.empty()) {
-      return absl::InvalidArgumentError(
-          "Deserialize(data, mimetype) was called with an empty mimetype.");
-    }
-
-    const auto it = mime_deserializers_.find(mimetype);
-    if (it == mime_deserializers_.end()) {
-      return absl::UnimplementedError(absl::StrFormat(
-          "No deserializer is registered for mimetype %v.", mimetype));
-    }
-
-    for (const auto& deserializer : it->second | std::views::reverse) {
-      // Attempt to deserialize the data using the registered deserializer.
-      if (auto result = deserializer(data); result.ok()) {
-        return std::move(*result);
-      }
-    }
-
-    return absl::UnimplementedError(absl::StrFormat(
-        "No deserializer could handle data for mimetype %v.", mimetype));
-  }
+      const Bytes& data, std::string_view mimetype) const;
 
   // The registered deserializer must return an std::any which actually
   // contains the type T. This is not checked at compile time and is not
@@ -90,41 +45,20 @@ class SerializerRegistry {
   // a convenience wrapper for std::any_cast<T>(result)-or-status.
   template <typename T>
   [[nodiscard]] absl::StatusOr<T> DeserializeAs(
-      const Bytes& data, std::string_view mimetype) const {
-    auto deserialized = Deserialize(data, mimetype);
-    if (!deserialized.ok()) {
-      return deserialized.status();
-    }
-    if (std::any_cast<T>(&*deserialized) == nullptr) {
-      return absl::InvalidArgumentError(
-          absl::StrFormat("Deserialized type does not match expected type %s.",
-                          typeid(T).name()));
-    }
-    return std::any_cast<T>(*std::move(deserialized));
-  }
+      const Bytes& data, std::string_view mimetype) const;
 
-  void RegisterSerializer(std::string_view mimetype, Serializer serializer) {
-    mime_serializers_[mimetype].push_back(std::move(serializer));
-  }
+  void RegisterSerializer(std::string_view mimetype, Serializer serializer);
 
   void RegisterDeserializer(std::string_view mimetype,
-                            Deserializer deserializer) {
-    mime_deserializers_[mimetype].push_back(std::move(deserializer));
-  }
+                            Deserializer deserializer);
 
-  [[nodiscard]] bool HasSerializers(std::string_view mimetype) const {
-    return mime_serializers_.contains(mimetype);
-  }
+  [[nodiscard]] bool HasSerializers(std::string_view mimetype) const;
 
-  [[nodiscard]] bool HasDeserializers(std::string_view mimetype) const {
-    return mime_deserializers_.contains(mimetype);
-  }
+  [[nodiscard]] bool HasDeserializers(std::string_view mimetype) const;
 
-  [[nodiscard]] void* GetUserData() const { return user_data_.get(); }
+  [[nodiscard]] void* GetUserData() const;
 
-  void SetUserData(std::shared_ptr<void> user_data) {
-    user_data_ = std::move(user_data);
-  }
+  void SetUserData(std::shared_ptr<void> user_data);
 
  protected:
   absl::flat_hash_map<std::string, absl::InlinedVector<Serializer, 2>>
@@ -135,48 +69,58 @@ class SerializerRegistry {
       nullptr;  // Optional user data for custom use.
 };
 
-static inline absl::once_flag kInitSerializerRegistryFlag;
+template <typename T>
+absl::StatusOr<Bytes> SerializerRegistry::Serialize(
+    T value, std::string_view mimetype) const {
+  if (mimetype.empty()) {
+    return absl::InvalidArgumentError(
+        "Serialize(value, mimetype) was called with an empty mimetype.");
+  }
 
-static void InitSerializerRegistryWithDefaults(SerializerRegistry* registry) {
-  // Initialize the global serializer registry with default serializers.
-  // This can be extended to include more serializers as needed.
-  registry->RegisterSerializer(
-      "text/plain", [](std::any value) -> absl::StatusOr<Bytes> {
-        if (const auto str = std::any_cast<std::string>(&value);
-            str != nullptr) {
-          return std::move(*str);
-        }
-        return absl::InvalidArgumentError(
-            "Cannot serialize value to text/plain: not a string.");
-      });
-  registry->RegisterDeserializer("text/plain",
-                                 [](Bytes data) -> absl::StatusOr<std::any> {
-                                   return std::any(std::move(data));
-                                 });
-  registry->RegisterSerializer(
-      "application/octet-stream", [](std::any value) -> absl::StatusOr<Bytes> {
-        if (const auto bytes = std::any_cast<Bytes>(&value); bytes != nullptr) {
-          return std::move(*bytes);
-        }
-        return absl::InvalidArgumentError(
-            "Cannot serialize value to application/octet-stream: not bytes.");
-      });
+  const auto it = mime_serializers_.find(mimetype);
+  if (it == mime_serializers_.end()) {
+    return absl::UnimplementedError(absl::StrFormat(
+        "No serializer is registered for mimetype %v.", mimetype));
+  }
+
+  for (const auto& serializer : it->second | std::views::reverse) {
+    // Attempt to serialize the value using the registered serializer.
+    auto result = serializer(std::move(value));
+    if (result.ok()) {
+      return std::move(*result);
+    }
+  }
+
+  return absl::UnimplementedError(
+      absl::StrFormat("No serializer could handle value of type %s for "
+                      "mimetype %v.",
+                      typeid(T).name(), mimetype));
 }
 
-inline SerializerRegistry& GetGlobalSerializerRegistry() {
-  static SerializerRegistry global_registry;
-  absl::call_once(kInitSerializerRegistryFlag,
-                  InitSerializerRegistryWithDefaults, &global_registry);
-  return global_registry;
+template <typename T>
+absl::StatusOr<T> SerializerRegistry::DeserializeAs(
+    const Bytes& data, std::string_view mimetype) const {
+  auto deserialized = Deserialize(data, mimetype);
+  if (!deserialized.ok()) {
+    return deserialized.status();
+  }
+  if (std::any_cast<T>(&*deserialized) == nullptr) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Deserialized type does not match expected type %s.",
+                        typeid(T).name()));
+  }
+  return std::any_cast<T>(*std::move(deserialized));
 }
+
+void InitSerializerRegistryWithDefaults(SerializerRegistry* registry);
+
+SerializerRegistry& GetGlobalSerializerRegistry();
 
 inline SerializerRegistry* GetGlobalSerializerRegistryPtr() {
   return &GetGlobalSerializerRegistry();
 }
 
-static void SetGlobalSerializerRegistry(const SerializerRegistry& registry) {
-  GetGlobalSerializerRegistry() = registry;
-}
+void SetGlobalSerializerRegistry(const SerializerRegistry& registry);
 
 template <typename T>
 absl::StatusOr<Chunk> ToChunk(T value, std::string_view mimetype = {},
@@ -236,15 +180,9 @@ absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},
   return resolved_registry->DeserializeAs<T>(std::move(chunk).data, mimetype);
 }
 
-inline absl::StatusOr<std::any> FromChunk(
+absl::StatusOr<std::any> FromChunk(
     const Chunk& chunk, std::string_view mimetype = {},
-    const SerializerRegistry* const registry = nullptr) {
-  const SerializerRegistry* resolved_registry =
-      registry ? registry : GetGlobalSerializerRegistryPtr();
-
-  return resolved_registry->Deserialize(
-      chunk.data, !mimetype.empty() ? mimetype : chunk.metadata.mimetype);
-}
+    const SerializerRegistry* const registry = nullptr);
 
 template <typename T>
 absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},

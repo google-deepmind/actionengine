@@ -75,12 +75,12 @@ class Selectable;
  * Selectable when it is selected.
  */
 struct [[nodiscard]] Case {
-  internal::Selectable* selectable;
-  absl::InlinedVector<void*, 2> arguments;
+  internal::Selectable* absl_nonnull selectable;
+  absl::InlinedVector<void * absl_nullable, 2> arguments;
 
-  Case(internal::Selectable* s = nullptr) : selectable(s) {}
+  Case(internal::Selectable* absl_nullable s = nullptr) : selectable(s) {}
 
-  Case(internal::Selectable* s, internal::IsPointer auto... args)
+  Case(internal::Selectable* absl_nullable s, internal::IsPointer auto... args)
       : selectable(s) {
     AddArgs(args...);
   }
@@ -138,11 +138,12 @@ struct CaseInSelectClause {
   const Case* absl_nonnull case_ptr;  // Initialized by Select()
   int index;  // Provided by Select(): index in parameter list.
   internal::Selector* absl_nonnull
-      selector;              // Provided by Select(): owning selector.
-  CaseInSelectClause* prev;  // Initialized by Select(), nullptr -> not on list.
-  CaseInSelectClause* next;
+      selector;  // Provided by Select(): owning selector.
+  CaseInSelectClause* absl_nullable
+      prev;  // Initialized by Select(), nullptr -> not on list.
+  CaseInSelectClause* absl_nullable next;
 
-  [[nodiscard]] const Case* GetCase() const { return case_ptr; }
+  [[nodiscard]] const Case* absl_nonnull GetCase() const { return case_ptr; }
 
   // Attempt to cause the owning Selector to choose this case. Returns true if
   // and only if this case will be the one chosen, because no other case has
@@ -191,14 +192,15 @@ class Selectable {
   // If the PerSelectCaseState is enqueued and the selectable later becomes ready before
   // Unregister is called, it should again lock c->selector->mu, call c->TryPick(),
   // and perform side effects iff picked, while c->selector->mu is still held.
-  virtual bool Handle(CaseInSelectClause* case_state, bool enqueue) = 0;
+  virtual bool Handle(CaseInSelectClause* absl_nonnull case_state,
+                      bool enqueue) = 0;
 
   // Unregister a case against future transitions for this Selectable.
   //
   // Called for all cases c1 where a previous call Handle(c1, true) returned
   // false and another case c2 was successfully selected (c2->TryPick() returned
   // true), or a timeout occurred.
-  virtual void Unregister(CaseInSelectClause* case_state) = 0;
+  virtual void Unregister(CaseInSelectClause* absl_nonnull case_state) = 0;
 };
 
 inline bool CaseInSelectClause::Handle(bool enqueue) {
@@ -211,7 +213,7 @@ inline void CaseInSelectClause::Unregister() {
 
 // Shared linked list code. Implements a doubly-linked list where the list head
 // is a pointer to the oldest element added to the list.
-inline void PushBack(CaseInSelectClause** absl_nonnull head,
+inline void PushBack(CaseInSelectClause* absl_nonnull* absl_nonnull head,
                      CaseInSelectClause* absl_nonnull element) {
   if (*head == nullptr) {
     // Queue is empty; make singleton queue.
@@ -227,8 +229,8 @@ inline void PushBack(CaseInSelectClause** absl_nonnull head,
   }
 }
 
-inline void UnlinkFromList(CaseInSelectClause** head,
-                           CaseInSelectClause* element) {
+inline void UnlinkFromList(CaseInSelectClause* absl_nonnull* absl_nonnull head,
+                           CaseInSelectClause* absl_nonnull element) {
   if (element->next == element) {
     // Single entry; clear list
     *head = nullptr;

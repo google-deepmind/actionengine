@@ -32,54 +32,6 @@ namespace act::util {
 
 boost::asio::thread_pool* GetDefaultAsioExecutionContext();
 
-// If fn() is void, result holder cannot be created
-template <typename Invocable, typename ExecutionContext,
-          typename = std::enable_if_t<
-              !std::is_void_v<std::invoke_result_t<Invocable>>>>
-auto RunInAsioContext(ExecutionContext& context, Invocable&& fn,
-                      thread::CaseArray additional_cases = {}) {
-  std::optional<decltype(fn())> result;
-  thread::PermanentEvent done;
-  boost::asio::post(context,
-                    [&done, &result, fn = std::forward<Invocable>(fn)]() {
-                      result = fn();
-                      done.Notify();
-                    });
-
-  auto cases = std::move(additional_cases);
-  cases.push_back(done.OnEvent());
-  thread::Select(cases);
-
-  return *result;
-}
-
-// If fn() is void, result holder cannot be created
-template <typename Invocable, typename = std::enable_if_t<!std::is_void_v<
-                                  std::invoke_result_t<Invocable>>>>
-auto RunInAsioContext(Invocable&& fn, thread::CaseArray additional_cases = {}) {
-  return RunInAsioContext(*GetDefaultAsioExecutionContext(),
-                          std::forward<Invocable>(fn),
-                          std::move(additional_cases));
-}
-
-template <typename ExecutionContext>
-void RunInAsioContext(ExecutionContext& context,
-                      absl::AnyInvocable<void()>&& fn,
-                      thread::CaseArray additional_cases = {}) {
-  thread::PermanentEvent done;
-  boost::asio::post(context, [&done, &fn]() {
-    fn();
-    done.Notify();
-  });
-
-  auto cases = std::move(additional_cases);
-  cases.push_back(done.OnEvent());
-  thread::Select(cases);
-}
-
-void RunInAsioContext(absl::AnyInvocable<void()>&& fn,
-                      thread::CaseArray additional_cases = {});
-
 }  // namespace act::util
 
 #endif  // ACTIONENGINE_UTIL_BOOST_ASIO_UTILS_H_

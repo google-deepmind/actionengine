@@ -13,3 +13,40 @@
 // limitations under the License.
 
 #include "actionengine/msgpack/msgpack.h"
+
+namespace act::msgpack {
+
+Packer::Packer(SerializedBytesVector bytes) : bytes_(std::move(bytes)) {}
+
+void Packer::Reset() {
+  bytes_.clear();
+  offset_ = 0;
+}
+
+void Packer::Reserve(size_t size) {
+  bytes_.reserve(size);
+}
+
+const SerializedBytesVector& Packer::GetVector() const {
+  return bytes_;
+}
+
+std::vector<Byte> Packer::GetStdVector() const {
+  return ToStdVector(bytes_);
+}
+
+SerializedBytesVector Packer::ReleaseVector() {
+  SerializedBytesVector result = std::move(bytes_);
+  bytes_.clear();
+  offset_ = 0;
+  return result;
+}
+
+std::vector<Byte> Packer::ReleaseStdVector() {
+  std::vector<Byte> result = ToStdVector(std::move(bytes_));
+  bytes_.clear();
+  offset_ = 0;
+  return result;
+}
+
+}  // namespace act::msgpack

@@ -323,7 +323,7 @@ TEST(RecoverableStreamTest, TimeoutEventFires) {
   EXPECT_TRUE(stream2_recoverable.IsLost());
   EXPECT_THAT(send_status, StatusIs(absl::StatusCode::kDeadlineExceeded));
 
-  stream2_recoverable.CloseAndNotify(/*ignore_lost=*/true);
+  stream2_recoverable.CloseAndNotify();
 
   // closing the underlying stream
   stream2_ejected->HalfClose();

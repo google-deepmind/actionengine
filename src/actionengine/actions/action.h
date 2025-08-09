@@ -346,7 +346,7 @@ class Action : public std::enable_shared_from_this<Action> {
   std::string id_;
 
   NodeMap* absl_nullable node_map_ ABSL_GUARDED_BY(mu_) = nullptr;
-  WireStream* stream_ ABSL_GUARDED_BY(mu_) = nullptr;
+  WireStream* absl_nullable stream_ ABSL_GUARDED_BY(mu_) = nullptr;
   Session* absl_nullable session_ ABSL_GUARDED_BY(mu_) = nullptr;
 
   absl::flat_hash_set<ChunkStoreReader*> reffed_readers_ ABSL_GUARDED_BY(mu_);

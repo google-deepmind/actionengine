@@ -81,11 +81,9 @@ class NonSelectable final : public internal::Selectable {
   NonSelectable() = default;
   ~NonSelectable() override = default;
 
-  bool Handle(internal::CaseInSelectClause* c, bool enqueue) override {
-    return false;
-  }
+  bool Handle(internal::CaseInSelectClause*, bool) override { return false; }
 
-  void Unregister(internal::CaseInSelectClause* c) override {}
+  void Unregister(internal::CaseInSelectClause*) override {}
 };
 
 Case NonSelectableCase() {
@@ -99,7 +97,7 @@ class AlwaysSelectable final : public internal::Selectable {
   AlwaysSelectable() = default;
   ~AlwaysSelectable() override = default;
 
-  bool Handle(internal::CaseInSelectClause* c, bool enqueue) override {
+  bool Handle(internal::CaseInSelectClause* c, bool) override {
     act::concurrency::impl::MutexLock lock(&c->selector->mu);
     // This selectable is always ready, so ask the selector to pick it.
     // Note: the selector still does not *have to* pick it if there are
@@ -107,7 +105,7 @@ class AlwaysSelectable final : public internal::Selectable {
     return c->TryPick();
   }
 
-  void Unregister(internal::CaseInSelectClause* c) override {}
+  void Unregister(internal::CaseInSelectClause*) override {}
 };
 
 Case AlwaysSelectableCase() {

@@ -18,52 +18,53 @@ using string_view = std::basic_string_view<char_type>;
 // characters that are considered space
 // we need this because std::isspace is not constexpr
 template <class char_type>
-static constexpr string_view<char_type> space_chars =
+constexpr string_view<char_type> space_chars =
     std::declval<string_view<char_type>>();
 template <>
-static constexpr string_view<char> space_chars<char> = " \f\n\r\t\v";
+constexpr inline string_view<char> space_chars<char> = " \f\n\r\t\v";
 template <>
-static constexpr string_view<wchar_t> space_chars<wchar_t> = L" \f\n\r\t\v";
+constexpr inline string_view<wchar_t> space_chars<wchar_t> = L" \f\n\r\t\v";
 template <>
-static constexpr string_view<char8_t> space_chars<char8_t> = u8" \f\n\r\t\v";
+constexpr inline string_view<char8_t> space_chars<char8_t> = u8" \f\n\r\t\v";
 template <>
-static constexpr string_view<char16_t> space_chars<char16_t> = u" \f\n\r\t\v";
+constexpr inline string_view<char16_t> space_chars<char16_t> = u" \f\n\r\t\v";
 template <>
-static constexpr string_view<char32_t> space_chars<char32_t> = U" \f\n\r\t\v";
+constexpr inline string_view<char32_t> space_chars<char32_t> = U" \f\n\r\t\v";
 
 // list of all potential line endings that could be encountered
 template <class char_type>
-static constexpr string_view<char_type> potential_line_endings[] =
+constexpr string_view<char_type> potential_line_endings[] =
     std::declval<string_view<char_type>[]>();
+
 template <>
-static constexpr string_view<char> potential_line_endings<char>[] = {
+constexpr inline string_view<char> potential_line_endings<char>[] = {
     "\r\n", "\r", "\n"};
 template <>
-static constexpr string_view<wchar_t> potential_line_endings<wchar_t>[] = {
+constexpr inline string_view<wchar_t> potential_line_endings<wchar_t>[] = {
     L"\r\n", L"\r", L"\n"};
 template <>
-static constexpr string_view<char8_t> potential_line_endings<char8_t>[] = {
+constexpr inline string_view<char8_t> potential_line_endings<char8_t>[] = {
     u8"\r\n", u8"\r", u8"\n"};
 template <>
-static constexpr string_view<char16_t> potential_line_endings<char16_t>[] = {
+constexpr inline string_view<char16_t> potential_line_endings<char16_t>[] = {
     u"\r\n", u"\r", u"\n"};
 template <>
-static constexpr string_view<char32_t> potential_line_endings<char32_t>[] = {
+constexpr inline string_view<char32_t> potential_line_endings<char32_t>[] = {
     U"\r\n", U"\r", U"\n"};
 
 // null-terminator for the different character types
 template <class char_type>
-static constexpr char_type null_char = std::declval<char_type>();
+constexpr char_type null_char = std::declval<char_type>();
 template <>
-static constexpr char null_char<char> = '\0';
+constexpr inline char null_char<char> = '\0';
 template <>
-static constexpr wchar_t null_char<wchar_t> = L'\0';
+constexpr inline wchar_t null_char<wchar_t> = L'\0';
 template <>
-static constexpr char8_t null_char<char8_t> = static_cast<char8_t>('\0');
+constexpr inline char8_t null_char<char8_t> = static_cast<char8_t>('\0');
 template <>
-static constexpr char16_t null_char<char16_t> = u'\0';
+constexpr inline char16_t null_char<char16_t> = u'\0';
 template <>
-static constexpr char32_t null_char<char32_t> = U'\0';
+constexpr inline char32_t null_char<char32_t> = U'\0';
 
 // detects the line ending used within a string.
 // e.g. detect_line_ending("foo\nbar\nbaz") -> "\n"

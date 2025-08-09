@@ -38,7 +38,7 @@ inline std::vector<Byte> ToStdVector(SerializedBytesVector bytes) {
 
 struct InsertInfo {
   SerializedBytesVector* absl_nonnull bytes;
-  SerializedBytesVector::iterator at;
+  SerializedBytesVector::iterator absl_nonnull at;
 };
 
 struct LookupPointer {

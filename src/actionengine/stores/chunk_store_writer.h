@@ -127,7 +127,8 @@ ChunkStoreWriter& operator<<(ChunkStoreWriter& writer, std::vector<T> value) {
 }
 
 template <typename T>
-ChunkStoreWriter* operator<<(ChunkStoreWriter* absl_nonnull writer, T value) {
+ChunkStoreWriter* absl_nonnull operator<<(ChunkStoreWriter* absl_nonnull writer,
+                                          T value) {
   *writer << std::move(value);
   return writer;
 }

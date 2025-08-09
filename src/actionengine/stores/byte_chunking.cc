@@ -371,8 +371,8 @@ BytePacket ProducePacket(std::vector<Byte>::const_iterator it,
   CHECK(!force_no_length || length <= 0)
       << "force_no_length is true, but length is set to " << length
       << ". Cannot both explicitly set length and force no length.";
-  if (!force_no_length &&
-          (length_suffixed_size + remaining_size <= packet_size) ||
+  if ((!force_no_length &&
+       (length_suffixed_size + remaining_size <= packet_size)) ||
       length >= 1) {
     // if length is not explicitly defined, we want to produce a packet with
     // length iff it is the last packet in the sequence.

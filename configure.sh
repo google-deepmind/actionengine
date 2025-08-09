@@ -19,7 +19,6 @@ else
 fi
 
 
-
 echo "Configuring build..."
 (mkdir -p "${build_dir}" \
   && cd "${build_dir}" \

@@ -124,7 +124,6 @@ class ChunkStore final : public act::ChunkStore {
   act::CondVar cv_ ABSL_GUARDED_BY(mu_);
 
   bool allow_new_gets_ ABSL_GUARDED_BY(mu_) = true;
-  bool writes_closed_ ABSL_GUARDED_BY(mu_) = false;
   size_t num_pending_gets_ ABSL_GUARDED_BY(mu_) = 0;
   absl::Duration ttl_ = absl::InfiniteDuration();
 

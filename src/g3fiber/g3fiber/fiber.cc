@@ -26,7 +26,7 @@
 
 namespace thread {
 
-bool IsFiberDetached(const Fiber* fiber) {
+bool IsFiberDetached(const Fiber* absl_nonnull fiber) {
   return ABSL_TS_UNCHECKED_READ(fiber->detached_)
       .load(std::memory_order_relaxed);
 }
@@ -64,7 +64,7 @@ Fiber::Fiber(Unstarted, InvocableWork work, Fiber* parent)
   }
 }
 
-Fiber::Fiber(Unstarted, InvocableWork work, TreeOptions&& tree_options)
+Fiber::Fiber(Unstarted, InvocableWork work, TreeOptions&&)
     : work_(std::move(work)),
       parent_(nullptr),
       next_sibling_(this),
@@ -116,8 +116,9 @@ Fiber::~Fiber() {
   DVLOG(2) << "F " << this << " destroyed";
 }
 
-FiberProperties* GetCurrentFiberProperties() {
-  const boost::fibers::context* ctx = boost::fibers::context::active();
+FiberProperties* absl_nullable GetCurrentFiberProperties() {
+  const boost::fibers::context* absl_nullable ctx =
+      boost::fibers::context::active();
   // If we do not have an internal boost::fibers::context at all,
   // then something is wrong. We should never be called outside a fiber context.
   if (ctx == nullptr) {
@@ -137,8 +138,9 @@ FiberProperties* GetCurrentFiberProperties() {
   return nullptr;
 }
 
-Fiber* GetPerThreadFiberPtr() {
-  const boost::fibers::context* ctx = boost::fibers::context::active();
+Fiber* absl_nullable GetPerThreadFiberPtr() {
+  const boost::fibers::context* absl_nullable ctx =
+      boost::fibers::context::active();
   // If we do not have an internal boost::fibers::context at all,
   // then something is wrong. We should never be called outside a fiber context.
   if (ctx == nullptr) {
@@ -159,7 +161,7 @@ Fiber* GetPerThreadFiberPtr() {
   return kPerThreadNoOpFiber.f;
 }
 
-Fiber* Fiber::Current() {
+Fiber* absl_nonnull Fiber::Current() {
   if (Fiber* current_fiber = GetPerThreadFiberPtr();
       ABSL_PREDICT_TRUE(current_fiber != nullptr)) {
     return current_fiber;

@@ -33,12 +33,14 @@ namespace act::net {
 using BoostWebsocketStream =
     boost::beast::websocket::stream<boost::asio::ip::tcp::socket>;
 
-using PrepareStreamFn = std::function<absl::Status(BoostWebsocketStream*)>;
+using PrepareStreamFn =
+    std::function<absl::Status(BoostWebsocketStream* absl_nonnull)>;
 
 absl::Status PrepareClientStream(BoostWebsocketStream* absl_nonnull stream);
 absl::Status PrepareServerStream(BoostWebsocketStream* absl_nonnull stream);
 
-using PerformHandshakeFn = std::function<absl::Status(BoostWebsocketStream*)>;
+using PerformHandshakeFn =
+    std::function<absl::Status(BoostWebsocketStream* absl_nonnull)>;
 
 class FiberAwareWebsocketStream {
  public:
@@ -72,7 +74,8 @@ class FiberAwareWebsocketStream {
   absl::Status Read(absl::Duration timeout,
                     std::vector<uint8_t>* absl_nonnull buffer,
                     bool* absl_nullable got_text = nullptr) noexcept;
-  absl::Status ReadText(absl::Duration timeout, std::string* buffer) noexcept;
+  absl::Status ReadText(absl::Duration timeout,
+                        std::string* absl_nonnull buffer) noexcept;
   absl::Status Start() const noexcept;
   absl::Status Write(const std::vector<uint8_t>& message_bytes) noexcept;
   absl::Status WriteText(const std::string& message) noexcept;

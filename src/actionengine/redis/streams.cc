@@ -82,6 +82,20 @@ absl::Status EgltAssignInto(Reply from, StreamMessage* to) {
   return absl::OkStatus();
 }
 
+RedisStream::RedisStream(redis::Redis* redis, std::string_view key)
+    : redis_(redis), key_(key) {
+  absl::flat_hash_map<std::string, std::string> params;
+  CHECK(redis != nullptr) << "RedisStream requires a non-null Redis instance.";
+  CHECK(!key.empty()) << "RedisStream key must not be empty.";
+}
+
+absl::StatusOr<StreamMessageId> RedisStream::XAdd(
+    std::initializer_list<std::pair<std::string_view, std::string_view>> fields,
+    std::string_view id) const {
+  ASSIGN_OR_RETURN(const auto message_id, StreamMessageId::FromString(id));
+  return XAdd(fields.begin(), fields.end(), message_id);
+}
+
 absl::StatusOr<std::vector<StreamMessage>> RedisStream::XRead(
     StreamMessageId offset_id, int count, absl::Duration timeout) const {
   if (count == 0) {

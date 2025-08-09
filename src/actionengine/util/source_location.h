@@ -20,10 +20,10 @@ class source_location {
   }
 
   // The line number of the captured source location.
-  constexpr std::uint_least32_t line() const { return line_; }
+  [[nodiscard]] constexpr std::uint_least32_t line() const { return line_; }
 
   // The file name of the captured source location.
-  constexpr const char* file_name() const { return file_name_; }
+  [[nodiscard]] constexpr const char* file_name() const { return file_name_; }
 
   // column() and function_name() are omitted because we don't have a
   // way to support them.
