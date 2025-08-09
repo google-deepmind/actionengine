@@ -18,7 +18,15 @@
 #include <string_view>
 #include <vector>
 
+#include <pybind11/attr.h>
+#include <pybind11/cast.h>
+#include <pybind11/eval.h>
+#include <pybind11/functional.h>
+#include <pybind11/gil.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+#include <pybind11_abseil/absl_casters.h>
+#include <pybind11_abseil/import_status_module.h>
 #include <pybind11_abseil/no_throw_status.h>
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
@@ -27,7 +35,6 @@
 #include "eglt/data/eg_structs.h"
 #include "eglt/data/msgpack.h"
 #include "eglt/data/serialization.h"
-#include "eglt/pybind11_headers.h"
 #include "eglt/util/status_macros.h"
 #include "eglt/util/utils_pybind11.h"
 

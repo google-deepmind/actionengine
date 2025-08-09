@@ -19,19 +19,25 @@
 #include <string>
 #include <string_view>
 
+#include <Python.h>
 #include <absl/log/check.h>
 #include <absl/strings/str_cat.h>
-#include <bytearrayobject.h>
-#include <listobject.h>
+#include <pybind11/attr.h>
+#include <pybind11/cast.h>
 #include <pybind11/detail/common.h>
 #include <pybind11/detail/descr.h>
 #include <pybind11/detail/internals.h>
+#include <pybind11/gil.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+#include <pybind11_abseil/absl_casters.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
 
-#include "eglt/actions/action.h"
+#include "eglt/actions/registry.h"
 #include "eglt/net/stream.h"
 #include "eglt/nodes/async_node.h"
 #include "eglt/nodes/node_map.h"
-#include "eglt/pybind11_headers.h"
 #include "eglt/service/service.h"
 #include "eglt/service/session.h"
 #include "eglt/stores/chunk_store.h"

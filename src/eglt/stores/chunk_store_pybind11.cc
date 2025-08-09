@@ -18,10 +18,20 @@
 #include <string>
 #include <string_view>
 
+#include <Python.h>
+#include <absl/strings/str_cat.h>
+#include <pybind11/attr.h>
+#include <pybind11/cast.h>
+#include <pybind11/detail/common.h>
+#include <pybind11/detail/descr.h>
+#include <pybind11/detail/internals.h>
+#include <pybind11/gil.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+#include <pybind11_abseil/absl_casters.h>
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
-#include "eglt/pybind11_headers.h"
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_reader.h"
 #include "eglt/stores/local_chunk_store.h"

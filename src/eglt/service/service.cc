@@ -23,6 +23,7 @@
 #include <vector>
 
 #include <absl/base/optimization.h>
+#include <absl/log/log.h>
 #include <absl/strings/str_cat.h>
 #include <absl/time/time.h>
 

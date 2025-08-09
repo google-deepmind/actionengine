@@ -16,10 +16,24 @@
 #define EGLT_PYBIND11_EGLT_CHUNK_STORE_H_
 
 #include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
 #include <string_view>
-#include <utility>
 
-#include "eglt/pybind11_headers.h"
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/time/time.h>
+#include <pybind11/cast.h>
+#include <pybind11/detail/type_caster_base.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+#include <pybind11_abseil/absl_casters.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
+
+#include "eglt/data/eg_structs.h"
 #include "eglt/stores/chunk_store.h"
 
 namespace eglt::pybindings {

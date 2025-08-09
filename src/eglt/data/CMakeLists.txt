@@ -22,8 +22,6 @@ target_include_directories(
 )
 target_link_libraries(
         egltData PRIVATE
-        cppack
-        eglt::msgpack
         absl::base
         absl::log
         absl::log_internal_check_op
@@ -32,6 +30,8 @@ target_link_libraries(
         absl::strings
         absl::strings_internal
         absl::time
+        cppack
+        eglt::msgpack
 )
 
 # ------------------------------------------------------------------

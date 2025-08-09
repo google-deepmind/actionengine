@@ -14,12 +14,20 @@
 
 #include "eglt/redis/redis.h"
 
+#include <iterator>
 #include <memory>
 #include <string_view>
 #include <utility>
+#include <variant>
 
-#include <g3fiber/channel.h>
+#include <absl/log/check.h>
+#include <absl/log/log.h>
+#include <absl/strings/str_cat.h>
+#include <absl/time/time.h>
+#include <hiredis/adapters/libuv.h>
 #include <hiredis/hiredis.h>
+#include <hiredis/read.h>
+#include <uvw/handle.hpp>
 
 #include "eglt/redis/reply.h"
 #include "eglt/redis/reply_converters.h"

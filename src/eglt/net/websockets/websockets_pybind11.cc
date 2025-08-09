@@ -14,9 +14,26 @@
 
 #include "eglt/net/websockets/websockets_pybind11.h"
 
+#include <cstdint>
+#include <memory>
+#include <string>
+
+#include <Python.h>
+#include <absl/base/nullability.h>
+#include <absl/log/check.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/strings/str_format.h>
+#include <pybind11/attr.h>
+#include <pybind11/cast.h>
+#include <pybind11/detail/common.h>
+#include <pybind11/detail/descr.h>
+#include <pybind11/detail/internals.h>
+#include <pybind11/gil.h>
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
+#include "eglt/net/stream.h"
 #include "eglt/net/websockets/websockets.h"
 #include "eglt/service/service.h"
 #include "eglt/util/status_macros.h"
@@ -29,7 +46,7 @@ namespace py = ::pybind11;
 void BindWebsocketWireStream(py::handle scope, std::string_view name) {
   py::class_<net::WebsocketWireStream, WireStream,
              std::shared_ptr<net::WebsocketWireStream>>(
-          scope, std::string(name).c_str())
+      scope, std::string(name).c_str())
       .def("send", &net::WebsocketWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
       .def("receive", &net::WebsocketWireStream::Receive,
@@ -50,14 +67,12 @@ void BindWebsocketWireStream(py::handle scope, std::string_view name) {
 }
 
 void BindWebsocketServer(py::handle scope, std::string_view name) {
-  py::class_<net::WebsocketServer,
-             std::shared_ptr<net::WebsocketServer>>(
-          scope, std::string(name).c_str(),
-          "A WebsocketServer interface.")
+  py::class_<net::WebsocketServer, std::shared_ptr<net::WebsocketServer>>(
+      scope, std::string(name).c_str(), "A WebsocketServer interface.")
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port) {
-             return std::make_shared<net::WebsocketServer>(
-                 service, address, port);
+             return std::make_shared<net::WebsocketServer>(service, address,
+                                                           port);
            }),
            py::arg("service"), py::arg_v("address", "0.0.0.0"),
            py::arg_v("port", 20000), pybindings::keep_event_loop_memo())
@@ -89,7 +104,7 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
   websockets.def(
       "make_websocket_stream",
       [](std::string_view address, std::string_view target, int32_t port)
-    -> absl::StatusOr<std::shared_ptr<net::WebsocketWireStream>> {
+          -> absl::StatusOr<std::shared_ptr<net::WebsocketWireStream>> {
         ASSIGN_OR_RETURN(std::unique_ptr<net::WebsocketWireStream> stream,
                          net::MakeWebsocketWireStream(address, port, target));
         return stream;
@@ -100,4 +115,4 @@ py::module_ MakeWebsocketsModule(py::module_ scope,
   return websockets;
 }
 
-} // namespace eglt::pybindings
+}  // namespace eglt::pybindings

@@ -1,4 +1,6 @@
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -Xlinker,-no_warn_duplicate_libraries")
+
+#set(EGLT_IWYU_PATH "/Users/helenapankov/dev/include-what-you-use/build/bin/include-what-you-use")
 
 if (DEFINED ENV{EGLT_IWYU_PATH})
     set(EGLT_IWYU_PATH "$ENV{EGLT_IWYU_PATH}")
@@ -119,6 +121,8 @@ target_link_libraries(
         eglt::redis
         eglt::redis::pybind11
         eglt::util::pybind11
+        Python::Module
+        Python::Python
         ${EGLT_PYBIND11_DEPENDENCIES}
 )
 

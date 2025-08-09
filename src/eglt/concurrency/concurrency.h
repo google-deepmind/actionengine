@@ -25,17 +25,12 @@
 #ifndef EGLT_CONCURRENCY_CONCURRENCY_H_
 #define EGLT_CONCURRENCY_CONCURRENCY_H_
 
-#include <type_traits>
-#include <utility>
-
 #include <absl/base/attributes.h>
 #include <absl/base/nullability.h>
-#include <absl/base/optimization.h>
 #include <absl/base/thread_annotations.h>
-#include <absl/functional/any_invocable.h>
-#include <absl/log/check.h>
-#include <absl/time/clock.h>
 #include <absl/time/time.h>
+
+#include "g3fiber/concurrency.h"
 
 // IWYU pragma: begin_exports
 #if GOOGLE3

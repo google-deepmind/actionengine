@@ -1,12 +1,17 @@
 #ifndef EGLT_DATA_MSGPACK_H_
 #define EGLT_DATA_MSGPACK_H_
 
+#include <absl/status/status.h>
+#include <absl/time/time.h>
+
 #include "eglt/data/eg_structs.h"
 
 namespace cppack {
-
 class Packer;
 class Unpacker;
+}  // namespace cppack
+
+namespace cppack {
 
 void CppackToBytes(const absl::Status& status, Packer& packer);
 void CppackFromBytes(absl::Status& status, Unpacker& unpacker);

@@ -16,11 +16,17 @@
 #define EGLT_STORES_LOCAL_CHUNK_STORE_H_
 
 #include <cstddef>
+#include <cstdint>
+#include <string>
+#include <string_view>
+
+#include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
+#include <absl/hash/hash.h>
 
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/stores/chunk_store.h"
-#include "eglt/util/map_util.h"
 
 namespace eglt {
 

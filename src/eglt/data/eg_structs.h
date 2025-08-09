@@ -26,7 +26,6 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,7 +34,6 @@
 #include <absl/status/status.h>
 #include <absl/strings/str_cat.h>
 #include <absl/strings/str_format.h>
-#include <absl/time/clock.h>
 #include <absl/time/time.h>
 
 #include "eglt/data/conversion.h"

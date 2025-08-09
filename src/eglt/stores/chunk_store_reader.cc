@@ -14,6 +14,7 @@
 
 #include "eglt/stores/chunk_store_reader.h"
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -22,7 +23,6 @@
 
 #include <absl/log/log.h>
 #include <absl/time/clock.h>
-#include <stdint.h>
 
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"

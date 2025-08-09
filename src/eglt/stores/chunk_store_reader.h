@@ -16,6 +16,7 @@
 #define EGLT_STORES_CHUNK_STORE_READER_H_
 
 #include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -27,7 +28,6 @@
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
 #include <absl/time/time.h>
-#include <stddef.h>
 
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"

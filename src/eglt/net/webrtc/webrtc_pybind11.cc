@@ -16,21 +16,24 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include <Python.h>
 #include <absl/base/nullability.h>
+#include <absl/log/check.h>
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
 #include <absl/strings/str_format.h>
-#include <bytearrayobject.h>
+#include <abstract.h>
 #include <pybind11/attr.h>
 #include <pybind11/cast.h>
 #include <pybind11/detail/common.h>
 #include <pybind11/detail/descr.h>
 #include <pybind11/detail/internals.h>
 #include <pybind11/gil.h>
-#include <pybind11/stl.h>
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
@@ -40,6 +43,8 @@
 #include "eglt/service/service.h"
 #include "eglt/util/status_macros.h"
 #include "eglt/util/utils_pybind11.h"
+#include "pybind11_abseil/status_caster.h"
+#include "pybind11_abseil/statusor_caster.h"
 
 namespace eglt::pybindings {
 

@@ -23,6 +23,7 @@
 
 #include <absl/base/nullability.h>
 #include <absl/base/thread_annotations.h>
+#include <absl/log/check.h>
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
 

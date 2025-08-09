@@ -17,7 +17,17 @@
 
 #include <string_view>
 
-#include "eglt/pybind11_headers.h"
+#include <pybind11/attr.h>
+#include <pybind11/cast.h>
+#include <pybind11/eval.h>
+#include <pybind11/functional.h>
+#include <pybind11/gil.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+#include <pybind11_abseil/absl_casters.h>
+#include <pybind11_abseil/import_status_module.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
 
 namespace eglt::pybindings {
 
@@ -31,6 +41,6 @@ void BindAction(py::handle scope, std::string_view name = "Action");
 py::module_ MakeActionsModule(py::module_ scope,
                               std::string_view module_name = "actions");
 
-} // namespace eglt::pybindings
+}  // namespace eglt::pybindings
 
 #endif  // EGLT_PYBIND11_EGLT_ACTIONS_H_

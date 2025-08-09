@@ -15,7 +15,13 @@
 #ifndef EGLT_PYBIND11_EGLT_WEBSOCKETS_H_
 #define EGLT_PYBIND11_EGLT_WEBSOCKETS_H_
 
-#include "eglt/pybind11_headers.h"
+#include <string_view>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+#include <pybind11_abseil/absl_casters.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
 
 namespace eglt::pybindings {
 
@@ -24,8 +30,8 @@ namespace py = ::pybind11;
 void BindWebsocketWireStream(py::handle scope,
                              std::string_view name = "WebsocketWireStream");
 
-void BindWebsocketServer(
-    py::handle scope, std::string_view name = "WebsocketActionEngineServer");
+void BindWebsocketServer(py::handle scope,
+                         std::string_view name = "WebsocketActionEngineServer");
 
 py::module_ MakeWebsocketsModule(py::module_ scope,
                                  std::string_view module_name = "websockets");

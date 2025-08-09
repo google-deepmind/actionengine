@@ -14,6 +14,18 @@
 
 #include "eglt/stores/local_chunk_store.h"
 
+#include <algorithm>
+#include <functional>
+#include <optional>
+#include <utility>
+
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/strings/str_cat.h>
+#include <absl/time/time.h>
+
+#include "eglt/util/map_util.h"
+
 namespace eglt {
 
 LocalChunkStore::LocalChunkStore(std::string_view id) : LocalChunkStore() {

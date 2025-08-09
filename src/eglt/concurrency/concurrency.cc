@@ -14,6 +14,10 @@
 
 #include "eglt/concurrency/concurrency.h"
 
+#include <absl/base/optimization.h>
+#include <absl/log/check.h>
+#include <absl/time/clock.h>
+
 namespace eglt::concurrency {
 
 /** @brief

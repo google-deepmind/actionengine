@@ -17,18 +17,15 @@
 
 #include <memory>
 #include <string_view>
-#include <utility>
 
 #include <absl/base/nullability.h>
 #include <absl/base/thread_annotations.h>
 #include <absl/container/flat_hash_map.h>
-#include <absl/log/check.h>
-#include <absl/log/log.h>
 #include <absl/status/status.h>
-#include <absl/time/clock.h>
 #include <absl/time/time.h>
 
 #include "eglt/actions/action.h"
+#include "eglt/actions/registry.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"

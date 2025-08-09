@@ -302,28 +302,36 @@ requires std::is_move_assignable_v<T> class Channel {
     DCHECK(Invariants());
   }
 
-  /** @brief
-   *    Returns a Reader that can be used to read items from the channel.
+  /**
+   * Returns a Reader that can be used to read items from the channel.
    *
-   *  @return
-   *    A Reader that can be used to read items from the channel.
+   * Multiple consumers can read from the channel concurrently, and every
+   * item written to the channel will be read by exactly one reader.
+   *
+   * @return
+   *   A Reader that can be used to read items from the channel.
    */
   Reader<T>* reader() { return &reader_; }
 
-  /** @brief
-   *    Returns a Writer that can be used to write items to the channel.
+  /**
+   * Returns a Writer that can be used to write items to the channel.
    *
-   *  @return
-   *    A Writer that can be used to write items to the channel.
+   * Multiple producers can write to the channel concurrently, and every
+   * item written to the channel, if read at all, will be read by exactly one
+   * reader. If the channel is at capacity, writers will block until space is
+   * available in the channel.
+   *
+   * @return
+   *   A Writer that can be used to write items to the channel.
    */
   Writer<T>* writer() { return &writer_; }
 
-  /** @brief
-   *    Returns the instantaneous length of the channel.
+  /**
+   * Returns the instantaneous length of the channel.
    *
-   *  This method should never be used to determine whether the channel is full
-   *  or empty, as it may return a value that is not consistent with the state
-   *  of the channel at the time of the call.
+   * This method should never be used to determine whether the channel is full
+   * or empty, as it may return a value that is not consistent with the state
+   * of the channel at the time of the call.
    */
   [[nodiscard]] size_t length() const { return Length(); }
 

@@ -1,5 +1,10 @@
 #include "eglt/data/msgpack.h"
 
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include "cppack/msgpack.h"
 #include "eglt/data/eg_structs.h"
 

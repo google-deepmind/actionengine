@@ -14,7 +14,25 @@
 
 #include "eglt/net/websockets/websockets.h"
 
+#include <new>
+#include <optional>
+#include <utility>
+#include <vector>
+
+#include <absl/base/optimization.h>
+#include <absl/log/log.h>
+#include <absl/time/time.h>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/websocket.hpp>
 #include <cppack/msgpack.h>
+
+#include "eglt/data/msgpack.h"
+#include "eglt/util/boost_asio_utils.h"
+#include "eglt/util/random.h"
+#include "eglt/util/status_macros.h"
 
 namespace eglt::net {
 

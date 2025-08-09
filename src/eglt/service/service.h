@@ -19,19 +19,17 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <absl/base/nullability.h>
 #include <absl/base/thread_annotations.h>
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
-#include <absl/log/check.h>
-#include <absl/log/log.h>
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
 
 #include "eglt/actions/action.h"
+#include "eglt/actions/registry.h"
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/net/recoverable_stream.h"
 #include "eglt/net/stream.h"

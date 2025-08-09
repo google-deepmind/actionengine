@@ -14,8 +14,11 @@
 
 #include <string_view>
 
+#include <Python.h>
 #include <absl/debugging/failure_signal_handler.h>
+#include <pybind11/cast.h>
 #include <pybind11/detail/common.h>
+#include <pybind11/detail/descr.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 #include <pybind11_abseil/check_status_module_imported.h>
@@ -28,6 +31,7 @@
 #include "eglt/redis/chunk_store_pybind11.h"
 #include "eglt/service/service_pybind11.h"
 #include "eglt/stores/chunk_store_pybind11.h"
+#include "eglt/util/utils_pybind11.h"
 
 namespace eglt {
 

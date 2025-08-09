@@ -14,8 +14,17 @@
 
 #include "eglt/util/utils_pybind11.h"
 
-#include "absl/log/log.h"
-#include "eglt/pybind11_headers.h"
+#include <string_view>
+#include <utility>
+
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <pybind11/cast.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+#include <pybind11_abseil/absl_casters.h>
+#include <pybind11_abseil/status_caster.h>
+#include <pybind11_abseil/statusor_caster.h>
 
 namespace eglt::pybindings {
 namespace py = ::pybind11;

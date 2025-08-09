@@ -15,21 +15,33 @@
 #ifndef EGLT_REDIS_REDIS_H_
 #define EGLT_REDIS_REDIS_H_
 
-#include <initializer_list>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
-#include <uvw.hpp>
+#include <thread>
+#include <utility>
+#include <vector>
 
+#include <absl/base/nullability.h>
+#include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
-#include <g3fiber/channel.h>
-#include <hiredis/adapters/libuv.h>
+#include <absl/functional/any_invocable.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
 #include <hiredis/async.h>
 #include <hiredis/hiredis.h>
+#include <uvw/idle.h>
+#include <uvw/loop.h>
 
 #include "eglt/concurrency/concurrency.h"
+#include "eglt/data/conversion.h"
 #include "eglt/redis/pubsub.h"
 #include "eglt/redis/reply.h"
-#include "eglt/redis/reply_converters.h"
-#include "eglt/redis/reply_parsers.h"
+#include "eglt/util/status_macros.h"
 
 namespace eglt::redis {
 

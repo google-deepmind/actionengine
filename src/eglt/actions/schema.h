@@ -46,8 +46,6 @@ class Action;
  */
 
 namespace eglt {
-class Action;
-class Session;
 
 using ActionHandler =
     std::function<absl::Status(const std::shared_ptr<Action>&)>;

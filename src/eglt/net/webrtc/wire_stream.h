@@ -15,34 +15,28 @@
 #ifndef EGLT_NET_WEBRTC_WIRE_STREAM_H_
 #define EGLT_NET_WEBRTC_WIRE_STREAM_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <absl/base/nullability.h>
 #include <absl/base/thread_annotations.h>
 #include <absl/container/flat_hash_map.h>
-#include <absl/functional/any_invocable.h>
 #include <absl/hash/hash.h>
-#include <absl/log/check.h>
-#include <absl/log/log.h>
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
-#include <absl/strings/str_split.h>
-#include <absl/time/clock.h>
 #include <absl/time/time.h>
+#include <rtc/configuration.hpp>
 #include <rtc/datachannel.hpp>
 #include <rtc/peerconnection.hpp>
 
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
 #include "eglt/net/stream.h"
-#include "eglt/net/webrtc/signalling.h"
-#include "eglt/service/service.h"
 #include "eglt/stores/byte_chunking.h"
 
 namespace eglt::net {

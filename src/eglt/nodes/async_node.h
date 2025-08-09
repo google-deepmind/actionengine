@@ -26,9 +26,13 @@
 #include <absl/base/optimization.h>
 #include <absl/base/thread_annotations.h>
 #include <absl/container/flat_hash_map.h>
+#include <absl/log/check.h>
 #include <absl/log/log.h>
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
+#include <absl/strings/str_cat.h>
+#include <absl/time/clock.h>
+#include <absl/time/time.h>
 
 #include "eglt/concurrency/concurrency.h"
 #include "eglt/data/eg_structs.h"
@@ -37,6 +41,7 @@
 #include "eglt/stores/chunk_store.h"
 #include "eglt/stores/chunk_store_reader.h"
 #include "eglt/stores/chunk_store_writer.h"
+#include "eglt/util/status_macros.h"
 
 namespace eglt {
 class NodeMap;
