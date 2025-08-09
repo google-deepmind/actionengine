@@ -40,7 +40,7 @@ namespace act::pybindings {
 
 namespace py = ::pybind11;
 
-class PyChunkStore final : public ChunkStore {
+class PyChunkStore final : public ChunkStore, py::trampoline_self_life_support {
   // For detailed documentation, see the base class, ChunkStore.
  public:
   using ChunkStore::ChunkStore;

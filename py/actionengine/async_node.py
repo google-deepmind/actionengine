@@ -63,7 +63,7 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
         self._serializer_registry = (
             serializer_registry or data.get_global_serializer_registry()
         )
-        super().__init__(node_id, chunk_store, node_map)
+        super().__init__(node_id, node_map, chunk_store)
         self.set_reader_options()
 
     def _add_python_specific_attributes(self):

@@ -3,6 +3,7 @@ from typing import Any
 
 from actionengine import actions
 from actionengine import async_node
+from actionengine import chunk_store
 from actionengine import global_settings
 from actionengine import node_map
 from actionengine import service as eg_service

@@ -85,7 +85,9 @@ absl::StatusOr<py::object> RunThreadsafeIfCoroutine(
 
   const py::function run_coroutine_threadsafe =
       py::module_::import("asyncio").attr("run_coroutine_threadsafe");
-  return run_coroutine_threadsafe(function_call_result, resolved_loop)
-      .attr("result")();
+  const py::object future =
+      run_coroutine_threadsafe(function_call_result, resolved_loop);
+
+  return future.attr("result")();
 }
 }  // namespace act::pybindings

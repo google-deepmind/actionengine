@@ -25,32 +25,23 @@ async def do_nothing(_: "Action") -> None:
     pass
 
 
-def wrap_async_handler(handler: AsyncActionHandler) -> SyncActionHandler:
-    """Wraps the given handler to run in the event loop."""
-    loop = asyncio.get_running_loop()
-
-    def sync_handler(action: Action) -> None:
-        future = asyncio.run_coroutine_threadsafe(
-            handler(utils.wrap_pybind_object(Action, action)), loop
-        )
-        future.result()
-
-    return sync_handler
-
-
-def wrap_sync_handler(handler: SyncActionHandler) -> SyncActionHandler:
-    def sync_handler(action: Action) -> None:
-        py_action = utils.wrap_pybind_object(Action, action)
-        return handler(py_action)
-
-    return sync_handler
-
-
 def wrap_handler(handler: ActionHandler) -> ActionHandler:
-    if inspect.iscoroutinefunction(handler):
-        return wrap_async_handler(handler)
-    else:
-        return wrap_sync_handler(handler)
+    is_coroutine_fn = inspect.iscoroutinefunction(handler)
+
+    if not is_coroutine_fn:
+
+        def inner(action: "Action") -> None:
+            """Inner function to wrap the handler."""
+            return handler(utils.wrap_pybind_object(Action, action))
+
+        return inner
+
+    async def inner(action: "Action") -> None:
+        """Inner function to wrap the async handler."""
+        py_action = utils.wrap_pybind_object(Action, action)
+        await handler(py_action)
+
+    return inner
 
 
 class ActionSchema(actions_pybind11.ActionSchema):
@@ -258,8 +249,6 @@ class Action(actions_pybind11.Action):
             # pytype: disable=attribute-error
         )
 
-    def run(self) -> asyncio.Task:
+    def run(self) -> asyncio.Future:
         """Runs the action."""
-        return utils.schedule_global_task(
-            asyncio.to_thread(super().run)
-        )  # pytype: disable=attribute-error
+        return super().run()  # pytype: disable=attribute-error

@@ -41,16 +41,36 @@ namespace act::pybindings {
 
 namespace py = ::pybind11;
 
-ActionHandler MakeStatusAwareActionHandler(VoidActionHandler handler) {
-  return [handler = std::move(handler)](const std::shared_ptr<Action>& action) {
-    try {
-      std::move(handler)(action);
-    } catch (py::error_already_set& e) {
-      return absl::InternalError(
-          absl::StrCat("Python error in action handler: ", e.what()));
-    }
-    return absl::OkStatus();
-  };
+ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
+  py_handler.inc_ref();
+  const py::function iscoroutinefunction =
+      py::module_::import("inspect").attr("iscoroutinefunction");
+  const bool is_coroutine = py::cast<bool>(iscoroutinefunction(py_handler));
+
+  ActionHandler handler =
+      [py_handler, is_coroutine](const std::shared_ptr<Action>& action) {
+        py::gil_scoped_acquire gil;
+
+        try {
+          if (is_coroutine) {
+            // If the handler is a coroutine, we need to run it in the event loop.
+            const py::object coro = py_handler(action);
+            absl::Status result =
+                RunThreadsafeIfCoroutine(coro, GetGloballySavedEventLoop())
+                    .status();
+            return result;
+          } else {
+            // If the handler is not a coroutine, we can call it directly.
+            auto _ = py_handler(action);
+          }
+        } catch (py::error_already_set& e) {
+          return absl::InternalError(
+              absl::StrCat("Python error in action handler: ", e.what()));
+        }
+        return absl::OkStatus();
+      };
+
+  return handler;
 }
 
 void BindActionSchema(py::handle scope, std::string_view name) {
@@ -83,12 +103,11 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
       .def(
           "register",
           [](const std::shared_ptr<ActionRegistry>& self, std::string_view name,
-             const ActionSchema& def, VoidActionHandler handler) {
+             const ActionSchema& def, py::function handler) {
             return self->Register(
                 name, def, MakeStatusAwareActionHandler(std::move(handler)));
           },
-          py::arg("name"), py::arg("def"), py::arg("handler"),
-          py::call_guard<py::gil_scoped_release>())
+          py::arg("name"), py::arg("def"), py::arg("handler"))
       .def("make_action_message", &ActionRegistry::MakeActionMessage,
            py::arg("name"), py::arg("id"),
            py::call_guard<py::gil_scoped_release>())
@@ -106,8 +125,7 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
           py::arg("name"), py::arg_v("id", ""), py::arg_v("node_map", nullptr),
           py::arg_v("stream", nullptr), py::arg_v("session", nullptr),
           py::keep_alive<0, 4>(), py::keep_alive<0, 5>(),
-          py::keep_alive<0, 6>(), py::call_guard<py::gil_scoped_release>(),
-          pybindings::keep_event_loop_memo());
+          py::keep_alive<0, 6>(), pybindings::keep_event_loop_memo());
 }
 
 void BindAction(py::handle scope, std::string_view name) {
@@ -118,8 +136,32 @@ void BindAction(py::handle scope, std::string_view name) {
       }))
       .def(
           "run",
-          [](const std::shared_ptr<Action>& action) { return action->Run(); },
-          py::call_guard<py::gil_scoped_release>())
+          [](const std::shared_ptr<Action>& action)
+              -> absl::StatusOr<py::object> {
+            const py::object asyncio = py::module_::import("asyncio");
+            py::object loop = py::none();
+            try {
+              loop = asyncio.attr("get_running_loop")();
+            } catch (const py::error_already_set&) {}
+
+            if (loop.is_none()) {
+              return absl::FailedPreconditionError(
+                  "For now, Action::Run() must always be called from an "
+                  "asyncio event loop.");
+            }
+
+            const py::object run_in_executor = loop.attr("run_in_executor");
+
+            const py::function task = py::cpp_function(
+                [action]() -> absl::Status {
+                  py::gil_scoped_release release;
+                  return action->Run();
+                },
+                py::name("action_run_handler"));
+
+            return run_in_executor(py::none(), task);
+          },
+          py::call_guard<py::gil_scoped_acquire>())
       .def(
           "call",
           [](const std::shared_ptr<Action>& action) { return action->Call(); },
@@ -133,13 +175,13 @@ void BindAction(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<Action>& self, bool clear) {
             self->ClearInputsAfterRun(clear);
           },
-          py::arg_v("clear", true), py::call_guard<py::gil_scoped_release>())
+          py::arg_v("clear", true))
       .def(
           "clear_outputs_after_run",
           [](const std::shared_ptr<Action>& self, bool clear) {
             self->ClearOutputsAfterRun(clear);
           },
-          py::arg_v("clear", true), py::call_guard<py::gil_scoped_release>())
+          py::arg_v("clear", true))
       .def(
           "cancel",
           [](const std::shared_ptr<Action>& self) { return self->Cancel(); },
@@ -196,11 +238,11 @@ void BindAction(py::handle scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>())
       .def(
           "bind_handler",
-          [](const std::shared_ptr<Action>& self, VoidActionHandler handler) {
+          [](const std::shared_ptr<Action>& self, py::function handler) {
             return self->BindHandler(
                 MakeStatusAwareActionHandler(std::move(handler)));
           },
-          py::arg("handler"), py::call_guard<py::gil_scoped_release>());
+          py::arg("handler"));
 }
 
 py::module_ MakeActionsModule(py::module_ scope, std::string_view module_name) {

@@ -66,6 +66,13 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
   py::classh<AsyncNode>(scope, std::string(name).c_str())
       .def(py::init<>())
       .def(MakeSameObjectRefConstructor<AsyncNode>())
+      .def(py::init([](const std::string& id, NodeMap* node_map,
+                       std::unique_ptr<PyChunkStore> chunk_store = nullptr) {
+             return std::make_shared<AsyncNode>(id, node_map,
+                                                std::move(chunk_store));
+           }),
+           py::arg_v("id", ""), py::arg_v("node_map", nullptr),
+           py::arg_v("chunk_store", nullptr))
       // it is not possible to pass a std::unique_ptr to pybind11, so we pass
       // the factory function instead.
       .def(py::init([](const std::string& id, NodeMap* node_map,
@@ -125,8 +132,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
       .def(
           "make_reader",
           [](const std::shared_ptr<AsyncNode>& self,
-             ChunkStoreReaderOptions options) {
-            return std::shared_ptr(self->MakeReader(std::move(options)));
+             const ChunkStoreReaderOptions& options) {
+            return std::shared_ptr(self->MakeReader(options));
           },
           py::arg_v("options", ChunkStoreReaderOptions()),
           py::call_guard<py::gil_scoped_release>())
@@ -141,7 +148,7 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
             options.n_chunks_to_buffer = n_chunks_to_buffer;
             options.timeout =
                 timeout < 0 ? absl::InfiniteDuration() : absl::Seconds(timeout);
-            self->SetReaderOptions(std::move(options));
+            self->SetReaderOptions(options);
             return self;
           },
           py::arg_v("ordered", false), py::arg_v("remove_chunks", false),
@@ -150,8 +157,8 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
       .def(
           "set_reader_options",
           [](const std::shared_ptr<AsyncNode>& self,
-             ChunkStoreReaderOptions options) {
-            self->SetReaderOptions(std::move(options));
+             const ChunkStoreReaderOptions& options) {
+            self->SetReaderOptions(options);
             return self;
           },
           py::arg_v("options", ChunkStoreReaderOptions()),
