@@ -41,6 +41,36 @@ namespace act::pybindings {
 
 namespace py = ::pybind11;
 
+struct FutureOrTaskHolder {
+  explicit FutureOrTaskHolder(py::object obj) {
+    // Determine if the object is a Future or a Task.
+    is_task = py::isinstance(obj, py::module_::import("asyncio").attr("Task"));
+    future_or_task = std::move(obj);
+
+    // // Remove the reference to the Future or Task from Python's
+    // // garbage collector on completion of the action.
+    // // This is to prevent memory leaks in case the action is not awaited.
+    // if (is_task) {
+    //   future_or_task.attr("add_done_callback")(
+    //       [this](py::handle) { future_or_task = py::none(); });
+    // }
+  }
+
+  ~FutureOrTaskHolder() {
+    if (!is_task) {
+      if (thread::Cancelled()) {
+        future_or_task.attr("cancel")();
+        return;
+      }
+      auto _ =
+          future_or_task.attr("result")();  // Wait for the Future to finish.
+    }
+  }
+
+  py::object future_or_task;
+  bool is_task;
+};
+
 ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
   py_handler.inc_ref();
   const py::function iscoroutinefunction =
@@ -48,27 +78,59 @@ ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
   const bool is_coroutine = py::cast<bool>(iscoroutinefunction(py_handler));
 
   ActionHandler handler =
-      [py_handler, is_coroutine](const std::shared_ptr<Action>& action) {
-        py::gil_scoped_acquire gil;
+      [py_handler,
+       is_coroutine](const std::shared_ptr<Action>& action) -> absl::Status {
+    py::gil_scoped_acquire gil;
 
+    bool await_future_result = false;
+    auto from_session_tag =
+        static_cast<internal::FromSessionTag*>(action->GetUserData());
+    if (from_session_tag != nullptr) {
+      await_future_result = true;
+    }
+    action->SetUserData(nullptr);
+
+    try {
+      if (is_coroutine) {
+        // If the handler is a coroutine, we need to run it in the event loop.
+
+        const py::function get_running_loop =
+            py::module_::import("asyncio").attr("get_running_loop");
+        py::object loop = py::none();
         try {
-          if (is_coroutine) {
-            // If the handler is a coroutine, we need to run it in the event loop.
-            const py::object coro = py_handler(action);
-            absl::Status result =
-                RunThreadsafeIfCoroutine(coro, GetGloballySavedEventLoop())
-                    .status();
-            return result;
-          } else {
-            // If the handler is not a coroutine, we can call it directly.
-            auto _ = py_handler(action);
-          }
-        } catch (py::error_already_set& e) {
-          return absl::InternalError(
-              absl::StrCat("Python error in action handler: ", e.what()));
+          loop = get_running_loop();
+        } catch (py::error_already_set&) {
+          // No running loop found, we will use the globally saved one.
         }
+
+        const py::object coro = py_handler(action);
+        if (!loop.is_none()) {
+          action->SetUserData(std::make_shared<FutureOrTaskHolder>(
+              loop.attr("create_task")(coro)));
+          return absl::OkStatus();
+        }
+
+        ASSIGN_OR_RETURN(
+            py::object future,
+            RunThreadsafeIfCoroutine(coro, GetGloballySavedEventLoop(),
+                                     /*return_future=*/true));
+        if (!await_future_result) {
+          action->SetUserData(
+              std::make_shared<FutureOrTaskHolder>(std::move(future)));
+          return absl::OkStatus();
+        }
+        auto _ = future.attr("result")();  // Wait for the coroutine to finish.
         return absl::OkStatus();
-      };
+      } else {
+        // If the handler is not a coroutine, we can call it directly.
+        auto _ = py_handler(action);
+      }
+    } catch (py::error_already_set& e) {
+      return absl::InternalError(
+          absl::StrCat("Python error in action handler: ", e.what()));
+    }
+    return absl::OkStatus();
+  };
 
   return handler;
 }
@@ -137,29 +199,9 @@ void BindAction(py::handle scope, std::string_view name) {
       .def(
           "run",
           [](const std::shared_ptr<Action>& action)
-              -> absl::StatusOr<py::object> {
-            const py::object asyncio = py::module_::import("asyncio");
-            py::object loop = py::none();
-            try {
-              loop = asyncio.attr("get_running_loop")();
-            } catch (const py::error_already_set&) {}
-
-            if (loop.is_none()) {
-              return absl::FailedPreconditionError(
-                  "For now, Action::Run() must always be called from an "
-                  "asyncio event loop.");
-            }
-
-            const py::object run_in_executor = loop.attr("run_in_executor");
-
-            const py::function task = py::cpp_function(
-                [action]() -> absl::Status {
-                  py::gil_scoped_release release;
-                  return action->Run();
-                },
-                py::name("action_run_handler"));
-
-            return run_in_executor(py::none(), task);
+              -> absl::StatusOr<std::shared_ptr<Action>> {
+            RETURN_IF_ERROR(action->Run());
+            return action;
           },
           py::call_guard<py::gil_scoped_acquire>())
       .def(

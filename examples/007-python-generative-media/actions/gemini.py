@@ -258,13 +258,16 @@ async def generate_content_ollama(action: actionengine.Action):
     if session_id is None:
         session_id = base64.urlsafe_b64encode(os.urandom(6)).decode("utf-8")
 
-    rehydrate_action = action.get_registry().make_action(
-        "rehydrate_session",
-        node_map=action.get_node_map(),
-        stream=None,  # No stream needed for this action
+    rehydrate_action = (
+        action.get_registry()
+        .make_action(
+            "rehydrate_session",
+            node_map=action.get_node_map(),
+            stream=None,  # No stream needed for this action
+        )
+        .run()
     )
     await rehydrate_action["session_token"].put_and_finalize(session_token)
-    await rehydrate_action.run()
 
     messages = [
         {

@@ -35,13 +35,14 @@ def wrap_handler(handler: ActionHandler) -> ActionHandler:
             return handler(utils.wrap_pybind_object(Action, action))
 
         return inner
+    else:
 
-    async def inner(action: "Action") -> None:
-        """Inner function to wrap the async handler."""
-        py_action = utils.wrap_pybind_object(Action, action)
-        await handler(py_action)
+        async def inner(action: "Action") -> None:
+            """Inner function to wrap the async handler."""
+            py_action = utils.wrap_pybind_object(Action, action)
+            await handler(py_action)
 
-    return inner
+        return inner
 
 
 class ActionSchema(actions_pybind11.ActionSchema):
@@ -149,13 +150,11 @@ class Action(actions_pybind11.Action):
 
     def _add_python_specific_attributes(self):
         """Adds Python-specific attributes to the action."""
-        self._schema = self.get_schema()
-        self._task = None
+        if not hasattr(self, "_schema"):
+            self._schema = self.get_schema()
 
-    def __await__(self):
-        if self._task is not None:
-            return self._task.__await__()
-        return asyncio.to_thread(super().wait_until_complete).__await__()
+    async def wait_until_complete(self):
+        return await asyncio.to_thread(super().wait_until_complete)
 
     async def call(self) -> None:
         """Calls the action by sending the action message to the stream."""
@@ -249,6 +248,7 @@ class Action(actions_pybind11.Action):
             # pytype: disable=attribute-error
         )
 
-    def run(self) -> asyncio.Future:
+    def run(self) -> "Action":
         """Runs the action."""
-        return super().run()  # pytype: disable=attribute-error
+        super().run()
+        return self

@@ -63,13 +63,20 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
         self._serializer_registry = (
             serializer_registry or data.get_global_serializer_registry()
         )
+        self._reader_options_set = False
         super().__init__(node_id, node_map, chunk_store)
-        self.set_reader_options()
 
     def _add_python_specific_attributes(self):
         """Adds Python-specific attributes to the node."""
         self._deserialize_automatically_preference: bool | None = None
         self._serializer_registry = data.get_global_serializer_registry()
+        self._reader_options_set = False
+
+    def _ensure_reader_options_set(self):
+        """Ensures that the reader options are set."""
+        if not self._reader_options_set:
+            self.set_reader_options()
+            self._reader_options_set = True
 
     @property
     def deserialize(self) -> bool:
@@ -135,6 +142,7 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
         )
 
     def next_chunk_sync(self, timeout: float = -1.0) -> Chunk | None:
+        self._ensure_reader_options_set()
         return super().next_chunk(timeout)  # pytype: disable=attribute-error
 
     next_chunk = functools.wraps(next_chunk_sync)(next_chunk)
@@ -313,6 +321,7 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
             while chunk is not None and utils.is_null_chunk(chunk):
                 chunk = await self.next_chunk()
         except asyncio.CancelledError:
+            print("AsyncNode.__anext__: CancelledError")
             raise StopAsyncIteration()
 
         if chunk is None:

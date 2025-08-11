@@ -146,6 +146,10 @@ class Session {
   std::unique_ptr<ActionContext> action_context_ = nullptr;
 };
 
+namespace internal {
+struct FromSessionTag {};
+}  // namespace internal
+
 }  // namespace act
 
 #endif  // ACTIONENGINE_SERVICE_SESSION_H_

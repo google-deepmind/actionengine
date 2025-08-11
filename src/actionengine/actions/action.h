@@ -318,6 +318,16 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   [[nodiscard]] bool Cancelled() const;
 
+  void SetUserData(std::shared_ptr<void> data) {
+    act::MutexLock lock(&mu_);
+    user_data_ = std::move(data);
+  }
+
+  [[nodiscard]] void* absl_nullable GetUserData() const {
+    act::MutexLock lock(&mu_);
+    return user_data_.get();
+  }
+
  private:
   // Implementation detail: gets the input node ID for the given name, unique
   // to this particular action run/call.
@@ -361,6 +371,8 @@ class Action : public std::enable_shared_from_this<Action> {
   bool clear_inputs_after_run_ ABSL_GUARDED_BY(mu_) = false;
   bool clear_outputs_after_run_ ABSL_GUARDED_BY(mu_) = false;
   std::optional<absl::Status> run_status_ ABSL_GUARDED_BY(mu_) = std::nullopt;
+
+  std::shared_ptr<void> user_data_ ABSL_GUARDED_BY(mu_) = nullptr;
 };
 
 }  // namespace act

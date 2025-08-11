@@ -58,7 +58,7 @@ PYBIND11_MODULE(actionengine_pybind11, m) {
 
   m.def("run_threadsafe_if_coroutine", &pybindings::RunThreadsafeIfCoroutine,
         py::arg("function_call_result"), py::arg_v("loop", py::none()),
-        pybindings::keep_event_loop_memo());
+        py::arg_v("return_future", false), pybindings::keep_event_loop_memo());
 }
 
 }  // namespace act

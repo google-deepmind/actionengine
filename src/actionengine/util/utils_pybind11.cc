@@ -51,7 +51,7 @@ void SaveFirstEncounteredEventLoop() {
 }
 
 absl::StatusOr<py::object> RunThreadsafeIfCoroutine(
-    py::object function_call_result, py::object loop) {
+    py::object function_call_result, py::object loop, bool return_future) {
   if (const py::function iscoroutine =
           py::module_::import("inspect").attr("iscoroutine");
       !iscoroutine(function_call_result)) {
@@ -87,6 +87,9 @@ absl::StatusOr<py::object> RunThreadsafeIfCoroutine(
       py::module_::import("asyncio").attr("run_coroutine_threadsafe");
   const py::object future =
       run_coroutine_threadsafe(function_call_result, resolved_loop);
+  if (return_future) {
+    return future;
+  }
 
   return future.attr("result")();
 }

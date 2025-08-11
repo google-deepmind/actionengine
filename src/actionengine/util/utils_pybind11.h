@@ -126,11 +126,16 @@ struct keep_event_loop_memo {};
  * @param loop
  *  The event loop to run the coroutine in. If not provided or globally set, the
  *  function will try to deduce it from previous library calls.
+ * @param return_future
+ *   If true, the function will return a Future object that can be used to
+ *   wait for the coroutine to complete. If false, the function will return the
+ *   coroutine result directly.
  * @return
  *  The result of the coroutine, or the non-coroutine object.
  */
 absl::StatusOr<py::object> RunThreadsafeIfCoroutine(
-    py::object function_call_result, py::object loop = py::none());
+    py::object function_call_result, py::object loop = py::none(),
+    bool return_future = false);
 
 }  // namespace act::pybindings
 
