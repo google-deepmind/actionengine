@@ -104,10 +104,13 @@ void BindSession(py::handle scope, std::string_view name) {
       .def(
           "dispatch_from",
           [](const std::shared_ptr<Session>& self,
-             const std::shared_ptr<WireStream>& stream) {
-            self->DispatchFrom(stream);
+             const std::shared_ptr<WireStream>& stream,
+             std::function<void()> on_done = {}) {
+            self->DispatchFrom(stream, std::move(on_done));
           },
-          py::keep_alive<1, 2>(), py::call_guard<py::gil_scoped_release>())
+          py::keep_alive<1, 2>(), py::arg("stream"),
+          py::arg_v("on_done", py::none()),
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "stop_dispatching_from",
           [](const std::shared_ptr<Session>& self, WireStream* stream) {

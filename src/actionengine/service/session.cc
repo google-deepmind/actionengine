@@ -167,7 +167,8 @@ Session::GetNode(const std::string_view id,
   return node_map_->Get(id, factory);
 }
 
-void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
+void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream,
+                           absl::AnyInvocable<void()> on_done) {
   act::MutexLock lock(&mu_);
 
   if (joined_) {
@@ -179,46 +180,52 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream) {
   }
 
   dispatch_tasks_.emplace(
-      stream.get(), thread::NewTree({}, [this, stream]() {
-        while (true) {
-          absl::StatusOr<std::optional<SessionMessage>> message =
-              stream->Receive(GetRecvTimeout());
-          if (!message.ok()) {
-            DLOG(ERROR) << "Failed to receive message: " << message.status()
-                        << " from stream: " << stream->GetId()
-                        << ". Stopping dispatch.";
-          }
-          if (!message.ok()) {
-            stream->Abort();
-            break;
-          }
-          if (!message->has_value()) {
-            stream->HalfClose();
-            break;
-          }
-          if (absl::Status dispatch_status =
-                  DispatchMessage(**std::move(message), stream.get());
-              !dispatch_status.ok()) {
-            DLOG(ERROR) << "Failed to dispatch message: " << dispatch_status
-                        << " from stream: " << stream->GetId()
-                        << ". Stopping dispatch.";
-            break;
-          }
-        }
+      stream.get(),
+      thread::NewTree(
+          {}, [this, stream, on_done = std::move(on_done)]() mutable {
+            while (true) {
+              absl::StatusOr<std::optional<SessionMessage>> message =
+                  stream->Receive(GetRecvTimeout());
+              if (!message.ok()) {
+                DLOG(ERROR) << "Failed to receive message: " << message.status()
+                            << " from stream: " << stream->GetId()
+                            << ". Stopping dispatch.";
+              }
+              if (!message.ok()) {
+                stream->Abort();
+                break;
+              }
+              if (!message->has_value()) {
+                stream->HalfClose();
+                break;
+              }
+              if (absl::Status dispatch_status =
+                      DispatchMessage(**std::move(message), stream.get());
+                  !dispatch_status.ok()) {
+                DLOG(ERROR) << "Failed to dispatch message: " << dispatch_status
+                            << " from stream: " << stream->GetId()
+                            << ". Stopping dispatch.";
+                break;
+              }
+            }
 
-        std::unique_ptr<thread::Fiber> dispatcher_fiber;
-        {
-          act::MutexLock cleanup_lock(&mu_);
-          if (const auto node = dispatch_tasks_.extract(stream.get());
-              !node.empty()) {
-            dispatcher_fiber = std::move(node.mapped());
-          }
-        }
-        if (dispatcher_fiber == nullptr) {
-          return;
-        }
-        thread::Detach(std::move(dispatcher_fiber));
-      }));
+            if (on_done) {
+              std::move(on_done)();
+            }
+
+            std::unique_ptr<thread::Fiber> dispatcher_fiber;
+            {
+              act::MutexLock cleanup_lock(&mu_);
+              if (const auto node = dispatch_tasks_.extract(stream.get());
+                  !node.empty()) {
+                dispatcher_fiber = std::move(node.mapped());
+              }
+            }
+            if (dispatcher_fiber == nullptr) {
+              return;
+            }
+            thread::Detach(std::move(dispatcher_fiber));
+          }));
 }
 
 absl::Status Session::DispatchMessage(SessionMessage message,

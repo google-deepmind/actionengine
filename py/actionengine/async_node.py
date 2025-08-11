@@ -145,7 +145,16 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
         self._ensure_reader_options_set()
         return super().next_chunk(timeout)  # pytype: disable=attribute-error
 
-    next_chunk = functools.wraps(next_chunk_sync)(next_chunk)
+    async def next_fragment(self, timeout: float = -1.0) -> NodeFragment | None:
+        """Returns the next fragment in the store, or None if the store is empty."""
+        return await asyncio.create_task(
+            asyncio.to_thread(self.next_fragment_sync, timeout)
+        )
+
+    def next_fragment_sync(self, timeout: float = -1.0) -> NodeFragment | None:
+        """Returns the next fragment in the store, or None if the store is empty."""
+        self._ensure_reader_options_set()
+        return super().next_fragment(timeout)
 
     def put_fragment(
         self, fragment: NodeFragment, seq: int = -1
@@ -269,6 +278,7 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
         remove_chunks: bool | None = None,
         n_chunks_to_buffer: int | None = None,
         timeout: float | None = None,
+        start_seq_or_offset: int | None = None,
     ) -> "AsyncNode":
         """Sets the options for the default reader on the node.
 
@@ -289,6 +299,7 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
             global_setting_if_none(remove_chunks, "readers_remove_read_chunks"),
             global_setting_if_none(n_chunks_to_buffer, "readers_buffer_size"),
             global_setting_if_none(timeout, "readers_timeout"),
+            start_seq_or_offset or 0,
         )
         return self
 

@@ -1,4 +1,6 @@
 import base64
+import datetime
+import time
 import uuid
 from typing import Any
 
@@ -10,7 +12,7 @@ def _initialize_global_settings():
     settings = actionengine.get_global_act_settings()
     settings.readers_deserialise_automatically = True
     settings.readers_read_in_order = True
-    settings.readers_remove_read_chunks = True
+    settings.readers_remove_read_chunks = False
 
 
 class ActionEngineClient:
@@ -33,6 +35,7 @@ class ActionEngineClient:
         self._node_map = node_map
         self._action_registry = action_registry
         self._session = session
+        self._session_invalidated_at: datetime.datetime | None = None
 
     def set_action_registry(
         self, action_registry: actionengine.ActionRegistry
@@ -44,12 +47,32 @@ class ActionEngineClient:
         """Returns the action registry for the client."""
         return self._action_registry
 
+    def _on_dispatch_done(self):
+        self._session_invalidated_at = datetime.datetime.now()
+
+    def _ensure_stream_and_session(self):
+        if self._session_invalidated_at is None:
+            return
+
+        sleep_for = datetime.datetime.now() - self._session_invalidated_at
+        if sleep_for := sleep_for.total_seconds() > 0:
+            time.sleep(sleep_for)
+        self._stream = actionengine.webrtc.make_webrtc_stream(
+            str(uuid.uuid4()),
+            "demoserver",
+            "demos.helena.direct",
+            19000,
+        )
+        self._session = None
+        self._session_invalidated_at = None
+
     def get_session(self):
+        self._ensure_stream_and_session()
         if self._session is None:
             self._session = actionengine.Session(
                 self._node_map, self._action_registry
             )
-            self._session.dispatch_from(self._stream)
+            self._session.dispatch_from(self._stream, self._on_dispatch_done)
         return self._session
 
     def make_action(
@@ -58,6 +81,7 @@ class ActionEngineClient:
         """Creates an action with the given name and action ID."""
         if self._action_registry is None:
             raise ValueError("Action registry is not set in the client.")
+        self._ensure_stream_and_session()
         return self._action_registry.make_action(
             name,
             action_id=action_id,
@@ -82,7 +106,9 @@ class ActionEngineClient:
                 node_map=actionengine.NodeMap(),
                 action_registry=None,
             )
-        return ActionEngineClient._global_instance
+            print("Created global ActionEngineClient instance.")
+        instance = ActionEngineClient._global_instance
+        return instance
 
 
 def make_final_node_fragment(

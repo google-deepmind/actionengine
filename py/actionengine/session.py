@@ -12,6 +12,10 @@ from actionengine.actionengine_pybind11 import service as service_pybind11
 NodeMap = node_map.NodeMap
 
 
+def do_nothing():
+    pass
+
+
 class Session(service_pybind11.Session):
     """A Pythonic wrapper for the raw pybind11 Session bindings."""
 
@@ -50,9 +54,11 @@ class Session(service_pybind11.Session):
             super().dispatch_message, message, stream
         )  # pytype: disable=attribute-error
 
-    def dispatch_from(self, stream: eg_stream.WireStream):
+    def dispatch_from(self, stream: eg_stream.WireStream, on_done=do_nothing):
         """Dispatches messages from the stream to the session."""
-        super().dispatch_from(stream)  # pytype: disable=attribute-error
+        super().dispatch_from(
+            stream, on_done
+        )  # pytype: disable=attribute-error
         self._streams.add(stream)
 
     def stop_dispatching_from(self, stream: eg_stream.WireStream):

@@ -15,12 +15,13 @@ MAX_READ_TIMEOUT_SECONDS = 300  # Maximum read timeout in seconds
 
 
 def get_act_redis_client_for_sub():
-    if not hasattr(get_act_redis_client_for_sub, "client"):
-        get_act_redis_client_for_sub.client = actionengine.redis.Redis.connect(
-            "localhost"
-        )
-    return get_act_redis_client_for_sub.client
-    # return actionengine.redis.Redis.connect("localhost")
+    # if not hasattr(get_act_redis_client_for_sub, "client"):
+    #     get_act_redis_client_for_sub.client = actionengine.redis.Redis.connect(
+    #         "localhost"
+    #     )
+    # return get_act_redis_client_for_sub.client
+
+    return actionengine.redis.Redis.connect("localhost")
 
 
 def get_act_redis_client_for_pub():
@@ -77,23 +78,31 @@ async def read_store_chunks_into_queue(
     redis_client = get_act_redis_client_for_sub()
     store = actionengine.redis.ChunkStore(redis_client, request.key, TTL)
     hi = request.offset + request.count if request.count > 0 else 2147483647
-    if (final_seq := await asyncio.to_thread(store.get_final_seq)) != -1:
+    if (final_seq := store.get_final_seq()) != -1:
         hi = min(hi, final_seq + 1)
     try:
         for seq in range(request.offset, hi):
+            print(f"Reading chunk {seq} from store {request.key}")
             chunk = await asyncio.to_thread(store.get, seq, request.timeout)
-            final_seq = await asyncio.to_thread(store.get_final_seq)
-            await queue.put(annotate((chunk, seq, seq == final_seq)))
-            if seq == final_seq:
+            final_seq = store.get_final_seq()
+            is_final = seq == final_seq and final_seq != -1
+            fragment = actionengine.NodeFragment()
+            fragment.id = ""
+            fragment.seq = seq
+            fragment.chunk = chunk
+            fragment.continued = not is_final
+            await queue.put(annotate(fragment))
+            if is_final:
                 break
     except Exception as exc:
-        print(f"Error reading from store {request.key}: {exc}")
         await queue.put(annotate(exc))
+        return
     await queue.put(annotate(None))  # Signal that no more chunks will be added
 
 
 async def read_store_run(action: actionengine.Action) -> None:
     response = action["response"]
+    task = None
 
     try:
         action.clear_inputs_after_run()
@@ -102,8 +111,9 @@ async def read_store_run(action: actionengine.Action) -> None:
 
         maxsize = request.count + 1 if request.count > 0 else 32
         queue = asyncio.Queue(maxsize=maxsize)
-        _ = asyncio.create_task(read_store_chunks_into_queue(request, queue))
+        task = asyncio.create_task(read_store_chunks_into_queue(request, queue))
 
+        n_fragments = 0
         while True:
             element = await queue.get()
             if element is None:
@@ -112,10 +122,12 @@ async def read_store_run(action: actionengine.Action) -> None:
             if isinstance(element, Exception):
                 raise element
 
-            chunk, seq, is_final = element
-            await response.put(chunk)
+            await response.put(actionengine.to_chunk(element))
+            n_fragments += 1
     finally:
         await response.finalize()
+        # if task is not None:
+        #     await task
 
 
 READ_STORE_SCHEMA = actionengine.ActionSchema(

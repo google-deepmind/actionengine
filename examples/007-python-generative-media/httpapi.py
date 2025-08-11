@@ -465,47 +465,57 @@ async def follow_session(
     session_info = await resolve_token(session_token)
     print(f"Following session {session_info.session_id} ")
 
-    # ae = ActionEngineClient.global_instance()
-    #
-    # read_messages = ae.make_action("read_store")
-    read_messages_request = actions.redis.ReadStoreRequest(
-        key=f"{session_info.session_id}:messages",
-        offset=session_info.next_message_seq,
-        count=-1,  # Read all messages after the last known message
-        timeout=timeout,
+    registry = ActionEngineClient.global_instance().get_action_registry()
+    node_map = actionengine.NodeMap()
+
+    read_messages = registry.make_action("read_store", node_map=node_map).run()
+    await read_messages["request"].put_and_finalize(
+        actions.redis.ReadStoreRequest(
+            key=f"{session_info.session_id}:messages",
+            offset=session_info.next_message_seq,
+            count=-1,  # Read all messages after the last known message
+            timeout=timeout,
+        )
     )
-    #
-    # read_thoughts = ae.make_action("read_store")
-    read_thoughts_request = actions.redis.ReadStoreRequest(
-        key=f"{session_info.session_id}:thoughts",
-        offset=session_info.next_thought_seq,
-        count=-1,  # Read all thoughts after the last known thought
-        timeout=timeout,
+
+    read_thoughts = registry.make_action("read_store", node_map=node_map).run()
+    await read_thoughts["request"].put_and_finalize(
+        actions.redis.ReadStoreRequest(
+            key=f"{session_info.session_id}:thoughts",
+            offset=session_info.next_thought_seq,
+            count=-1,  # Read all thoughts after the last known thought
+            timeout=timeout,
+        )
     )
-    #
-    # await asyncio.gather(
-    #     read_messages.call(),
-    #     read_messages["request"].put_and_finalize(read_messages_request),
-    #     read_thoughts.call(),
-    #     read_thoughts["request"].put_and_finalize(read_thoughts_request),
-    # )
 
     queue = asyncio.Queue(32)
 
+    async def read_action_output(
+        node: actionengine.AsyncNode,
+        annotation: str,
+        read_timeout: float,
+    ):
+        try:
+            node.set_reader_options(
+                timeout=read_timeout,
+                ordered=True,
+                n_chunks_to_buffer=32,
+            )
+            async for fragment in node:
+                # print(f"Received {annotation} fragment: {fragment}")
+                await queue.put((annotation, fragment))
+        except asyncio.TimeoutError:
+            await queue.put((annotation, None))
+        except Exception as exc:
+            await queue.put((annotation, exc))
+        await queue.put((annotation, None))
+
     read_messages_task = asyncio.create_task(
-        actions.redis.read_store_chunks_into_queue(
-            read_messages_request,
-            queue,
-            "messages",
-        )
+        read_action_output(read_messages["response"], "messages", timeout)
     )
 
     read_thoughts_task = asyncio.create_task(
-        actions.redis.read_store_chunks_into_queue(
-            read_thoughts_request,
-            queue,
-            "thoughts",
-        )
+        read_action_output(read_thoughts["response"], "thoughts", timeout)
     )
 
     def make_final_event(exc: Exception | None = None):
@@ -521,37 +531,34 @@ async def follow_session(
             event["error"] = str(exc)
         return f"data: {json.dumps(event)}\nevent: session.follow.ended\n\n"
 
-    # iterate over both queues until both are empty or a timeout occurs
     async def stream_updates():
         nones_received = 0
         while True:
             try:
-                element = await asyncio.wait_for(queue.get(), timeout=timeout)
+                annotation, element = await queue.get()
 
-                if element[1] is None:
+                if element is None:
                     nones_received += 1
                     if nones_received == 2:
                         # Both queues have been exhausted
                         yield make_final_event()
                         break
                     continue
-                if isinstance(element[1], Exception):
+                if isinstance(element, Exception):
                     # An error occurred while reading from the store
-                    yield make_final_event(element[1])
+                    # read_messages_task.cancel()
+                    # read_thoughts_task.cancel()
+                    yield make_final_event(element)
                     break
 
-                annotation, chunk, seq, is_final = element
-                fragment = actionengine.NodeFragment(
-                    id=annotation,
-                    seq=seq,
-                    chunk=chunk,
-                    continued=not is_final,
-                )
                 if annotation == "messages":
-                    session_info.next_message_seq = seq + 1
+                    element.id = "messages"
+                    session_info.next_message_seq = element.seq + 1
                 elif annotation == "thoughts":
-                    session_info.next_thought_seq = seq + 1
-                yield f"data: {json.dumps(fragment_to_json(fragment))}\n\n"
+                    element.id = "thoughts"
+                    session_info.next_thought_seq = element.seq + 1
+
+                yield f"data: {json.dumps(fragment_to_json(element))}\n\n"
 
             except asyncio.TimeoutError:
                 yield make_final_event(

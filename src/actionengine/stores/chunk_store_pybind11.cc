@@ -120,6 +120,8 @@ void BindChunkStoreReaderOptions(py::handle scope, std::string_view name) {
       .def_readwrite("n_chunks_to_buffer",
                      &ChunkStoreReaderOptions::n_chunks_to_buffer)
       .def_readwrite("timeout", &ChunkStoreReaderOptions::timeout)
+      .def_readwrite("start_seq_or_offset",
+                     &ChunkStoreReaderOptions::start_seq_or_offset)
       .doc() = "Options for reading from a ChunkStore.";
 }
 

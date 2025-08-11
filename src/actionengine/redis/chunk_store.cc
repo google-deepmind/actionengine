@@ -116,7 +116,9 @@ absl::StatusOr<Chunk> ChunkStore::Get(int64_t seq, absl::Duration timeout) {
   absl::Time deadline = absl::Now() + timeout;
   act::MutexLock lock(&mu_);
 
+  mu_.Unlock();
   ASSIGN_OR_RETURN(std::optional<Chunk> chunk, TryGet(seq));
+  mu_.Lock();
   if (chunk.has_value()) {
     return *chunk;
   }
@@ -138,7 +140,9 @@ absl::StatusOr<Chunk> ChunkStore::Get(int64_t seq, absl::Duration timeout) {
           "ChunkStore is closed for new gets.");
     }
 
+    mu_.Unlock();
     absl::StatusOr<std::optional<Chunk>> chunk_or_error = TryGet(seq);
+    mu_.Lock();
     if (!chunk_or_error.ok()) {
       --num_pending_gets_;
       cv_.SignalAll();
@@ -292,8 +296,7 @@ absl::StatusOr<int64_t> ChunkStore::GetFinalSeq() {
   return final_seq;
 }
 
-absl::StatusOr<std::optional<Chunk>> ChunkStore::TryGet(int64_t seq)
-    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+absl::StatusOr<std::optional<Chunk>> ChunkStore::TryGet(int64_t seq) {
   const std::string seq_to_id_key = GetKey("seq_to_id");
 
   ASSIGN_OR_RETURN(

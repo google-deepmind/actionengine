@@ -160,6 +160,7 @@ ChunkStoreReader::GetNextUnorderedSeqAndChunkFromStore() const
 absl::Status ChunkStoreReader::RunPrefetchLoop()
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   absl::Status status;
+  total_chunks_read_ = options_.start_seq_or_offset;
 
   while (!thread::Cancelled()) {
     if (const absl::StatusOr<int64_t> final_seq = chunk_store_->GetFinalSeq();

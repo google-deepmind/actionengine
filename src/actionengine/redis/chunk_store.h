@@ -117,8 +117,7 @@ class ChunkStore final : public act::ChunkStore {
     return redis_->GetKey(absl::StrCat("streams:", id_, ":", key));
   }
 
-  absl::StatusOr<std::optional<Chunk>> TryGet(int64_t seq)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  absl::StatusOr<std::optional<Chunk>> TryGet(int64_t seq);
 
   mutable act::Mutex mu_;
   act::CondVar cv_ ABSL_GUARDED_BY(mu_);

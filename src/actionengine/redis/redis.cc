@@ -541,10 +541,13 @@ void Redis::OnPubsubReply(void* hiredis_reply) {
       subscription->Unsubscribe();
     }
   } else {
+    auto subscriptions = subscriptions_[channel];
+    mu_.Unlock();
     // For regular messages, we pass the reply to the subscription.
-    for (const auto& subscription : subscriptions_[channel]) {
+    for (const auto& subscription : subscriptions) {
       subscription->Message(reply_elements[2]);
     }
+    mu_.Lock();
   }
 }
 

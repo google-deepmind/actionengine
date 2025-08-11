@@ -263,6 +263,13 @@ auto AsyncNode::Next(std::optional<absl::Duration> timeout)
   return reader.Next<T>(timeout);
 }
 
+template <>
+inline auto AsyncNode::Next<NodeFragment>(std::optional<absl::Duration> timeout)
+    -> absl::StatusOr<std::optional<NodeFragment>> {
+  ChunkStoreReader& reader = GetReader();
+  return reader.NextFragment(timeout);
+}
+
 template <typename T>
 auto AsyncNode::NextOrDie(std::optional<absl::Duration> timeout)
     -> std::optional<T> {

@@ -111,7 +111,8 @@ class Session {
   GetNode(std::string_view id,
           const ChunkStoreFactory& chunk_store_factory = {}) const;
 
-  void DispatchFrom(const std::shared_ptr<WireStream>& stream);
+  void DispatchFrom(const std::shared_ptr<WireStream>& stream,
+                    absl::AnyInvocable<void()> on_done = {});
   absl::Status DispatchMessage(SessionMessage message,
                                WireStream* absl_nullable stream = nullptr);
 
