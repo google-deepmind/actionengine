@@ -323,21 +323,22 @@ async def make_response_events(
 
 
 async def make_streaming_response(action: actionengine.Action):
-    queue = asyncio.Queue()
+    queue = asyncio.Queue(maxsize=32)
+    print("Starting to stream thoughts and response fragments...")
 
     stream_thoughts = asyncio.create_task(
         put_node_fragments_in_queue(action["thoughts"], queue, "thought")
     )
-    async for event in make_response_events(queue):
-        yield event
-    await stream_thoughts
-
     stream_response = asyncio.create_task(
         put_node_fragments_in_queue(action["output"], queue, "response")
     )
     async for event in make_response_events(queue):
         yield event
-    await stream_response
+    # await stream_thoughts
+
+    # async for event in make_response_events(queue):
+    #     yield event
+    # await stream_response
 
     new_session_token = await action["new_session_token"].consume()
     yield f"data: {new_session_token}\nevent: session.session_token\n\n"
@@ -365,15 +366,11 @@ async def send_message_to_session(
     ae = ActionEngineClient.global_instance()
 
     action = ae.make_action("generate_content")
-    await asyncio.gather(
-        action.call(),
-        action["prompt"].put_and_finalize(
-            request.message
-        ),  # dummy, not used now
-        action["session_token"].put_and_finalize(session_token),
-        action["api_key"].put_and_finalize(request.api_key or ""),
-        action["chat_input"].put_and_finalize(request.message),
-    )
+    await action.call()
+    await action["prompt"].put_and_finalize(request.message)
+    await action["session_token"].put_and_finalize(session_token)
+    await action["api_key"].put_and_finalize(request.api_key or "")
+    await action["chat_input"].put_and_finalize(request.message)
 
     if stream:
         return StreamingResponse(
@@ -529,7 +526,7 @@ async def follow_session(
         }
         if exc is not None:
             event["error"] = str(exc)
-        return f"data: {json.dumps(event)}\nevent: session.follow.ended\n\n"
+        return f"data: {json.dumps(event)}\nevent: session.follow.timeout\n\n"
 
     async def stream_updates():
         nones_received = 0
