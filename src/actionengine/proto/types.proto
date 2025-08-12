@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package actionengine.proto;
+package act.proto;
 
 import "google/protobuf/timestamp.proto";
 
@@ -91,7 +91,7 @@ message Port {
   string name = 1;
 
   /** The node ID of the port. */
-  string type = 2;
+  string id = 2;
 }
 
 /**

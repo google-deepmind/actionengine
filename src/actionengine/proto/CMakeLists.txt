@@ -3,7 +3,7 @@ set(PROTO_FILES
         types.proto)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 
-add_library(actProto STATIC ${PROTO_SRCS} ${PROTO_HDRS})
+add_library(actProto STATIC ${PROTO_SRCS} ${PROTO_HDRS} converters.h converters.cc)
 add_library(act::proto ALIAS actProto)
 
 target_include_directories(actProto PUBLIC
@@ -18,4 +18,7 @@ target_include_directories(actProto PRIVATE
 target_link_libraries(actProto PUBLIC
         utf8_range::utf8_range
         ${Protobuf_LIBRARIES}
+        absl::status
+        act::data
+        act::util
 )
