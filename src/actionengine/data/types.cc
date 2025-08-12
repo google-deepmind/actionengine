@@ -53,10 +53,11 @@ std::string Indent(std::string field, int num_spaces, bool indent_first_line) {
 namespace act {
 
 absl::Status EgltAssignInto(Chunk chunk, std::string* string) {
-  if (!MimetypeIsTextual(chunk.metadata.mimetype)) {
+  if (const std::string chunk_mimetype = chunk.GetMimetype();
+      !MimetypeIsTextual(chunk_mimetype)) {
     return absl::InvalidArgumentError(
         absl::StrCat("Cannot move as std::string from a non-textual chunk: ",
-                     chunk.metadata.mimetype));
+                     chunk_mimetype));
   }
   *string = std::move(chunk.data);
   return absl::OkStatus();
@@ -72,9 +73,10 @@ absl::Status EgltAssignInto(std::string string, Chunk* chunk) {
 }
 
 absl::Status EgltAssignInto(const Chunk& chunk, absl::Status* status) {
-  if (chunk.metadata.mimetype != "__status__") {
+  if (const std::string chunk_mimetype = chunk.GetMimetype();
+      chunk_mimetype != "__status__") {
     return absl::InvalidArgumentError(
-        absl::StrCat("Invalid mimetype: ", chunk.metadata.mimetype));
+        absl::StrCat("Invalid mimetype: ", chunk_mimetype));
   }
   if (chunk.data.empty()) {
     return absl::InvalidArgumentError(absl::StrCat("Empty data: ", chunk.data));

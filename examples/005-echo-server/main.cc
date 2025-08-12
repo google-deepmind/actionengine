@@ -28,9 +28,8 @@ using Chunk = act::Chunk;
 using Service = act::Service;
 
 absl::Status RunEcho(const std::shared_ptr<Action>& action) {
-  auto input_text = action->GetNode("text");
-  input_text->SetReaderOptions(/*ordered=*/true,
-                               /*remove_chunks=*/true);
+  const auto input_text = action->GetNode("text");
+  input_text->SetReaderOptions({.ordered = true, .remove_chunks = true});
   std::optional<Chunk> chunk;
   while (true) {
     *input_text >> chunk;

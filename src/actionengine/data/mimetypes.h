@@ -24,6 +24,7 @@
 #include <string_view>
 
 namespace act {
+constexpr auto kEmptyMimetype = "";
 constexpr auto kMimetypeBytes = "application/octet-stream";
 constexpr auto kMimetypeTextPlain = "text/plain";
 

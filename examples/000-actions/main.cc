@@ -162,7 +162,9 @@ absl::StatusOr<std::string> CallEcho(
   //                /*seq=*/0,
   //                /*final=*/true)
   //     .IgnoreError();
-  echo->GetNode("text") << Chunk{.metadata = {.mimetype = "text/plain"},
+  echo->GetNode("text") << Chunk{.metadata =
+                                     act::ChunkMetadata{.mimetype =
+                                                            "text/plain"},
                                  .data = std::string(text)}
                         << act::EndOfStream();
 
@@ -180,7 +182,7 @@ absl::StatusOr<std::string> CallEcho(
       // End of stream, we are done.
       break;
     }
-    if (response_chunk->metadata.mimetype == "text/plain") {
+    if (response_chunk->GetMimetype() == "text/plain") {
       response << response_chunk->data;
     }
     // We are not checking the status here, but in general, we should.

@@ -38,7 +38,7 @@ export const encodeChunkMetadata = (metadata: ChunkMetadata) => {
   const encodedTimestamp = encode(
     metadata.timestamp
       ? encode(1000 * metadata.timestamp.getTime())
-      : encode(0),
+      : encode(null),
   );
   const bytes = new Uint8Array(
     encodedMimetype.length + encodedTimestamp.length,
@@ -53,7 +53,7 @@ export const encodeChunkMetadata = (metadata: ChunkMetadata) => {
 export const decodeChunkMetadata = (bytes: Uint8Array): ChunkMetadata => {
   const [mimetype, timestamp] = decodeMulti(bytes) as unknown as [
     string,
-    number,
+    number | null,
   ];
   return {
     mimetype,
@@ -62,7 +62,12 @@ export const decodeChunkMetadata = (bytes: Uint8Array): ChunkMetadata => {
 };
 
 export const encodeChunk = (chunk: Chunk) => {
-  const encodedMetadata = encode(encodeChunkMetadata(chunk.metadata));
+  let encodedMetadata: Uint8Array;
+  if (chunk.metadata === undefined || chunk.metadata === null) {
+    encodedMetadata = encode(null);
+  } else {
+    encodedMetadata = encode(encodeChunkMetadata(chunk.metadata));
+  }
   const encodedRef = encode(chunk.ref || '');
   const encodedData = chunk.data ? encode(chunk.data) : new Uint8Array(0);
   const bytes = new Uint8Array(

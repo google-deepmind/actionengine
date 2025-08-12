@@ -260,7 +260,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
     auto& serialized_message =
         std::get<CompleteBytesPacket>(packet).serialized_message;
     Chunk data_chunk{
-        .metadata = {},
+        .metadata = std::nullopt,
         .data = std::string(std::make_move_iterator(serialized_message.begin()),
                             std::make_move_iterator(serialized_message.end()))};
     total_message_size_ += data_chunk.data.size();
@@ -275,7 +275,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
   if (std::holds_alternative<ByteChunkPacket>(packet)) {
     auto& chunk = std::get<ByteChunkPacket>(packet);
     Chunk data_chunk{
-        .metadata = {},
+        .metadata = std::nullopt,
         .data = std::string(std::make_move_iterator(chunk.chunk.begin()),
                             std::make_move_iterator(chunk.chunk.end()))};
     total_message_size_ += data_chunk.data.size();
@@ -299,7 +299,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
         chunk.length;  // Set the total expected chunks from this packet.
     chunk_store_
         .Put(static_cast<int>(chunk.seq),
-             Chunk{.metadata = {},
+             Chunk{.metadata = std::nullopt,
                    .data =
                        std::string(std::make_move_iterator(chunk.chunk.begin()),
                                    std::make_move_iterator(chunk.chunk.end()))},

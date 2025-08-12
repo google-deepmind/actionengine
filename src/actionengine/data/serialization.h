@@ -169,8 +169,12 @@ absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},
     return act::ConvertToOrDie<T>(std::move(chunk));
   }
 
-  if (chunk.metadata.mimetype.empty()) {
-    chunk.metadata.mimetype = mimetype;
+  if (!chunk.metadata) {
+    chunk.metadata.emplace();
+  }
+
+  if (chunk.metadata->mimetype.empty()) {
+    chunk.metadata->mimetype = mimetype;
     return act::ConvertToOrDie<T>(std::move(chunk));
   }
 

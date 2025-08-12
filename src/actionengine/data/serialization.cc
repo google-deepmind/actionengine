@@ -110,7 +110,13 @@ absl::StatusOr<std::any> FromChunk(const Chunk& chunk,
   const SerializerRegistry* resolved_registry =
       registry ? registry : GetGlobalSerializerRegistryPtr();
 
+  if (mimetype.empty() && !chunk.metadata) {
+    return absl::FailedPreconditionError(
+        "No mimetype for deserialisation was supplied, and cannot infer it "
+        "from the chunk.");
+  }
+
   return resolved_registry->Deserialize(
-      chunk.data, !mimetype.empty() ? mimetype : chunk.metadata.mimetype);
+      chunk.data, !mimetype.empty() ? mimetype : chunk.metadata->mimetype);
 }
 }  // namespace act

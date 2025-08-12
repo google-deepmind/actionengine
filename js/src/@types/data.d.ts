@@ -15,18 +15,18 @@
  */
 
 declare interface ChunkMetadata {
-  readonly mimetype?: string;
+  readonly mimetype: string;
   readonly timestamp?: Date;
 }
 
 declare interface DataChunk {
-  readonly metadata: ChunkMetadata;
+  readonly metadata?: ChunkMetadata;
   readonly data: Uint8Array;
   readonly ref?: string;
 }
 
 declare interface RefChunk {
-  readonly metadata: ChunkMetadata;
+  readonly metadata?: ChunkMetadata;
   readonly ref: string;
   readonly data?: Uint8Array;
 }

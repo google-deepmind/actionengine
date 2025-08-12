@@ -41,9 +41,10 @@ absl::Status EgltAssignInto(const User& user, Chunk* chunk) {
 }
 
 absl::Status EgltAssignInto(const Chunk& chunk, User* user) {
-  if (chunk.metadata.mimetype != "application/x-act;User") {
+  if (std::string chunk_mimetype = chunk.GetMimetype();
+      chunk_mimetype != "application/x-act;User") {
     return absl::InvalidArgumentError(
-        absl::StrFormat("Invalid mimetype: %v", chunk.metadata.mimetype));
+        absl::StrFormat("Invalid mimetype: %v", chunk_mimetype));
   }
 
   // this validation is application-level logic
@@ -93,7 +94,7 @@ int main(int, char**) {
       /*id=*/store_id, /*node_map=*/nullptr,
       /*chunk_store=*/std::move(store));
   node_that_streams_users.SetReaderOptions(
-      /*ordered=*/true, /*remove_chunks=*/false);
+      {.ordered = true, .remove_chunks = false});
   for (const auto& user : users) {
     if (const auto status = node_that_streams_users.Put(user); !status.ok()) {
       LOG(FATAL) << "Error: " << status;

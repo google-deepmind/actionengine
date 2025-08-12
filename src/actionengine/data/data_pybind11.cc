@@ -415,7 +415,7 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
            [](const NodeFragment& fragment) -> absl::StatusOr<Chunk> {
              std::vector<uint8_t> bytes = cppack::Pack(fragment);
              Chunk result;
-             result.metadata.mimetype = "__act:NodeFragment__";
+             result.metadata.emplace().mimetype = "__act:NodeFragment__";
              result.data = std::string(bytes.begin(), bytes.end());
              return result;
            });
@@ -430,13 +430,17 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
       [](Chunk chunk, std::string_view mimetype = "",
          const SerializerRegistry* registry =
              nullptr) -> absl::StatusOr<py::object> {
-        if (chunk.metadata.mimetype == "__status__") {
+        std::string chunk_mimetype;
+        if (chunk.metadata) {
+          chunk_mimetype = chunk.metadata->mimetype;
+        }
+        if (chunk_mimetype == "__status__") {
           ASSIGN_OR_RETURN(absl::Status unpacked_status,
                            ConvertTo<absl::Status>(std::move(chunk)));
           return py::cast(
               pybind11::google::DoNotThrowStatus(std::move(unpacked_status)));
         }
-        if (chunk.metadata.mimetype == "__act:NodeFragment__") {
+        if (chunk_mimetype == "__act:NodeFragment__") {
           const std::vector<uint8_t> data_bytes(chunk.data.begin(),
                                                 chunk.data.end());
           ASSIGN_OR_RETURN(NodeFragment fragment,

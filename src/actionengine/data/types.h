@@ -59,16 +59,11 @@ std::string Indent(std::string field, int num_spaces = 0,
  *  @headerfile actionengine/data/types.h
  */
 struct ChunkMetadata {
-  std::string mimetype =
-      kMimetypeBytes;    /// The mimetype of the data in the chunk.
-  absl::Time timestamp;  /// The timestamp associated with the chunk.
+  /** The mimetype of the data in the chunk. */
+  std::string mimetype = kMimetypeBytes;
 
-  /// Checks if the metadata is empty.
-  /// @return
-  ///   true if both fields are empty, false otherwise.
-  [[nodiscard]] bool Empty() const {
-    return mimetype.empty() && timestamp == absl::Time();
-  }
+  /** The timestamp associated with the chunk. */
+  std::optional<absl::Time> timestamp;
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const ChunkMetadata& metadata);
@@ -92,7 +87,7 @@ struct Chunk {
    *
    * This includes the mimetype and timestamp of the chunk.
    */
-  ChunkMetadata metadata;
+  std::optional<ChunkMetadata> metadata;
 
   /** A reference to the data in the chunk.
    *
@@ -111,6 +106,10 @@ struct Chunk {
    */
   std::string data;
 
+  [[nodiscard]] std::string GetMimetype() const {
+    return metadata ? metadata->mimetype : kEmptyMimetype;
+  }
+
   [[nodiscard]] bool IsEmpty() const { return data.empty() && ref.empty(); }
 
   /** Checks if the chunk is null.
@@ -125,7 +124,7 @@ struct Chunk {
    *   true if the chunk is empty, false otherwise.
    */
   [[nodiscard]] bool IsNull() const {
-    return metadata.mimetype == kMimetypeBytes && IsEmpty();
+    return (!metadata || metadata->mimetype == kMimetypeBytes) && IsEmpty();
   }
 
   template <typename Sink>
@@ -263,17 +262,17 @@ void AbslStringify(Sink& sink, const ChunkMetadata& metadata) {
   if (!metadata.mimetype.empty()) {
     absl::Format(&sink, "mimetype: %s\n", metadata.mimetype);
   }
-  if (metadata.timestamp != absl::Time()) {
+  if (metadata.timestamp) {
     absl::Format(&sink, "timestamp: %s\n",
-                 absl::FormatTime(metadata.timestamp));
+                 absl::FormatTime(*metadata.timestamp));
   }
 }
 
 template <typename Sink>
 void AbslStringify(Sink& sink, const Chunk& chunk) {
-  if (!chunk.metadata.Empty()) {
+  if (chunk.metadata) {
     absl::Format(&sink, "metadata: \n%s",
-                 internal::Indent(absl::StrCat(chunk.metadata), 2, true));
+                 internal::Indent(absl::StrCat(*chunk.metadata), 2, true));
   }
   if (!chunk.data.empty() || (chunk.data.empty() && chunk.ref.empty())) {
     absl::Format(&sink, "data: %s\n", chunk.data);
