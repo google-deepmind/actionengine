@@ -36,7 +36,7 @@ const rawDecode = async (blob: Blob | Uint8Array) => {
 export const encodeChunkMetadata = (metadata: ChunkMetadata) => {
   const encodedMimetype = encode(metadata.mimetype || '');
   const encodedTimestamp = encode(
-    metadata.timestamp
+    metadata.timestamp !== undefined && metadata.timestamp !== null
       ? encode(1000 * metadata.timestamp.getTime())
       : encode(null),
   );
@@ -57,7 +57,10 @@ export const decodeChunkMetadata = (bytes: Uint8Array): ChunkMetadata => {
   ];
   return {
     mimetype,
-    timestamp: timestamp ? new Date(timestamp / 1000) : undefined,
+    timestamp:
+      timestamp !== undefined && timestamp !== null
+        ? new Date(timestamp / 1000)
+        : undefined,
   };
 };
 
@@ -74,11 +77,11 @@ export const encodeChunk = (chunk: Chunk) => {
     encodedMetadata.length + encodedRef.length + encodedData.length,
   );
   let offset = 0;
-  bytes.set(encodedMetadata, offset);
-  offset += encodedMetadata.length;
+  bytes.set(encodedData, offset);
+  offset += encodedData.length;
   bytes.set(encodedRef, offset);
   offset += encodedRef.length;
-  bytes.set(encodedData, offset);
+  bytes.set(encodedMetadata, offset);
   return bytes;
 };
 
@@ -97,22 +100,77 @@ export const encodeBaseModelMessage = (model: string, data: unknown) => {
 };
 
 export const decodeChunk = (bytes: Uint8Array): Chunk => {
-  const [metadataBytes, ref, data] = decodeMulti(bytes) as unknown as [
+  const [data, ref, metadataBytes] = decodeMulti(bytes) as unknown as [
     Uint8Array,
     string,
-    Uint8Array,
+    Uint8Array | null,
   ];
   return {
-    metadata: decodeChunkMetadata(metadataBytes),
+    metadata:
+      metadataBytes !== null ? decodeChunkMetadata(metadataBytes) : undefined,
     ref,
     data: data || new Uint8Array(0),
   };
 };
 
+export const encodeNodeRef = (ref: NodeRef) => {
+  const encodedId = encode(ref.id || '');
+  const encodedOffset = encode(ref.offset || 0);
+  const encodedLength = encode(ref.length || null);
+  const bytes = new Uint8Array(
+    encodedId.length + encodedOffset.length + encodedLength.length,
+  );
+  let offset = 0;
+  bytes.set(encodedId, offset);
+  offset += encodedId.length;
+  bytes.set(encodedOffset, offset);
+  offset += encodedOffset.length;
+  bytes.set(encodedLength, offset);
+  return bytes;
+};
+
+export const decodeNodeRef = (bytes: Uint8Array): NodeRef => {
+  const [id, offset, length] = decodeMulti(bytes) as unknown as [
+    string,
+    number,
+    number | null,
+  ];
+  return {
+    id,
+    offset,
+    length: length === null ? undefined : length,
+  };
+};
+
+export const hasNodeRef = (fragment: NodeFragment): boolean => {
+  const maybeRef = fragment.data as NodeRef;
+  return (
+    maybeRef.id !== undefined &&
+    maybeRef.id !== null &&
+    maybeRef.offset !== undefined &&
+    maybeRef.offset !== null
+  );
+};
+
 export const encodeNodeFragment = (fragment: NodeFragment) => {
-  const encodedChunk = fragment.chunk
-    ? encode(encodeChunk(fragment.chunk))
-    : encode(null);
+  let encodedData: Uint8Array;
+  if (hasNodeRef(fragment)) {
+    const encodedVariant = encode(1); // 1 for NodeRef
+    const encodedNodeRef = encode(encodeNodeRef(fragment.data as NodeRef));
+    encodedData = new Uint8Array(encodedVariant.length + encodedNodeRef.length);
+    let offset = 0;
+    encodedData.set(encodedVariant, offset);
+    offset += encodedVariant.length;
+    encodedData.set(encodedNodeRef, offset);
+  } else {
+    const encodedVariant = encode(0); // 0 for Chunk
+    const encodedChunk = encode(encodeChunk(fragment.data as Chunk));
+    encodedData = new Uint8Array(encodedVariant.length + encodedChunk.length);
+    let offset = 0;
+    encodedData.set(encodedVariant, offset);
+    offset += encodedVariant.length;
+    encodedData.set(encodedChunk, offset);
+  }
 
   const encodedContinued = encode(
     fragment.continued === undefined || fragment.continued === null
@@ -125,14 +183,14 @@ export const encodeNodeFragment = (fragment: NodeFragment) => {
   );
 
   const bytes = new Uint8Array(
-    encodedChunk.length +
+    encodedData.length +
       encodedContinued.length +
       encodedId.length +
       encodedSeq.length,
   );
   let offset = 0;
-  bytes.set(encodedChunk, offset);
-  offset += encodedChunk.length;
+  bytes.set(encodedData, offset);
+  offset += encodedData.length;
   bytes.set(encodedContinued, offset);
   offset += encodedContinued.length;
   bytes.set(encodedId, offset);
@@ -142,14 +200,21 @@ export const encodeNodeFragment = (fragment: NodeFragment) => {
 };
 
 export const decodeNodeFragment = (bytes: Uint8Array): NodeFragment => {
-  const [chunkBytes, continued, id, seq] = decodeMulti(bytes) as unknown as [
-    Uint8Array,
-    boolean,
-    string,
-    number,
-  ];
+  const [variantIndex, dataBytes, continued, id, seq] = decodeMulti(
+    bytes,
+  ) as unknown as [number, Uint8Array, boolean, string, number];
+  let decodedData: NodeRef | Chunk;
+  if (variantIndex === 0) {
+    // 0 indicates a Chunk
+    decodedData = decodeChunk(dataBytes);
+  } else if (variantIndex === 1) {
+    // 1 indicates a NodeRef
+    decodedData = decodeNodeRef(dataBytes);
+  } else {
+    throw new Error(`Unknown data type in NodeFragment: ${variantIndex}`);
+  }
   return {
-    chunk: chunkBytes ? decodeChunk(chunkBytes) : null,
+    data: decodedData,
     continued:
       continued === undefined || continued === null ? false : continued,
     id,
@@ -214,7 +279,7 @@ export const decodeActionMessage = (bytes: Uint8Array): ActionMessage => {
   };
 };
 
-export const encodeSessionMessage = (message: SessionMessage) => {
+export const encodeWireMessage = (message: WireMessage) => {
   const packedNodeFragments = encode(
     (message.nodeFragments || []).map(encodeNodeFragment),
   );
@@ -230,9 +295,9 @@ export const encodeSessionMessage = (message: SessionMessage) => {
   return encode(packedMessage);
 };
 
-export const decodeSessionMessage = async (
+export const decodeWireMessage = async (
   bytes: Blob | Uint8Array,
-): Promise<SessionMessage> => {
+): Promise<WireMessage> => {
   const unpackedMessage = (await rawDecode(bytes)) as Uint8Array;
   // @ts-expect-error decodeMulti is not strictly typed
   const [packedNodeFragments, packedActions]: [Uint8Array[], Uint8Array[]] =

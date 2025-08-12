@@ -102,9 +102,9 @@ absl::Status ChunkStoreWriter::RunWriteLoop() {
     }
 
     mu_.Unlock();
-    status = chunk_store_->Put(/*seq=*/next_fragment->seq,
+    status = chunk_store_->Put(/*seq=*/next_fragment->seq.value_or(-1),
                                /*chunk=*/
-                               std::move(*next_fragment->chunk),
+                               std::move(next_fragment->GetChunkOrDie()),
                                /*final=*/
                                !next_fragment->continued);
     mu_.Lock();
@@ -155,7 +155,7 @@ absl::StatusOr<int> ChunkStoreWriter::Put(Chunk value, int seq, bool final)
 
   EnsureWriteLoop();
   if (!buffer_.writer()->WriteUnlessCancelled(NodeFragment{
-          .chunk = std::move(value),
+          .data = std::move(value),
           .seq = written_seq,
           .continued = !final,
       })) {

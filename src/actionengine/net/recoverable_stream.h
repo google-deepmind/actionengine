@@ -50,9 +50,9 @@ class RecoverableStream final : public act::WireStream {
 
   void CloseAndNotify();
 
-  absl::Status Send(SessionMessage message) override;
+  absl::Status Send(WireMessage message) override;
 
-  absl::StatusOr<std::optional<SessionMessage>> Receive(
+  absl::StatusOr<std::optional<WireMessage>> Receive(
       absl::Duration timeout) override;
 
   absl::Status Accept() override;

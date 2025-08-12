@@ -184,7 +184,7 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream,
       thread::NewTree(
           {}, [this, stream, on_done = std::move(on_done)]() mutable {
             while (true) {
-              absl::StatusOr<std::optional<SessionMessage>> message =
+              absl::StatusOr<std::optional<WireMessage>> message =
                   stream->Receive(GetRecvTimeout());
               if (!message.ok()) {
                 DLOG(ERROR) << "Failed to receive message: " << message.status()
@@ -228,7 +228,7 @@ void Session::DispatchFrom(const std::shared_ptr<WireStream>& stream,
           }));
 }
 
-absl::Status Session::DispatchMessage(SessionMessage message,
+absl::Status Session::DispatchMessage(WireMessage message,
                                       WireStream* absl_nullable stream) {
   act::MutexLock lock(&mu_);
   if (joined_) {

@@ -239,8 +239,7 @@ absl::Status Action::Call() {
   bind_streams_on_inputs_default_ = true;
   bind_streams_on_outputs_default_ = false;
 
-  RETURN_IF_ERROR(
-      stream_->Send(SessionMessage{.actions = {GetActionMessage()}}));
+  RETURN_IF_ERROR(stream_->Send(WireMessage{.actions = {GetActionMessage()}}));
 
   has_been_called_ = true;
   return absl::OkStatus();
@@ -279,12 +278,12 @@ absl::Status Action::Run() {
     const auto stream_ptr = stream_;
     mu_.Unlock();
     full_run_status.Update(
-        stream_ptr->Send(SessionMessage{.node_fragments = {NodeFragment{
-                                            .id = GetOutputId("__status__"),
-                                            .chunk = handler_status_chunk,
-                                            .seq = 0,
-                                            .continued = false,
-                                        }}}));
+        stream_ptr->Send(WireMessage{.node_fragments = {NodeFragment{
+                                         .id = GetOutputId("__status__"),
+                                         .data = handler_status_chunk,
+                                         .seq = 0,
+                                         .continued = false,
+                                     }}}));
     mu_.Lock();
   }
 

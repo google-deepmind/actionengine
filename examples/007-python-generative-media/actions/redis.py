@@ -15,13 +15,11 @@ MAX_READ_TIMEOUT_SECONDS = 300  # Maximum read timeout in seconds
 
 
 def get_act_redis_client_for_sub():
-    # if not hasattr(get_act_redis_client_for_sub, "client"):
-    #     get_act_redis_client_for_sub.client = actionengine.redis.Redis.connect(
-    #         "localhost"
-    #     )
-    # return get_act_redis_client_for_sub.client
-
-    return actionengine.redis.Redis.connect("localhost")
+    if not hasattr(get_act_redis_client_for_sub, "client"):
+        get_act_redis_client_for_sub.client = actionengine.redis.Redis.connect(
+            "localhost"
+        )
+    return get_act_redis_client_for_sub.client
 
 
 def get_act_redis_client_for_pub():
@@ -77,12 +75,11 @@ async def read_store_chunks_into_queue(
 
     redis_client = get_act_redis_client_for_sub()
     store = actionengine.redis.ChunkStore(redis_client, request.key, TTL)
-    hi = request.offset + request.count if request.count > 0 else 2147483647
+    hi = (request.offset + request.count) if request.count > 0 else 2147483647
     if (final_seq := store.get_final_seq()) != -1:
         hi = min(hi, final_seq + 1)
     try:
         for seq in range(request.offset, hi):
-            print(f"Reading chunk {seq} from store {request.key}")
             chunk = await asyncio.to_thread(store.get, seq, request.timeout)
             final_seq = store.get_final_seq()
             is_final = seq == final_seq and final_seq != -1
@@ -109,7 +106,7 @@ async def read_store_run(action: actionengine.Action) -> None:
 
         request: ReadStoreRequest = await action["request"].consume()
 
-        maxsize = request.count + 1 if request.count > 0 else 32
+        maxsize = 32
         queue = asyncio.Queue(maxsize=maxsize)
         task = asyncio.create_task(read_store_chunks_into_queue(request, queue))
 
@@ -200,17 +197,38 @@ async def read_store_http_handler_impl(
     """
     Create an action to read from the Redis store.
     """
-    # ae = ActionEngineClient.global_instance()
-    # action = ae.make_action("read_store")
+    registry = ActionEngineClient.global_instance().get_action_registry()
+    node_map = actionengine.NodeMap()
 
-    # await asyncio.gather(
-    #     action.call(),
-    #     action["request"].put_and_finalize(request),
-    # )
+    read_items = registry.make_action("read_store", node_map=node_map).run()
+    await read_items["request"].put_and_finalize(request)
 
-    queue = asyncio.Queue(maxsize=request.count + 1)
-    read_task = asyncio.create_task(
-        read_store_chunks_into_queue(request, queue)
+    queue = asyncio.Queue(32)
+
+    async def read_action_output(
+        node: actionengine.AsyncNode,
+        read_timeout: float,
+    ):
+        print(
+            f"Reading from store {request.key} with timeout {read_timeout} seconds"
+        )
+        try:
+            node.set_reader_options(
+                timeout=read_timeout,
+                ordered=True,
+                n_chunks_to_buffer=32,
+            )
+            async for chunk in node:
+                print(f"Received {chunk}")
+                await queue.put(chunk)
+        except asyncio.TimeoutError:
+            await queue.put(None)
+        except Exception as exc:
+            await queue.put(exc)
+        await queue.put(None)
+
+    read_items_task = asyncio.create_task(
+        read_action_output(read_items["response"], request.timeout)
     )
 
     try:
@@ -234,13 +252,7 @@ async def read_store_http_handler_impl(
                     yield f"data: {json.dumps({'error': str(element)})}\n\n"
                     break
 
-            chunk, seq, is_final = element
-            fragment = actionengine.NodeFragment(
-                id=request.key,
-                seq=seq,
-                chunk=chunk,
-                continued=not is_final,
-            )
+            fragment = element
             include_metadata = (
                 current_mimetype != fragment.chunk.metadata.mimetype
             )
@@ -250,11 +262,7 @@ async def read_store_http_handler_impl(
             else:
                 yield fragment
     finally:
-        read_task.cancel()
-        try:
-            await read_task
-        except asyncio.CancelledError:
-            pass
+        await read_items_task
 
 
 async def read_store_http_handler(

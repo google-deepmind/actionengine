@@ -24,13 +24,13 @@ from actionengine.actionengine_pybind11 import service as service_pybind11
 class WireStream(service_pybind11.WireStream):
     """A Pythonic wrapper for the raw pybind11 WireStream bindings."""
 
-    async def receive(self) -> data.SessionMessage | None:
+    async def receive(self) -> data.WireMessage | None:
         """Receives a message from the stream."""
         return await asyncio.to_thread(
             super().receive
         )  # pytype: disable=attribute-error
 
-    async def send(self, message: data.SessionMessage) -> None:
+    async def send(self, message: data.WireMessage) -> None:
         """Sends a message to the stream."""
         await asyncio.to_thread(
             super().send, message

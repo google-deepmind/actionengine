@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import os
 import random
@@ -43,7 +44,7 @@ async def resolve_session_token_to_session_id_and_seqs(
         return session_id, next_message_seq, next_thought_seq
 
     try:
-        session_info = redis_client.get(token)
+        session_info = await asyncio.to_thread(redis_client.get, token)
     except Exception:
         session_info = None
         traceback.print_exc()
@@ -150,8 +151,12 @@ async def save_message_turn(
         -1,  # no TTL
     )
 
-    message_store.put(next_message_seq, get_text_chunk(chat_input))
-    message_store.put(next_message_seq + 1, get_text_chunk(output))
+    await asyncio.to_thread(
+        message_store.put, next_message_seq, get_text_chunk(chat_input)
+    )
+    await asyncio.to_thread(
+        message_store.put, next_message_seq + 1, get_text_chunk(output)
+    )
     next_message_seq += 2
 
     if thought:
@@ -160,10 +165,13 @@ async def save_message_turn(
             f"{session_id}:thoughts",
             -1,  # no TTL
         )
-        thought_store.put(next_thought_seq, get_text_chunk(thought))
+        await asyncio.to_thread(
+            thought_store.put, next_thought_seq, get_text_chunk(thought)
+        )
         next_thought_seq += 1
 
-    session_token = make_token_for_session_info(
+    session_token = await asyncio.to_thread(
+        make_token_for_session_info,
         session_id,
         next_message_seq,
         next_thought_seq,

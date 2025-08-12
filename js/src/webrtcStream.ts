@@ -18,7 +18,7 @@ import { LocalChunkStore } from './chunkStore';
 import { BaseActionEngineStream } from './stream';
 import { v4 as uuidv4 } from 'uuid';
 import { Channel, CondVar, Mutex } from './utils';
-import { decodeSessionMessage, encodeSessionMessage } from './msgpack';
+import { decodeWireMessage, encodeWireMessage } from './msgpack';
 
 const kRtcConfig: RTCConfiguration = {
   iceServers: [
@@ -29,23 +29,23 @@ const kRtcConfig: RTCConfiguration = {
 };
 
 enum WebRtcPacketType {
-  PlainSessionMessage = 0,
-  SessionMessageChunk = 1,
-  LengthSuffixedSessionMessageChunk = 2,
+  PlainWireMessage = 0,
+  WireMessageChunk = 1,
+  LengthSuffixedWireMessageChunk = 2,
 }
 
-interface WebRtcPlainSessionMessage {
+interface WebRtcPlainWireMessage {
   serializedMessage: Uint8Array;
   transientId: number;
 }
 
-interface WebRtcSessionMessageChunk {
+interface WebRtcWireMessageChunk {
   chunk: Uint8Array;
   seq: number;
   transientId: number;
 }
 
-interface WebRtcLengthSuffixedSessionMessageChunk {
+interface WebRtcLengthSuffixedWireMessageChunk {
   chunk: Uint8Array;
   length: number;
   seq: number;
@@ -53,9 +53,9 @@ interface WebRtcLengthSuffixedSessionMessageChunk {
 }
 
 type WebRtcPacket = (
-  | WebRtcPlainSessionMessage
-  | WebRtcSessionMessageChunk
-  | WebRtcLengthSuffixedSessionMessageChunk
+  | WebRtcPlainWireMessage
+  | WebRtcWireMessageChunk
+  | WebRtcLengthSuffixedWireMessageChunk
 ) & { type: WebRtcPacketType };
 
 const parseLittleEndianNumber = (
@@ -90,9 +90,9 @@ const parseWebRtcPacket = (data: Uint8Array): WebRtcPacket => {
   const transientId = parseLittleEndianNumber(data, dataEnd - 8, 8);
   dataEnd -= 8;
 
-  if (type === WebRtcPacketType.PlainSessionMessage) {
+  if (type === WebRtcPacketType.PlainWireMessage) {
     return {
-      type: WebRtcPacketType.PlainSessionMessage,
+      type: WebRtcPacketType.PlainWireMessage,
       serializedMessage: data.slice(0, dataEnd),
       transientId,
     };
@@ -101,12 +101,12 @@ const parseWebRtcPacket = (data: Uint8Array): WebRtcPacket => {
   const seq = parseLittleEndianNumber(data, dataEnd - 4, 4);
   dataEnd -= 4;
 
-  if (type === WebRtcPacketType.LengthSuffixedSessionMessageChunk) {
+  if (type === WebRtcPacketType.LengthSuffixedWireMessageChunk) {
     const length = parseLittleEndianNumber(data, dataEnd - 4, 4);
     dataEnd -= 4;
 
     return {
-      type: WebRtcPacketType.LengthSuffixedSessionMessageChunk,
+      type: WebRtcPacketType.LengthSuffixedWireMessageChunk,
       chunk: data.slice(0, dataEnd),
       length,
       seq,
@@ -114,9 +114,9 @@ const parseWebRtcPacket = (data: Uint8Array): WebRtcPacket => {
     };
   }
 
-  if (type === WebRtcPacketType.SessionMessageChunk) {
+  if (type === WebRtcPacketType.WireMessageChunk) {
     return {
-      type: WebRtcPacketType.SessionMessageChunk,
+      type: WebRtcPacketType.WireMessageChunk,
       chunk: data.slice(0, dataEnd),
       seq,
       transientId,
@@ -152,7 +152,7 @@ const splitDataIntoWebRtcPackets = (
 
   if (data.length <= packetSize - 9) {
     packets.push({
-      type: WebRtcPacketType.PlainSessionMessage,
+      type: WebRtcPacketType.PlainWireMessage,
       serializedMessage: data,
       transientId,
     });
@@ -165,7 +165,7 @@ const splitDataIntoWebRtcPackets = (
 
   const firstPacketSize = packetSize - 17; // 1 byte for type, 8 bytes for transientId, 4 bytes for seq, 4 bytes for length
   packets.push({
-    type: WebRtcPacketType.LengthSuffixedSessionMessageChunk,
+    type: WebRtcPacketType.LengthSuffixedWireMessageChunk,
     chunk: data.slice(0, firstPacketSize),
     length: 0, // this will be set later
     seq: 0,
@@ -180,7 +180,7 @@ const splitDataIntoWebRtcPackets = (
     const packetLength = Math.min(remainingSize, packetSize - 13); // 1 byte for type, 8 bytes for transientId, 4 bytes for seq
 
     packets.push({
-      type: WebRtcPacketType.SessionMessageChunk,
+      type: WebRtcPacketType.WireMessageChunk,
       chunk: data.slice(offset, offset + packetLength),
       seq,
       transientId,
@@ -191,8 +191,7 @@ const splitDataIntoWebRtcPackets = (
   }
 
   // Update the length of the first packet
-  (packets[0] as WebRtcLengthSuffixedSessionMessageChunk).length =
-    packets.length;
+  (packets[0] as WebRtcLengthSuffixedWireMessageChunk).length = packets.length;
 
   return packets;
 };
@@ -201,31 +200,31 @@ const serializeWebRtcPacket = (packet: WebRtcPacket): Uint8Array => {
   let transientId = 0;
   let typeByte = 0;
 
-  if (packet.type == WebRtcPacketType.PlainSessionMessage) {
-    typeByte = WebRtcPacketType.PlainSessionMessage;
-    transientId = (packet as WebRtcPlainSessionMessage).transientId;
+  if (packet.type == WebRtcPacketType.PlainWireMessage) {
+    typeByte = WebRtcPacketType.PlainWireMessage;
+    transientId = (packet as WebRtcPlainWireMessage).transientId;
     return new Uint8Array([
-      ...(packet as WebRtcPlainSessionMessage).serializedMessage,
+      ...(packet as WebRtcPlainWireMessage).serializedMessage,
       ...encodeLittleEndianNumber(transientId, 8),
       typeByte,
     ]);
   }
 
-  if (packet.type == WebRtcPacketType.SessionMessageChunk) {
-    typeByte = WebRtcPacketType.SessionMessageChunk;
-    transientId = (packet as WebRtcSessionMessageChunk).transientId;
-    const seq = (packet as WebRtcSessionMessageChunk).seq;
+  if (packet.type == WebRtcPacketType.WireMessageChunk) {
+    typeByte = WebRtcPacketType.WireMessageChunk;
+    transientId = (packet as WebRtcWireMessageChunk).transientId;
+    const seq = (packet as WebRtcWireMessageChunk).seq;
     return new Uint8Array([
-      ...(packet as WebRtcSessionMessageChunk).chunk,
+      ...(packet as WebRtcWireMessageChunk).chunk,
       ...encodeLittleEndianNumber(seq, 4),
       ...encodeLittleEndianNumber(transientId, 8),
       typeByte,
     ]);
   }
 
-  if (packet.type == WebRtcPacketType.LengthSuffixedSessionMessageChunk) {
-    typeByte = WebRtcPacketType.LengthSuffixedSessionMessageChunk;
-    const chunk = packet as WebRtcLengthSuffixedSessionMessageChunk;
+  if (packet.type == WebRtcPacketType.LengthSuffixedWireMessageChunk) {
+    typeByte = WebRtcPacketType.LengthSuffixedWireMessageChunk;
+    const chunk = packet as WebRtcLengthSuffixedWireMessageChunk;
     transientId = chunk.transientId;
     const seq = chunk.seq;
     const length = chunk.length;
@@ -260,53 +259,55 @@ class ChunkedMessage {
       throw new Error('Chunk store is full, cannot feed more packets');
     }
 
-    if (packet.type === WebRtcPacketType.PlainSessionMessage) {
+    if (packet.type === WebRtcPacketType.PlainWireMessage) {
       this.totalMessageSize += (
-        packet as WebRtcPlainSessionMessage
+        packet as WebRtcPlainWireMessage
       ).serializedMessage.length;
       this.totalChunksExpected = 1;
       await this.chunkStore.put(
         0,
         {
-          data: (packet as WebRtcPlainSessionMessage).serializedMessage,
-          metadata: {},
+          data: (packet as WebRtcPlainWireMessage).serializedMessage,
+          metadata: {
+            mimetype: '',
+          },
         },
         true,
       );
       return true;
     }
 
-    if (packet.type === WebRtcPacketType.SessionMessageChunk) {
+    if (packet.type === WebRtcPacketType.WireMessageChunk) {
       if (this.totalChunksExpected === -1) {
         throw new Error('Received a chunk while not processing a message');
       }
-      const chunk = packet as WebRtcSessionMessageChunk;
+      const chunk = packet as WebRtcWireMessageChunk;
       this.totalMessageSize += chunk.chunk.length;
       await this.chunkStore.put(
         chunk.seq,
         {
           data: chunk.chunk,
-          metadata: {},
+          metadata: { mimetype: '' },
         },
         chunk.seq === this.totalChunksExpected - 1,
       );
       return (await this.chunkStore.size()) === this.totalChunksExpected;
     }
 
-    if (packet.type === WebRtcPacketType.LengthSuffixedSessionMessageChunk) {
+    if (packet.type === WebRtcPacketType.LengthSuffixedWireMessageChunk) {
       if (this.totalChunksExpected !== -1) {
         throw new Error(
           'Received a length-suffixed chunk while already processing a message',
         );
       }
-      const chunk = packet as WebRtcLengthSuffixedSessionMessageChunk;
+      const chunk = packet as WebRtcLengthSuffixedWireMessageChunk;
       this.totalMessageSize += chunk.chunk.length;
       this.totalChunksExpected = chunk.length;
       await this.chunkStore.put(
         0,
         {
           data: chunk.chunk,
-          metadata: {},
+          metadata: { mimetype: '' },
         },
         chunk.seq === this.totalChunksExpected - 1,
       );
@@ -466,7 +467,7 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
 
   private readonly connection: RTCPeerConnection;
   private rtcDataChannel: RTCDataChannel;
-  private readonly channel: Channel<SessionMessage | null>;
+  private readonly channel: Channel<WireMessage | null>;
 
   private ready: boolean;
   private readonly mutex: Mutex;
@@ -494,7 +495,7 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
     this.rtcDataChannel = this.connection.createDataChannel(this.identity, {
       ordered: false,
     });
-    this.channel = new Channel<SessionMessage | null>();
+    this.channel = new Channel<WireMessage | null>();
 
     this.ready = false;
     this.mutex = new Mutex();
@@ -510,8 +511,8 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
     this._initialize(serverId).then();
   }
 
-  async receive(): Promise<SessionMessage> {
-    return this.channel.receive();
+  async receive(): Promise<WireMessage> {
+    return await this.channel.receive();
   }
 
   async feedWebRtcPacket(packet: WebRtcPacket) {
@@ -528,7 +529,7 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
     const isComplete = await chunkedMessage.feedPacket(packet);
     if (isComplete) {
       const messageData = await chunkedMessage.consume();
-      const message = await decodeSessionMessage(messageData);
+      const message = await decodeWireMessage(messageData);
       await this.mutex.runExclusive(async () => {
         await this.channel.send(message);
         this.chunkedMessages.delete(packet.transientId);
@@ -536,7 +537,7 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
     }
   }
 
-  async send(message: SessionMessage): Promise<void> {
+  async send(message: WireMessage): Promise<void> {
     let currentTransientId = 0;
 
     await this.mutex.runExclusive(async () => {
@@ -549,7 +550,7 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
       currentTransientId = this.nextTransientId++;
     });
 
-    const encoded = encodeSessionMessage(message);
+    const encoded = encodeWireMessage(message);
     const packets = splitDataIntoWebRtcPackets(
       encoded,
       currentTransientId,

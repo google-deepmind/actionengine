@@ -60,7 +60,7 @@ namespace act::net {
  * across all protocols, and it is only expected from the server to
  * accept incoming connections and pass them to the service. The service is
  * expected to handle the connections, including sending and receiving
- * session messages, managing the lifecycle of the connections, and
+ * wire messages, managing the lifecycle of the connections, and
  * handling any logical errors that may occur during the communication.
  *
  * Protocol-specific lifecycle management is better handled by the WireStream

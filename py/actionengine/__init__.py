@@ -53,7 +53,7 @@ NodeMap = node_map.NodeMap
 
 Service = eg_service.Service
 Session = eg_session.Session
-SessionMessage = data.SessionMessage
+WireMessage = data.WireMessage
 
 StreamToSessionConnection = eg_service.StreamToSessionConnection
 

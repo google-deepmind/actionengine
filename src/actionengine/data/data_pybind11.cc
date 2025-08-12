@@ -185,14 +185,21 @@ void BindNodeFragment(py::handle scope, std::string_view name) {
       .def(py::init<>())
       .def(py::init([](std::string id, Chunk chunk, int seq, bool continued) {
              return NodeFragment{.id = std::move(id),
-                                 .chunk = std::move(chunk),
+                                 .data = std::move(chunk),
                                  .seq = seq,
                                  .continued = continued};
            }),
            py::kw_only(), py::arg_v("id", ""), py::arg_v("chunk", Chunk()),
            py::arg_v("seq", 0), py::arg_v("continued", false))
       .def_readwrite("id", &NodeFragment::id)
-      .def_readwrite("chunk", &NodeFragment::chunk)
+      .def_property(
+          "chunk",
+          [](NodeFragment& fragment) -> Chunk& {
+            return std::get<Chunk>(fragment.data);
+          },
+          [](NodeFragment& fragment, const Chunk& chunk) {
+            fragment.data = chunk;
+          })
       .def_readwrite("seq", &NodeFragment::seq)
       .def_readwrite("continued", &NodeFragment::continued)
       .def("__repr__",
@@ -237,22 +244,22 @@ void BindActionMessage(py::handle scope, std::string_view name) {
       .doc() = "An ActionEngine ActionMessage definition.";
 }
 
-void BindSessionMessage(py::handle scope, std::string_view name) {
-  py::class_<SessionMessage>(scope, std::string(name).c_str())
+void BindWireMessage(py::handle scope, std::string_view name) {
+  py::class_<WireMessage>(scope, std::string(name).c_str())
       .def(py::init<>())
       .def(py::init([](std::vector<NodeFragment> node_fragments,
                        std::vector<ActionMessage> actions) {
-             return SessionMessage{.node_fragments = std::move(node_fragments),
-                                   .actions = std::move(actions)};
+             return WireMessage{.node_fragments = std::move(node_fragments),
+                                .actions = std::move(actions)};
            }),
            py::kw_only(),
            py::arg_v("node_fragments", std::vector<NodeFragment>()),
            py::arg_v("actions", std::vector<ActionMessage>()))
-      .def_readwrite("node_fragments", &SessionMessage::node_fragments)
-      .def_readwrite("actions", &SessionMessage::actions)
+      .def_readwrite("node_fragments", &WireMessage::node_fragments)
+      .def_readwrite("actions", &WireMessage::actions)
       .def("__repr__",
-           [](const SessionMessage& message) { return absl::StrCat(message); })
-      .doc() = "An ActionEngine SessionMessage data structure.";
+           [](const WireMessage& message) { return absl::StrCat(message); })
+      .doc() = "An ActionEngine WireMessage data structure.";
 }
 
 void BindSerializerRegistry(py::handle scope, std::string_view name) {
@@ -384,7 +391,7 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
   BindNodeFragment(data, "NodeFragment");
   BindPort(data, "Port");
   BindActionMessage(data, "ActionMessage");
-  BindSessionMessage(data, "SessionMessage");
+  BindWireMessage(data, "WireMessage");
   BindSerializerRegistry(data, "SerializerRegistry");
 
   data.def("get_global_serializer_registry", []() {

@@ -52,6 +52,42 @@ std::string Indent(std::string field, int num_spaces, bool indent_first_line) {
 
 namespace act {
 
+bool Chunk::IsNull() const {
+  return (!metadata || metadata->mimetype == kMimetypeBytes) && IsEmpty();
+}
+
+absl::StatusOr<std::reference_wrapper<Chunk>> NodeFragment::GetChunk() {
+  if (std::holds_alternative<Chunk>(data)) {
+    return std::get<Chunk>(data);
+  }
+  return absl::InvalidArgumentError(
+      "NodeFragment does not contain a Chunk, but a NodeRef instead.");
+}
+
+Chunk& NodeFragment::GetChunkOrDie() {
+  if (std::holds_alternative<Chunk>(data)) {
+    return std::get<Chunk>(data);
+  }
+  LOG(FATAL) << "NodeFragment does not contain a Chunk, but a NodeRef.";
+  ABSL_ASSUME(false);
+}
+
+absl::StatusOr<std::reference_wrapper<NodeRef>> NodeFragment::GetNodeRef() {
+  if (std::holds_alternative<NodeRef>(data)) {
+    return std::get<NodeRef>(data);
+  }
+  return absl::InvalidArgumentError(
+      "NodeFragment does not contain a NodeRef, but a Chunk instead.");
+}
+
+NodeRef& NodeFragment::GetNodeRefOrDie() {
+  if (std::holds_alternative<NodeRef>(data)) {
+    return std::get<NodeRef>(data);
+  }
+  LOG(FATAL) << "NodeFragment does not contain a NodeRef, but a Chunk.";
+  ABSL_ASSUME(false);
+}
+
 absl::Status EgltAssignInto(Chunk chunk, std::string* string) {
   if (const std::string chunk_mimetype = chunk.GetMimetype();
       !MimetypeIsTextual(chunk_mimetype)) {

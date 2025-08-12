@@ -74,7 +74,7 @@ absl::StatusOr<BytePacket> ParseBytePacket(std::vector<Byte>&& data) {
   data.erase(data.end() - sizeof(uint64_t), data.end());
   remaining_data_size -= sizeof(uint64_t);
 
-  // Plain SessionMessage
+  // Plain WireMessage
   if (type == BytePacketType::kCompleteBytes) {
     return CompleteBytesPacket{
         .serialized_message = std::vector(data.begin(), data.end()),
@@ -86,19 +86,19 @@ absl::StatusOr<BytePacket> ParseBytePacket(std::vector<Byte>&& data) {
   data.erase(data.end() - sizeof(uint32_t), data.end());
   remaining_data_size -= sizeof(uint32_t);
 
-  // SessionMessage Chunk
+  // WireMessage Chunk
   if (type == BytePacketType::kByteChunk) {
     std::vector chunk(data.begin(), data.end());
     return ByteChunkPacket{
         .chunk = std::move(chunk), .seq = seq, .transient_id = transient_id};
   }
 
-  // Length Suffix SessionMessage Chunk
+  // Length Suffix WireMessage Chunk
   if (type == BytePacketType::kLengthSuffixedByteChunk) {
     if (remaining_data_size < sizeof(uint32_t)) {
       return absl::InvalidArgumentError(
           "Invalid WebRtcActionEnginePacket: marked as "
-          "LengthSuffixedSessionMessageChunk but data size is less than 13");
+          "LengthSuffixedWireMessageChunk but data size is less than 13");
     }
 
     const uint32_t length = *reinterpret_cast<uint32_t*>(
@@ -124,7 +124,7 @@ std::vector<BytePacket> SplitBytesIntoPackets(const std::vector<Byte>& data,
   std::vector<BytePacket> packets;
 
   if (data.size() <= packet_size - sizeof(uint64_t) - 1) {
-    // If the data fits into a single packet, create a plain session message.
+    // If the data fits into a single packet, create a plain wire message.
     packets.emplace_back(CompleteBytesPacket{.serialized_message = data,
                                              .transient_id = transient_id});
     return packets;
@@ -291,7 +291,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedPacket(BytePacket packet) {
     auto& chunk = std::get<LengthSuffixedByteChunkPacket>(packet);
     if (total_expected_chunks_ != -1) {
       return absl::InvalidArgumentError(
-          "Cannot have more than one WebRtcLengthSuffixedSessionMessageChunk "
+          "Cannot have more than one WebRtcLengthSuffixedWireMessageChunk "
           "in a sequence");
     }
     total_message_size_ += chunk.chunk.size();

@@ -72,7 +72,7 @@ class PyWireStream final : public WireStream {
 
   PyWireStream() : WireStream() {}
 
-  absl::Status Send(SessionMessage message) override {
+  absl::Status Send(WireMessage message) override {
     py::gil_scoped_acquire gil;
     const py::function function = py::get_override(this, "send");
 
@@ -92,7 +92,7 @@ class PyWireStream final : public WireStream {
     return absl::OkStatus();
   }
 
-  absl::StatusOr<std::optional<SessionMessage>> Receive(
+  absl::StatusOr<std::optional<WireMessage>> Receive(
       absl::Duration timeout) override {
     py::gil_scoped_acquire gil;
     const py::function function = py::get_override(this, "receive");
@@ -110,7 +110,7 @@ class PyWireStream final : public WireStream {
     if (!result.ok() || result->is_none()) {
       return std::nullopt;
     }
-    return std::move(result)->cast<SessionMessage>();
+    return std::move(result)->cast<WireMessage>();
   }
 
   absl::Status Accept() override {

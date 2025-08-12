@@ -81,7 +81,7 @@ class ActionRegistry {
    *    Creates an ActionMessage for the action with the given name and ID.
    *
    * This method generates an ActionMessage that can be used to call the action
-   * by sending it in a SessionMessage over a WireStream.
+   * by sending it in a WireMessage over a WireStream.
    *
    * Note: TERMINATES if the action is not registered, so you must use
    * IsRegistered() before calling this method to ensure the action exists.

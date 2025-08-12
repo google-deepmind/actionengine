@@ -59,29 +59,74 @@ void CppackFromBytes(act::ChunkMetadata& obj, Unpacker& unpacker) {
 }
 
 void CppackToBytes(const act::Chunk& obj, Packer& packer) {
-  packer(obj.metadata);
-  packer(obj.ref);
   const std::vector<uint8_t> data(obj.data.begin(), obj.data.end());
   packer(data);
+  packer(obj.ref);
+  if (!obj.metadata) {
+    const std::optional<act::ChunkMetadata> empty_metadata;
+    packer(empty_metadata);
+  } else {
+    packer(obj.metadata.value());
+  }
 }
 
 void CppackFromBytes(act::Chunk& obj, Unpacker& unpacker) {
-  unpacker(obj.metadata);
-  unpacker(obj.ref);
   std::vector<uint8_t> data;
   unpacker(data);
   obj.data = std::string(data.begin(), data.end());
+  unpacker(obj.ref);
+  unpacker(obj.metadata);
+}
+
+void CppackToBytes(const act::NodeRef& obj, Packer& packer) {
+  packer(obj.id);
+  packer(obj.offset);
+  packer(obj.length);
+}
+
+void CppackFromBytes(act::NodeRef& obj, Unpacker& unpacker) {
+  unpacker(obj.id);
+  unpacker(obj.offset);
+  unpacker(obj.length);
 }
 
 void CppackToBytes(const act::NodeFragment& obj, Packer& packer) {
-  packer(obj.chunk);
+  uint8_t data_variant_index = 0;
+
+  if (std::holds_alternative<act::Chunk>(obj.data)) {
+    data_variant_index = 0;
+    packer(data_variant_index);
+    packer(std::get<act::Chunk>(obj.data));
+  } else if (std::holds_alternative<act::NodeRef>(obj.data)) {
+    data_variant_index = 1;
+    packer(data_variant_index);
+    packer(std::get<act::NodeRef>(obj.data));
+  } else {
+    LOG(FATAL) << "NodeFragment data must be either Chunk or NodeRef.";
+    ABSL_ASSUME(false);
+  }
   packer(obj.continued);
   packer(obj.id);
   packer(obj.seq);
 }
 
 void CppackFromBytes(act::NodeFragment& obj, Unpacker& unpacker) {
-  unpacker(obj.chunk);
+  uint8_t data_variant_index;
+  unpacker(data_variant_index);
+  if (data_variant_index == 0) {
+    act::Chunk chunk;
+    unpacker(chunk);
+    obj.data = std::move(chunk);
+  } else if (data_variant_index == 1) {
+    act::NodeRef node_ref;
+    unpacker(node_ref);
+    obj.data = std::move(node_ref);
+  } else {
+    LOG(FATAL) <<
+ "NodeFragment data must be either Chunk or NodeRef, got index "
+               << data_variant_index << ".";
+    ABSL_ASSUME(false);
+  }
   unpacker(obj.continued);
   unpacker(obj.id);
   unpacker(obj.seq);
@@ -111,14 +156,14 @@ void CppackFromBytes(act::ActionMessage& obj, Unpacker& unpacker) {
   unpacker(obj.outputs);
 }
 
-void CppackToBytes(const act::SessionMessage& obj, Packer& packer) {
+void CppackToBytes(const act::WireMessage& obj, Packer& packer) {
   packer(obj.node_fragments);
   packer(obj.actions);
 }
 
-void CppackFromBytes(act::SessionMessage& obj, Unpacker& unpacker) {
+void CppackFromBytes(act::WireMessage& obj, Unpacker& unpacker) {
   unpacker(obj.node_fragments);
   unpacker(obj.actions);
 }
 
-}  // namespace cppack
+} // namespace cppack

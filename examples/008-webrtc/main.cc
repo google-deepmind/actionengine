@@ -52,10 +52,10 @@ int main(int argc, char** argv) {
   for (int i = 0; i < 10; ++i) {
     auto status_or_stream = act::net::StartStreamWithSignalling(
         /*identity=*/act::GenerateUUID4(),
-        /*peer_identity=*/
-        absl::GetFlag(FLAGS_webrtc_signalling_identity),
-        /*address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
-        /*port=*/absl::GetFlag(FLAGS_webrtc_signalling_port));
+                     /*peer_identity=*/
+                     absl::GetFlag(FLAGS_webrtc_signalling_identity),
+                     /*address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
+                     /*port=*/absl::GetFlag(FLAGS_webrtc_signalling_port));
     if (!status_or_stream.ok()) {
       LOG(ERROR) << "Failed to start WebRTC stream: "
                  << status_or_stream.status().message();
@@ -64,19 +64,19 @@ int main(int argc, char** argv) {
 
     const auto stream = std::move(*std::move(status_or_stream));
 
-    act::SessionMessage session_message;
-    session_message.node_fragments.push_back({
+    act::WireMessage wire_message;
+    wire_message.node_fragments.push_back({
         .id = "test",
-        .chunk =
-            act::Chunk{.metadata = act::ChunkMetadata{.mimetype = "text/plain",
-                                                      .timestamp = absl::Now()},
-                       .data = absl::StrFormat(
-                           "Hello, Action Engine from client %v!", i)},
+        .data =
+        act::Chunk{.metadata = act::ChunkMetadata{.mimetype = "text/plain",
+                                                  .timestamp = absl::Now()},
+                   .data = absl::StrFormat(
+                       "Hello, Action Engine from client %v!", i)},
         .seq = 0,
         .continued = false,
     });
 
-    absl::Status send_status = stream->Send(std::move(session_message));
+    absl::Status send_status = stream->Send(std::move(wire_message));
     if (!send_status.ok()) {
       LOG(ERROR) << "Failed to send message over WebRTC stream: "
                  << send_status.message();

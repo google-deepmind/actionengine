@@ -31,7 +31,7 @@ Chunk = data_pybind11.Chunk
 NodeFragment = data_pybind11.NodeFragment
 Port = data_pybind11.Port
 ActionMessage = data_pybind11.ActionMessage
-SessionMessage = data_pybind11.SessionMessage
+WireMessage = data_pybind11.WireMessage
 
 ChunkStoreFactory = Callable[[str], chunk_store_pybind11.ChunkStore]
 

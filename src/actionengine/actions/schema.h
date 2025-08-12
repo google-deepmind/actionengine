@@ -41,7 +41,7 @@ class Action;
  * This file contains the definition of the ActionSchema class, which is used to
  * define the schema for an action, including its name, input and output
  * parameters with their respective mimetypes. The schema is used to create
- * ActionMessages that can be sent over a SessionMessage in a WireStream to
+ * ActionMessages that can be sent over a WireMessage in a WireStream to
  * call the action, as well as for well-defined preparation and cleanup.
  */
 
@@ -61,7 +61,7 @@ using NameToMimetype = absl::flat_hash_map<std::string, std::string>;
  * This class defines the schema for an action, including its name, input and
  * output parameters with their respective mimetypes. It provides a method to
  * create an ActionMessage that can be used to call the action by sending it
- * in a @see SessionMessage over a @see WireStream.
+ * in a @see WireMessage over a @see WireStream.
  *
  * @headerfile actionengine/actions/schema.h
  */
@@ -70,7 +70,7 @@ struct ActionSchema {
    *    Creates an ActionMessage to create an action instance with the given ID.
    *
    * This method generates an ActionMessage that can be used to call the action
-   * by sending it in a SessionMessage over a WireStream. The action ID is used
+   * by sending it in a WireMessage over a WireStream. The action ID is used
    * to uniquely identify the action instance.
    *
    * @param action_id

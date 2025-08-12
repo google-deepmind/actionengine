@@ -76,7 +76,7 @@ export class ChunkStoreWriter {
     await this.buffer.send({
       id: this.chunkStore.getId(),
       seq: writtenSeq,
-      chunk,
+      data: chunk,
       continued: !final,
     });
 
@@ -101,7 +101,7 @@ export class ChunkStoreWriter {
       try {
         this.chunkStore.put(
           nextFragment.seq,
-          nextFragment.chunk,
+          nextFragment.data as Chunk,
           !nextFragment.continued,
         );
       } catch (e) {

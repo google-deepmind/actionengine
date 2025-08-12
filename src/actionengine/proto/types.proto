@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package actionengine.proto;
+
+import "google/protobuf/timestamp.proto";
+
+/** ActionEngine chunk metadata.
+ *
+ *  This structure is used to store metadata about a chunk of data in the
+ *  ActionEngine format. It includes fields for mimetype and timestamp.
+ */
+message ChunkMetadata {
+  /** The mimetype of the data in the chunk. */
+  string mimetype = 1;
+
+  /** The timestamp associated with the chunk. */
+  optional google.protobuf.Timestamp timestamp = 2;
+}
+
+/** ActionEngine chunk.
+ *
+ *  This structure is used to store a chunk of data in the ActionEngine format.
+ *  It includes fields for metadata, a reference to the data, and the actual
+ *  data itself. Data can be either a reference or the actual data, but not both.
+ */
+message Chunk {
+  /** The metadata associated with the chunk.
+   *
+   * This includes the mimetype and timestamp of the chunk.
+   */
+  optional ChunkMetadata metadata = 1;
+
+  /** A reference to the data in the chunk.
+   *
+   * This is a string that can be used to reference the data in an external
+   * storage system, such as a database, object store, or file system.
+   * It is used when the data is too large to be sent directly in the chunk.
+   * If this field is set, the `data` field should be empty.
+   */
+  string ref = 2;
+
+  /** The inline data in the chunk.
+   *
+   * This is a (raw byte) string that contains the actual data of the chunk.
+   * It is used when the data is small enough to be sent directly in the chunk.
+   * If this field is set, the `ref` field should be empty.
+   */
+  bytes data = 3;
+}
+
+message NodeRef {
+  /** The node ID for this reference. */
+  string id = 1;
+
+  /** The start offset of the span, if any. */
+  uint32 offset = 2;
+
+  /** The length of the span, if any.
+   *
+   * This is the number of bytes in the span, starting from the offset.
+   * If this field is not set, it means the span extends to the end of the node.
+   */
+  optional uint32 length = 3;
+}
+
+message NodeFragment {
+  /** The node ID for this fragment. */
+  string id = 1;
+
+  oneof payload {
+    /** The chunk of data associated with the node fragment. */
+    Chunk chunk = 2;
+
+    /** A reference to a node span.
+     *
+     * This is used to nest and interleave streams.
+     */
+    NodeRef ref = 3;
+  }
+
+  /** The chunk's order in the sequence. */
+  optional int32 seq = 4;
+
+  /** A flag indicating whether more fragments are expected. */
+  bool continued = 5;
+}
+
+/** A mapping of a parameter name to its node ID in an action. */
+message Port {
+  /** The name of the port. */
+  string name = 1;
+
+  /** The node ID of the port. */
+  string type = 2;
+}
+
+/**
+ * An action message containing the information necessary to call an action.
+ *
+ * This structure represents an ActionEngine action call, which can be sent
+ * on the wire level (in a WireMessage).
+ */
+message ActionMessage {
+  /** The identifier of this action instance. */
+  string id = 1;
+
+  /** The name of the action to call (look up in the ActionRegistry) */
+  string name = 2;
+
+  /** The input ports for the action.
+   *
+   * These are the parameters that the action expects to receive. Each port
+   * is represented by a Port structure, which contains the name and ID of the
+   * port.
+   */
+  repeated Port inputs = 3;
+
+  /** The output ports for the action.
+   *
+   * These are the parameters that the action will produce as output. Each port
+   * is represented by a Port structure, which contains the name and ID of the
+   * port.
+   */
+  repeated Port outputs = 4;
+}
+
+/**
+ * A message type containing node fragments and action calls.
+ *
+ * This structure represents a message that can be sent over a stream in the
+ * ActionEngine format. It contains a list of node fragments and a list of
+ * action messages. This is the singular unit of communication in ActionEngine,
+ * and it is used to send data and actions between nodes in the system.
+ */
+message WireMessage {
+  /** A list of node fragments, each representing a piece of data for some node. */
+  repeated NodeFragment node_fragments = 1;
+
+  /**
+   * A list of action messages, each representing an action to be called by
+   * the receiving node or some end destination in case of a router/proxy.
+   */
+  repeated ActionMessage actions = 2;
+}

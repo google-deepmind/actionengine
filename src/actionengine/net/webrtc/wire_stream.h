@@ -96,7 +96,7 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
  *
  * @headerfile actionengine/net/webrtc/wire_stream.h
  *
- * It supports sending and receiving ActionEngine session messages over
+ * It supports sending and receiving ActionEngine wire messages over
  * a WebRTC data channel. This class is designed to be used in both
  * client and server contexts, allowing for flexible communication patterns.
  */
@@ -111,9 +111,9 @@ class WebRtcWireStream final : public WireStream {
 
   ~WebRtcWireStream() override;
 
-  absl::Status Send(SessionMessage message) override;
+  absl::Status Send(WireMessage message) override;
 
-  absl::StatusOr<std::optional<SessionMessage>> Receive(
+  absl::StatusOr<std::optional<WireMessage>> Receive(
       absl::Duration timeout) override;
 
   absl::Status Start() override { return absl::OkStatus(); }
@@ -136,7 +136,7 @@ class WebRtcWireStream final : public WireStream {
   }
 
  private:
-  absl::Status SendInternal(SessionMessage message)
+  absl::Status SendInternal(WireMessage message)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Status HalfCloseInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
@@ -151,7 +151,7 @@ class WebRtcWireStream final : public WireStream {
   const std::string id_;
   std::shared_ptr<rtc::PeerConnection> connection_;
   std::shared_ptr<rtc::DataChannel> data_channel_;
-  thread::Channel<SessionMessage> recv_channel_{kBufferSize};
+  thread::Channel<WireMessage> recv_channel_{kBufferSize};
 
   absl::flat_hash_map<uint64_t, std::unique_ptr<data::ChunkedBytes>>
       chunked_messages_ ABSL_GUARDED_BY(mu_) = {};

@@ -48,7 +48,7 @@ WebsocketWireStream::WebsocketWireStream(FiberAwareWebsocketStream stream,
     : stream_(std::move(stream)),
       id_(id.empty() ? GenerateUUID4() : std::string(id)) {}
 
-absl::Status WebsocketWireStream::Send(SessionMessage message) {
+absl::Status WebsocketWireStream::Send(WireMessage message) {
   act::MutexLock lock(&mu_);
 
   if (half_closed_) {
@@ -63,7 +63,7 @@ absl::Status WebsocketWireStream::Send(SessionMessage message) {
   return SendInternal(std::move(message));
 }
 
-absl::StatusOr<std::optional<SessionMessage>> WebsocketWireStream::Receive(
+absl::StatusOr<std::optional<WireMessage>> WebsocketWireStream::Receive(
     absl::Duration timeout) {
   act::MutexLock lock(&mu_);
 
@@ -82,16 +82,15 @@ absl::StatusOr<std::optional<SessionMessage>> WebsocketWireStream::Receive(
     return status;
   }
 
-  // Unpack the received data into a SessionMessage.
+  // Unpack the received data into a WireMessage.
   mu_.Unlock();
-  absl::StatusOr<SessionMessage> unpacked =
-      cppack::Unpack<SessionMessage>(buffer);
+  absl::StatusOr<WireMessage> unpacked = cppack::Unpack<WireMessage>(buffer);
   mu_.Lock();
   if (!unpacked.ok()) {
     return unpacked.status();
   }
 
-  // Empty SessionMessage indicates a half-close.
+  // Empty WireMessage indicates a half-close.
   if (unpacked->actions.empty() && unpacked->node_fragments.empty()) {
     // If the message is empty, it means the stream was half-closed by the
     // other end, or the other end has acknowledged our half-close.
@@ -144,7 +143,7 @@ void WebsocketWireStream::Abort() {
   status_ = absl::CancelledError("WebsocketWireStream aborted");
 }
 
-absl::Status WebsocketWireStream::SendInternal(SessionMessage message) {
+absl::Status WebsocketWireStream::SendInternal(WireMessage message) {
   mu_.Unlock();
   auto status = stream_.Write(cppack::Pack(std::move(message)));
   mu_.Lock();
@@ -158,7 +157,7 @@ absl::Status WebsocketWireStream::HalfCloseInternal() {
   }
 
   half_closed_ = true;
-  RETURN_IF_ERROR(SendInternal(SessionMessage{}));
+  RETURN_IF_ERROR(SendInternal(WireMessage{}));
 
   return absl::OkStatus();
 }

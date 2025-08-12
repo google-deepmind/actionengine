@@ -113,7 +113,7 @@ class Session {
 
   void DispatchFrom(const std::shared_ptr<WireStream>& stream,
                     absl::AnyInvocable<void()> on_done = {});
-  absl::Status DispatchMessage(SessionMessage message,
+  absl::Status DispatchMessage(WireMessage message,
                                WireStream* absl_nullable stream = nullptr);
 
   void StopDispatchingFrom(WireStream* absl_nonnull stream);

@@ -136,8 +136,7 @@ void BindPort(py::handle scope, std::string_view name = "Port");
 void BindActionMessage(py::handle scope,
                        std::string_view name = "ActionMessage");
 
-void BindSessionMessage(py::handle scope,
-                        std::string_view name = "SessionMessage");
+void BindWireMessage(py::handle scope, std::string_view name = "WireMessage");
 
 void BindSerializerRegistry(py::handle scope,
                             std::string_view name = "SerializerRegistry");

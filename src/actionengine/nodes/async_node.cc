@@ -106,23 +106,19 @@ absl::Status AsyncNode::PutInternal(NodeFragment fragment)
     }
   }
 
-  if (!fragment.chunk) {
-    return absl::OkStatus();
-  }
-
-  return PutInternal(*std::move(fragment.chunk), fragment.seq,
-                     !fragment.continued);
+  return PutInternal(std::move(fragment.GetChunkOrDie()),
+                     fragment.seq.value_or(-1), !fragment.continued);
 }
 
 absl::Status AsyncNode::PutInternal(Chunk chunk, int seq, bool final)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   ChunkStoreWriter* writer = EnsureWriter();
 
-  SessionMessage message_for_peers;
+  WireMessage message_for_peers;
   if (!peers_.empty()) {
     message_for_peers.node_fragments.push_back(
         NodeFragment{.id = std::string(chunk_store_->GetId()),
-                     .chunk = chunk,
+                     .data = chunk,
                      .seq = seq,
                      .continued = !final});
   }
@@ -224,7 +220,7 @@ auto AsyncNode::Put(Chunk value, int seq, bool final) -> absl::Status {
   const bool continued = !final && !value.IsNull();
   return PutInternal(NodeFragment{
       .id = std::string(chunk_store_->GetId()),
-      .chunk = std::move(value),
+      .data = std::move(value),
       .seq = seq,
       .continued = continued,
   });

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { decodeSessionMessage, encodeSessionMessage } from './msgpack.js';
+import { decodeWireMessage, encodeWireMessage } from './msgpack.js';
 
 const sockets = new Map() as Map<string, WebSocket>;
 
@@ -42,7 +42,7 @@ addEventListener('message', (event) => {
           postMessage({
             type: 'message',
             socketId,
-            message: await decodeSessionMessage(wsEvent.data),
+            message: await decodeWireMessage(wsEvent.data),
           });
         };
 
@@ -67,7 +67,7 @@ addEventListener('message', (event) => {
 
     case 'send':
       if (sockets.has(socketId)) {
-        const encoded = encodeSessionMessage(message);
+        const encoded = encodeWireMessage(message);
         sockets.get(socketId).send(encoded);
       } else {
         postMessage({ type: 'error', socketId, message: 'Socket not found' });

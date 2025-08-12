@@ -52,6 +52,9 @@ cmake \
   -DABSL_BUILD_TESTING=OFF \
   -DABSL_BUILD_TEST_HELPERS=ON \
   -DABSL_RUN_TESTS=OFF \
+  -DINSTALL_GTEST=OFF \
+  -DABSL_USE_EXTERNAL_GOOGLETEST=ON \
+  -DGTest_DIR="${googletest_install_dir}/lib/cmake/gtest" \
   -DABSL_LOCAL_GOOGLETEST_DIR="${third_party_root}/googletest" \
   -DABSL_FIND_GOOGLETEST=ON \
   -DCMAKE_PREFIX_PATH="${googletest_install_dir}" \
@@ -179,6 +182,24 @@ cmake \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DUVW_BUILD_SHARED_LIB=OFF \
   -DUVW_BUILD_LIBS=ON \
+  -G "Ninja" \
+  ..
+cmake --build . --parallel "${parallelism}" --target install
+cd "${third_party_root}"
+
+# protobuf
+mkdir -p build_deps/protobuf && cd protobuf
+mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
+cmake \
+  -DBUILD_SHARED_LIBS=OFF \
+  -Dprotobuf_BUILD_TESTS=OFF \
+  -Dprotobuf_BUILD_PROTOC_BINARIES=ON \
+  -Dabsl_DIR="${abseil_install_dir}/lib/cmake/absl" \
+  -DGTest_DIR="${googletest_install_dir}/lib/cmake/gtest" \
+  -DCMAKE_CXX_STANDARD="${cc_standard}" \
+  -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/protobuf" \
+  -DCMAKE_PREFIX_PATH="${third_party_root}/build_deps/protobuf:${third_party_root}/build_deps/googletest:${third_party_root}/build_deps/abseil-cpp" \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${parallelism}" --target install

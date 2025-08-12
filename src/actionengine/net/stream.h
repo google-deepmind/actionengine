@@ -46,7 +46,7 @@ class WireStream {
   virtual ~WireStream() = default;
 
   /**
-   * Sends a SessionMessage over the stream.
+   * Sends a WireMessage over the stream.
    *
    * May or may not block, depending on the implementation. For example,
    * WebsocketWireStream will block until the message is sent, while
@@ -61,19 +61,19 @@ class WireStream {
    * error.
    *
    * @param message
-   *   The SessionMessage to send, containing action calls (in the form of
+   *   The WireMessage to send, containing action calls (in the form of
    *   multiple ActionMessage) and/or node fragments.
    * @return
    *   An OK status unless the stream is in a state where it cannot send
    *   messages, such as being half-closed or closed.
    * @note
-   *   Implementations of WireStream should and will treat a SessionMessage
+   *   Implementations of WireStream should and will treat a WireMessage
    *   with no actions or node fragments as an initiation or acknowledgment of a
    *   half-close.
    */
-  virtual auto Send(SessionMessage message) -> absl::Status = 0;
+  virtual auto Send(WireMessage message) -> absl::Status = 0;
   /**
-   * Receives an ActionEngine session message from the stream.
+   * Receives an ActionEngine wire message from the stream.
    *
    * Blocks to wait for a message to be received, up to the specified timeout.
    *
@@ -82,7 +82,7 @@ class WireStream {
    *   If the timeout is reached, the function will return an
    *   `absl::DeadlineExceededError`.
    * @return
-   *   An optional SessionMessage if a message is received within the
+   *   An optional WireMessage if a message is received within the
    *   specified timeout. An empty optional indicates that no message will be
    *   received.
    * @note
@@ -98,7 +98,7 @@ class WireStream {
    *   terminate gracefully when the stream is aborted.
    */
   virtual auto Receive(absl::Duration timeout)
-      -> absl::StatusOr<std::optional<SessionMessage>> = 0;
+      -> absl::StatusOr<std::optional<WireMessage>> = 0;
 
   /**
    * Accepts the stream on the server side.

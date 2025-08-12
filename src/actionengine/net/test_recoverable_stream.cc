@@ -107,7 +107,7 @@
 //       .seq = 0,
 //       .continued = false,
 //   };
-//   act::SessionMessage message{
+//   act::WireMessage message{
 //       .node_fragments = {fragment},
 //   };
 //
@@ -156,7 +156,7 @@
 //       .seq = 0,
 //       .continued = false,
 //   };
-//   act::SessionMessage message{
+//   act::WireMessage message{
 //       .node_fragments = {fragment},
 //   };
 //
@@ -221,7 +221,7 @@
 //       .seq = 0,
 //       .continued = false,
 //   };
-//   act::SessionMessage message{
+//   act::WireMessage message{
 //       .node_fragments = {fragment},
 //   };
 //
@@ -294,7 +294,7 @@
 //       .seq = 0,
 //       .continued = false,
 //   };
-//   act::SessionMessage message{
+//   act::WireMessage message{
 //       .node_fragments = {fragment},
 //   };
 //

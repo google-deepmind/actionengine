@@ -33,9 +33,15 @@ declare interface RefChunk {
 
 declare type Chunk = DataChunk | RefChunk;
 
+declare interface NodeRef {
+  readonly id: string;
+  readonly offset: number;
+  readonly length?: number;
+}
+
 declare interface NodeFragment {
   readonly id: string;
-  readonly chunk: Chunk;
+  readonly data: Chunk | NodeRef;
   readonly seq: number;
   readonly continued: boolean;
 }
@@ -52,7 +58,7 @@ declare interface ActionMessage {
   outputs: Port[];
 }
 
-declare interface SessionMessage {
+declare interface WireMessage {
   nodeFragments?: NodeFragment[];
   actions?: ActionMessage[];
 }

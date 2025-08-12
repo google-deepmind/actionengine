@@ -91,7 +91,7 @@ void RecoverableStream::CloseAndNotify() {
   cv_.SignalAll();
 }
 
-absl::Status RecoverableStream::Send(SessionMessage message) {
+absl::Status RecoverableStream::Send(WireMessage message) {
   act::MutexLock lock(&mu_);
   auto stream = GetObservedStream();
   if (!stream.ok()) {
@@ -108,7 +108,7 @@ absl::Status RecoverableStream::Send(SessionMessage message) {
   return status;
 }
 
-absl::StatusOr<std::optional<SessionMessage>> RecoverableStream::Receive(
+absl::StatusOr<std::optional<WireMessage>> RecoverableStream::Receive(
     absl::Duration timeout) {
   act::MutexLock lock(&mu_);
   auto stream = GetObservedStream();

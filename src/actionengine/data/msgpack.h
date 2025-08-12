@@ -26,7 +26,6 @@ namespace cppack {
 class Packer;
 class Unpacker;
 }  // namespace cppack
-
 namespace cppack {
 
 void CppackToBytes(const absl::Status& status, Packer& packer);
@@ -41,6 +40,9 @@ void CppackFromBytes(act::ChunkMetadata& obj, Unpacker& unpacker);
 void CppackToBytes(const act::Chunk& obj, Packer& packer);
 void CppackFromBytes(act::Chunk& obj, Unpacker& unpacker);
 
+void CppackToBytes(const act::NodeRef& obj, Packer& packer);
+void CppackFromBytes(act::NodeRef& obj, Unpacker& unpacker);
+
 void CppackToBytes(const act::NodeFragment& obj, Packer& packer);
 void CppackFromBytes(act::NodeFragment& obj, Unpacker& unpacker);
 
@@ -50,8 +52,8 @@ void CppackFromBytes(act::Port& obj, Unpacker& unpacker);
 void CppackToBytes(const act::ActionMessage& obj, Packer& packer);
 void CppackFromBytes(act::ActionMessage& obj, Unpacker& unpacker);
 
-void CppackToBytes(const act::SessionMessage& obj, Packer& packer);
-void CppackFromBytes(act::SessionMessage& obj, Unpacker& unpacker);
+void CppackToBytes(const act::WireMessage& obj, Packer& packer);
+void CppackFromBytes(act::WireMessage& obj, Unpacker& unpacker);
 
 }  // namespace cppack
 

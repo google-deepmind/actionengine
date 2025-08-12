@@ -41,13 +41,12 @@ export class Session {
     this.bindStream(stream).then();
   }
 
-  async dispatchMessage(message: SessionMessage) {
+  async dispatchMessage(message: WireMessage) {
     for (const fragment of message.nodeFragments) {
       const node = await this.nodeMap.getNode(fragment.id);
-      if (fragment.chunk !== null) {
-        const isFinal = !fragment.continued || isNullChunk(fragment.chunk);
-        node.put(fragment.chunk, fragment.seq, isFinal).then();
-      }
+      const isFinal =
+        !fragment.continued || isNullChunk(fragment.data as Chunk);
+      node.put(fragment.data as Chunk, fragment.seq, isFinal).then();
     }
     for (const actionMessage of message.actions) {
       await this._mutex.runExclusive(() => {
@@ -95,7 +94,7 @@ export class Session {
 
   async run() {
     while (true) {
-      let message: SessionMessage | null = null;
+      let message: WireMessage | null = null;
 
       try {
         await this._mutex.runExclusive(async () => {

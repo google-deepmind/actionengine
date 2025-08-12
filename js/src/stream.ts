@@ -26,7 +26,7 @@ class WSWorkerManager {
   private _openHandlers: Map<string, () => void | Promise<void>>;
   private _messageHandlers: Map<
     string,
-    (msg: SessionMessage) => void | Promise<void>
+    (msg: WireMessage) => void | Promise<void>
   >;
   private _errorHandlers: Map<
     string,
@@ -94,7 +94,7 @@ class WSWorkerManager {
     socketId: string,
     url: string,
     onOpen?: () => void | Promise<void>,
-    onMessage?: (msg: SessionMessage) => void | Promise<void>,
+    onMessage?: (msg: WireMessage) => void | Promise<void>,
     onError?: (message: string) => void | Promise<void>,
     onClose?: (event?: CloseEvent) => void | Promise<void>,
   ) {
@@ -113,7 +113,7 @@ class WSWorkerManager {
       this._closeHandlers.delete(socketId);
     });
 
-    const send = (message: SessionMessage) => {
+    const send = (message: WireMessage) => {
       if (!this._messageHandlers.has(socketId)) {
         throw new Error(`Socket with id ${socketId} does not exist`);
       }
@@ -149,21 +149,21 @@ class WSWorkerManager {
 }
 
 export interface BaseActionEngineStream {
-  receive(): Promise<SessionMessage>;
-  send(message: SessionMessage): Promise<void>;
+  receive(): Promise<WireMessage>;
+  send(message: WireMessage): Promise<void>;
   close(): Promise<void>;
 }
 
 export class ActionEngineStream implements BaseActionEngineStream {
   private readonly uid: string;
 
-  private channel: Channel<SessionMessage | null>;
+  private channel: Channel<WireMessage | null>;
 
   private readonly mutex: Mutex;
   private readonly cv: CondVar;
 
   private socket: {
-    send: (message: SessionMessage) => void;
+    send: (message: WireMessage) => void;
     close: () => void;
   };
   private socketOpen: boolean;
@@ -172,7 +172,7 @@ export class ActionEngineStream implements BaseActionEngineStream {
   constructor(url: string) {
     this.uid = uuidv4();
 
-    this.channel = new Channel<SessionMessage | null>();
+    this.channel = new Channel<WireMessage | null>();
 
     this.socketOpen = false;
     this.closed = false;
@@ -198,7 +198,7 @@ export class ActionEngineStream implements BaseActionEngineStream {
       });
     };
 
-    const onmessage = async (message: SessionMessage) => {
+    const onmessage = async (message: WireMessage) => {
       await this.channel.sendNowait(message);
     };
 
@@ -227,11 +227,11 @@ export class ActionEngineStream implements BaseActionEngineStream {
     };
   }
 
-  async receive(): Promise<SessionMessage> {
+  async receive(): Promise<WireMessage> {
     return await this.channel.receive();
   }
 
-  async send(message: SessionMessage) {
+  async send(message: WireMessage) {
     await this.mutex.runExclusive(async () => {
       if (this.closed) {
         throw new Error('Stream is closed');

@@ -1,3 +1,5 @@
+find_package(Protobuf REQUIRED)
+
 add_executable(
         000-actions
         main.cc
@@ -15,4 +17,5 @@ target_link_libraries(
         act::service
         act::net::websockets
         act::net::webrtc
+        act::proto
 )

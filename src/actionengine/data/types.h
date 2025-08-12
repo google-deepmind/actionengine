@@ -32,6 +32,7 @@
 #include <absl/base/optimization.h>
 #include <absl/log/log.h>
 #include <absl/status/status.h>
+#include <absl/status/statusor.h>
 #include <absl/strings/str_cat.h>
 #include <absl/strings/str_format.h>
 #include <absl/time/time.h>
@@ -48,7 +49,7 @@ std::vector<std::string> Indent(std::vector<std::string> fields,
 
 std::string Indent(std::string field, int num_spaces = 0,
                    bool indent_first_line = false);
-}  // namespace internal
+} // namespace internal
 
 /**
  *  ActionEngine chunk metadata.
@@ -123,9 +124,7 @@ struct Chunk {
    * @return
    *   true if the chunk is empty, false otherwise.
    */
-  [[nodiscard]] bool IsNull() const {
-    return (!metadata || metadata->mimetype == kMimetypeBytes) && IsEmpty();
-  }
+  [[nodiscard]] bool IsNull() const;
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const Chunk& chunk);
@@ -133,6 +132,26 @@ struct Chunk {
   friend bool operator==(const Chunk& lhs, const Chunk& rhs) {
     return lhs.metadata == rhs.metadata && lhs.ref == rhs.ref &&
            lhs.data == rhs.data;
+  }
+};
+
+struct NodeRef {
+  /** The node ID for this reference. */
+  std::string id;
+
+  /** The start offset of the span, if any. */
+  uint32_t offset = 0;
+
+  /** The length of the span, if any.
+   *
+   * This is the number of bytes in the span, starting from the offset.
+   * If this field is not set, it means the span extends to the end of the node.
+   */
+  std::optional<uint32_t> length;
+
+  friend bool operator==(const NodeRef& lhs, const NodeRef& rhs) {
+    return lhs.id == rhs.id && lhs.offset == rhs.offset &&
+           lhs.length == rhs.length;
   }
 };
 
@@ -148,11 +167,11 @@ struct NodeFragment {
   /** The node ID for this fragment. */
   std::string id;
 
-  /** The chunk of data associated with the node fragment. May be empty. */
-  std::optional<Chunk> chunk = std::nullopt;
+  /** The data associated with the node fragment. */
+  std::variant<Chunk, NodeRef> data = Chunk{};
 
   /** The chunk's order in the sequence. -1 means "undefined" or "not set". */
-  int32_t seq = -1;
+  std::optional<int32_t> seq;
 
   /** A flag indicating whether more fragments are expected. */
   bool continued = false;
@@ -161,9 +180,15 @@ struct NodeFragment {
   friend void AbslStringify(Sink& sink, const NodeFragment& fragment);
 
   friend bool operator==(const NodeFragment& lhs, const NodeFragment& rhs) {
-    return lhs.id == rhs.id && lhs.chunk == rhs.chunk && lhs.seq == rhs.seq &&
+    return lhs.id == rhs.id && lhs.data == rhs.data && lhs.seq == rhs.seq &&
            lhs.continued == rhs.continued;
   }
+
+  absl::StatusOr<std::reference_wrapper<Chunk>> GetChunk();
+  Chunk& GetChunkOrDie();
+
+  absl::StatusOr<std::reference_wrapper<NodeRef>> GetNodeRef();
+  NodeRef& GetNodeRefOrDie();
 };
 
 /// A mapping of a parameter name to its node ID in an action.
@@ -184,17 +209,13 @@ struct Port {
  * An action message containing the information necessary to call an action.
  *
  * This structure represents an ActionEngine action call, which can be sent
- * on the wire level (in a SessionMessage).
+ * on the wire level (in a WireMessage).
  */
 struct ActionMessage {
   /** The identifier of the action instance. */
   std::string id;
 
-  /**
-   * The name of the action to call.
-   *
-   * This name is used to look up the action in the ActionRegistry.
-   */
+  /** The name of the action to call (look up in the ActionRegistry) */
   std::string name;
 
   /** The input ports for the action.
@@ -232,7 +253,7 @@ struct ActionMessage {
  *
  * @headerfile actionengine/data/types.h
  */
-struct SessionMessage {
+struct WireMessage {
   /** A list of node fragments, each representing a piece of data for some node. */
   std::vector<NodeFragment> node_fragments;
 
@@ -243,9 +264,9 @@ struct SessionMessage {
   std::vector<ActionMessage> actions;
 
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const SessionMessage& message);
+  friend void AbslStringify(Sink& sink, const WireMessage& message);
 
-  friend bool operator==(const SessionMessage& lhs, const SessionMessage& rhs) {
+  friend bool operator==(const WireMessage& lhs, const WireMessage& rhs) {
     return lhs.node_fragments == rhs.node_fragments &&
            lhs.actions == rhs.actions;
   }
@@ -287,12 +308,21 @@ void AbslStringify(Sink& sink, const NodeFragment& fragment) {
   if (!fragment.id.empty()) {
     absl::Format(&sink, "id: %s\n", fragment.id);
   }
-  if (fragment.chunk.has_value()) {
-    absl::Format(&sink, "chunk: \n%s",
-                 internal::Indent(absl::StrCat(*fragment.chunk), 2, true));
+  if (std::holds_alternative<Chunk>(fragment.data)) {
+    absl::Format(&sink, "data: \n%s",
+                 internal::Indent(absl::StrCat(std::get<Chunk>(fragment.data)),
+                                  2, true));
+  } else if (std::holds_alternative<NodeRef>(fragment.data)) {
+    const auto& node_ref = std::get<NodeRef>(fragment.data);
+    absl::Format(&sink, "node_ref: id: %s, offset: %d", node_ref.id,
+                 node_ref.offset);
+    if (node_ref.length.has_value()) {
+      absl::Format(&sink, ", length: %d", *node_ref.length);
+    }
+    sink.Append("\n");
   }
-  if (fragment.seq != -1) {
-    absl::Format(&sink, "seq: %d\n", fragment.seq);
+  if (fragment.seq) {
+    absl::Format(&sink, "seq: %d\n", *fragment.seq);
   }
   if (!fragment.continued) {
     sink.Append("continued: false\n");
@@ -331,7 +361,7 @@ void AbslStringify(Sink& sink, const ActionMessage& action) {
 }
 
 template <typename Sink>
-void AbslStringify(Sink& sink, const SessionMessage& message) {
+void AbslStringify(Sink& sink, const WireMessage& message) {
   if (!message.node_fragments.empty()) {
     sink.Append("node_fragments: \n");
     for (const auto& node_fragment : message.node_fragments) {
@@ -349,14 +379,16 @@ void AbslStringify(Sink& sink, const SessionMessage& message) {
 }
 
 template <typename T>
-concept ConvertibleToChunk = requires(T t) {
+concept ConvertibleToChunk = requires(T t)
+{
   {
     EgltAssignInto(std::move(t), std::declval<Chunk*>())
   } -> std::same_as<absl::Status>;
 };
 
 template <typename T>
-concept ConvertibleFromChunk = requires(Chunk chunk) {
+concept ConvertibleFromChunk = requires(Chunk chunk)
+{
   {
     EgltAssignInto(std::move(chunk), std::declval<T*>())
   } -> std::same_as<absl::Status>;
@@ -369,6 +401,6 @@ constexpr Chunk EndOfStream() {
   };
 }
 
-}  // namespace act
+} // namespace act
 
 #endif  // ACTIONENGINE_DATA_TYPES_H_

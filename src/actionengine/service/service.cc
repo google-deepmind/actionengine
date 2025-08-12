@@ -42,7 +42,7 @@ absl::Status RunSimpleSession(std::shared_ptr<WireStream> stream,
   const auto owned_stream = std::move(stream);
   absl::Status status;
   while (!thread::Cancelled()) {
-    absl::StatusOr<std::optional<SessionMessage>> message =
+    absl::StatusOr<std::optional<WireMessage>> message =
         owned_stream->Receive(session->GetRecvTimeout());
     if (!message.ok()) {
       status = message.status();

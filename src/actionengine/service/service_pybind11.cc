@@ -55,7 +55,7 @@ void BindStream(py::handle scope, std::string_view name) {
       .def(
           "receive",
           [](const std::shared_ptr<WireStream>& self,
-             double timeout) -> absl::StatusOr<std::optional<SessionMessage>> {
+             double timeout) -> absl::StatusOr<std::optional<WireMessage>> {
             const absl::Duration timeout_duration =
                 timeout < 0 ? absl::InfiniteDuration() : absl::Seconds(timeout);
             return self->Receive(timeout_duration);

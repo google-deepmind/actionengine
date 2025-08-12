@@ -225,9 +225,8 @@ WebRtcWireStream::WebRtcWireStream(
         }
 
         mu_.Unlock();
-        absl::StatusOr<SessionMessage> unpacked =
-            cppack::Unpack<SessionMessage>(
-                std::vector(*std::move(message_data)));
+        absl::StatusOr<WireMessage> unpacked =
+            cppack::Unpack<WireMessage>(std::vector(*std::move(message_data)));
         mu_.Lock();
 
         if (!unpacked.ok()) {
@@ -290,7 +289,7 @@ WebRtcWireStream::~WebRtcWireStream() {
   connection_->close();
 }
 
-absl::Status WebRtcWireStream::Send(SessionMessage message) {
+absl::Status WebRtcWireStream::Send(WireMessage message) {
   act::MutexLock lock(&mu_);
 
   if (!status_.ok()) {
@@ -305,7 +304,7 @@ absl::Status WebRtcWireStream::Send(SessionMessage message) {
   return SendInternal(std::move(message));
 }
 
-absl::Status WebRtcWireStream::SendInternal(SessionMessage message)
+absl::Status WebRtcWireStream::SendInternal(WireMessage message)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   while (!opened_ && !closed_) {
     cv_.Wait(&mu_);
@@ -339,7 +338,7 @@ absl::Status WebRtcWireStream::SendInternal(SessionMessage message)
   return status;
 }
 
-absl::StatusOr<std::optional<SessionMessage>> WebRtcWireStream::Receive(
+absl::StatusOr<std::optional<WireMessage>> WebRtcWireStream::Receive(
     absl::Duration timeout) {
   const absl::Time now = absl::Now();
   act::MutexLock lock(&mu_);
@@ -347,7 +346,7 @@ absl::StatusOr<std::optional<SessionMessage>> WebRtcWireStream::Receive(
   const absl::Time deadline =
       !half_closed_ ? now + timeout : now + kHalfCloseTimeout;
 
-  SessionMessage message;
+  WireMessage message;
   bool ok;
 
   mu_.Unlock();
@@ -416,7 +415,7 @@ absl::Status WebRtcWireStream::HalfCloseInternal() {
   }
 
   half_closed_ = true;
-  RETURN_IF_ERROR(SendInternal(SessionMessage{}));
+  RETURN_IF_ERROR(SendInternal(WireMessage{}));
 
   return absl::OkStatus();
 }

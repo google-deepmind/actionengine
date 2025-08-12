@@ -104,7 +104,7 @@ export class AsyncNode {
           nodeFragments: [
             {
               id: this.chunkStore.getId(),
-              chunk,
+              data: chunk,
               seq: writtenSeq,
               continued: !final,
             },

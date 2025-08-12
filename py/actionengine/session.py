@@ -60,7 +60,7 @@ class Session(service_pybind11.Session):
 
     async def dispatch_message(
         self,
-        message: data.SessionMessage,
+        message: data.WireMessage,
         stream: eg_stream.WireStream,
     ):
         """Dispatches a message to the session."""

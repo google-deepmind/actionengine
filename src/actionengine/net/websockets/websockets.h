@@ -43,7 +43,7 @@ namespace act::net {
 
 /**
  * A class representing a WebSocket stream for sending and receiving Action
- * Engine SessionMessages.
+ * Engine WireMessages.
  *
  * @headerfile actionengine/net/websockets/websockets.h
  *
@@ -60,9 +60,9 @@ class WebsocketWireStream final : public WireStream {
   explicit WebsocketWireStream(FiberAwareWebsocketStream stream,
                                std::string_view id = "");
 
-  absl::Status Send(SessionMessage message) override;
+  absl::Status Send(WireMessage message) override;
 
-  absl::StatusOr<std::optional<SessionMessage>> Receive(
+  absl::StatusOr<std::optional<WireMessage>> Receive(
       absl::Duration timeout) override;
 
   absl::Status Start() override;
@@ -88,7 +88,7 @@ class WebsocketWireStream final : public WireStream {
   }
 
  private:
-  absl::Status SendInternal(SessionMessage message)
+  absl::Status SendInternal(WireMessage message)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Status HalfCloseInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
