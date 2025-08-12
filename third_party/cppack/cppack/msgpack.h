@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2019 Mike Loomis
+// Copyright (c) 2019 Mike Loomis, 2025 Google LLC
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -48,27 +48,20 @@ namespace cppack {
 enum class UnpackerError { OutOfRange = 1 };
 
 struct UnpackerErrCategory final : public std::error_category {
-  const char* name() const noexcept override { return "unpacker"; };
-
-  std::string message(int ev) const override {
-    switch (static_cast<cppack::UnpackerError>(ev)) {
-      case cppack::UnpackerError::OutOfRange:
-        return "tried to dereference out of range during deserialization";
-      default:
-        return "(unrecognized error)";
-    }
+  [[nodiscard]] const char* name() const noexcept override {
+    return "unpacker";
   };
+
+  [[nodiscard]] std::string message(int ev) const override;
 };
 
 const UnpackerErrCategory theUnpackerErrCategory{};
 
-inline std::error_code make_error_code(cppack::UnpackerError e) {
-  return {static_cast<int>(e), theUnpackerErrCategory};
-}
+std::error_code make_error_code(cppack::UnpackerError e);
 }  // namespace cppack
 
 template <>
-struct std::is_error_code_enum<cppack::UnpackerError> : public true_type {
+struct std::is_error_code_enum<cppack::UnpackerError> : true_type {
 };  // namespace std
 
 namespace cppack {
@@ -203,7 +196,9 @@ class Packer {
     (pack_type(std::forward<const Types&>(args)), ...);
   }
 
-  const std::vector<uint8_t>& vector() const { return serialized_object; }
+  [[nodiscard]] const std::vector<uint8_t>& vector() const {
+    return serialized_object;
+  }
 
   void clear() { serialized_object.clear(); }
 
@@ -285,47 +280,17 @@ class Packer {
     }
   }
 
-  std::bitset<64> twos_complement(int64_t value) {
-    if (value < 0) {
-      auto abs_v = llabs(value);
-      return ~abs_v + 1;
-    }
-    return {(uint64_t)value};
-  }
+  static std::bitset<64> twos_complement(int64_t value);
 
-  std::bitset<32> twos_complement(int32_t value) {
-    if (value < 0) {
-      auto abs_v = abs(value);
-      return ~abs_v + 1;
-    }
-    return {static_cast<uint32_t>(value)};
-  }
+  static std::bitset<32> twos_complement(int32_t value);
 
-  std::bitset<16> twos_complement(int16_t value) {
-    if (value < 0) {
-      auto abs_v = abs(value);
-      return ~abs_v + 1;
-    }
-    return {(uint16_t)value};
-  }
+  static std::bitset<16> twos_complement(int16_t value);
 
-  std::bitset<8> twos_complement(int8_t value) {
-    if (value < 0) {
-      auto abs_v = abs(value);
-      return ~abs_v + 1;
-    }
-    return {(uint8_t)value};
-  }
+  static std::bitset<8> twos_complement(int8_t value);
 };
 
 template <>
-inline void Packer::pack_type(const int8_t& value) {
-  if (value > 31 || value < -32) {
-    serialized_object.emplace_back(int8);
-  }
-  serialized_object.emplace_back(
-      static_cast<uint8_t>(twos_complement(value).to_ulong()));
-}
+void Packer::pack_type(const int8_t& value);
 
 template <>
 inline void Packer::pack_type(const int16_t& value) {
@@ -571,8 +536,8 @@ class Unpacker {
  public:
   Unpacker() : data_pointer(nullptr), data_end(nullptr) {};
 
-  Unpacker(const uint8_t* data_start, std::size_t bytes)
-      : data_pointer(data_start), data_end(data_start + bytes) {};
+  Unpacker(const uint8_t* data_start, std::size_t bytes);
+  ;
 
   template <class... Types>
   void operator()(Types&... args) {
@@ -584,40 +549,20 @@ class Unpacker {
     (unpack_type(std::forward<Types&>(args)), ...);
   }
 
-  void set_data(const uint8_t* pointer, std::size_t size) {
-    data_pointer = pointer;
-    data_end = data_pointer + size;
-  }
+  void set_data(const uint8_t* pointer, std::size_t size);
 
-  std::error_code GetErrorCode() const { return error_code_; }
+  std::error_code GetErrorCode() const;
 
-  const uint8_t* GetDataPtr() const {
-    if (data_pointer < data_end) {
-      return data_pointer;
-    }
-    error_code_ = UnpackerError::OutOfRange;
-    return nullptr;
-  }
+  const uint8_t* GetDataPtr() const;
 
  private:
   const uint8_t* data_pointer;
   const uint8_t* data_end;
   mutable std::error_code error_code_{};
 
-  uint8_t safe_data() {
-    if (data_pointer < data_end)
-      return *data_pointer;
-    error_code_ = UnpackerError::OutOfRange;
-    return 0;
-  }
+  uint8_t safe_data() const;
 
-  void safe_increment(int64_t bytes = 1) {
-    if (data_end - data_pointer >= 0) {
-      data_pointer += bytes;
-    } else {
-      error_code_ = UnpackerError::OutOfRange;
-    }
-  }
+  void safe_increment(int64_t bytes = 1);
 
   template <class T>
   void unpack_type(T& value) {
