@@ -87,7 +87,7 @@ find_package(uvw REQUIRED)
 
 add_compile_definitions(UVW_AS_LIB)
 
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/cppack)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/third_party/cppack)
 
 include(FetchContent)
 set(BUILD_TESTING_BACKUP ${BUILD_TESTING})
