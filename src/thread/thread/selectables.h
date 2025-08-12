@@ -19,10 +19,9 @@
 
 #include <absl/log/check.h>
 
-#include "g3fiber/cases.h"
+#include "thread/cases.h"
 
 namespace thread {
-
 // PermanentEvent
 // ---------------
 // Provides a level-triggered event which may be added to a Select statement.
@@ -121,7 +120,6 @@ Case NonSelectableCase();
 //     util::Status status_;
 //   };
 Case AlwaysSelectableCase();
-
 }  // namespace thread
 
 #endif  // THREAD_FIBER_SELECTABLES_H_

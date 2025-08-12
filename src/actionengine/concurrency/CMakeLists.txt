@@ -18,11 +18,11 @@ target_include_directories(
 )
 target_include_directories(
         actConcurrency PUBLIC
-        ${G3FIBER_INCLUDE_DIRS}
+        ${THREAD_INCLUDE_DIRS}
 )
 target_link_libraries(
         actConcurrency PUBLIC
-        G3Fiber
+        Thread
 )
 target_link_libraries(
         actConcurrency PRIVATE

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3fiber/util.h"
+#include "thread/util.h"
 
 #include <atomic>
 
@@ -21,7 +21,6 @@
 #include <absl/random/random.h>
 
 namespace thread {
-
 static std::atomic<uint32_t> last_rand32;
 static absl::once_flag init_rand32_once;
 
@@ -40,9 +39,9 @@ uint32_t Rand32() {
 
   absl::call_once(init_rand32_once, InitRand32);
   uint32_t r = last_rand32.load(std::memory_order_relaxed);
-  r = r << 1 ^ (static_cast<int32_t>(r) >> 31) & poly;  // shift sign-extends
+  r = r << 1 ^ (static_cast<int32_t>(r) >> 31) & poly;
+  // shift sign-extends
   last_rand32.store(r, std::memory_order_relaxed);
   return r;
 }
-
 }  // namespace thread

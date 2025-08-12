@@ -24,11 +24,10 @@
 
 #include <absl/log/check.h>
 
-#include "g3fiber/boost_primitives.h"
-#include "g3fiber/selectables.h"
+#include "thread/boost_primitives.h"
+#include "thread/selectables.h"
 
 namespace thread {
-
 class TreeOptions {};
 
 using InvocableWork = absl::AnyInvocable<void() &&>;
@@ -97,6 +96,7 @@ class Fiber {
   void InternalJoin();
 
   void PushBackChild(Fiber* absl_nonnull child)
+
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (first_child_ == nullptr) {
       first_child_ = child;
@@ -108,6 +108,7 @@ class Fiber {
   }
 
   void UnlinkChild(const Fiber* absl_nonnull child)
+
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (child->next_sibling_ == child) {
       DCHECK(first_child_ == child)
@@ -232,7 +233,6 @@ inline Case OnCancel() {
   }
   return current_fiber->OnCancel();
 }
-
 }  // namespace thread
 
 #endif  // THREAD_FIBER_FIBER_H_

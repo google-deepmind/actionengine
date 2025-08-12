@@ -18,8 +18,6 @@
 #include <string>
 #include <string_view>
 
-#include <g3fiber/channel.h>
-
 #include "actionengine/concurrency/concurrency.h"
 #include "actionengine/data/conversion.h"
 #include "actionengine/data/types.h"
@@ -28,7 +26,6 @@
 #include "actionengine/util/status_macros.h"
 
 namespace act::redis {
-
 namespace internal {
 template <typename It>
 concept StringViewKeyValueIterator =
@@ -138,7 +135,6 @@ class RedisStream {
   Redis* const absl_nonnull redis_;
   const std::string key_;
 };
-
 }  // namespace act::redis
 
 #endif  // ACTIONENGINE_REDIS_STREAMS_H_

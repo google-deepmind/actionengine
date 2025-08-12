@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef G3FIBER_BOOST_PRIMITIVES_H_
-#define G3FIBER_BOOST_PRIMITIVES_H_
+#ifndef THREAD_BOOST_PRIMITIVES_H_
+#define THREAD_BOOST_PRIMITIVES_H_
 
 #include <absl/base/thread_annotations.h>
 #include <absl/log/log.h>
@@ -23,8 +23,9 @@
 #include <boost/fiber/mutex.hpp>
 
 namespace act::concurrency::impl {
+class ABSL_LOCKABLE
 
-class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
+    ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
  public:
   Mutex() = default;
   ~Mutex() = default;
@@ -45,7 +46,9 @@ class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
 
 class ABSL_SCOPED_LOCKABLE MutexLock {
  public:
-  explicit MutexLock(Mutex* absl_nonnull mu) ABSL_EXCLUSIVE_LOCK_FUNCTION(mu)
+  explicit MutexLock(Mutex* absl_nonnull mu) ABSL_EXCLUSIVE_LOCK_FUNCTION
+
+      (mu)
       : mu_(mu) {
     mu_->Lock();
   }
@@ -71,6 +74,7 @@ class CondVar {
   void Wait(Mutex* absl_nonnull mu) noexcept ABSL_SHARED_LOCKS_REQUIRED(mu);
 
   bool WaitWithTimeout(Mutex* absl_nonnull mu, absl::Duration timeout) noexcept
+
       ABSL_SHARED_LOCKS_REQUIRED(mu) {
     return WaitWithDeadline(mu, absl::Now() + timeout);
   }
@@ -106,7 +110,6 @@ inline void SleepFor(absl::Duration duration) {
   active_ctx->wait_until(std::chrono::steady_clock::now() +
                          absl::ToChronoNanoseconds(duration));
 }
-
 }  // namespace act::concurrency::impl
 
-#endif  // G3FIBER_BOOST_PRIMITIVES_H_
+#endif  // THREAD_BOOST_PRIMITIVES_H_

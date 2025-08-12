@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3fiber/channel/waiter_state.h"
+#include "thread/channel/waiter_state.h"
 
 #include <absl/log/check.h>
 
-#include "g3fiber/cases.h"
+#include "thread/cases.h"
 
 namespace thread::internal {
-
 static void Notify(CaseInSelectClause** head, CaseInSelectClause* c)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(c->selector->mu) {
   CHECK_EQ(c->selector->picked_case_index, -1) << "Double-notifying selector";
@@ -150,5 +149,4 @@ bool ChannelWaiterState::GetWaitingWriter(CaseInSelectClause** writer) const {
   }
   return false;
 }
-
 }  // namespace thread::internal

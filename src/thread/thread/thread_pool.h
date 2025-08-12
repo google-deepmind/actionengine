@@ -18,10 +18,9 @@
 #include <atomic>
 #include <thread>
 
-#include "g3fiber/boost_primitives.h"
+#include "thread/boost_primitives.h"
 
 namespace thread {
-
 template <typename Algo, typename... Args>
 static void EnsureThreadHasScheduler(Args&&... args) {
   thread_local bool kThreadHasScheduler = false;
@@ -57,7 +56,6 @@ class WorkerThreadPool {
 };
 
 void EnsureWorkerThreadPool();
-
 }  // namespace thread
 
 #endif  // THREAD_FIBER_THREAD_POOL_H_

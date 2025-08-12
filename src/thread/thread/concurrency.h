@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef G3FIBER_CONCURRENCY_H_
-#define G3FIBER_CONCURRENCY_H_
+#ifndef THREAD_CONCURRENCY_H_
+#define THREAD_CONCURRENCY_H_
 
 // IWYU pragma: begin_exports
-#include "g3fiber/boost_primitives.h"
-#include "g3fiber/cases.h"
-#include "g3fiber/channel.h"
-#include "g3fiber/fiber.h"
-#include "g3fiber/select.h"
-#include "g3fiber/selectables.h"
+#include "thread/boost_primitives.h"
+#include "thread/cases.h"
+#include "thread/channel.h"
+#include "thread/fiber.h"
+#include "thread/select.h"
+#include "thread/selectables.h"
 // IWYU pragma: end_exports
 
-#endif  // G3FIBER_CONCURRENCY_H_
+#endif  // THREAD_CONCURRENCY_H_

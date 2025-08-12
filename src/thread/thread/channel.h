@@ -15,14 +15,13 @@
 #ifndef THREAD_FIBER_CHANNEL_H_
 #define THREAD_FIBER_CHANNEL_H_
 
-#include "g3fiber/boost_primitives.h"
-#include "g3fiber/cases.h"
-#include "g3fiber/channel/waiter_state.h"
-#include "g3fiber/fiber.h"
-#include "g3fiber/select.h"
+#include "thread/boost_primitives.h"
+#include "thread/cases.h"
+#include "thread/channel/waiter_state.h"
+#include "thread/fiber.h"
+#include "thread/select.h"
 
 namespace thread::internal {
-
 enum class CopyOrMove {
   Copy,
   Move,
@@ -44,7 +43,6 @@ T CopyOrMoveOut(T* absl_nonnull item, CopyOrMove strategy) {
   LOG(FATAL) << "Invalid CopyOrMove strategy: " << static_cast<int>(strategy);
   ABSL_ASSUME(false);
 }
-
 }  // namespace thread::internal
 
 namespace thread {
@@ -77,7 +75,6 @@ struct WriteSelectable final : Selectable {
 }  // namespace thread::internal
 
 namespace thread {
-
 /** @brief
  *    A Reader is used to read items from a Channel.
  *
@@ -374,7 +371,9 @@ requires std::is_move_assignable_v<T> class Channel {
   Writer<T> writer_{this};
   internal::WriteSelectable<T> wr_;
 
-  bool Invariants() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  bool Invariants() const ABSL_EXCLUSIVE_LOCKS_REQUIRED
+
+      (mu_) {
     CHECK_LE(queue_.size(), capacity_) << "Channel queue size exceeds capacity";
     return true;
   }
@@ -451,13 +450,12 @@ template <typename T>
 bool Writer<T>::WriteUnlessCancelled(T&& item) {
   return !Cancelled() && Select({OnCancel(), OnWrite(std::move(item))}) == 1;
 }
-
 }  // namespace thread
 
 namespace thread::internal {
-
 template <typename T>
 bool ReadSelectable<T>::Handle(CaseInSelectClause* absl_nonnull reader,
+
                                bool enqueue) {
   act::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());
@@ -549,6 +547,7 @@ void ReadSelectable<T>::Unregister(CaseInSelectClause* absl_nonnull c) {
 
 template <typename T>
 bool WriteSelectable<T>::Handle(CaseInSelectClause* absl_nonnull writer,
+
                                 bool enqueue) {
   act::concurrency::impl::MutexLock lock(&channel->mu_);
   DCHECK(channel->Invariants());

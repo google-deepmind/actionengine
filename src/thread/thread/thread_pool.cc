@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3fiber/thread_pool.h"
+#include "thread/thread_pool.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -22,11 +22,10 @@
 #include <boost/fiber/context.hpp>
 #include <latch>
 
-#include "g3fiber/fiber.h"
-#include "g3fiber/util.h"
+#include "thread/fiber.h"
+#include "thread/util.h"
 
 namespace thread {
-
 void WorkerThreadPool::Start(size_t num_threads) {
   act::concurrency::impl::MutexLock lock(&mu_);
   schedulers_.resize(num_threads);
@@ -91,5 +90,4 @@ static absl::once_flag kInitWorkerThreadPoolFlag;
 void EnsureWorkerThreadPool() {
   absl::call_once(kInitWorkerThreadPoolFlag, WorkerThreadPool::Instance);
 }
-
 }  // namespace thread

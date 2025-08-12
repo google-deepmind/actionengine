@@ -15,13 +15,12 @@
 #ifndef ACTIONENGINE_REDIS_PUBSUB_H_
 #define ACTIONENGINE_REDIS_PUBSUB_H_
 
-#include <g3fiber/channel.h>
+#include <thread/channel.h>
 
 #include "actionengine/concurrency/concurrency.h"
 #include "actionengine/redis/reply.h"
 
 namespace act::redis {
-
 class Subscription {
  public:
   static constexpr size_t kDefaultChannelCapacity = 16;
@@ -53,7 +52,6 @@ class Subscription {
   thread::PermanentEvent subscribe_event_;
   thread::PermanentEvent unsubscribe_event_;
 };
-
 }  // namespace act::redis
 
 #endif  // ACTIONENGINE_REDIS_PUBSUB_H_

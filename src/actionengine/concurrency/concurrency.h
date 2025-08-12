@@ -30,13 +30,13 @@
 #include <absl/base/thread_annotations.h>
 #include <absl/time/time.h>
 
-#include "g3fiber/concurrency.h"
+#include "thread/concurrency.h"
 
 // IWYU pragma: begin_exports
 #if GOOGLE3
 #include "actionengine/google3_concurrency_headers.h"
 #else
-#include "g3fiber/concurrency.h"
+#include "thread/concurrency.h"
 #endif  // GOOGLE3
 // IWYU pragma: end_exports
 

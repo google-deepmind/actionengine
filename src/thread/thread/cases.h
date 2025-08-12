@@ -15,11 +15,10 @@
 #ifndef THREAD_FIBER_CASES_H_
 #define THREAD_FIBER_CASES_H_
 
-#include "g3fiber/boost_primitives.h"
+#include "thread/boost_primitives.h"
 
 namespace thread {
 namespace internal {
-
 template <typename T>
 concept IsPointer = std::is_pointer_v<T>;
 
@@ -34,7 +33,9 @@ concept IsConstPointer =
 struct Selector {
   static constexpr int kNonePicked = -1;
 
-  bool TryPick(int case_index) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu) {
+  bool TryPick(int case_index) ABSL_EXCLUSIVE_LOCKS_REQUIRED
+
+      (mu) {
     if (picked_case_index != kNonePicked) {
       return false;  // Already picked.
     }
@@ -45,7 +46,9 @@ struct Selector {
   }
 
   // Returns true iff a case was picked before the deadline.
-  bool WaitForPickUntil(absl::Time deadline) ABSL_SHARED_LOCKS_REQUIRED(mu) {
+  bool WaitForPickUntil(absl::Time deadline) ABSL_SHARED_LOCKS_REQUIRED
+
+      (mu) {
     while (picked_case_index == internal::Selector::kNonePicked) {
       if (cv.WaitWithDeadline(&mu, deadline) &&
           picked_case_index == internal::Selector::kNonePicked) {
@@ -125,7 +128,6 @@ struct [[nodiscard]] Case {
 typedef absl::InlinedVector<Case, 4> CaseArray;
 
 namespace internal {
-
 // A PerSelectCaseState represents the per-Select call information kept for a Case.
 // This separation from Case allows a particular Case to be safely passed to
 // multiple Select calls concurrently.
@@ -246,7 +248,6 @@ inline void UnlinkFromList(CaseInSelectClause* absl_nonnull* absl_nonnull head,
   // element while iterating forwards.
   element->prev = nullptr;
 }
-
 }  // namespace internal
 }  // namespace thread
 

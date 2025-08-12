@@ -12,23 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3fiber/selectables.h"
+#include "thread/selectables.h"
 
 #include <atomic>
 #include <mutex>
 
 #include <absl/base/no_destructor.h>
 
-#include "g3fiber/boost_primitives.h"
-#include "g3fiber/select.h"
+#include "thread/boost_primitives.h"
+#include "thread/select.h"
 
 namespace thread {
-
 // PermanentEvent
 bool PermanentEvent::Handle(internal::CaseInSelectClause* c, bool enqueue) {
   boost::fibers::detail::spinlock_lock l1(splk_);
 
-  if (notified_.load(std::memory_order_relaxed)) {  // Synchronized by lock_
+  if (notified_.load(std::memory_order_relaxed)) {
+    // Synchronized by lock_
     act::concurrency::impl::MutexLock l2(&c->selector->mu);
     // Consider that in the presence of a race with another Selectable,
     // c->TryPick() may return false in this case. This is safe as we are not
@@ -112,5 +112,4 @@ Case AlwaysSelectableCase() {
   static absl::NoDestructor<AlwaysSelectable> always_selectable;
   return {always_selectable.get()};
 }
-
 }  // namespace thread

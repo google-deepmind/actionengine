@@ -30,7 +30,7 @@ target_link_libraries(
         act::msgpack
         act::stores
         act::util
-        G3Fiber
+        Thread
         libuv::uv
         uvw::uvw
 )

@@ -15,10 +15,9 @@
 #ifndef THREAD_FIBER_CHANNEL_WAITER_STATE_H_
 #define THREAD_FIBER_CHANNEL_WAITER_STATE_H_
 
-#include "g3fiber/cases.h"
+#include "thread/cases.h"
 
 namespace thread::internal {
-
 // A struct that maintains readers' and writers' queues and provides methods
 // to find matching readers and writers in a coordinated way, i.e. locking
 // the selector mutexes of both case states if a pair is found.
@@ -56,7 +55,6 @@ struct ChannelWaiterState {
   internal::CaseInSelectClause* readers = nullptr;
   internal::CaseInSelectClause* writers = nullptr;
 };
-
 }  // namespace thread::internal
 
 #endif  // THREAD_FIBER_CHANNEL_WAITER_STATE_H_

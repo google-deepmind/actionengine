@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3fiber/boost_primitives.h"
+#include "thread/boost_primitives.h"
 
 #define BOOST_ASIO_NO_DEPRECATED
 
@@ -20,10 +20,9 @@
 #include <boost/fiber/mutex.hpp>
 #include <boost/system/system_error.hpp>
 
-#include "g3fiber/fiber.h"
+#include "thread/fiber.h"
 
 namespace act::concurrency::impl {
-
 void Mutex::Lock() noexcept ABSL_EXCLUSIVE_LOCK_FUNCTION() {
   try {
     mu_.lock();
@@ -116,5 +115,4 @@ bool CondVar::WaitWithDeadline(Mutex* mu, const absl::Time& deadline) noexcept {
 
   return timed_out;
 }
-
 }  // namespace act::concurrency::impl

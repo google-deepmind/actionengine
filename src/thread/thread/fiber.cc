@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3fiber/fiber.h"
+#include "thread/fiber.h"
 
 #include <absl/log/check.h>
 #include <boost/fiber/all.hpp>
@@ -20,12 +20,11 @@
 #include <boost/intrusive_ptr.hpp>
 #include <latch>
 
-#include "g3fiber/boost_primitives.h"
-#include "g3fiber/select.h"
-#include "g3fiber/thread_pool.h"
+#include "thread/boost_primitives.h"
+#include "thread/select.h"
+#include "thread/thread_pool.h"
 
 namespace thread {
-
 bool IsFiberDetached(const Fiber* absl_nonnull fiber) {
   return ABSL_TS_UNCHECKED_READ(fiber->detached_)
       .load(std::memory_order_relaxed);
@@ -127,7 +126,7 @@ FiberProperties* absl_nullable GetCurrentFiberProperties() {
     ABSL_ASSUME(false);
   }
 
-  // If we have been created through g3fiber API, there will be properties
+  // If we have been created through thread API, there will be properties
   // associated with the context. We can use them to get the fiber.
   if (auto props = dynamic_cast<FiberProperties*>(ctx->get_properties());
       ABSL_PREDICT_TRUE(props != nullptr)) {
@@ -148,7 +147,7 @@ Fiber* absl_nullable GetPerThreadFiberPtr() {
     ABSL_ASSUME(false);
   }
 
-  // If we have been created through g3fiber API, there will be properties
+  // If we have been created through thread API, there will be properties
   // associated with the context. We can use them to get the fiber.
   if (const FiberProperties* props =
           dynamic_cast<FiberProperties*>(ctx->get_properties());
@@ -334,5 +333,4 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
     }
   }
 }
-
 }  // namespace thread

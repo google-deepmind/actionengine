@@ -12,18 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "g3fiber/select.h"
+#include "thread/select.h"
 
 #include <atomic>
 #include <cstdint>
 
 #include <absl/log/check.h>
 
-#include "g3fiber/boost_primitives.h"
-#include "g3fiber/util.h"
+#include "thread/boost_primitives.h"
+#include "thread/util.h"
 
 namespace thread {
-
 internal::CaseStateArray MakeShuffledCaseStateArray(size_t num_cases) {
   internal::CaseStateArray case_states(num_cases);
 
@@ -100,5 +99,4 @@ int SelectUntil(absl::Time deadline, const CaseArray& cases) {
 
   return expired ? -1 : selector.picked_case_index;
 }
-
 }  // namespace thread

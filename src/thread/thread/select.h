@@ -17,7 +17,7 @@
 
 #include <absl/log/check.h>
 
-#include "g3fiber/cases.h"
+#include "thread/cases.h"
 
 /** @file
  *  @brief
@@ -30,7 +30,6 @@
  */
 
 namespace thread {
-
 /** @brief
  *    Returns the index of the first case that is ready, or -1 if the deadline
  *    has expired without any case becoming ready.
@@ -77,7 +76,6 @@ inline int Select(const CaseArray& cases) {
   CHECK(!cases.empty()) << "No cases provided";
   return SelectUntil(absl::InfiniteFuture(), cases);
 }
-
 }  // namespace thread
 
 #endif  // THREAD_FIBER_SELECT_H_
