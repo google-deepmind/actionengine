@@ -23,9 +23,7 @@
 #include <boost/fiber/mutex.hpp>
 
 namespace act::concurrency::impl {
-class ABSL_LOCKABLE
-
-    ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
+class ABSL_LOCKABLE ABSL_ATTRIBUTE_WARN_UNUSED Mutex {
  public:
   Mutex() = default;
   ~Mutex() = default;

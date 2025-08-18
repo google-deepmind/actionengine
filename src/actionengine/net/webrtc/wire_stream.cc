@@ -182,7 +182,7 @@ WebRtcWireStream::WebRtcWireStream(
         size_t message_size = message.size();
         const auto data = reinterpret_cast<uint8_t*>(std::move(message).data());
         absl::StatusOr<data::BytePacket> packet =
-            data::ParseBytePacket(std::vector(data, data + message_size));
+            data::ParseBytePacket(data, message_size);
 
         act::MutexLock lock(&mu_);
 

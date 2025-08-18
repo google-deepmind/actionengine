@@ -20,6 +20,8 @@
 #include <absl/log/check.h>
 #include <actionengine/actions/action.h>
 #include <actionengine/data/types.h>
+#include <actionengine/net/webrtc/server.h>
+#include <actionengine/net/webrtc/wire_stream.h>
 #include <actionengine/net/websockets/websockets.h>
 #include <actionengine/nodes/async_node.h>
 #include <actionengine/service/service.h>
@@ -137,45 +139,20 @@ absl::StatusOr<std::string> CallEcho(
   echo->BindSession(session);
   echo->BindStream(stream.get());
 
-  // ActionEngine actions are asynchronous, so we can call the action even before
-  // supplying all the inputs. The server will run the action handler in a
-  // separate fiber, which will just block on reading an input which is still
-  // not available or being streamed. This _does_ mean that if part of the
-  // action's logic does not depend on the input, it will be executed before
-  // the input is available, no additional effort is needed, and this applies
-  // per input, not all at once.
-
-  // This is NOT the way to check if the action finished successfully. This
-  // status just indicates that the action was called (action message was sent).
   if (const auto status = echo->Call(); !status.ok()) {
     LOG(ERROR) << "Failed to call action: " << status;
     return "";
   }
 
-  // Send the input to the action. These are not necessarily blocking calls.
-  // Chunks will be buffered (to an extent) and sent in the background.
-  // This makes it possible to start streaming multiple inputs at the same time
-  // (though this is not the case here).
-  // echo->GetNode("text")
-  //     ->PutChunk(Chunk{.metadata = {.mimetype = "text/plain"},
-  //                      .data = std::string(text)},
-  //                /*seq=*/0,
-  //                /*final=*/true)
-  //     .IgnoreError();
-  echo->GetNode("text") << Chunk{.metadata =
-                                     act::ChunkMetadata{.mimetype =
-                                                            "text/plain"},
-                                 .data = std::string(text)}
-                        << act::EndOfStream();
+  echo->GetInput("text") << Chunk{.metadata =
+                                      act::ChunkMetadata{.mimetype =
+                                                             "text/plain"},
+                                  .data = std::string(text)}
+                         << act::EndOfStream();
 
-  // We will read the output to a string stream.
   std::ostringstream response;
-
-  // The action handler will write to the output stream asynchronously, so all
-  // we need to do is to read the output(s) until the end of stream(s).
-  // Each of the reads below will block until the next chunk is available.
   while (true) {
-    const auto response_node = echo->GetNode("response");
+    const auto response_node = echo->GetOutput("response");
     ASSIGN_OR_RETURN(std::optional<Chunk> response_chunk,
                      response_node->Next(absl::Seconds(5)));
     if (!response_chunk.has_value()) {
@@ -185,10 +162,9 @@ absl::StatusOr<std::string> CallEcho(
     if (response_chunk->GetMimetype() == "text/plain") {
       response << response_chunk->data;
     }
-    // We are not checking the status here, but in general, we should.
-    // This is done automatically by the AsyncNode methods, but not by the >>
-    // operator.
   }
+
+  RETURN_IF_ERROR(echo->Await());
 
   return response.str();
 }
@@ -207,13 +183,20 @@ absl::Status Main(int argc, char** argv) {
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   act::Service service(&action_registry);
-  act::net::WebsocketServer server(&service, "0.0.0.0", port);
+  act::net::WebRtcServer server(&service, "127.0.0.1", port,
+                                /*signalling_address=*/"demos.helena.direct",
+                                /*signalling_port=*/19000,
+                                /*signalling_identity=*/"server");
   server.Run();
+  act::SleepFor(absl::Seconds(0.2));
 
   act::NodeMap node_map;
   act::Session session(&node_map, &action_registry);
+  std::string identity = act::GenerateUUID4();
+  LOG(INFO) << "Identity: " << identity;
   ASSIGN_OR_RETURN(std::shared_ptr<act::WireStream> stream,
-                   act::net::MakeWebsocketWireStream());
+                   act::net::StartStreamWithSignalling(
+                       identity, "server", "demos.helena.direct", 19000));
 
   session.DispatchFrom(stream);
 
@@ -233,6 +216,11 @@ absl::Status Main(int argc, char** argv) {
     ASSIGN_OR_RETURN(response, CallEcho(text, &session, stream));
     std::cout << "Received: " << response << "\n" << std::endl;
   }
+
+  stream->HalfClose();
+
+  RETURN_IF_ERROR(server.Cancel());
+  RETURN_IF_ERROR(server.Join());
 
   return absl::OkStatus();
 }

@@ -73,6 +73,8 @@ class RecoverableStream final : public act::WireStream {
   absl::StatusOr<WireStream*> GetObservedStream()
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
+  void HalfCloseInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
   GetStreamFn get_stream_ ABSL_GUARDED_BY(mu_);
   const std::string id_;
   const absl::Duration timeout_{absl::InfiniteDuration()};

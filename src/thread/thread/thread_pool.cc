@@ -71,6 +71,9 @@ void WorkerThreadPool::Schedule(boost::fibers::context* ctx) {
   } else {
     {
       act::concurrency::impl::MutexLock lock(&mu_);
+      if (ctx->get_scheduler() != nullptr) {
+        return;
+      }
       schedulers_[worker_idx]->attach_worker_context(ctx);
       schedulers_[worker_idx]->schedule_from_remote(ctx);
     }

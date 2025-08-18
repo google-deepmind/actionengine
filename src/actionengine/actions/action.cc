@@ -51,52 +51,20 @@ Action::Action(ActionSchema schema, std::string_view id,
   }
 }
 
-Action::Action(std::string_view name, std::string_view id,
-               std::vector<Port> inputs, std::vector<Port> outputs) {
-  ActionSchema schema;
-  schema.name = name;
-  for (const auto& [input_name, _] : inputs) {
-    schema.inputs[input_name] = "*";
-  }
-  for (const auto& [output_name, _] : outputs) {
-    schema.outputs[output_name] = "*";
-  }
-  *this = Action(std::move(schema), id, std::move(inputs), std::move(outputs));
-}
-
-Action& Action::operator=(Action&& other) noexcept {
-  if (this == &other) {
-    return *this;
-  }
-  concurrency::TwoMutexLock lock(&mu_, &other.mu_);
-
-  CHECK(!other.has_been_run_)
-      << "Cannot move an action that has been run. Handlers rely on the "
-         "validity of their pointers to an action.";
-
-  schema_ = std::move(other.schema_);
-  id_ = std::move(other.id_);
-  input_name_to_id_ = std::move(other.input_name_to_id_);
-  output_name_to_id_ = std::move(other.output_name_to_id_);
-  handler_ = std::move(other.handler_);
-  has_been_run_ = other.has_been_run_;
-  node_map_ = other.node_map_;
-  session_ = other.session_;
-  cancelled_ = std::move(other.cancelled_);
-  nodes_with_bound_streams_ = std::move(other.nodes_with_bound_streams_);
-  bind_streams_on_inputs_default_ = other.bind_streams_on_inputs_default_;
-  bind_streams_on_outputs_default_ = other.bind_streams_on_outputs_default_;
-  return *this;
-}
-
 Action::~Action() {
   act::MutexLock lock(&mu_);
 
   reffed_readers_.clear();
 
-  // for (const auto& [output_name, output_id] : output_name_to_id_) {
-  //   node_map_->Extract(output_id).reset();
-  // }
+  for (const auto& [input_name, input_id] : input_name_to_id_) {
+    node_map_->Extract(input_id).reset();
+  }
+
+  for (const auto& [output_name, output_id] : output_name_to_id_) {
+    node_map_->Extract(output_id).reset();
+  }
+  const std::string status_node_id = absl::StrCat(id_, "#", "__status__");
+  node_map_->Extract(status_node_id).reset();
 }
 
 ActionMessage Action::GetActionMessage() const {
@@ -307,13 +275,13 @@ absl::Status Action::Run() {
 
   if (clear_inputs_after_run_) {
     for (const auto& [input_name, input_id] : input_name_to_id_) {
-      node_map_->Extract(input_id).reset();
+      node_map_->Extract(GetInputId(input_name)).reset();
     }
   }
 
   if (clear_outputs_after_run_) {
     for (const auto& [output_name, output_id] : output_name_to_id_) {
-      node_map_->Extract(output_id).reset();
+      node_map_->Extract(GetOutputId(output_name)).reset();
     }
   }
 

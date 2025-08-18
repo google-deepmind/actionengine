@@ -51,6 +51,8 @@ std::unique_ptr<Fiber> CreateTree(InvocableWork f, TreeOptions&& tree_options);
 
 Fiber* absl_nullable GetPerThreadFiberPtr();
 
+class FiberProperties;
+
 class Fiber {
  public:
   friend class FiberProperties;
@@ -128,7 +130,7 @@ class Fiber {
   mutable act::concurrency::impl::Mutex mu_;
 
   InvocableWork work_;
-  boost::intrusive_ptr<boost::fibers::context> context_;
+  FiberProperties* absl_nullable properties_ ABSL_GUARDED_BY(mu_) = nullptr;
 
   // Whether this Fiber is self-joining. This is always set under lock, but is
   // an atomic to allow for reads during stats collection which cannot acquire

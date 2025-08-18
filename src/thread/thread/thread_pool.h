@@ -18,6 +18,9 @@
 #include <atomic>
 #include <thread>
 
+#include <boost/context/pooled_fixedsize_stack.hpp>
+#include <boost/context/posix/protected_fixedsize_stack.hpp>
+
 #include "thread/boost_primitives.h"
 
 namespace thread {
@@ -42,12 +45,16 @@ class WorkerThreadPool {
 
   static WorkerThreadPool& Instance();
 
+  boost::context::protected_fixedsize_stack& Allocator() { return alloc; }
+
  private:
   struct Worker {
     std::thread thread;
   };
 
   static constexpr bool kScheduleOnSelf = true;
+
+  boost::context::protected_fixedsize_stack alloc;
 
   act::concurrency::impl::Mutex mu_{};
   std::atomic<size_t> worker_idx_{0};

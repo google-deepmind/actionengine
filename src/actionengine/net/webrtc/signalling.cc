@@ -109,7 +109,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
     return loop_status_;
   }
 
-  loop_ = std::make_unique<thread::Fiber>([this]() {
+  loop_ = thread::NewTree({}, [this]() {
     act::MutexLock lock(&mu_);
     RunLoop();
   });

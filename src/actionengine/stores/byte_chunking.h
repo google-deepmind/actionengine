@@ -81,7 +81,7 @@ BytePacket ProducePacket(std::vector<Byte>::const_iterator it,
                          uint32_t seq = 0, int32_t length = -1,
                          bool force_no_length = false);
 
-absl::StatusOr<BytePacket> ParseBytePacket(std::vector<Byte>&& data);
+absl::StatusOr<BytePacket> ParseBytePacket(Byte* data, size_t size);
 
 std::vector<BytePacket> SplitBytesIntoPackets(const std::vector<Byte>& data,
                                               uint64_t transient_id,

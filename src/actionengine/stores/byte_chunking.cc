@@ -49,16 +49,16 @@ static absl::InlinedVector<Byte, 8> NumberToLEBytes(T number) {
   return bytes;
 }
 
-absl::StatusOr<BytePacket> ParseBytePacket(std::vector<Byte>&& data) {
-  if (data.size() < sizeof(uint64_t) + 1) {
+absl::StatusOr<BytePacket> ParseBytePacket(Byte* data, size_t size) {
+  if (size < sizeof(uint64_t) + 1) {
     return absl::InvalidArgumentError(
         "BytePacket data size is less than 9 bytes. No valid packet "
         "is less than 9 bytes.");
   }
 
-  size_t remaining_data_size = data.size();
+  size_t remaining_data_size = size;
 
-  const Byte type = *data.rbegin();
+  const Byte type = *(data + remaining_data_size - 1);
   if (type != BytePacketType::kCompleteBytes &&
       type != BytePacketType::kByteChunk &&
       type != BytePacketType::kLengthSuffixedByteChunk) {
@@ -66,29 +66,29 @@ absl::StatusOr<BytePacket> ParseBytePacket(std::vector<Byte>&& data) {
         absl::StrFormat("BytePacket type %d is not supported", type));
   }
 
-  data.pop_back();
   remaining_data_size -= sizeof(Byte);
 
-  const uint64_t transient_id = *reinterpret_cast<uint64_t*>(
-      data.data() + remaining_data_size - sizeof(int64_t));
-  data.erase(data.end() - sizeof(uint64_t), data.end());
+  const void* transient_id_ptr =
+      data + (remaining_data_size - sizeof(uint64_t));
+  uint64_t transient_id;
+  std::memcpy(&transient_id, transient_id_ptr, sizeof(uint64_t));
   remaining_data_size -= sizeof(uint64_t);
 
   // Plain WireMessage
   if (type == BytePacketType::kCompleteBytes) {
     return CompleteBytesPacket{
-        .serialized_message = std::vector(data.begin(), data.end()),
+        .serialized_message = std::vector(data, data + remaining_data_size),
         .transient_id = transient_id};
   }
 
-  const uint32_t seq = *reinterpret_cast<uint32_t*>(
-      data.data() + remaining_data_size - sizeof(uint32_t));
-  data.erase(data.end() - sizeof(uint32_t), data.end());
+  const void* seq_ptr = data + (remaining_data_size - sizeof(uint32_t));
+  uint32_t seq;
+  std::memcpy(&seq, seq_ptr, sizeof(uint32_t));
   remaining_data_size -= sizeof(uint32_t);
 
   // WireMessage Chunk
   if (type == BytePacketType::kByteChunk) {
-    std::vector chunk(data.begin(), data.end());
+    std::vector chunk(data, data + remaining_data_size);
     return ByteChunkPacket{
         .chunk = std::move(chunk), .seq = seq, .transient_id = transient_id};
   }
@@ -101,12 +101,12 @@ absl::StatusOr<BytePacket> ParseBytePacket(std::vector<Byte>&& data) {
           "LengthSuffixedWireMessageChunk but data size is less than 13");
     }
 
-    const uint32_t length = *reinterpret_cast<uint32_t*>(
-        data.data() + remaining_data_size - sizeof(uint32_t));
-    data.erase(data.end() - sizeof(uint32_t), data.end());
+    const void* length_ptr = data + (remaining_data_size - sizeof(uint32_t));
+    uint32_t length;
+    std::memcpy(&length, length_ptr, sizeof(uint32_t));
     remaining_data_size -= sizeof(uint32_t);
 
-    std::vector chunk(data.begin(), data.end());
+    std::vector chunk(data, data + remaining_data_size);
     return LengthSuffixedByteChunkPacket{.chunk = std::move(chunk),
                                          .length = length,
                                          .seq = seq,
@@ -320,7 +320,7 @@ absl::StatusOr<bool> ChunkedBytes::FeedSerializedPacket(
         "Cannot feed more packets, already received all expected chunks");
   }
 
-  absl::StatusOr<BytePacket> packet = ParseBytePacket(std::move(data));
+  absl::StatusOr<BytePacket> packet = ParseBytePacket(data.data(), data.size());
   if (!packet.ok()) {
     return packet.status();
   }

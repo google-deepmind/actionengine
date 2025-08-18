@@ -203,7 +203,7 @@ void BindAction(py::handle scope, std::string_view name) {
             RETURN_IF_ERROR(action->Run());
             return action;
           },
-          py::call_guard<py::gil_scoped_acquire>())
+          py::call_guard<py::gil_scoped_release>())
       .def(
           "call",
           [](const std::shared_ptr<Action>& action) { return action->Call(); },

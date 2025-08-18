@@ -15,7 +15,6 @@
 #include "actionengine/net/recoverable_stream.h"
 
 namespace act::net {
-
 RecoverableStream::RecoverableStream(GetStreamFn get_stream,
                                      std::string_view id,
                                      absl::Duration timeout)
@@ -83,7 +82,7 @@ bool RecoverableStream::IsLost() const {
 void RecoverableStream::CloseAndNotify() {
   act::MutexLock lock(&mu_);
   if (!half_closed_) {
-    HalfClose();
+    HalfCloseInternal();
   }
   // if we're here, we're either half-closed or the stream is lost and we're
   // allowed to ignore that
@@ -145,7 +144,10 @@ absl::Status RecoverableStream::Start() {
 
 void RecoverableStream::HalfClose() {
   act::MutexLock lock(&mu_);
+  HalfCloseInternal();
+}
 
+void RecoverableStream::HalfCloseInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (auto stream = GetObservedStream(); stream.ok()) {
     (*stream)->HalfClose();
   }

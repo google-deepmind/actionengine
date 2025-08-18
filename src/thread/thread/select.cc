@@ -37,6 +37,11 @@ internal::CaseStateArray MakeShuffledCaseStateArray(size_t num_cases) {
     case_states[swap].index = i;
   }
 
+  for (int i = 0; i < num_cases; i++) {
+    case_states[i].next =
+        &case_states[i];  // Points to itself, not on any list.
+  }
+
   return case_states;
 }
 

@@ -314,15 +314,8 @@ absl::Status ResolveAndConnect(BoostWebsocketStream* stream,
 absl::Status DoHandshake(BoostWebsocketStream* stream, std::string_view host,
                          std::string_view target) {
   boost::system::error_code error;
-  thread::PermanentEvent handshake_done;
-  stream->async_handshake(
-      host, target,
-      [&error, &handshake_done](const boost::system::error_code& ec) {
-        error = ec;
-        handshake_done.Notify();
-      });
+  stream->handshake(host, target, error);
 
-  thread::Select({handshake_done.OnEvent()});
   if (error == boost::beast::websocket::error::closed ||
       error == boost::system::errc::operation_canceled) {
     return absl::CancelledError("WsHandshake cancelled");

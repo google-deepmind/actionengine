@@ -198,7 +198,7 @@ class ChunkStoreReader {
       return std::nullopt;
     }
     ASSIGN_OR_RETURN(T result, FromChunkAs<T>(*std::move(chunk)));
-    return result;
+    return std::optional{result};
   }
 
   // Definitions follow in the header for some well-known types. If the next

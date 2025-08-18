@@ -87,16 +87,6 @@ class Action : public std::enable_shared_from_this<Action> {
                   std::vector<Port> inputs = {},
                   std::vector<Port> outputs = {});
 
-  explicit Action(std::string_view name, std::string_view id = "",
-                  std::vector<Port> inputs = {},
-                  std::vector<Port> outputs = {});
-
-  // Actions that have not been run can be moved safely, but once run,
-  // they cannot be moved anymore, as the handler may rely on the validity
-  // of its Action pointer. Moving an action that has been run is a
-  // programming error and will result in a CHECK failure.
-  Action& operator=(Action&& other) noexcept;
-
   ~Action();
 
   /** @brief

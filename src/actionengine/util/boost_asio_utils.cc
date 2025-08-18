@@ -14,19 +14,18 @@
 
 #include "actionengine/util/boost_asio_utils.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <thread>
 
-#include <boost/asio/detail/bind_handler.hpp>
-#include <boost/asio/impl/thread_pool.hpp>
-#include <boost/asio/impl/thread_pool.ipp>
-#include <boost/asio/thread_pool.hpp>
+#include "boost/asio/thread_pool.hpp"  // NOLINT
 
 namespace act::util {
 
 boost::asio::thread_pool* GetDefaultAsioExecutionContext() {
-  static auto context =
-      boost::asio::thread_pool(std::thread::hardware_concurrency() * 2);
-  return &context;
+  static auto* context = new boost::asio::thread_pool(std::min(
+      std::thread::hardware_concurrency() * 2, static_cast<uint32_t>(16)));
+  return context;
 }
 
 }  // namespace act::util

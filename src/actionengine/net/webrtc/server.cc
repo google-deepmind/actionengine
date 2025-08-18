@@ -349,10 +349,9 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
         .connection->setRemoteDescription(rtc::Description(description));
   });
 
-  signalling_client->OnCandidate([this, connections](
+  signalling_client->OnCandidate([connections](
                                      std::string_view peer_id,
                                      const boost::json::value& message) {
-    act::MutexLock lock(&mu_);
     if (!connections->contains(peer_id)) {
       return;
     }

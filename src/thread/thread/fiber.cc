@@ -90,7 +90,6 @@ void Fiber::Start() {
       // MarkFinished returns whether the fiber was detached when finished.
       // Detached fibers are self-joining.
       InternalJoin();
-      context_.detach();
       delete this;
     }
   };
@@ -98,12 +97,12 @@ void Fiber::Start() {
   // FiberProperties get destroyed when the underlying context is
   // destroyed. We do not care about the lifetime of the raw pointer that
   // is made here.
-  context_ = boost::fibers::make_worker_context_with_properties(
-      boost::fibers::launch::post, new FiberProperties(this),
-      boost::fibers::make_stack_allocator_wrapper<
-          boost::fibers::pooled_fixedsize_stack>(),
-      std::move(body));
-  WorkerThreadPool::Instance().Schedule(context_.get());
+  act::concurrency::impl::MutexLock lock(&mu_);
+  properties_ = new FiberProperties(this);
+  auto context = boost::fibers::make_worker_context_with_properties(
+      boost::fibers::launch::post, properties_,
+      WorkerThreadPool::Instance().Allocator(), std::move(body));
+  WorkerThreadPool::Instance().Schedule(context.get());
 }
 
 Fiber::~Fiber() {
@@ -194,7 +193,6 @@ void Fiber::Join() {
   }
 
   InternalJoin();
-  context_->join();
 }
 
 // Update *this to a FINISHED state.  Preparing it to be Join()-ed (and
@@ -283,15 +281,15 @@ void Fiber::Cancel() ABSL_NO_THREAD_SAFETY_ANALYSIS {
     while (true) {
       if (!cancelled) {
         current->cancellation_.Notify();
-        if (const auto props = dynamic_cast<FiberProperties*>(
-                current->context_->get_properties());
-            ABSL_PREDICT_TRUE(props != nullptr)) {
-          // If we have properties, we can wake the CondVar that the fiber
-          // is waiting on, if any.
-          if (ABSL_PREDICT_FALSE(props->waiting_on_ != nullptr)) {
-            props->waiting_on_->SignalAll();
-          }
-        }
+        // if (const auto props =
+        //         dynamic_cast<FiberProperties*>(current->properties_);
+        //     ABSL_PREDICT_TRUE(props != nullptr)) {
+        //   // If we have properties, we can wake the CondVar that the fiber
+        //   // is waiting on, if any.
+        //   if (ABSL_PREDICT_FALSE(props->waiting_on_ != nullptr)) {
+        //     props->waiting_on_->SignalAll();
+        //   }
+        // }
       }
 
       class ScopedMutexUnlocker {
