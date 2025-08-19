@@ -117,6 +117,8 @@ async def read_store_run(action: actionengine.Action) -> None:
                 break
 
             if isinstance(element, Exception):
+                if isinstance(element, (TimeoutError, asyncio.TimeoutError)):
+                    return
                 raise element
 
             await response.put(actionengine.to_chunk(element))
@@ -197,10 +199,10 @@ async def read_store_http_handler_impl(
     """
     Create an action to read from the Redis store.
     """
-    registry = ActionEngineClient.global_instance().get_action_registry()
-    node_map = actionengine.NodeMap()
+    ae = ActionEngineClient.global_instance()
 
-    read_items = registry.make_action("read_store", node_map=node_map).run()
+    read_items = ae.make_action("read_store")
+    await read_items.call()
     await read_items["request"].put_and_finalize(request)
 
     queue = asyncio.Queue(32)
@@ -219,7 +221,6 @@ async def read_store_http_handler_impl(
                 n_chunks_to_buffer=32,
             )
             async for chunk in node:
-                print(f"Received {chunk}")
                 await queue.put(chunk)
         except asyncio.TimeoutError:
             await queue.put(None)
@@ -231,38 +232,30 @@ async def read_store_http_handler_impl(
         read_action_output(read_items["response"], request.timeout)
     )
 
-    try:
-        current_mimetype = None
-        while True:
-            try:
-                element = await queue.get()
-            except asyncio.CancelledError:
-                break
-            if element is None:
-                break
+    # try:
+    while True:
+        try:
+            element = await queue.get()
+        except asyncio.CancelledError:
+            break
+        if element is None:
+            break
 
-            if isinstance(element, Exception):
-                exc = HTTPException(
-                    status_code=500,
-                    detail=f"Error reading from store: {str(element)}",
-                )
-                if not stream:
-                    raise exc from element
-                else:
-                    yield f"data: {json.dumps({'error': str(element)})}\n\n"
-                    break
-
-            fragment = element
-            include_metadata = (
-                current_mimetype != fragment.chunk.metadata.mimetype
+        if isinstance(element, Exception):
+            exc = HTTPException(
+                status_code=500,
+                detail=f"Error reading from store: {str(element)}",
             )
-            current_mimetype = fragment.chunk.metadata.mimetype
-            if stream:
-                yield f"data: {json.dumps(fragment_to_json(fragment, include_metadata=include_metadata))}\n\n"
+            if not stream:
+                raise exc from element
             else:
-                yield fragment
-    finally:
-        await read_items_task
+                yield f"data: {json.dumps({'error': str(element)})}\n\n"
+                break
+
+        fragment = element
+        yield fragment
+    # finally:
+    #     await read_items_task
 
 
 async def read_store_http_handler(
@@ -302,17 +295,28 @@ async def read_store_http_handler(
         timeout=timeout,
     )
 
+    gen = read_store_http_handler_impl(request, stream=stream)
+
     if stream:
+
+        async def stream_responses():
+            async for data in gen:
+                data_json = await asyncio.to_thread(
+                    fragment_to_json,
+                    data,
+                    include_metadata=True,
+                )
+                data_json_str = await asyncio.to_thread(json.dumps, data_json)
+                yield f"data: {data_json_str}\n\n"
+
         return StreamingResponse(
-            read_store_http_handler_impl(request, stream=True),
+            stream_responses(),
             media_type="text/event-stream",
         )
 
     fragments = []
     try:
-        async for fragment in read_store_http_handler_impl(
-            request, stream=False
-        ):
+        async for fragment in gen:
             fragments.append(fragment)
     except HTTPException as exc:
         if not fragments:
