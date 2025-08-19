@@ -62,8 +62,8 @@ struct FutureOrTaskHolder {
         future_or_task.attr("cancel")();
         return;
       }
-      auto _ =
-          future_or_task.attr("result")();  // Wait for the Future to finish.
+      // auto _ =
+      //     future_or_task.attr("result")();  // Wait for the Future to finish.
     }
   }
 
@@ -118,6 +118,22 @@ ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
           action->SetUserData(
               std::make_shared<FutureOrTaskHolder>(std::move(future)));
           return absl::OkStatus();
+        }
+
+        thread::PermanentEvent done;
+        auto future_done_callback = py::cpp_function([&done](py::handle) {
+          done.Notify();
+        });  // Keep the callback alive until done.
+        future.attr("add_done_callback")(future_done_callback);
+        {
+          py::gil_scoped_release release;
+          thread::Select({done.OnEvent(), thread::OnCancel()});
+        }
+        if (thread::Cancelled()) {
+          auto _ = future.attr("cancel")();
+          return absl::CancelledError(
+              "Action handler was cancelled while waiting for the "
+              "coroutine.");
         }
         auto _ = future.attr("result")();  // Wait for the coroutine to finish.
         return absl::OkStatus();

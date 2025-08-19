@@ -322,28 +322,6 @@ async def make_response_events(
         yield f"data: {json.dumps(event)}\nevent: session.stream.fragment\n\n"
 
 
-async def make_streaming_response(action: actionengine.Action):
-    queue = asyncio.Queue(maxsize=32)
-    print("Starting to stream thoughts and response fragments...")
-
-    stream_thoughts = asyncio.create_task(
-        put_node_fragments_in_queue(action["thoughts"], queue, "thought")
-    )
-    stream_response = asyncio.create_task(
-        put_node_fragments_in_queue(action["output"], queue, "response")
-    )
-    async for event in make_response_events(queue):
-        yield event
-    # await stream_thoughts
-
-    # async for event in make_response_events(queue):
-    #     yield event
-    # await stream_response
-
-    new_session_token = await action["new_session_token"].consume()
-    yield f"data: {new_session_token}\nevent: session.session_token\n\n"
-
-
 @app.put(
     "/sessions/{session_token}/",
     tags=["sessions"],
@@ -373,6 +351,26 @@ async def send_message_to_session(
     await action["chat_input"].put_and_finalize(request.message)
 
     if stream:
+        queue = asyncio.Queue(maxsize=32)
+        print("Starting to stream thoughts and response fragments...")
+
+        stream_thoughts = asyncio.create_task(
+            put_node_fragments_in_queue(action["thoughts"], queue, "thought")
+        )
+        stream_response = asyncio.create_task(
+            put_node_fragments_in_queue(action["output"], queue, "response")
+        )
+
+        async def make_streaming_response(action: actionengine.Action):
+            async for event in make_response_events(queue):
+                yield event
+
+            new_session_token = await action["new_session_token"].consume()
+            yield f"data: {new_session_token}\nevent: session.session_token\n\n"
+
+            await stream_thoughts
+            await stream_response
+
         return StreamingResponse(
             make_streaming_response(action),
             media_type="text/event-stream",

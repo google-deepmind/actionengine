@@ -179,7 +179,7 @@ WebRtcWireStream::WebRtcWireStream(
 
   data_channel_->onMessage(
       [this](rtc::binary message) {
-        size_t message_size = message.size();
+        const size_t message_size = message.size();
         const auto data = reinterpret_cast<uint8_t*>(std::move(message).data());
         absl::StatusOr<data::BytePacket> packet =
             data::ParseBytePacket(data, message_size);
@@ -391,7 +391,7 @@ absl::StatusOr<std::optional<WireMessage>> WebRtcWireStream::Receive(
     return std::nullopt;
   }
 
-  return std::move(message);
+  return message;
 }
 
 void WebRtcWireStream::Abort() {
