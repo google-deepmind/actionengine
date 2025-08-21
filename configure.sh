@@ -2,6 +2,12 @@
 
 set -e
 
+if [[ -z "$CMAKE_BUILD_TYPE" ]]; then
+  cmake_build_type="Debug"
+else
+  cmake_build_type="$CMAKE_BUILD_TYPE"
+fi
+
 cc_standard=20
 
 repo_root=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -25,7 +31,7 @@ echo "Configuring build..."
   && CC=clang CXX=clang++ cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${repo_root}/install" \
-  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_BUILD_TYPE="${cmake_build_type}" \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
   -GNinja \
   ..)
