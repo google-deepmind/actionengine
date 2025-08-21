@@ -62,7 +62,7 @@ struct ChunkStoreEvent {
   int arrival_offset = -1;
   std::string stream_message_id;
 
-  static ChunkStoreEvent FromString(const std::string& message);
+  static absl::StatusOr<ChunkStoreEvent> FromString(const std::string& message);
 };
 
 /** @brief

@@ -72,7 +72,7 @@ void PackStandalone(PackableType&& obj, Packer* packer);
 
 class Unpacker;
 template <typename PackableType>
-void UnpackStandalone(PackableType&& obj, Unpacker* unpacker);
+absl::Status UnpackStandalone(PackableType&& obj, Unpacker* unpacker);
 
 template <typename T, typename Enable = void>
 struct is_optional : std::false_type {};
@@ -534,7 +534,7 @@ inline void Packer::pack_type(const std::vector<uint8_t>& value) {
 
 class Unpacker {
  public:
-  Unpacker() : data_pointer(nullptr), data_end(nullptr) {};
+  Unpacker() : data_pointer_(nullptr), data_end(nullptr) {};
 
   Unpacker(const uint8_t* data_start, std::size_t bytes);
   ;
@@ -556,7 +556,7 @@ class Unpacker {
   const uint8_t* GetDataPtr() const;
 
  private:
-  const uint8_t* data_pointer;
+  const uint8_t* data_pointer_;
   const uint8_t* data_end;
   mutable std::error_code error_code_{};
 
@@ -585,8 +585,12 @@ class Unpacker {
       unpack_type(recursive_data);
       auto recursive_unpacker =
           Unpacker{recursive_data.data(), recursive_data.size()};
-      UnpackStandalone(value, &recursive_unpacker);
+      absl::Status status = UnpackStandalone(value, &recursive_unpacker);
       error_code_ = recursive_unpacker.GetErrorCode();
+      if (!status.ok()) {
+        error_code_ = std::make_error_code(std::errc::invalid_argument);
+        error_code_.message() = std::string(status.message());
+      }
     }
   }
 
@@ -858,7 +862,7 @@ inline void Unpacker::unpack_type(uint64_t& value) {
       value += static_cast<uint64_t>(safe_data()) << 8 * (i - 1);
       safe_increment();
     }
-    data_pointer++;
+    data_pointer_++;
   } else if (safe_data() == uint16) {
     safe_increment();
     for (auto i = sizeof(uint16_t); i > 0; --i) {
@@ -989,8 +993,8 @@ inline void Unpacker::unpack_type(std::string& value) {
     str_size = safe_data() & 0b00011111;
     safe_increment();
   }
-  if (data_pointer + str_size <= data_end) {
-    value = std::string{data_pointer, data_pointer + str_size};
+  if (data_pointer_ + str_size <= data_end) {
+    value = std::string{data_pointer_, data_pointer_ + str_size};
     safe_increment(str_size);
   } else {
     error_code_ = UnpackerError::OutOfRange;
@@ -1019,8 +1023,8 @@ inline void Unpacker::unpack_type(std::vector<uint8_t>& value) {
       safe_increment();
     }
   }
-  if (data_pointer + bin_size <= data_end) {
-    value = std::vector<uint8_t>{data_pointer, data_pointer + bin_size};
+  if (data_pointer_ + bin_size <= data_end) {
+    value = std::vector<uint8_t>{data_pointer_, data_pointer_ + bin_size};
     safe_increment(bin_size);
   } else {
     error_code_ = UnpackerError::OutOfRange;
@@ -1070,12 +1074,12 @@ UnpackableObject unpack(const std::vector<uint8_t>& data) {
 
 template <typename PackableType>
 void PackStandalone(PackableType&& obj, Packer* packer) {
-  CppackToBytes(std::forward<PackableType>(obj), *packer);
+  CppackToBytes(std::forward<PackableType>(obj), *packer).IgnoreError();
 }
 
 template <typename PackableType>
-void UnpackStandalone(PackableType&& obj, Unpacker* unpacker) {
-  CppackFromBytes(std::forward<PackableType>(obj), *unpacker);
+absl::Status UnpackStandalone(PackableType&& obj, Unpacker* unpacker) {
+  return CppackFromBytes(std::forward<PackableType>(obj), *unpacker);
 }
 
 template <typename PackableType>

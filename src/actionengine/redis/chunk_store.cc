@@ -22,7 +22,8 @@
 #include "cppack/msgpack.h"
 
 namespace act::redis {
-ChunkStoreEvent ChunkStoreEvent::FromString(const std::string& message) {
+absl::StatusOr<ChunkStoreEvent> ChunkStoreEvent::FromString(
+    const std::string& message) {
   const std::vector<std::string> parts =
       absl::StrSplit(message, absl::MaxSplits(':', 4));
 
@@ -37,15 +38,14 @@ ChunkStoreEvent ChunkStoreEvent::FromString(const std::string& message) {
     success &= absl::SimpleAtoi(parts[2], &event.arrival_offset);
     event.stream_message_id = parts[3];
     if (!success) {
-      LOG(ERROR) << "Failed to parse NEW event: " << message;
-      return ChunkStoreEvent{"", -1, -1, ""};
+      return absl::InvalidArgumentError(
+          absl::StrCat("Failed to parse NEW event: ", message));
     }
     return event;
   }
 
-  LOG(FATAL) << "Unknown ChunkStoreEvent type: " << event.type
-             << " in message: " << message;
-  ABSL_ASSUME(false);
+  return absl::InvalidArgumentError(absl::StrCat(
+      "Unknown ChunkStoreEvent type: ", event.type, " in message: ", message));
 }
 
 ChunkStore::ChunkStore(Redis* redis, std::string_view id, absl::Duration ttl)

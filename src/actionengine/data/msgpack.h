@@ -26,34 +26,35 @@ namespace cppack {
 class Packer;
 class Unpacker;
 }  // namespace cppack
+
 namespace cppack {
 
-void CppackToBytes(const absl::Status& status, Packer& packer);
-void CppackFromBytes(absl::Status& status, Unpacker& unpacker);
+absl::Status CppackToBytes(const absl::Status& status, Packer& packer);
+absl::Status CppackFromBytes(absl::Status& status, Unpacker& unpacker);
 
-void CppackToBytes(const absl::Time& obj, Packer& packer);
-void CppackFromBytes(absl::Time& obj, Unpacker& unpacker);
+absl::Status CppackToBytes(absl::Time obj, Packer& packer);
+absl::Status CppackFromBytes(absl::Time& obj, Unpacker& unpacker);
 
-void CppackToBytes(const act::ChunkMetadata& obj, Packer& packer);
-void CppackFromBytes(act::ChunkMetadata& obj, Unpacker& unpacker);
+absl::Status CppackToBytes(const act::ChunkMetadata& obj, Packer& packer);
+absl::Status CppackFromBytes(act::ChunkMetadata& obj, Unpacker& unpacker);
 
-void CppackToBytes(const act::Chunk& obj, Packer& packer);
-void CppackFromBytes(act::Chunk& obj, Unpacker& unpacker);
+absl::Status CppackToBytes(const act::Chunk& obj, Packer& packer);
+absl::Status CppackFromBytes(act::Chunk& obj, Unpacker& unpacker);
 
-void CppackToBytes(const act::NodeRef& obj, Packer& packer);
-void CppackFromBytes(act::NodeRef& obj, Unpacker& unpacker);
+absl::Status CppackToBytes(const act::NodeRef& obj, Packer& packer);
+absl::Status CppackFromBytes(act::NodeRef& obj, Unpacker& unpacker);
 
-void CppackToBytes(const act::NodeFragment& obj, Packer& packer);
-void CppackFromBytes(act::NodeFragment& obj, Unpacker& unpacker);
+absl::Status CppackToBytes(const act::NodeFragment& obj, Packer& packer);
+absl::Status CppackFromBytes(act::NodeFragment& obj, Unpacker& unpacker);
 
-void CppackToBytes(const act::Port& obj, Packer& packer);
-void CppackFromBytes(act::Port& obj, Unpacker& unpacker);
+absl::Status CppackToBytes(const act::Port& obj, Packer& packer);
+absl::Status CppackFromBytes(act::Port& obj, Unpacker& unpacker);
 
-void CppackToBytes(const act::ActionMessage& obj, Packer& packer);
-void CppackFromBytes(act::ActionMessage& obj, Unpacker& unpacker);
+absl::Status CppackToBytes(const act::ActionMessage& obj, Packer& packer);
+absl::Status CppackFromBytes(act::ActionMessage& obj, Unpacker& unpacker);
 
-void CppackToBytes(const act::WireMessage& obj, Packer& packer);
-void CppackFromBytes(act::WireMessage& obj, Unpacker& unpacker);
+absl::Status CppackToBytes(const act::WireMessage& obj, Packer& packer);
+absl::Status CppackFromBytes(act::WireMessage& obj, Unpacker& unpacker);
 
 }  // namespace cppack
 

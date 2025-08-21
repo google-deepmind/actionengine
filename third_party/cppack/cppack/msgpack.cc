@@ -56,11 +56,11 @@ void Packer::pack_type(const int8_t& value) {
 }
 
 Unpacker::Unpacker(const uint8_t* data_start, std::size_t bytes)
-    : data_pointer(data_start), data_end(data_start + bytes) {}
+    : data_pointer_(data_start), data_end(data_start + bytes) {}
 
 void Unpacker::set_data(const uint8_t* pointer, std::size_t size) {
-  data_pointer = pointer;
-  data_end = data_pointer + size;
+  data_pointer_ = pointer;
+  data_end = data_pointer_ + size;
 }
 
 std::error_code Unpacker::GetErrorCode() const {
@@ -68,23 +68,23 @@ std::error_code Unpacker::GetErrorCode() const {
 }
 
 const uint8_t* Unpacker::GetDataPtr() const {
-  if (data_pointer < data_end) {
-    return data_pointer;
+  if (data_pointer_ < data_end) {
+    return data_pointer_;
   }
   error_code_ = UnpackerError::OutOfRange;
   return nullptr;
 }
 
 uint8_t Unpacker::safe_data() const {
-  if (data_pointer < data_end)
-    return *data_pointer;
+  if (data_pointer_ < data_end)
+    return *data_pointer_;
   error_code_ = UnpackerError::OutOfRange;
   return 0;
 }
 
 void Unpacker::safe_increment(int64_t bytes) {
-  if (data_end - data_pointer >= 0) {
-    data_pointer += bytes;
+  if (data_end - data_pointer_ >= 0) {
+    data_pointer_ += bytes;
   } else {
     error_code_ = UnpackerError::OutOfRange;
   }
