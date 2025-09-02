@@ -30,7 +30,7 @@ from actionengine import status
 from actionengine import utils
 from actionengine import webrtc
 from actionengine import websockets
-from actionengine import actionengine_pybind11
+from actionengine import _C
 
 
 Action = actions.Action
@@ -70,6 +70,4 @@ get_global_act_settings = global_settings.get_global_act_settings
 def run_threadsafe_if_coroutine(
     function_call_result, loop: asyncio.AbstractEventLoop | None = None
 ) -> Any:
-    return actionengine_pybind11.run_threadsafe_if_coroutine(
-        function_call_result, loop
-    )
+    return _C.run_threadsafe_if_coroutine(function_call_result, loop)

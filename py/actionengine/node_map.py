@@ -14,7 +14,7 @@
 
 """A Pythonic wrapper for the raw pybind11 NodeMap bindings."""
 
-import actionengine.actionengine_pybind11 as actionengine_pybind11
+from actionengine import _C
 from actionengine import async_node
 from actionengine import data
 from actionengine import utils
@@ -23,7 +23,7 @@ AsyncNode = async_node.AsyncNode
 ChunkStoreFactory = data.ChunkStoreFactory
 
 
-class NodeMap(actionengine_pybind11.NodeMap):
+class NodeMap(_C.NodeMap):
     """An ActionEngine NodeMap.
 
     Simply contains AsyncNodes. Calls are thread-safe.

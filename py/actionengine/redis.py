@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from actionengine.actionengine_pybind11 import redis as redis_pybind11
+from actionengine import _C
 
-Redis = redis_pybind11.Redis
-ChunkStore = redis_pybind11.ChunkStore
+Redis = _C.redis.Redis
+ChunkStore = _C.redis.ChunkStore

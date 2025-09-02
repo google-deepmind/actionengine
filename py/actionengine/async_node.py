@@ -16,28 +16,24 @@
 
 import asyncio
 import contextlib
-import functools
 from collections.abc import Awaitable
 from typing import Any
 
-import actionengine.actionengine_pybind11 as actionengine_pybind11
+from actionengine import _C
 from actionengine import global_settings
 from actionengine import data
 from actionengine import utils
-from actionengine.actionengine_pybind11 import (
-    chunk_store as chunk_store_pybind11,
-)
 
 Chunk = data.Chunk
 ChunkMetadata = data.ChunkMetadata
 NodeFragment = data.NodeFragment
 ChunkStoreFactory = data.ChunkStoreFactory
-LocalChunkStore = chunk_store_pybind11.LocalChunkStore
+LocalChunkStore = _C.chunk_store.LocalChunkStore
 
 global_setting_if_none = global_settings.global_setting_if_none
 
 
-class AsyncNode(actionengine_pybind11.AsyncNode):
+class AsyncNode(_C.AsyncNode):
     """A Pythonic wrapper for the raw pybind11 AsyncNode bindings.
 
     AsyncNode is an accessor class that allows to access the chunks of a node
@@ -49,7 +45,7 @@ class AsyncNode(actionengine_pybind11.AsyncNode):
     def __init__(
         self,
         node_id: str,
-        chunk_store: chunk_store_pybind11.ChunkStore | None = None,
+        chunk_store: _C.chunk_store.ChunkStore | None = None,
         node_map: "NodeMap | None" = None,
         serializer_registry: data.SerializerRegistry | None = None,
     ):

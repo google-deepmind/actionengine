@@ -1,0 +1,20 @@
+[project]
+name = "actionengine"
+version = "0.1.0"
+
+authors = [
+    { name = "Helena Pankov", email = "helenapankov@google.com" },
+]
+description = "Action Engine"
+readme = "README.md"
+license = "Apache-2.0"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["py"]
+include = ["actionengine"]
+
+[tool.setuptools.package-data]
+actionengine = ["*.so"]

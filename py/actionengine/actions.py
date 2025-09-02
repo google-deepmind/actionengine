@@ -20,11 +20,11 @@ from typing import Any
 from typing import Awaitable
 from typing import Callable
 
+from actionengine import _C
 from actionengine import async_node
 from actionengine import node_map as eg_node_map
 from actionengine import data
 from actionengine import utils
-from actionengine.actionengine_pybind11 import actions as actions_pybind11
 from pydantic import BaseModel
 
 AsyncNode = async_node.AsyncNode
@@ -59,7 +59,7 @@ def wrap_handler(handler: ActionHandler) -> ActionHandler:
         return inner
 
 
-class ActionSchema(actions_pybind11.ActionSchema):
+class ActionSchema(_C.actions.ActionSchema):
     """A schema of an ActionEngine Action."""
 
     # pylint: disable-next=[useless-parent-delegation]
@@ -94,13 +94,13 @@ class ActionSchema(actions_pybind11.ActionSchema):
         super().__init__(name=name, inputs=inputs, outputs=outputs)
 
 
-class ActionRegistry(actions_pybind11.ActionRegistry):
+class ActionRegistry(_C.actions.ActionRegistry):
     """A Pythonic wrapper for the raw pybind11 ActionRegistry bindings."""
 
     def register(
         self,
         name: str,
-        schema: actions_pybind11.ActionSchema,
+        schema: _C.actions.ActionSchema,
         handler: Any = do_nothing,
     ) -> None:
         """Registers an action schema and handler."""
@@ -159,7 +159,7 @@ class ActionRegistry(actions_pybind11.ActionRegistry):
         return action
 
 
-class Action(actions_pybind11.Action):
+class Action(_C.actions.Action):
     """A Pythonic wrapper for the raw pybind11 Action bindings."""
 
     def _add_python_specific_attributes(self):

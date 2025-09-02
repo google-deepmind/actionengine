@@ -23,10 +23,8 @@ namespace act {
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(pybind11_abseil, m) {
-  const py::module_ status =
-      m.def_submodule("status", "Abseil status bindings");
-  py::google::internal::RegisterStatusBindings(status);
+PYBIND11_MODULE(status, m) {
+  py::google::internal::RegisterStatusBindings(m);
 }
 
 }  // namespace act

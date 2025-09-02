@@ -17,26 +17,23 @@
 import io
 from typing import Any, Callable
 
-from actionengine.actionengine_pybind11 import (
-    chunk_store as chunk_store_pybind11,
-)
-from actionengine.actionengine_pybind11 import data as data_pybind11
-from actionengine.pybind11_abseil import status
+from actionengine import _C
+from actionengine import status
 from actionengine import pydantic_helpers
 from PIL import Image
 from pydantic import BaseModel
 
-ChunkMetadata = data_pybind11.ChunkMetadata
-Chunk = data_pybind11.Chunk
-NodeFragment = data_pybind11.NodeFragment
-Port = data_pybind11.Port
-ActionMessage = data_pybind11.ActionMessage
-WireMessage = data_pybind11.WireMessage
+ChunkMetadata = _C.data.ChunkMetadata
+Chunk = _C.data.Chunk
+NodeFragment = _C.data.NodeFragment
+Port = _C.data.Port
+ActionMessage = _C.data.ActionMessage
+WireMessage = _C.data.WireMessage
 
-ChunkStoreFactory = Callable[[str], chunk_store_pybind11.ChunkStore]
+ChunkStoreFactory = Callable[[str], _C.chunk_store.ChunkStore]
 
-SerializerRegistry = data_pybind11.SerializerRegistry
-get_global_serializer_registry = data_pybind11.get_global_serializer_registry
+SerializerRegistry = _C.data.SerializerRegistry
+get_global_serializer_registry = _C.data.get_global_serializer_registry
 
 
 def to_bytes(
@@ -44,7 +41,7 @@ def to_bytes(
     mimetype: str = "",
     registry: SerializerRegistry = None,
 ) -> bytes:
-    return data_pybind11.to_bytes(obj, mimetype, registry)
+    return _C.data.to_bytes(obj, mimetype, registry)
 
 
 def to_chunk(
@@ -56,13 +53,13 @@ def to_chunk(
         "",
         "__act:NodeFragment__",
     ):
-        return data_pybind11.to_chunk(obj)
+        return _C.data.to_chunk(obj)
     if isinstance(obj, status.Status) and mimetype in (
         "",
         "__status__",
     ):
-        return data_pybind11.to_chunk(obj)
-    return data_pybind11.to_chunk(obj, mimetype, registry)
+        return _C.data.to_chunk(obj)
+    return _C.data.to_chunk(obj, mimetype, registry)
 
 
 def from_chunk(
@@ -70,7 +67,7 @@ def from_chunk(
     mimetype: str = "",
     registry: SerializerRegistry | None = None,
 ) -> bytes:
-    return data_pybind11.from_chunk(chunk, mimetype, registry)
+    return _C.data.from_chunk(chunk, mimetype, registry)
 
 
 def bytes_to_bytes(value: bytes) -> bytes:

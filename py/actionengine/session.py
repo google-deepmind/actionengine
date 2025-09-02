@@ -16,12 +16,11 @@
 
 import asyncio
 
-from actionengine.actionengine_pybind11 import actions as actions_pybind11
+from actionengine import _C
 from actionengine import node_map
 from actionengine import stream as eg_stream
 from actionengine import data
 from actionengine import utils
-from actionengine.actionengine_pybind11 import service as service_pybind11
 
 NodeMap = node_map.NodeMap
 
@@ -30,13 +29,13 @@ def do_nothing():
     pass
 
 
-class Session(service_pybind11.Session):
+class Session(_C.service.Session):
     """A Pythonic wrapper for the raw pybind11 Session bindings."""
 
     def __init__(
         self,
         node_map: NodeMap | None = None,
-        action_registry: actions_pybind11.ActionRegistry | None = None,
+        action_registry: _C.actions.ActionRegistry | None = None,
     ):  # pytype: disable=name-error
         """Constructor for Session."""
 

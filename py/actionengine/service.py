@@ -19,16 +19,16 @@ import inspect
 from typing import Awaitable
 from typing import Callable
 
+from actionengine import _C
 from actionengine import actions
 from actionengine import session as eg_session
 from actionengine import stream as eg_stream
 from actionengine import utils
-from actionengine.actionengine_pybind11 import service as service_pybind11
 
 ActionRegistry = actions.ActionRegistry
 WireStream = eg_stream.WireStream
 Session = eg_session.Session
-StreamToSessionConnection = service_pybind11.StreamToSessionConnection
+StreamToSessionConnection = _C.service.StreamToSessionConnection
 
 
 class WireStream(eg_stream.WireStream):
@@ -97,7 +97,7 @@ def wrap_handler(handler: ConnectionHandler | None) -> ConnectionHandler | None:
         return wrap_sync_handler(handler)
 
 
-class Service(service_pybind11.Service):
+class Service(_C.service.Service):
     """A Pythonic wrapper for the raw pybind11 Service bindings."""
 
     def __init__(

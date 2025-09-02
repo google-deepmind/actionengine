@@ -77,7 +77,7 @@ add_subdirectory(actionengine/redis)
 add_subdirectory(actionengine/service)
 add_subdirectory(actionengine/stores)
 add_subdirectory(actionengine/util)
-add_subdirectory(pybind11_abseil_module)
+add_subdirectory(pybind11_abseil_status_module)
 
 # ------------------------------------------------------------------
 

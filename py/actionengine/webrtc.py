@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from actionengine.actionengine_pybind11 import webrtc as webrtc_pybind11
+from actionengine._C import webrtc as webrtc_pybind11
 
 make_webrtc_stream = webrtc_pybind11.make_webrtc_stream
 WebRtcServer = webrtc_pybind11.WebRtcServer

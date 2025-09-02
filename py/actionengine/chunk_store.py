@@ -14,12 +14,10 @@
 
 """A Pythonic wrapper for the raw pybind11 ChunkStore bindings."""
 
-from actionengine.actionengine_pybind11 import (
-    chunk_store as chunk_store_pybind11,
-)
+from actionengine import _C
 
-ChunkStore = chunk_store_pybind11.ChunkStore
+ChunkStore = _C.chunk_store.ChunkStore
 
 
-class LocalChunkStore(chunk_store_pybind11.LocalChunkStore):
+class LocalChunkStore(_C.chunk_store.LocalChunkStore):
     pass

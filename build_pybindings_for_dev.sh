@@ -7,12 +7,16 @@ repo_root=$(pwd)
 echo "Building project..."
 cd build
 CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target actionengine_pybind11
-CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target pybind11_abseil
+CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target pybind11_abseil_status_module
 
 echo "Moving compiled files to Python code directory..."
 cd "$repo_root"
-mv build/src/actionengine_pybind11*.so py/actionengine/
-mv build/src/pybind11_abseil_module/pybind11_abseil*.so py/actionengine/
+for f in build/src/actionengine_pybind11*.so; do
+    cp "$f" "py/actionengine/_C${f##*/actionengine_pybind11}"
+done
+for f in build/src/pybind11_abseil_status_module/pybind11_abseil_status_module.*.so; do
+    cp "$f" "py/actionengine/status.${f##*/pybind11_abseil_status_module.}"
+done
 rm -rf install
 
 if [[ "$1" == "--only-rebuild-pybind11" ]]; then
@@ -20,7 +24,7 @@ if [[ "$1" == "--only-rebuild-pybind11" ]]; then
 else
   echo "Installing requirements and Python package and cleaning up."
   pip3 install -r py/requirements.txt
-  pip3 install --force-reinstall -e ./py
+  pip3 install --force-reinstall -e .
 fi
 
 echo "Validating installation."
