@@ -295,6 +295,7 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
       mu_.Lock();
     }
   }
+  cleanup_done_.Notify();
   DLOG(INFO) << "Connections cleaned up.";
 }
 

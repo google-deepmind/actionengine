@@ -28,6 +28,7 @@ def make_action_registry():
 
     actions.redis.register_actions(registry)
 
+    # these lines will not be needed later:
     actionengine.to_bytes(actions.redis.ReadStoreRequest(key=""))
     actionengine.to_bytes(
         actions.redis.WriteRedisStoreRequest(key="", data=b"")
@@ -62,7 +63,7 @@ async def main(args: argparse.Namespace):
     rtc_config = actionengine.webrtc.RtcConfig()
     rtc_config.turn_servers = [
         actionengine.webrtc.TurnServer.from_string(
-            "helena:actionengine-webrtc-testing@demos.helena.direct",
+            "helena:actionengine-webrtc-testing@actionengine.dev",
         ),
     ]
     server = actionengine.webrtc.WebRtcServer(

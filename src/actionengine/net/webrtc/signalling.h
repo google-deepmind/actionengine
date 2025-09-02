@@ -43,10 +43,10 @@ using PeerJsonHandler =
 /**
  * A client for WebRTC signalling using WebSocket.
  *
- * This class handles the connection to a WebSocket server for WebRTC signalling,
- * allowing the client to send and receive offers, answers, and ICE candidates.
- * It provides methods to set callbacks for handling these messages and to
- * connect with a specific identity.
+ * This class handles the connection to a WebSocket server for WebRTC
+ * signalling, allowing the client to send and receive offers, answers, and ICE
+ * candidates. It provides methods to set callbacks for handling these messages
+ * and to connect with a specific identity.
  *
  * @headerfile actionengine/net/webrtc/signalling.h
  */
@@ -101,17 +101,23 @@ class SignallingClient {
     if (const absl::Status status = stream_.Close(); !status.ok()) {
       LOG(ERROR) << "SignallingClient::Cancel failed: " << status;
     }
-    loop_->Cancel();
-    loop_status_ =
-        absl::CancelledError("WebsocketActionEngineServer cancelled");
+    if (loop_ != nullptr) {
+      loop_->Cancel();
+      loop_status_ =
+          absl::CancelledError("WebsocketActionEngineServer cancelled");
+    }
   }
 
   void JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     if (loop_ != nullptr) {
-      mu_.Unlock();
+      mu_.unlock();
       loop_->Join();
-      mu_.Lock();
+      mu_.lock();
+
       loop_ = nullptr;
+
+      thread_pool_->stop();
+      thread_pool_->join();
     }
   }
 
@@ -127,6 +133,7 @@ class SignallingClient {
   PeerJsonHandler on_candidate_;
   PeerJsonHandler on_answer_;
 
+  std::unique_ptr<boost::asio::thread_pool> thread_pool_;
   FiberAwareWebsocketStream stream_;
   std::unique_ptr<thread::Fiber> loop_;
   absl::Status loop_status_ ABSL_GUARDED_BY(mu_);

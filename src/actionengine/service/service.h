@@ -234,9 +234,9 @@ class Service : public std::enable_shared_from_this<Service> {
    */
   auto SetActionRegistry(const ActionRegistry& action_registry) const -> void;
 
- private:
   void JoinConnectionsAndCleanUp(bool cancel = false) ABSL_LOCKS_EXCLUDED(mu_);
 
+ private:
   void CleanupConnection(const StreamToSessionConnection& connection)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 

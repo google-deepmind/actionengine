@@ -133,6 +133,8 @@ FiberAwareWebsocketStream& FiberAwareWebsocketStream::operator=(
 FiberAwareWebsocketStream::~FiberAwareWebsocketStream() {
   act::MutexLock lock(&mu_);
 
+  cancel_signal_.emit(boost::asio::cancellation_type::total);
+
   bool timeout_logged = false;
   while (write_pending_ || read_pending_) {
     cv_.WaitWithTimeout(&mu_, kDebugWarningTimeout);
@@ -234,6 +236,7 @@ absl::Status FiberAwareWebsocketStream::WriteText(
 
   boost::system::error_code error;
   thread::PermanentEvent write_done;
+  stream_->text(true);
   stream_->async_write(
       boost::asio::buffer(message),
       [&error, &write_done](const boost::system::error_code& ec, std::size_t) {
@@ -440,20 +443,6 @@ absl::Status FiberAwareWebsocketStream::Read(
     // Timed out.
     return absl::DeadlineExceededError(
         "FiberAwareWebsocketStream Read operation timed out.");
-  }
-
-  if (thread::Cancelled()) {
-    // Cancelled without timing out.
-    if (stream_->is_open()) {
-      stream_->next_layer().shutdown(boost::asio::socket_base::shutdown_receive,
-                                     error);
-      if (error && error != boost::asio::error::not_connected) {
-        LOG(ERROR) << absl::StrFormat(
-            "Cannot shut down receive on websocket stream: %v",
-            error.message());
-      }
-    }
-    return absl::CancelledError("WsRead cancelled");
   }
 
   // Finally, we can move the received data to the output buffer.

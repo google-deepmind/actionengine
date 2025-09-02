@@ -53,7 +53,9 @@
 namespace act::net {
 
 SignallingClient::SignallingClient(std::string_view address, uint16_t port)
-    : address_(address), port_(port) {}
+    : address_(address),
+      port_(port),
+      thread_pool_(std::make_unique<boost::asio::thread_pool>(2)) {}
 
 SignallingClient::~SignallingClient() {
   act::MutexLock lock(&mu_);
@@ -79,8 +81,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
 
   identity_ = std::string(identity);
 
-  auto boost_stream = std::make_unique<BoostWebsocketStream>(
-      *util::GetDefaultAsioExecutionContext());
+  auto boost_stream = std::make_unique<BoostWebsocketStream>(*thread_pool_);
 
   boost_stream->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::request_type& req) {
@@ -93,7 +94,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
           boost::beast::role_type::server)));
 
   if (absl::Status status =
-          ResolveAndConnect(boost_stream.get(), address_, port_);
+          ResolveAndConnect(*thread_pool_, boost_stream.get(), address_, port_);
       !status.ok()) {
     return status;
   }
@@ -125,9 +126,9 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   while (!thread::Cancelled()) {
     message.clear();
 
-    mu_.Unlock();
+    mu_.unlock();
     status = stream_.ReadText(absl::InfiniteDuration(), &message);
-    mu_.Lock();
+    mu_.lock();
 
     if (!status.ok()) {
       break;
@@ -168,17 +169,23 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
 
     if (type == "offer" && on_offer_) {
+      mu_.unlock();
       on_offer_(client_id, std::move(parsed_message));
+      mu_.lock();
       continue;
     }
 
     if (type == "candidate" && on_candidate_) {
+      mu_.unlock();
       on_candidate_(client_id, std::move(parsed_message));
+      mu_.lock();
       continue;
     }
 
     if (type == "answer" && on_answer_) {
+      mu_.unlock();
       on_answer_(client_id, std::move(parsed_message));
+      mu_.lock();
       continue;
     }
   }

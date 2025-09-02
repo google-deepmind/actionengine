@@ -236,6 +236,12 @@ absl::Status Session::DispatchMessage(WireMessage message,
         "Session has been joined, cannot dispatch messages.");
   }
   absl::Status status;
+  if (message.node_fragments.empty() && message.actions.empty()) {
+    if (stream != nullptr) {
+      stream->HalfClose();
+    }
+    return absl::OkStatus();
+  }
   for (auto& node_fragment : message.node_fragments) {
     AsyncNode* absl_nonnull node = GetNode(node_fragment.id);
     status.Update(node->Put(std::move(node_fragment)));

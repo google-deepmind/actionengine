@@ -63,9 +63,7 @@ async def main(args: argparse.Namespace):
 
         await action.get_input("speech").finalize()
         await shutdown
-        print("Finalised speech stream.")
-
-        # del action
+        print("Finalised the speech stream.")
 
 
 if __name__ == "__main__":
