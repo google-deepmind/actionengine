@@ -63,7 +63,7 @@ std::string AbslUnparseFlag(const std::vector<act::net::TurnServer>& servers);
 
 struct RtcConfig {
   static constexpr int kDefaultMaxMessageSize =
-      16384;  // 16 KiB to match the defaults of several browsers
+      65536;  // 64 KiB to match the defaults of several browsers
 
   [[nodiscard]] rtc::Configuration BuildLibdatachannelConfig() const;
 

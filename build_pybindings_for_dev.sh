@@ -12,10 +12,10 @@ CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target pybind11_abs
 echo "Moving compiled files to Python code directory..."
 cd "$repo_root"
 for f in build/src/actionengine_pybind11*.so; do
-    cp "$f" "py/actionengine/_C${f##*/actionengine_pybind11}"
+    cp -f "$f" "py/actionengine/_C${f##*/actionengine_pybind11}"
 done
 for f in build/src/pybind11_abseil_status_module/pybind11_abseil_status_module.*.so; do
-    cp "$f" "py/actionengine/status.${f##*/pybind11_abseil_status_module.}"
+    cp -f "$f" "py/actionengine/status.${f##*/pybind11_abseil_status_module.}"
 done
 rm -rf install
 

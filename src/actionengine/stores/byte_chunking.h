@@ -85,7 +85,7 @@ absl::StatusOr<BytePacket> ParseBytePacket(Byte* data, size_t size);
 
 std::vector<BytePacket> SplitBytesIntoPackets(const std::vector<Byte>& data,
                                               uint64_t transient_id,
-                                              uint64_t packet_size = 16384);
+                                              uint64_t packet_size = 65536);
 
 uint64_t GetTransientIdFromPacket(const BytePacket& packet);
 
