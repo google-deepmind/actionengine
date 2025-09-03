@@ -30,6 +30,7 @@
 #include "actionengine/concurrency/concurrency.h"
 #include "actionengine/data/serialization.h"
 #include "actionengine/data/types.h"
+#include "actionengine/net/stream.h"
 #include "actionengine/stores/chunk_store.h"
 
 namespace act {
@@ -86,12 +87,41 @@ class ChunkStoreWriter {
 
   absl::Status GetStatus() const;
 
+  void BindPeers(absl::flat_hash_map<std::string, WireStream*> peers);
+
+  void Cancel() {
+    act::MutexLock lock(&mu_);
+    CancelInternal();
+  }
+
+  void Join() {
+    act::MutexLock lock(&mu_);
+    JoinInternal();
+  }
+
  private:
   void EnsureWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   void SafelyCloseBuffer() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Status RunWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  void CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    SafelyCloseBuffer();
+    if (fiber_ != nullptr) {
+      fiber_->Cancel();
+    }
+  }
+
+  void JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    if (fiber_ != nullptr) {
+      thread::Fiber* fiber = fiber_.get();
+      mu_.unlock();
+      fiber->Join();
+      mu_.lock();
+      fiber_ = nullptr;
+    }
+  }
 
   ChunkStore* absl_nonnull const chunk_store_ = nullptr;
   const int n_chunks_to_buffer_;
@@ -107,6 +137,7 @@ class ChunkStoreWriter {
   std::unique_ptr<thread::Fiber> fiber_ ABSL_GUARDED_BY(mu_);
   thread::Channel<std::optional<NodeFragment>> buffer_;
   absl::Status status_ ABSL_GUARDED_BY(mu_);
+  absl::flat_hash_map<std::string, WireStream*> peers_ ABSL_GUARDED_BY(mu_);
 
   mutable act::Mutex mu_;
 };

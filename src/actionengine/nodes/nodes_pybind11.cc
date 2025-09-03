@@ -90,8 +90,7 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
           "put_fragment",
           [](const std::shared_ptr<AsyncNode>& self, NodeFragment fragment,
              int seq = -1) { return self->Put(std::move(fragment), seq); },
-          py::arg_v("fragment", NodeFragment()), py::arg_v("seq", -1),
-          py::call_guard<py::gil_scoped_release>())
+          py::arg_v("fragment", NodeFragment()), py::arg_v("seq", -1))
       .def(
           "put_chunk",
           [](const std::shared_ptr<AsyncNode>& self, Chunk chunk, int seq = -1,
@@ -99,14 +98,14 @@ void BindAsyncNode(py::handle scope, std::string_view name) {
             return self->Put(std::move(chunk), seq, final);
           },
           py::arg_v("chunk", Chunk()), py::arg_v("seq", -1),
-          py::arg_v("final", false), py::call_guard<py::gil_scoped_release>())
+          py::arg_v("final", false))
       .def(
           "bind_stream",
           [](const std::shared_ptr<AsyncNode>& self,
              const std::shared_ptr<WireStream>& stream) {
             absl::flat_hash_map<std::string, WireStream*> peers;
             peers[stream->GetId()] = stream.get();
-            self->BindPeers(std::move(peers));
+            self->GetWriter().BindPeers(std::move(peers));
           },
           py::arg("stream"), py::call_guard<py::gil_scoped_release>())
       .def(

@@ -121,7 +121,7 @@ AsyncNode* absl_nullable Action::GetInput(std::string_view name,
       bind_stream.value_or(bind_streams_on_inputs_default_)) {
     absl::flat_hash_map<std::string, WireStream*> peers;
     peers.insert({std::string(stream_->GetId()), stream_});
-    node->BindPeers(std::move(peers));
+    node->GetWriter().BindPeers(std::move(peers));
     nodes_with_bound_streams_.insert(node);
   }
 
@@ -343,7 +343,7 @@ AsyncNode* absl_nullable Action::GetOutputInternal(
       name != "__status__") {
     absl::flat_hash_map<std::string, WireStream*> peers;
     peers.insert({std::string(stream_->GetId()), stream_});
-    node->BindPeers(std::move(peers));
+    node->GetWriter().BindPeers(std::move(peers));
     nodes_with_bound_streams_.insert(node);
   }
   return node;
@@ -354,7 +354,8 @@ void Action::UnbindStreams() {
     if (node == nullptr) {
       continue;
     }
-    node->BindPeers({});
+    ChunkStoreWriter& writer = node->GetWriter();
+    writer.BindPeers({});
   }
   nodes_with_bound_streams_.clear();
 }

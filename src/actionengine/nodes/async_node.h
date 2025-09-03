@@ -62,9 +62,8 @@ namespace act {
  * An asynchronous node in the ActionEngine framework.
  *
  * This class represents a node that can read and write data asynchronously.
- * It supports binding to peers for mirroring data, and provides methods for
- * consuming data as specific types. The node is backed by a `ChunkStore` for
- * storing data chunks.
+ * It provides methods for consuming data as specific types. The node is backed
+ * by a `ChunkStore` for storing data chunks.
  *
  * @headerfile actionengine/nodes/async_node.h
  */
@@ -95,8 +94,6 @@ class AsyncNode {
   AsyncNode& operator=(AsyncNode&& other) noexcept;
 
   ~AsyncNode();
-
-  void BindPeers(absl::flat_hash_map<std::string, WireStream*> peers);
 
   /**
    * Enqueues a chunk to be written to underlying chunk store.
@@ -244,7 +241,6 @@ class AsyncNode {
   mutable act::CondVar cv_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<ChunkStoreReader> default_reader_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<ChunkStoreWriter> default_writer_ ABSL_GUARDED_BY(mu_);
-  absl::flat_hash_map<std::string, WireStream*> peers_ ABSL_GUARDED_BY(mu_);
 };
 
 template <typename T>

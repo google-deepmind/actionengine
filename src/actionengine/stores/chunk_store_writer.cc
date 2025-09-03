@@ -34,23 +34,25 @@ ChunkStoreWriter::ChunkStoreWriter(ChunkStore* chunk_store,
 ChunkStoreWriter::~ChunkStoreWriter() {
   act::MutexLock lock(&mu_);
 
-  accepts_puts_ = false;
-  if (fiber_ == nullptr) {
-    return;
-  }
-  const std::unique_ptr<thread::Fiber> fiber = std::move(fiber_);
-  fiber_ = nullptr;
-
-  fiber->Cancel();
-
-  mu_.Unlock();
-  fiber->Join();
-  mu_.Lock();
+  CancelInternal();
+  JoinInternal();
 }
 
 absl::Status ChunkStoreWriter::GetStatus() const {
   act::MutexLock lock(&mu_);
   return status_;
+}
+
+void ChunkStoreWriter::BindPeers(
+    absl::flat_hash_map<std::string, WireStream*> peers) {
+  act::MutexLock lock(&mu_);
+  if (peers.empty() && !peers_.empty()) {
+    // if we are unbinding all peers, we should ensure that the write loop
+    // has finished, so that we finish all writes made to the previous peers.
+    JoinInternal();
+  }
+
+  peers_ = std::move(peers);
 }
 
 void ChunkStoreWriter::EnsureWriteLoop() {
@@ -77,10 +79,10 @@ absl::Status ChunkStoreWriter::RunWriteLoop() {
     std::optional<NodeFragment> next_fragment;
     bool buffer_open;
 
-    mu_.Unlock();
+    mu_.unlock();
     thread::Select({buffer_.reader()->OnRead(&next_fragment, &buffer_open),
                     thread::OnCancel()});
-    mu_.Lock();
+    mu_.lock();
 
     if (thread::Cancelled()) {
       SafelyCloseBuffer();
@@ -101,13 +103,29 @@ absl::Status ChunkStoreWriter::RunWriteLoop() {
       break;
     }
 
-    mu_.Unlock();
+    auto peers = peers_;  // copy for use outside the lock
+
+    mu_.unlock();
+
+    if (next_fragment) {
+      next_fragment->id = chunk_store_->GetId();
+      WireMessage message_for_peers;
+      message_for_peers.node_fragments.push_back(*next_fragment);
+      for (const auto& [peer_id, peer] : peers) {
+        status.Update(peer->Send(message_for_peers));
+      }
+      if (!status.ok()) {
+        mu_.lock();
+        break;
+      }
+    }
+
     status = chunk_store_->Put(/*seq=*/next_fragment->seq.value_or(-1),
                                /*chunk=*/
                                std::move(next_fragment->GetChunkOrDie()),
                                /*final=*/
                                !next_fragment->continued);
-    mu_.Lock();
+    mu_.lock();
 
     if (!status.ok()) {
       break;

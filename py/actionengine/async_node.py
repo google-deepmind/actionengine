@@ -166,9 +166,7 @@ class AsyncNode(_C.AsyncNode):
         self._ensure_reader_options_set()
         return super().next_fragment(timeout)
 
-    def put_fragment(
-        self, fragment: NodeFragment, seq: int = -1
-    ) -> None | Awaitable[None]:
+    def put_fragment(self, fragment: NodeFragment, seq: int = -1):
         """Puts a fragment into the node's chunk store.
 
         This method will only block if the node's chunk store writer's buffer is
@@ -182,17 +180,11 @@ class AsyncNode(_C.AsyncNode):
           None if the fragment was put synchronously with no event loop, or an
           awaitable if the fragment was put asynchronously within an event loop.
         """
-        try:
-            asyncio.get_running_loop()
-            return asyncio.to_thread(self.put_fragment_sync, fragment, seq)
-        except RuntimeError:
-            super().put_fragment(
-                fragment, seq
-            )  # pytype: disable=attribute-error
+        return super().put_fragment(
+            fragment, seq
+        )  # pytype: disable=attribute-error
 
-    def put_chunk(
-        self, chunk: Chunk, seq: int = -1, final: bool = False
-    ) -> None | Awaitable[None]:
+    def put_chunk(self, chunk: Chunk, seq: int = -1, final: bool = False):
         """Puts a chunk into the node's chunk store.
 
         This method will only block if the node's chunk store writer's buffer is
@@ -207,30 +199,25 @@ class AsyncNode(_C.AsyncNode):
           None if the chunk was put synchronously with no event loop, or an
           awaitable if the chunk was put asynchronously within an event loop.
         """
-        try:
-            asyncio.get_running_loop()
-            return asyncio.to_thread(super().put_chunk, chunk, seq, final)
-        except RuntimeError:
-            super().put_chunk(
-                chunk, seq, final
-            )  # pytype: disable=attribute-error
-            return None
+        return super().put_chunk(
+            chunk, seq, final
+        )  # pytype: disable=attribute-error
 
     def put_and_finalize(
         self,
         obj: Any,
         seq: int = -1,
         mimetype: str | None = None,
-    ) -> None | Awaitable[None]:
+    ):
         return self.put(obj, seq, True, mimetype)
 
-    def put(
+    def put_sync(
         self,
         obj: Any,
         seq: int = -1,
         final: bool = False,
         mimetype: str | None = None,
-    ) -> None | Awaitable[None]:
+    ) -> None:
         """Puts an object into the node's chunk store."""
 
         if isinstance(obj, Chunk):
@@ -254,9 +241,26 @@ class AsyncNode(_C.AsyncNode):
         )
         return self.put_chunk(chunk, seq, final)
 
-    def put_text(
-        self, text: str, seq: int = -1, final: bool = False
+    def put(
+        self,
+        obj: Any,
+        seq: int = -1,
+        final: bool = False,
+        mimetype: str | None = None,
     ) -> None | Awaitable[None]:
+        try:
+            asyncio.get_running_loop()
+            return asyncio.to_thread(
+                self.put_sync,
+                obj,
+                seq,
+                final,
+                mimetype,
+            )
+        except RuntimeError:
+            return self.put_sync(obj, seq, final, mimetype)
+
+    def put_text(self, text: str, seq: int = -1, final: bool = False):
         """Puts a text/plain chunk into the node's chunk store."""
         return self.put_chunk(
             Chunk(
@@ -267,7 +271,7 @@ class AsyncNode(_C.AsyncNode):
             final=final,
         )
 
-    def finalize(self) -> None | Awaitable[None]:
+    def finalize_sync(self) -> None:
         """Finalizes the node's writer stream."""
         return self.put_chunk(
             Chunk(
@@ -276,6 +280,13 @@ class AsyncNode(_C.AsyncNode):
             ),
             final=True,
         )
+
+    def finalize(self) -> None | Awaitable[None]:
+        try:
+            asyncio.get_running_loop()
+            return asyncio.to_thread(self.finalize_sync)
+        except RuntimeError:
+            return self.finalize_sync()
 
     # pylint: disable-next=[useless-parent-delegation]
     def get_id(self) -> str:

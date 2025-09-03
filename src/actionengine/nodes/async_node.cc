@@ -49,7 +49,6 @@ AsyncNode::AsyncNode(AsyncNode&& other) noexcept {
   chunk_store_ = std::move(other.chunk_store_);
   default_reader_ = std::move(other.default_reader_);
   default_writer_ = std::move(other.default_writer_);
-  peers_ = std::move(other.peers_);
   other.node_map_ = nullptr;
   other.chunk_store_ = nullptr;
   other.default_reader_ = nullptr;
@@ -67,7 +66,6 @@ AsyncNode& AsyncNode::operator=(AsyncNode&& other) noexcept {
   chunk_store_ = std::move(other.chunk_store_);
   default_reader_ = std::move(other.default_reader_);
   default_writer_ = std::move(other.default_writer_);
-  peers_ = std::move(other.peers_);
 
   other.node_map_ = nullptr;
   other.chunk_store_ = nullptr;
@@ -85,11 +83,12 @@ AsyncNode::~AsyncNode() {
     default_reader_.reset();
     mu_.Lock();
   }
-}
-
-void AsyncNode::BindPeers(absl::flat_hash_map<std::string, WireStream*> peers) {
-  act::MutexLock lock(&mu_);
-  peers_ = std::move(peers);
+  if (default_writer_ != nullptr) {
+    mu_.unlock();
+    default_writer_->Join();
+    default_writer_.reset();
+    mu_.lock();
+  }
 }
 
 absl::Status AsyncNode::PutInternal(NodeFragment fragment)
@@ -113,25 +112,6 @@ absl::Status AsyncNode::PutInternal(NodeFragment fragment)
 absl::Status AsyncNode::PutInternal(Chunk chunk, int seq, bool final)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   ChunkStoreWriter* writer = EnsureWriter();
-
-  WireMessage message_for_peers;
-  if (!peers_.empty()) {
-    message_for_peers.node_fragments.push_back(
-        NodeFragment{.id = std::string(chunk_store_->GetId()),
-                     .data = chunk,
-                     .seq = seq,
-                     .continued = !final});
-  }
-
-  std::vector<std::string_view> dead_peers;
-  for (const auto& [peer_id, peer] : peers_) {
-    if (auto status = peer->Send(message_for_peers); !status.ok()) {
-      dead_peers.push_back(peer_id);
-    }
-  }
-  for (const auto& peer_id : dead_peers) {
-    peers_.erase(peer_id);
-  }
 
   RETURN_IF_ERROR(writer->Put(std::move(chunk), seq, final).status());
 
