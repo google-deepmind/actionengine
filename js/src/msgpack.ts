@@ -40,13 +40,33 @@ export const encodeChunkMetadata = (metadata: ChunkMetadata) => {
       ? encode(1000 * metadata.timestamp.getTime())
       : encode(null),
   );
+
+  const attributes = new Map<string, string>(
+    Object.entries(metadata.attributes || {}),
+  );
+  const encodedAttributeParts = [];
+  encodedAttributeParts.push(encode(attributes.size));
+  for (const [key, value] of attributes) {
+    encodedAttributeParts.push(encode(key));
+    encodedAttributeParts.push(encode(value));
+  }
+  const encodedAttributeLength = encodedAttributeParts.reduce(
+    (sum, part) => sum + part.length,
+    0,
+  );
+
   const bytes = new Uint8Array(
-    encodedMimetype.length + encodedTimestamp.length,
+    encodedMimetype.length + encodedTimestamp.length + encodedAttributeLength,
   );
   let offset = 0;
   bytes.set(encodedMimetype, offset);
   offset += encodedMimetype.length;
   bytes.set(encodedTimestamp, offset);
+  offset += encodedTimestamp.length;
+  for (const part of encodedAttributeParts) {
+    bytes.set(part, offset);
+    offset += part.length;
+  }
   return bytes;
 };
 

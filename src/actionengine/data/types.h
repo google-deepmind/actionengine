@@ -30,6 +30,7 @@
 #include <vector>
 
 #include <absl/base/optimization.h>
+#include <absl/container/flat_hash_map.h>
 #include <absl/log/log.h>
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
@@ -49,7 +50,7 @@ std::vector<std::string> Indent(std::vector<std::string> fields,
 
 std::string Indent(std::string field, int num_spaces = 0,
                    bool indent_first_line = false);
-} // namespace internal
+}  // namespace internal
 
 /**
  *  ActionEngine chunk metadata.
@@ -66,11 +67,28 @@ struct ChunkMetadata {
   /** The timestamp associated with the chunk. */
   std::optional<absl::Time> timestamp;
 
+  /** Additional free-form attributes associated with the chunk.
+   *
+   * This is a mapping of attribute names to their values, allowing for
+   * extensibility and the inclusion of custom metadata as needed.
+   */
+  absl::flat_hash_map<std::string, std::string> attributes;
+
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const ChunkMetadata& metadata);
 
   friend bool operator==(const ChunkMetadata& lhs, const ChunkMetadata& rhs) {
-    return lhs.mimetype == rhs.mimetype && lhs.timestamp == rhs.timestamp;
+    if (lhs.mimetype != rhs.mimetype || lhs.timestamp != rhs.timestamp) {
+      return false;
+    }
+    bool attributes_equal = lhs.attributes.size() == rhs.attributes.size();
+    for (const auto& [key, value] : lhs.attributes) {
+      if (!attributes_equal)
+        break;
+      auto it = rhs.attributes.find(key);
+      attributes_equal &= it != rhs.attributes.end() && it->second == value;
+    }
+    return attributes_equal;
   }
 };
 
@@ -287,6 +305,12 @@ void AbslStringify(Sink& sink, const ChunkMetadata& metadata) {
     absl::Format(&sink, "timestamp: %s\n",
                  absl::FormatTime(*metadata.timestamp));
   }
+  if (!metadata.attributes.empty()) {
+    sink.Append("attributes:\n");
+    for (const auto& [key, value] : metadata.attributes) {
+      sink.Append(internal::Indent(absl::StrCat(key, ": ", value), 2, true));
+    }
+  }
 }
 
 template <typename Sink>
@@ -379,28 +403,26 @@ void AbslStringify(Sink& sink, const WireMessage& message) {
 }
 
 template <typename T>
-concept ConvertibleToChunk = requires(T t)
-{
+concept ConvertibleToChunk = requires(T t) {
   {
     EgltAssignInto(std::move(t), std::declval<Chunk*>())
   } -> std::same_as<absl::Status>;
 };
 
 template <typename T>
-concept ConvertibleFromChunk = requires(Chunk chunk)
-{
+concept ConvertibleFromChunk = requires(Chunk chunk) {
   {
     EgltAssignInto(std::move(chunk), std::declval<T*>())
   } -> std::same_as<absl::Status>;
 };
 
-constexpr Chunk EndOfStream() {
+inline Chunk EndOfStream() {
   return Chunk{
       .metadata = ChunkMetadata{.mimetype = kMimetypeBytes},
       .data = "",
   };
 }
 
-} // namespace act
+}  // namespace act
 
 #endif  // ACTIONENGINE_DATA_TYPES_H_

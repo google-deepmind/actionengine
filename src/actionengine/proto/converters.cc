@@ -30,6 +30,10 @@ absl::Status EgltAssignInto(act::ChunkMetadata from,
         google::protobuf::util::TimeUtil::MillisecondsToTimestamp(
             absl::ToUnixMillis(*from.timestamp));
   }
+  to->clear_attributes();
+  for (auto& [key, value] : std::move(from.attributes)) {
+    (*to->mutable_attributes())[key] = std::move(value);
+  }
   return absl::OkStatus();
 }
 
@@ -42,6 +46,10 @@ absl::Status EgltAssignInto(act::proto::ChunkMetadata from,
             from.timestamp()));
   } else {
     to->timestamp.reset();
+  }
+  to->attributes.clear();
+  for (auto& [key, value] : *from.mutable_attributes()) {
+    to->attributes[key] = std::move(value);
   }
   return absl::OkStatus();
 }

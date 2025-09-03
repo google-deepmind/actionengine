@@ -15,6 +15,13 @@ message ChunkMetadata {
 
   /** The timestamp associated with the chunk. */
   optional google.protobuf.Timestamp timestamp = 2;
+
+  /** Additional free-form attributes associated with the chunk.
+   *
+   * This is a mapping of attribute names to their values, allowing for
+   * extensibility and the inclusion of custom metadata as needed.
+   */
+  map<string, bytes> attributes = 3;
 }
 
 /** ActionEngine chunk.

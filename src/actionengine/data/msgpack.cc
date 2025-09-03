@@ -55,12 +55,34 @@ absl::Status CppackFromBytes(absl::Time& obj, Unpacker& unpacker) {
 absl::Status CppackToBytes(const act::ChunkMetadata& obj, Packer& packer) {
   packer(obj.mimetype);
   packer(obj.timestamp);
+
+  const int64_t attributes_size = obj.attributes.size();
+  packer(attributes_size);
+  for (const auto& [key, value] : obj.attributes) {
+    packer(key);
+    packer(value);
+  }
+
   return absl::OkStatus();
 }
 
 absl::Status CppackFromBytes(act::ChunkMetadata& obj, Unpacker& unpacker) {
   unpacker(obj.mimetype);
   unpacker(obj.timestamp);
+
+  int64_t attributes_size;
+  unpacker(attributes_size);
+  if (attributes_size < 0) {
+    return absl::InvalidArgumentError(
+        "Negative attributes size in ChunkMetadata");
+  }
+  for (int64_t i = 0; i < attributes_size; ++i) {
+    std::string key;
+    std::string value;
+    unpacker(key);
+    unpacker(value);
+    obj.attributes[std::move(key)] = std::move(value);
+  }
   return absl::OkStatus();
 }
 

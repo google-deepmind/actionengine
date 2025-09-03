@@ -17,6 +17,7 @@
 declare interface ChunkMetadata {
   readonly mimetype: string;
   readonly timestamp?: Date;
+  readonly attributes?: { [key: string]: string };
 }
 
 declare interface DataChunk {
