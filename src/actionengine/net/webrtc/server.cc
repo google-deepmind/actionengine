@@ -98,9 +98,9 @@ absl::Status WebRtcServer::CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 absl::Status WebRtcServer::JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 
   if (main_loop_ != nullptr) {
-    mu_.Unlock();
+    mu_.unlock();
     main_loop_->Join();
-    mu_.Lock();
+    mu_.lock();
     main_loop_ = nullptr;
   }
 
@@ -132,11 +132,11 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     WebRtcDataChannelConnection next_connection;
     bool channel_open;
 
-    mu_.Unlock();
+    mu_.unlock();
     const int selected =
         thread::Select({channel_reader->OnRead(&next_connection, &channel_open),
                         signalling_client->OnError(), thread::OnCancel()});
-    mu_.Lock();
+    mu_.lock();
 
     // Check if our fiber has been cancelled, which means we should stop.
     if (thread::Cancelled() || selected == 2) {
@@ -155,9 +155,9 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       LOG(ERROR) << "WebRtcServer signalling client error: "
                  << signalling_client->GetStatus()
                  << ". Restarting in 0.5 seconds.";
-      mu_.Unlock();
+      mu_.unlock();
       act::SleepFor(absl::Seconds(0.5));
-      mu_.Lock();
+      mu_.lock();
       signalling_client = nullptr;
       --retries_remaining;
       continue;

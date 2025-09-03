@@ -224,10 +224,10 @@ WebRtcWireStream::WebRtcWireStream(
           return;
         }
 
-        mu_.Unlock();
+        mu_.unlock();
         absl::StatusOr<WireMessage> unpacked =
             cppack::Unpack<WireMessage>(std::vector(*std::move(message_data)));
-        mu_.Lock();
+        mu_.lock();
 
         if (!unpacked.ok()) {
           CloseOnError(absl::InternalError(
@@ -316,7 +316,7 @@ absl::Status WebRtcWireStream::SendInternal(WireMessage message)
 
   const uint64_t transient_id = next_transient_id_++;
 
-  mu_.Unlock();
+  mu_.unlock();
 
   const std::vector<uint8_t> message_uint8_t = cppack::Pack(std::move(message));
 
@@ -334,7 +334,7 @@ absl::Status WebRtcWireStream::SendInternal(WireMessage message)
     data_channel_->send(std::move(message_chunk_bytes));
   }
 
-  mu_.Lock();
+  mu_.lock();
   return status;
 }
 
@@ -349,10 +349,10 @@ absl::StatusOr<std::optional<WireMessage>> WebRtcWireStream::Receive(
   WireMessage message;
   bool ok;
 
-  mu_.Unlock();
+  mu_.unlock();
   const int selected = thread::SelectUntil(
       deadline, {recv_channel_.reader()->OnRead(&message, &ok)});
-  mu_.Lock();
+  mu_.lock();
 
   if (selected == 0 && !ok) {
     return std::nullopt;

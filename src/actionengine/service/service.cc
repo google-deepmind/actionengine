@@ -258,9 +258,9 @@ void Service::SetActionRegistry(const ActionRegistry& action_registry) const {
 void Service::JoinConnectionsAndCleanUp(bool cancel) {
   act::MutexLock lock(&mu_);
   if (cleanup_started_) {
-    mu_.Unlock();
+    mu_.unlock();
     thread::Select({cleanup_done_.OnEvent()});
-    mu_.Lock();
+    mu_.lock();
     return;
   }
 
@@ -290,9 +290,9 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
   DLOG(INFO) << "Cleaning up connections.";
   for (const auto& [_, fiber] : fibers) {
     if (fiber != nullptr) {
-      mu_.Unlock();
+      mu_.unlock();
       fiber->Join();
-      mu_.Lock();
+      mu_.lock();
     }
   }
   cleanup_done_.Notify();

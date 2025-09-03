@@ -67,11 +67,11 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
       thread::NewTree({}, [action = std::move(action), this]() mutable {
         act::MutexLock lock(&mu_);
 
-        mu_.Unlock();
+        mu_.unlock();
         if (const auto run_status = action->Run(); !run_status.ok()) {
           LOG(ERROR) << "Failed to run action: " << run_status;
         }
-        mu_.Lock();
+        mu_.lock();
 
         thread::Detach(ExtractActionFiber(action.get()));
         cv_.SignalAll();
@@ -309,9 +309,9 @@ void Session::JoinDispatchers(bool cancel) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
   }
   for (const auto& task : tasks_to_join) {
-    mu_.Unlock();
+    mu_.unlock();
     task->Join();
-    mu_.Lock();
+    mu_.lock();
   }
 }
 

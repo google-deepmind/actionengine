@@ -208,9 +208,9 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
     redis->cv_.Wait(&redis->mu_);
   }
 
-  redis->mu_.Unlock();
+  redis->mu_.unlock();
   RETURN_IF_ERROR(redis->Hello().status());
-  redis->mu_.Lock();
+  redis->mu_.lock();
 
   if (!redis->status_.ok()) {
     return redis->status_;
@@ -393,9 +393,9 @@ absl::StatusOr<Reply> Redis::ExecuteCommand(std::string_view command,
 }
 
 bool Redis::ParseReply(redisReply* hiredis_reply, Reply* reply_out) {
-  mu_.Unlock();
+  mu_.unlock();
   absl::StatusOr<Reply> reply = ParseHiredisReply(hiredis_reply, /*free=*/true);
-  mu_.Lock();
+  mu_.lock();
 
   if (!status_.ok()) {
     LOG(ERROR) << "Cannot parse reply because Redis is in an error state: "
@@ -455,7 +455,7 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
     callback = Redis::PubsubCallback;
   }
 
-  // mu_.Unlock();
+  // mu_.unlock();
   if (args.empty()) {
     redisAsyncCommand(context_.get(), callback, privdata, command.data());
   } else {
@@ -463,21 +463,21 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
                           static_cast<int>(arg_values.size()),
                           arg_values.data(), arg_lengths.data());
   }
-  // mu_.Lock();
+  // mu_.lock();
 
   if (subscribe) {
     // // For subscription commands, we don't expect an immediate reply.
     // const auto subscription = static_cast<Subscription*>(privdata);
-    // mu_.Unlock();
+    // mu_.unlock();
     // thread::Select({subscription->OnSubscribe()});
-    // mu_.Lock();
+    // mu_.lock();
     return Reply{.type = ReplyType::Nil, .data = NilReplyData{}};
   }
 
-  mu_.Unlock();
+  mu_.unlock();
   // Wait for the reply to be processed.
   thread::Select({thread::OnCancel(), future.event.OnEvent()});
-  mu_.Lock();
+  mu_.lock();
 
   if (thread::Cancelled()) {
     return absl::CancelledError("Redis command was cancelled.");
@@ -542,12 +542,12 @@ void Redis::OnPubsubReply(void* hiredis_reply) {
     }
   } else {
     auto subscriptions = subscriptions_[channel];
-    mu_.Unlock();
+    mu_.unlock();
     // For regular messages, we pass the reply to the subscription.
     for (const auto& subscription : subscriptions) {
       subscription->Message(reply_elements[2]);
     }
-    mu_.Lock();
+    mu_.lock();
   }
 }
 

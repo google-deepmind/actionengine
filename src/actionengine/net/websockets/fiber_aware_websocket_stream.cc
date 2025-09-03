@@ -189,9 +189,9 @@ absl::Status FiberAwareWebsocketStream::Write(
         write_done.Notify();
       });
 
-  mu_.Unlock();
+  mu_.unlock();
   thread::Select({write_done.OnEvent()});
-  mu_.Lock();
+  mu_.lock();
   write_pending_ = false;
   cv_.SignalAll();
 
@@ -244,9 +244,9 @@ absl::Status FiberAwareWebsocketStream::WriteText(
         write_done.Notify();
       });
 
-  mu_.Unlock();
+  mu_.unlock();
   thread::Select({write_done.OnEvent()});
-  mu_.Lock();
+  mu_.lock();
   write_pending_ = false;
   cv_.SignalAll();
 
@@ -301,9 +301,9 @@ absl::Status FiberAwareWebsocketStream::CloseInternal() const noexcept
         close_done.Notify();
       });
 
-  mu_.Unlock();
+  mu_.unlock();
   thread::Select({close_done.OnEvent()});
-  mu_.Lock();
+  mu_.lock();
 
   return absl::OkStatus();
 }
@@ -349,9 +349,9 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
         accept_done.Notify();
       });
 
-  mu_.Unlock();
+  mu_.unlock();
   thread::Select({accept_done.OnEvent(), thread::OnCancel()});
-  mu_.Lock();
+  mu_.lock();
 
   if (thread::Cancelled()) {
     if (stream_->is_open()) {
@@ -419,18 +419,18 @@ absl::Status FiberAwareWebsocketStream::Read(
             read_done.Notify();
           }));
 
-  mu_.Unlock();
+  mu_.unlock();
   const int selected = thread::SelectUntil(deadline, {read_done.OnEvent()});
-  mu_.Lock();
+  mu_.lock();
 
   if (selected == -1) {
     cancel_signal_.emit(boost::asio::cancellation_type::total);
-    mu_.Unlock();
+    mu_.unlock();
     // We still need to wait for the read_done event to be processed because
     // it is a local variable, and we need to ensure that the callback has
     // completed before we return to avoid memory corruption.
     thread::Select({read_done.OnEvent()});
-    mu_.Lock();
+    mu_.lock();
   }
 
   // Only here we can safely let other read operations proceed.

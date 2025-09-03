@@ -79,9 +79,9 @@ AsyncNode::~AsyncNode() {
   act::MutexLock lock(&mu_);
   if (default_reader_ != nullptr) {
     default_reader_->Cancel();
-    mu_.Unlock();
+    mu_.unlock();
     default_reader_.reset();
-    mu_.Lock();
+    mu_.lock();
   }
   if (default_writer_ != nullptr) {
     mu_.unlock();

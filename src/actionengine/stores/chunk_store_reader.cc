@@ -46,9 +46,9 @@ ChunkStoreReader::~ChunkStoreReader() {
 
   fiber->Cancel();
 
-  mu_.Unlock();
+  mu_.unlock();
   fiber->Join();
-  mu_.Lock();
+  mu_.lock();
 }
 
 void ChunkStoreReader::Cancel() const {
@@ -98,11 +98,11 @@ ChunkStoreReader::GetNextSeqAndChunkFromBuffer(absl::Duration timeout)
 
   std::optional<std::pair<int, Chunk>> seq_and_chunk;
   bool ok;
-  mu_.Unlock();
+  mu_.unlock();
   const int selected = thread::SelectUntil(
       absl::Now() + timeout,
       {buffer_->reader()->OnRead(&seq_and_chunk, &ok), thread::OnCancel()});
-  mu_.Lock();
+  mu_.lock();
 
   if (selected == -1) {
     return absl::DeadlineExceededError("Timed out waiting for chunk.");
@@ -131,10 +131,10 @@ ChunkStoreReader::GetNextUnorderedSeqAndChunkFromStore() const
   //   return std::nullopt;
   // }
 
-  mu_.Unlock();
+  mu_.unlock();
   auto chunk_or_status = chunk_store_->GetByArrivalOrder(
       next_read_offset, absl::InfiniteDuration());
-  mu_.Lock();
+  mu_.lock();
 
   if (!chunk_or_status.ok()) {
     return chunk_or_status.status();
@@ -144,9 +144,9 @@ ChunkStoreReader::GetNextUnorderedSeqAndChunkFromStore() const
   ASSIGN_OR_RETURN(const int seq,
                    chunk_store_->GetSeqForArrivalOffset(next_read_offset));
   if (chunk.IsNull()) {
-    mu_.Unlock();
+    mu_.unlock();
     absl::Status pop_status = chunk_store_->Pop(seq).status();
-    mu_.Lock();
+    mu_.lock();
     if (!pop_status.ok()) {
       DLOG(ERROR) << "Failed to pop chunk at seq " << seq << ": " << pop_status;
       return pop_status;
@@ -179,10 +179,10 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
     int next_seq = -1;
 
     if (options_.ordered) {
-      mu_.Unlock();
+      mu_.unlock();
       auto chunk =
           chunk_store_->Get(total_chunks_read_, absl::InfiniteDuration());
-      mu_.Lock();
+      mu_.lock();
       if (!chunk.ok()) {
         status = chunk.status();
         break;
@@ -211,9 +211,9 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
     }
 
     if (options_.remove_chunks && next_seq >= 0) {
-      mu_.Unlock();
+      mu_.unlock();
       absl::Status pop_status = chunk_store_->Pop(next_seq).status();
-      mu_.Lock();
+      mu_.lock();
       if (!pop_status.ok()) {
         status = pop_status;
         DLOG(ERROR) << "Failed to pop chunk: " << pop_status;

@@ -183,10 +183,10 @@ absl::Status Action::Await(absl::Duration timeout) {
     AsyncNode* status_node =
         GetOutputInternal("__status__", /*bind_stream=*/false);
 
-    mu_.Unlock();
+    mu_.unlock();
     absl::StatusOr<absl::Status> run_status =
         status_node->ConsumeAs<absl::Status>(timeout);
-    mu_.Lock();
+    mu_.lock();
 
     if (!run_status.ok()) {
       LOG(ERROR) << absl::StrFormat("Failed to consume status from node %s: %s",
@@ -220,7 +220,7 @@ absl::Status Action::Run() {
 
   has_been_run_ = true;
 
-  mu_.Unlock();
+  mu_.unlock();
   auto handler = std::move(handler_);
   if (handler == nullptr) {
     return absl::FailedPreconditionError(
@@ -229,7 +229,7 @@ absl::Status Action::Run() {
                         schema_.name, id_));
   }
   absl::Status handler_status = std::move(handler)(shared_from_this());
-  mu_.Lock();
+  mu_.lock();
 
   for (auto& reader : reffed_readers_) {
     reader->Cancel();
@@ -244,7 +244,7 @@ absl::Status Action::Run() {
     // If the stream is bound, we send the status chunk to it.
     // We are doing it here instead of relying on a bound stream.
     const auto stream_ptr = stream_;
-    mu_.Unlock();
+    mu_.unlock();
     full_run_status.Update(
         stream_ptr->Send(WireMessage{.node_fragments = {NodeFragment{
                                          .id = GetOutputId("__status__"),
@@ -252,7 +252,7 @@ absl::Status Action::Run() {
                                          .seq = 0,
                                          .continued = false,
                                      }}}));
-    mu_.Lock();
+    mu_.lock();
   }
 
   AsyncNode* status_node =

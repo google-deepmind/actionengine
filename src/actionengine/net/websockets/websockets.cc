@@ -75,17 +75,17 @@ absl::StatusOr<std::optional<WireMessage>> WebsocketWireStream::Receive(
   std::vector<uint8_t> buffer;
 
   // Receive from underlying websocket stream.
-  mu_.Unlock();
+  mu_.unlock();
   absl::Status status = stream_.Read(timeout, &buffer);
-  mu_.Lock();
+  mu_.lock();
   if (!status.ok()) {
     return status;
   }
 
   // Unpack the received data into a WireMessage.
-  mu_.Unlock();
+  mu_.unlock();
   absl::StatusOr<WireMessage> unpacked = cppack::Unpack<WireMessage>(buffer);
-  mu_.Lock();
+  mu_.lock();
   if (!unpacked.ok()) {
     return unpacked.status();
   }
@@ -144,9 +144,9 @@ void WebsocketWireStream::Abort() {
 }
 
 absl::Status WebsocketWireStream::SendInternal(WireMessage message) {
-  mu_.Unlock();
+  mu_.unlock();
   auto status = stream_.Write(cppack::Pack(std::move(message)));
-  mu_.Lock();
+  mu_.lock();
 
   return status;
 }
@@ -229,10 +229,10 @@ void WebsocketServer::Run() {
             accepted.Notify();
           });
 
-      mu_.Unlock();
+      mu_.unlock();
       thread::Select({accepted.OnEvent(),
                       thread::OnCancel()});  // Wait for accept to complete.
-      mu_.Lock();
+      mu_.lock();
 
       cancelled_ = thread::Cancelled() ||
                    error == boost::system::errc::operation_canceled ||
@@ -258,12 +258,12 @@ void WebsocketServer::Run() {
         break;
       }
 
-      mu_.Unlock();
+      mu_.unlock();
       auto stream = std::make_unique<BoostWebsocketStream>(std::move(socket));
       PrepareServerStream(stream.get()).IgnoreError();
       auto connection = service_->EstablishConnection(
           std::make_shared<WebsocketWireStream>(std::move(stream)));
-      mu_.Lock();
+      mu_.lock();
 
       if (!connection.ok()) {
         status_ = connection.status();
@@ -313,9 +313,9 @@ absl::Status WebsocketServer::JoinInternal() {
   }
   joining_ = true;
 
-  mu_.Unlock();
+  mu_.unlock();
   main_loop_->Join();
-  mu_.Lock();
+  mu_.lock();
 
   main_loop_ = nullptr;
   joining_ = false;
