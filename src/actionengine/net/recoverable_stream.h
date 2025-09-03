@@ -86,7 +86,7 @@ class RecoverableStream final : public act::WireStream {
 
   mutable act::Mutex mu_;
   mutable act::CondVar cv_ ABSL_GUARDED_BY(mu_);
-  concurrency::ExclusiveAccessGuard finalization_guard_{&mu_, &cv_};
+  size_t num_pending_ops_ ABSL_GUARDED_BY(mu_) = 0;
 };
 
 }  // namespace act::net

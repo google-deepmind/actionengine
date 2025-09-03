@@ -45,8 +45,6 @@ void LocalChunkStore::Notify() {
 absl::StatusOr<std::reference_wrapper<const Chunk>> LocalChunkStore::GetRef(
     int64_t seq, absl::Duration timeout) {
   act::MutexLock lock(&mu_);
-  concurrency::PreventExclusiveAccess pending(&finalization_guard_,
-                                              /*retain_lock=*/true);
   if (chunks_.contains(seq)) {
     const Chunk& chunk = chunks_.at(seq);
     return chunk;
@@ -58,6 +56,7 @@ absl::StatusOr<std::reference_wrapper<const Chunk>> LocalChunkStore::GetRef(
   }
 
   absl::Status status;
+  ++num_pending_ops_;
   while (!chunks_.contains(seq) && !no_further_puts_ && !thread::Cancelled()) {
     if (cv_.WaitWithTimeout(&mu_, timeout)) {
       status = absl::DeadlineExceededError(
@@ -75,6 +74,7 @@ absl::StatusOr<std::reference_wrapper<const Chunk>> LocalChunkStore::GetRef(
       break;
     }
   }
+  --num_pending_ops_;
 
   if (!status.ok()) {
     return status;
@@ -86,8 +86,6 @@ absl::StatusOr<std::reference_wrapper<const Chunk>>
 LocalChunkStore::GetRefByArrivalOrder(int64_t arrival_offset,
                                       absl::Duration timeout) {
   act::MutexLock lock(&mu_);
-  concurrency::PreventExclusiveAccess pending(&finalization_guard_,
-                                              /*retain_lock=*/true);
   if (arrival_order_to_seq_.contains(arrival_offset)) {
     const int64_t seq = arrival_order_to_seq_.at(arrival_offset);
     const Chunk& chunk = act::FindOrDie(chunks_, seq);
@@ -100,6 +98,7 @@ LocalChunkStore::GetRefByArrivalOrder(int64_t arrival_offset,
   }
 
   absl::Status status;
+  ++num_pending_ops_;
   while (!arrival_order_to_seq_.contains(arrival_offset) && !no_further_puts_ &&
          !thread::Cancelled()) {
 
@@ -119,6 +118,7 @@ LocalChunkStore::GetRefByArrivalOrder(int64_t arrival_offset,
       break;
     }
   }
+  --num_pending_ops_;
 
   if (!status.ok()) {
     return status;
@@ -209,7 +209,9 @@ void LocalChunkStore::ClosePutsAndAwaitPendingOperations() {
   // Notify all waiters because they will not be able to get any more chunks.
   cv_.SignalAll();
 
-  concurrency::EnsureExclusiveAccess waiter(&finalization_guard_);
+  while (num_pending_ops_ > 0) {
+    cv_.Wait(&mu_);
+  }
 }
 
 }  // namespace act

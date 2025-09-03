@@ -42,10 +42,17 @@ RecoverableStream::RecoverableStream(std::shared_ptr<WireStream> stream,
 RecoverableStream::~RecoverableStream() {
   CloseAndNotify();
 
-  concurrency::EnsureExclusiveAccess waiter(&finalization_guard_,
-                                            absl::Now() + timeout_);
+  bool timed_out = false;
+  const absl::Time deadline = absl::Now() + timeout_;
+  while (num_pending_ops_ > 0 && !timed_out) {
+    if (absl::Now() > deadline) {
+      timed_out = true;
+      break;
+    }
+    timed_out = cv_.WaitWithDeadline(&mu_, deadline);
+  }
 
-  if (waiter.TimedOut()) {
+  if (timed_out) {
     LOG(ERROR) << "Recoverable stream's senders or receivers are still "
                   "pending after "
                   "timeout";
@@ -102,8 +109,12 @@ absl::Status RecoverableStream::Send(WireMessage message) {
         "Cannot send message on a half-closed stream");
   }
 
-  concurrency::PreventExclusiveAccess pending(&finalization_guard_);
+  ++num_pending_ops_;
+  mu_.unlock();
   absl::Status status = (*stream)->Send(std::move(message));
+  mu_.lock();
+  --num_pending_ops_;
+
   return status;
 }
 
@@ -115,8 +126,13 @@ absl::StatusOr<std::optional<WireMessage>> RecoverableStream::Receive(
     return std::nullopt;
   }
 
-  concurrency::PreventExclusiveAccess pending(&finalization_guard_);
-  return (*stream)->Receive(timeout);
+  ++num_pending_ops_;
+  mu_.unlock();
+  absl::StatusOr<std::optional<WireMessage>> result =
+      (*stream)->Receive(timeout);
+  mu_.lock();
+  --num_pending_ops_;
+  return result;
 }
 
 absl::Status RecoverableStream::Accept() {
@@ -125,8 +141,6 @@ absl::Status RecoverableStream::Accept() {
   if (!stream.ok()) {
     return stream.status();
   }
-
-  concurrency::PreventExclusiveAccess pending(&finalization_guard_);
   return (*stream)->Accept();
 }
 
@@ -137,8 +151,6 @@ absl::Status RecoverableStream::Start() {
   if (!stream.ok()) {
     return stream.status();
   }
-
-  concurrency::PreventExclusiveAccess pending(&finalization_guard_);
   return (*stream)->Start();
 }
 

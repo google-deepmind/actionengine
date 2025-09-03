@@ -98,7 +98,8 @@ class LocalChunkStore final : public ChunkStore {
 
   bool no_further_puts_ ABSL_GUARDED_BY(mu_) = false;
   mutable act::CondVar cv_ ABSL_GUARDED_BY(mu_);
-  mutable concurrency::ExclusiveAccessGuard finalization_guard_{&mu_, &cv_};
+
+  size_t num_pending_ops_ ABSL_GUARDED_BY(mu_) = 0;
 };
 
 }  // namespace act
