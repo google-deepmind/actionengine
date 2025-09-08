@@ -107,6 +107,63 @@ absl::Status WebRtcServer::JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   return absl::OkStatus();
 }
 
+static std::string MakeCandidateMessage(std::string_view peer_id,
+                                        const rtc::Candidate& candidate) {
+  boost::json::object message;
+  message["type"] = "candidate";
+  message["id"] = peer_id;
+  message["candidate"] = std::string(candidate);
+  message["mid"] = candidate.mid();
+  return boost::json::serialize(message);
+}
+
+static std::string MakeAnswerMessage(std::string_view peer_id,
+                                     const rtc::Description& description) {
+  boost::json::object message;
+  message["type"] = "answer";
+  message["id"] = peer_id;
+  message["description"] = description.generateSdp("\r\n");
+  return boost::json::serialize(message);
+}
+
+static absl::StatusOr<rtc::Description> ParseDescriptionFromOfferMessage(
+    const boost::json::value& message) {
+  boost::system::error_code error;
+  if (const auto type_ptr = message.find_pointer("/type", error);
+      type_ptr == nullptr || error || type_ptr->as_string() != "offer") {
+    return absl::InvalidArgumentError("Not an offer message: " +
+                                      boost::json::serialize(message));
+  }
+
+  const auto desc_ptr = message.find_pointer("/description", error);
+  if (desc_ptr == nullptr || error) {
+    return absl::InvalidArgumentError(
+        "No 'description' field in signalling message: " +
+        boost::json::serialize(message));
+  }
+
+  return rtc::Description(desc_ptr->as_string().c_str());
+}
+
+static absl::StatusOr<rtc::Candidate> ParseCandidateFromMessage(
+    const boost::json::value& message) {
+  boost::system::error_code error;
+  if (const auto type_ptr = message.find_pointer("/type", error);
+      type_ptr == nullptr || error || type_ptr->as_string() != "candidate") {
+    return absl::InvalidArgumentError("Not a candidate message: " +
+                                      boost::json::serialize(message));
+  }
+
+  const auto candidate_ptr = message.find_pointer("/candidate", error);
+  if (candidate_ptr == nullptr || error) {
+    return absl::InvalidArgumentError(
+        "No 'candidate' field in signalling message: " +
+        boost::json::serialize(message));
+  }
+
+  return rtc::Candidate(candidate_ptr->as_string().c_str());
+}
+
 void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   DataChannelConnectionMap connections;
   std::shared_ptr<SignallingClient> signalling_client;
@@ -129,17 +186,17 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       }
     }
 
-    WebRtcDataChannelConnection next_connection;
+    absl::StatusOr<WebRtcDataChannelConnection> next_connection_or;
     bool channel_open;
 
     mu_.unlock();
-    const int selected =
-        thread::Select({channel_reader->OnRead(&next_connection, &channel_open),
-                        signalling_client->OnError(), thread::OnCancel()});
+    const int selected = thread::Select(
+        {channel_reader->OnRead(&next_connection_or, &channel_open),
+         signalling_client->OnError(), thread::OnCancel()});
     mu_.lock();
 
     // Check if our fiber has been cancelled, which means we should stop.
-    if (thread::Cancelled() || selected == 2) {
+    if (thread::Cancelled()) {
       break;
     }
 
@@ -170,6 +227,16 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
                    "closing the channel for new connections.";
     }
 
+    if (!next_connection_or.status().ok()) {
+      LOG(ERROR) << "WebRtcServer RunLoop received an error while waiting "
+                    "for a new connection: "
+                 << next_connection_or.status();
+      continue;
+    }
+
+    WebRtcDataChannelConnection next_connection =
+        *std::move(next_connection_or);
+
     if (next_connection.connection->state() ==
             rtc::PeerConnection::State::Failed ||
         next_connection.connection->state() ==
@@ -196,6 +263,9 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       LOG(ERROR) << "WebRtcServer EstablishConnection failed: "
                  << service_connection.status();
       continue;
+    } else {
+      DLOG(INFO) << "WebRtcServer established a new connection from peer: "
+                 << (*service_connection)->stream_id;
     }
     // At this point, the connection is established and the responsibility
     // of the WebRtcServer is done. The service will handle the
@@ -232,26 +302,40 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
   auto signalling_client =
       std::make_shared<SignallingClient>(signalling_address, signalling_port);
 
-  signalling_client->OnOffer([this, connections, signalling_client](
+  auto abort_establishment_with_error = [connections, this](
+                                            std::string_view peer_id,
+                                            absl::Status status) {
+    DCHECK(!status.ok()) << "abort_establishment_with_error called with an OK "
+                            "status, this should not "
+                            "happen.";
+    if (const auto it = connections->find(peer_id); it != connections->end()) {
+      if (it->second.data_channel) {
+        it->second.data_channel->close();
+      }
+      it->second.connection->resetCallbacks();
+      it->second.connection->close();
+      connections->erase(it);
+    }
+    ready_data_connections_.writer()->Write(status);
+  };
+
+  signalling_client->OnOffer([this, connections, signalling_client,
+                              &abort_establishment_with_error](
                                  std::string_view peer_id,
                                  const boost::json::value& message) {
     if (connections->contains(std::string(peer_id))) {
-      LOG(ERROR) << "WebRtcServer already accepting a connection from "
-                    "peer: "
-                 << peer_id;
+      abort_establishment_with_error(
+          peer_id,
+          absl::AlreadyExistsError(absl::StrFormat(
+              "Connection with peer ID '%s' already exists.", peer_id)));
       return;
     }
 
-    boost::system::error_code error;
-
-    std::string description;
-    if (const auto desc_ptr = message.find_pointer("/description", error);
-        desc_ptr == nullptr || error) {
-      LOG(ERROR) << "WebRtcServer no 'description' field in offer: "
-                 << boost::json::serialize(message);
+    absl::StatusOr<rtc::Description> description =
+        ParseDescriptionFromOfferMessage(message);
+    if (!description.ok()) {
+      abort_establishment_with_error(peer_id, description.status());
       return;
-    } else {
-      description = desc_ptr->as_string().c_str();
     }
 
     RtcConfig config = rtc_config_.value_or(RtcConfig());
@@ -268,58 +352,50 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
     auto connection =
         std::make_unique<rtc::PeerConnection>(std::move(libdatachannel_config));
 
-    connection->onLocalDescription([peer_id = std::string(peer_id),
-                                    signalling_client](
-                                       const rtc::Description& description) {
-      const std::string sdp = description.generateSdp("\r\n");
+    connection->onLocalDescription(
+        [peer_id = std::string(peer_id), signalling_client,
+         &abort_establishment_with_error](
+            const rtc::Description& local_description) {
+          const std::string answer_message =
+              MakeAnswerMessage(peer_id, local_description);
+          if (const auto answer_status =
+                  signalling_client->Send(answer_message);
+              !answer_status.ok()) {
+            abort_establishment_with_error(peer_id, answer_status);
+          }
+        });
 
-      boost::json::object answer;
-      answer["id"] = peer_id;
-      answer["type"] = "answer";
-      answer["description"] = sdp;
-
-      const auto message = boost::json::serialize(answer);
-      if (const auto status = signalling_client->Send(message); !status.ok()) {
-        LOG(ERROR) << "WebRtcServer Send answer failed: " << status;
-      }
-    });
-
-    connection->onLocalCandidate([peer_id = std::string(peer_id),
-                                  signalling_client](
-                                     const rtc::Candidate& candidate) {
-      boost::json::object candidate_json;
-      candidate_json["id"] = peer_id;
-      candidate_json["type"] = "candidate";
-      candidate_json["candidate"] = std::string(candidate);
-      candidate_json["mid"] = candidate.mid();
-
-      const auto message = boost::json::serialize(candidate_json);
-      if (const auto status = signalling_client->Send(message); !status.ok()) {
-        LOG(ERROR) << "WebRtcServer Send candidate failed: " << status;
-      }
-    });
+    connection->onLocalCandidate(
+        [peer_id = std::string(peer_id), signalling_client,
+         &abort_establishment_with_error](const rtc::Candidate& candidate) {
+          const std::string candidate_message =
+              MakeCandidateMessage(peer_id, candidate);
+          if (const auto candidate_status =
+                  signalling_client->Send(candidate_message);
+              !candidate_status.ok()) {
+            abort_establishment_with_error(peer_id, candidate_status);
+          }
+        });
 
     connection->onIceStateChange([peer_id = std::string(peer_id), connections,
-                                  connection_ptr = connection.get()](
+                                  connection_ptr = connection.get(),
+                                  &abort_establishment_with_error](
                                      rtc::PeerConnection::IceState state) {
       // Unsuccessful connections should be cleaned up: data channel closed,
       // if any, and connection closed.
       if (state == rtc::PeerConnection::IceState::Failed) {
-        const auto map_node = connections->extract(peer_id);
-        CHECK(!map_node.empty())
-            << "WebRtcServer no connection for peer: " << peer_id;
-        if (map_node.mapped().data_channel) {
-          map_node.mapped().data_channel->close();
-        }
-        map_node.mapped().connection->resetCallbacks();
-        map_node.mapped().connection->close();
+        abort_establishment_with_error(
+            peer_id,
+            absl::InternalError(absl::StrFormat(
+                "WebRtcServer connection with peer ID '%s' failed.", peer_id)));
         return;
       }
 
       // Successful connections should have their callbacks reset, as the
       // callbacks' closures contain shared pointers to the signalling client,
       // which would prevent it from being destroyed.
-      if (state == rtc::PeerConnection::IceState::Completed) {
+      if (state == rtc::PeerConnection::IceState::Completed ||
+          state == rtc::PeerConnection::IceState::Connected) {
         connection_ptr->onLocalDescription([](const rtc::Description&) {});
         connection_ptr->onLocalCandidate([](const rtc::Candidate&) {});
         connection_ptr->onIceStateChange([](rtc::PeerConnection::IceState) {});
@@ -330,7 +406,7 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
                                connection_ptr = connection.get(), connections](
                                   std::shared_ptr<rtc::DataChannel> dc) {
       const auto map_node = connections->extract(peer_id);
-      CHECK(!map_node.empty())
+      DCHECK(!map_node.empty())
           << "WebRtcServer no connection for peer: " << peer_id;
 
       WebRtcDataChannelConnection connection_from_map =
@@ -346,32 +422,26 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
                                       .data_channel = nullptr});
 
     FindOrDie(*connections, peer_id)
-        .connection->setRemoteDescription(rtc::Description(description));
+        .connection->setRemoteDescription(*std::move(description));
   });
 
-  signalling_client->OnCandidate([connections](
-                                     std::string_view peer_id,
-                                     const boost::json::value& message) {
-    if (!connections->contains(peer_id)) {
-      return;
-    }
+  signalling_client->OnCandidate(
+      [connections, &abort_establishment_with_error](
+          std::string_view peer_id, const boost::json::value& message) {
+        if (!connections->contains(peer_id)) {
+          return;
+        }
 
-    boost::system::error_code error;
+        absl::StatusOr<rtc::Candidate> candidate =
+            ParseCandidateFromMessage(message);
+        if (!candidate.ok()) {
+          abort_establishment_with_error(peer_id, candidate.status());
+          return;
+        }
 
-    std::string candidate;
-    if (const auto candidate_ptr = message.find_pointer("/candidate", error);
-        candidate_ptr == nullptr || error) {
-      LOG(ERROR) << "WebRtcServer no 'candidate' field in "
-                    "candidate message: "
-                 << boost::json::serialize(message);
-      return;
-    } else {
-      candidate = candidate_ptr->as_string().c_str();
-    }
-
-    FindOrDie(*connections, peer_id)
-        .connection->addRemoteCandidate(rtc::Candidate(candidate));
-  });
+        FindOrDie(*connections, peer_id)
+            .connection->addRemoteCandidate(*std::move(candidate));
+      });
 
   return signalling_client;
 }

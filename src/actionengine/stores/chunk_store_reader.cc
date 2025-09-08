@@ -107,7 +107,7 @@ ChunkStoreReader::GetNextSeqAndChunkFromBuffer(absl::Duration timeout)
   if (selected == -1) {
     return absl::DeadlineExceededError("Timed out waiting for chunk.");
   }
-  if (selected == 1) {
+  if (thread::Cancelled()) {
     return absl::CancelledError("Cancelled waiting for chunk.");
   }
 

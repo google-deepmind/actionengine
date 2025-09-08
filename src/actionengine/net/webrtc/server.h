@@ -171,7 +171,8 @@ class WebRtcServer {
   const std::string signalling_identity_;
   const std::optional<RtcConfig> rtc_config_;
 
-  thread::Channel<WebRtcDataChannelConnection> ready_data_connections_;
+  thread::Channel<absl::StatusOr<WebRtcDataChannelConnection>>
+      ready_data_connections_;
   act::Mutex mu_;
   std::unique_ptr<thread::Fiber> main_loop_;
 };

@@ -56,15 +56,15 @@ Action::~Action() {
 
   reffed_readers_.clear();
 
-  for (const auto& [input_name, input_id] : input_name_to_id_) {
-    node_map_->Extract(input_id).reset();
-  }
-
-  for (const auto& [output_name, output_id] : output_name_to_id_) {
-    node_map_->Extract(output_id).reset();
-  }
-  const std::string status_node_id = absl::StrCat(id_, "#", "__status__");
-  node_map_->Extract(status_node_id).reset();
+  // for (const auto& [input_name, input_id] : input_name_to_id_) {
+  //   node_map_->Extract(input_id).reset();
+  // }
+  //
+  // for (const auto& [output_name, output_id] : output_name_to_id_) {
+  //   node_map_->Extract(output_id).reset();
+  // }
+  // const std::string status_node_id = absl::StrCat(id_, "#", "__status__");
+  // node_map_->Extract(status_node_id).reset();
 }
 
 ActionMessage Action::GetActionMessage() const {
@@ -127,6 +127,9 @@ AsyncNode* absl_nullable Action::GetInput(std::string_view name,
 
   ChunkStoreReader* reader = &node->GetReader();
 
+  // Keep track of all readers we have bound to this action, so that we can
+  // cancel them when the action is done to avoid frozen chunk store readers
+  // on input nodes where no inputs are sent, or insufficient inputs are sent.
   if (!reffed_readers_.contains(reader)) {
     reffed_readers_.insert(reader);
   }
@@ -206,11 +209,15 @@ absl::Status Action::Call() {
   act::MutexLock lock(&mu_);
   bind_streams_on_inputs_default_ = true;
   bind_streams_on_outputs_default_ = false;
-
-  RETURN_IF_ERROR(stream_->Send(WireMessage{.actions = {GetActionMessage()}}));
-
   has_been_called_ = true;
-  return absl::OkStatus();
+
+  WireStream* stream = stream_;
+  mu_.unlock();
+  absl::Status status =
+      stream->Send(WireMessage{.actions = {GetActionMessage()}});
+  mu_.lock();
+
+  return status;
 }
 
 absl::Status Action::Run() {
@@ -220,14 +227,15 @@ absl::Status Action::Run() {
 
   has_been_run_ = true;
 
-  mu_.unlock();
-  auto handler = std::move(handler_);
+  ActionHandler handler = std::move(handler_);
   if (handler == nullptr) {
     return absl::FailedPreconditionError(
         absl::StrFormat("Action %s with id=%s has no handler bound. "
                         "Cannot run the action.",
                         schema_.name, id_));
   }
+
+  mu_.unlock();
   absl::Status handler_status = std::move(handler)(shared_from_this());
   mu_.lock();
 
