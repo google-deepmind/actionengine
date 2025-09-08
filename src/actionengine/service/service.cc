@@ -129,22 +129,13 @@ std::vector<std::string> Service::GetSessionKeys() const {
 absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
 Service::EstablishConnection(std::shared_ptr<WireStream>&& stream,
                              ConnectionHandler connection_handler) {
-  return EstablishConnection(
-      [stream = std::move(stream)]() { return stream.get(); },
-      std::move(connection_handler));
-}
-
-absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>
-Service::EstablishConnection(net::GetStreamFn get_stream,
-                             ConnectionHandler connection_handler) {
   act::MutexLock lock(&mu_);
 
-  std::string stream_id;
-  if (const WireStream* raw_stream = get_stream(); raw_stream == nullptr) {
-    return absl::InvalidArgumentError("Provided stream resolves to nullptr.");
-  } else {
-    stream_id = raw_stream->GetId();
+  if (stream == nullptr) {
+    return absl::InvalidArgumentError("Provided stream is null.");
   }
+
+  std::string stream_id = stream->GetId();
   if (stream_id.empty()) {
     return absl::InvalidArgumentError("Provided stream has no id.");
   }
@@ -159,9 +150,7 @@ Service::EstablishConnection(net::GetStreamFn get_stream,
         "Service is shutting down, cannot establish new connections.");
   }
 
-  streams_.emplace(stream_id, std::make_unique<net::RecoverableStream>(
-                                  std::move(get_stream), stream_id,
-                                  /*timeout=*/absl::Seconds(5)));
+  streams_.emplace(stream_id, std::move(stream));
 
   if (connections_.contains(stream_id)) {
     return absl::AlreadyExistsError(
@@ -302,7 +291,7 @@ void Service::JoinConnectionsAndCleanUp(bool cancel) {
 void Service::CleanupConnection(const StreamToSessionConnection& connection) {
   connections_.erase(connection.stream_id);
 
-  std::shared_ptr<net::RecoverableStream> extracted_stream = nullptr;
+  std::shared_ptr<WireStream> extracted_stream = nullptr;
   std::unique_ptr<NodeMap> extracted_node_map = nullptr;
   std::unique_ptr<Session> extracted_session = nullptr;
 

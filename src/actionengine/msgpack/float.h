@@ -18,6 +18,7 @@
 #include <limits>
 
 #include "actionengine/msgpack/core_helpers.h"
+#include "actionengine/msgpack/int.h"
 
 namespace act::msgpack {
 

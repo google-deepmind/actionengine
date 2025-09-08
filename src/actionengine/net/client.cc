@@ -12,5 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "actionengine/net/recoverable_stream.h"
 #include "actionengine/net/stream.h"

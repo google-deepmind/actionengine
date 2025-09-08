@@ -31,7 +31,6 @@
 #include "actionengine/actions/action.h"
 #include "actionengine/actions/registry.h"
 #include "actionengine/concurrency/concurrency.h"
-#include "actionengine/net/recoverable_stream.h"
 #include "actionengine/net/stream.h"
 #include "actionengine/nodes/node_map.h"
 #include "actionengine/service/session.h"
@@ -186,9 +185,6 @@ class Service : public std::enable_shared_from_this<Service> {
   auto EstablishConnection(std::shared_ptr<WireStream>&& stream,
                            ConnectionHandler connection_handler = nullptr)
       -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
-  auto EstablishConnection(net::GetStreamFn get_stream,
-                           ConnectionHandler connection_handler = nullptr)
-      -> absl::StatusOr<std::shared_ptr<StreamToSessionConnection>>;
   /**
    * Joins an existing connection to the service.
    *
@@ -245,8 +241,8 @@ class Service : public std::enable_shared_from_this<Service> {
   ChunkStoreFactory chunk_store_factory_;
 
   mutable act::Mutex mu_;
-  absl::flat_hash_map<std::string, std::shared_ptr<net::RecoverableStream>>
-      streams_ ABSL_GUARDED_BY(mu_);
+  absl::flat_hash_map<std::string, std::shared_ptr<WireStream>> streams_
+      ABSL_GUARDED_BY(mu_);
   // for now, we only support one-to-one session-stream mapping, therefore we
   // use the stream id as the session id.
   absl::flat_hash_map<std::string, std::unique_ptr<NodeMap>> node_maps_

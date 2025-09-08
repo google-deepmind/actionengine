@@ -25,6 +25,7 @@
 #include <actionengine/net/websockets/websockets.h>
 #include <actionengine/nodes/async_node.h>
 #include <actionengine/service/service.h>
+#include <actionengine/util/random.h>
 
 ABSL_FLAG(uint16_t, port, 20000, "Port to bind to.");
 

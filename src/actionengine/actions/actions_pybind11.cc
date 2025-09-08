@@ -122,6 +122,7 @@ ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
 
         thread::PermanentEvent done;
         auto future_done_callback = py::cpp_function([&done](py::handle) {
+          py::gil_scoped_acquire gil;
           done.Notify();
         });  // Keep the callback alive until done.
         future.attr("add_done_callback")(future_done_callback);

@@ -191,10 +191,35 @@ async def generate_content_gemini(
     if session_id is None:
         session_id = base64.urlsafe_b64encode(os.urandom(6)).decode("utf-8")
 
+    rehydrate_action = (
+        action.get_registry()
+        .make_action(
+            "rehydrate_session",
+            node_map=action.get_node_map(),
+            stream=None,  # No stream needed for this action
+        )
+        .run()
+    )
+    await rehydrate_action["session_token"].put_and_finalize(session_token)
+
+    contents = []
+    message_idx = 0
+    async for message in rehydrate_action["previous_messages"]:
+        contents.append(
+            types.Content(
+                parts=[types.Part(text=message)],
+                role="user" if len(contents) % 2 == 0 else "model",
+            )
+        )
+        message_idx += 1
+
     gemini_client = get_gemini_client(api_key)
 
-    prompt = await action["prompt"].consume()
     chat_input = await action["chat_input"].consume()
+
+    contents.append(
+        types.Content(parts=[types.Part(text=chat_input)], role="user")
+    )
 
     try:
         retries_left = 3
@@ -202,7 +227,7 @@ async def generate_content_gemini(
             try:
                 stream = await gemini_client.models.generate_content_stream(
                     model="gemini-2.5-flash-preview-05-20",
-                    contents=prompt,
+                    contents=contents,
                     config=types.GenerateContentConfig(
                         thinking_config=types.ThinkingConfig(
                             include_thoughts=True,

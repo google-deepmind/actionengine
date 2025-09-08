@@ -40,6 +40,7 @@
 #include <utility>
 #include <vector>
 
+#include <absl/log/log.h>
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
 #include <cmath>
@@ -400,83 +401,61 @@ inline void Packer::pack_type(const bool& value) {
   }
 }
 
-template <>
-inline void Packer::pack_type(const float& value) {
-  double integral_part;
-  auto fractional_remainder = static_cast<float>(modf(value, &integral_part));
-
-  if (fractional_remainder == 0) {  // Just pack as int
-    pack_type(static_cast<int64_t>(integral_part));
-  } else {
-    static_assert(std::numeric_limits<float>::radix ==
-                  2);  // TODO: Handle decimal floats
-    auto exponent = ilogb(value);
-    float full_mantissa = value / static_cast<float>(scalbn(1.0, exponent));
-    auto sign_mask = std::bitset<32>(
-        static_cast<uint32_t>(std::signbit(full_mantissa)) << 31);
-    auto excess_127_exponent_mask =
-        std::bitset<32>(static_cast<uint32_t>(exponent + 127) << 23);
-    auto normalized_mantissa_mask = std::bitset<32>();
-    float implied_mantissa = fabs(full_mantissa) - 1.0f;
-    for (auto i = 23U; i > 0; --i) {
-      integral_part = 0;
-      implied_mantissa *= 2;
-      implied_mantissa =
-          static_cast<float>(modf(implied_mantissa, &integral_part));
-      if (static_cast<uint8_t>(integral_part) == 1) {
-        normalized_mantissa_mask |=
-            std::bitset<32>(static_cast<uint32_t>(1 << (i - 1)));
-      }
+template <typename T>
+absl::InlinedVector<uint8_t, 9> ToBigEndianBytes(const T& value,
+                                                 uint8_t pad = 0) {
+  auto value_ptr = reinterpret_cast<const uint8_t*>(&value);
+  absl::InlinedVector<uint8_t, 9> bytes(sizeof(T) + pad);
+  if constexpr (std::endian::native == std::endian::little) {
+    for (size_t i = 0; i < sizeof(T); ++i) {
+      bytes[i + pad] = value_ptr[sizeof(T) - 1 - i];
     }
-
-    uint32_t ieee754_float32 =
-        (sign_mask | excess_127_exponent_mask | normalized_mantissa_mask)
-            .to_ulong();
-    serialized_object.emplace_back(float32);
-    for (auto i = sizeof(uint32_t); i > 0; --i) {
-      serialized_object.emplace_back(
-          static_cast<uint8_t>(ieee754_float32 >> (8U * (i - 1)) & 0xff));
+  } else {
+    for (size_t i = 0; i < sizeof(T); ++i) {
+      bytes[i + pad] = value_ptr[i];
     }
   }
+  return bytes;
+}
+
+template <typename T>
+T FromBigEndianBytes(const uint8_t* absl_nonnull bytes) {
+  if constexpr (std::endian::native == std::endian::big) {
+    return *reinterpret_cast<T*>(bytes);
+  }
+  absl::InlinedVector<uint8_t, sizeof(T)> reversed_bytes(sizeof(T));
+  for (size_t i = 0; i < sizeof(T); ++i) {
+    reversed_bytes[i] = bytes[sizeof(T) - 1 - i];
+  }
+  return *reinterpret_cast<T*>(reversed_bytes.data());
+}
+
+template <>
+inline void Packer::pack_type(const float& value) {
+  if constexpr (!std::numeric_limits<float>::is_iec559) {
+    // Crash OK: Non-IEC 559 floats are not supported and it should be treated
+    // as a platform restriction, not a runtime error.
+    LOG(FATAL) << "Non-IEC 559 floats are not supported";
+    ABSL_ASSUME(false);
+  }
+  auto result = ToBigEndianBytes<float>(value, /*pad=*/1);
+  result[0] = float32;
+  serialized_object.insert(serialized_object.end(), result.begin(),
+                           result.end());
 }
 
 template <>
 inline void Packer::pack_type(const double& value) {
-  double integral_part;
-  double fractional_remainder = modf(value, &integral_part);
-
-  if (fractional_remainder == 0) {  // Just pack as int
-    pack_type(static_cast<int64_t>(integral_part));
-  } else {
-    static_assert(std::numeric_limits<float>::radix ==
-                  2);  // TODO: Handle decimal floats
-    auto exponent = ilogb(value);
-    double full_mantissa = value / scalbn(1.0, exponent);
-    auto sign_mask = std::bitset<64>(
-        static_cast<uint64_t>(std::signbit(full_mantissa)) << 63);
-    auto excess_127_exponent_mask =
-        std::bitset<64>(static_cast<uint64_t>(exponent + 1023) << 52);
-    auto normalized_mantissa_mask = std::bitset<64>();
-    double implied_mantissa = fabs(full_mantissa) - 1.0f;
-
-    for (auto i = 52U; i > 0; --i) {
-      integral_part = 0;
-      implied_mantissa *= 2;
-      implied_mantissa = modf(implied_mantissa, &integral_part);
-      if (static_cast<uint8_t>(integral_part) == 1) {
-        normalized_mantissa_mask |=
-            std::bitset<64>(static_cast<uint64_t>(1) << (i - 1));
-      }
-    }
-    auto ieee754_float64 =
-        (sign_mask | excess_127_exponent_mask | normalized_mantissa_mask)
-            .to_ullong();
-    serialized_object.emplace_back(float64);
-    for (auto i = sizeof(ieee754_float64); i > 0; --i) {
-      serialized_object.emplace_back(
-          static_cast<uint8_t>(ieee754_float64 >> (8U * (i - 1)) & 0xff));
-    }
+  if constexpr (!std::numeric_limits<double>::is_iec559) {
+    // Crash OK: Non-IEC 559 doubles are not supported and it should be treated
+    // as a platform restriction, not a runtime error.
+    LOG(FATAL) << "Non-IEC 559 doubles are not supported";
+    ABSL_ASSUME(false);
   }
+  auto result = ToBigEndianBytes<double>(value, /*pad=*/1);
+  result[0] = float64;
+  serialized_object.insert(serialized_object.end(), result.begin(),
+                           result.end());
 }
 
 template <>
@@ -892,80 +871,74 @@ inline void Unpacker::unpack_type(bool& value) {
 
 template <>
 inline void Unpacker::unpack_type(float& value) {
-  if (safe_data() == float32) {
-    safe_increment();
-    uint32_t data = 0;
-    for (auto i = sizeof(uint32_t); i > 0; --i) {
-      data += safe_data() << 8 * (i - 1);
-      safe_increment();
+  const auto type = static_cast<FormatConstants>(safe_data());
+  safe_increment();
+
+  if (type == float32) {
+    if (data_end - data_pointer_ < 4) {
+      error_code_ = UnpackerError::OutOfRange;
+      return;
     }
-    auto bits = std::bitset<32>(data);
-    auto mantissa = 1.0f;
-    for (auto i = 23U; i > 0; --i) {
-      if (bits[i - 1]) {
-        mantissa += 1.0f / (1 << (24 - i));
-      }
-    }
-    if (bits[31]) {
-      mantissa *= -1;
-    }
-    uint8_t exponent = 0;
-    for (auto i = 0U; i < 8; ++i) {
-      exponent += bits[i + 23] << i;
-    }
-    exponent -= 127;
-    value = ldexp(mantissa, exponent);
-  } else {
-    if (safe_data() == int8 || safe_data() == int16 || safe_data() == int32 ||
-        safe_data() == int64) {
-      int64_t val = 0;
-      unpack_type(val);
-      value = static_cast<float>(val);
-    } else {
-      uint64_t val = 0;
-      unpack_type(val);
-      value = static_cast<float>(val);
-    }
+    value = FromBigEndianBytes<float>(data_pointer_);
+    safe_increment(4);
+    return;
   }
+
+  if (type == int8 || type == int16 || type == int32 || type == int64) {
+    int64_t val = 0;
+    unpack_type(val);
+    value = static_cast<float>(val);
+    return;
+  }
+
+  if (type == uint8 || type == uint16 || type == uint32 || type == uint64) {
+    int64_t val = 0;
+    unpack_type(val);
+    value = static_cast<float>(val);
+    return;
+  }
+  error_code_ = UnpackerError::OutOfRange;
 }
 
 template <>
 inline void Unpacker::unpack_type(double& value) {
-  if (safe_data() == float64) {
-    safe_increment();
-    uint64_t data = 0;
-    for (auto i = sizeof(uint64_t); i > 0; --i) {
-      data += static_cast<uint64_t>(safe_data()) << 8 * (i - 1);
-      safe_increment();
+  const auto type = static_cast<FormatConstants>(safe_data());
+  safe_increment();
+
+  if (type == float32) {
+    if (data_end - data_pointer_ < 4) {
+      error_code_ = UnpackerError::OutOfRange;
+      return;
     }
-    auto bits = std::bitset<64>(data);
-    auto mantissa = 1.0;
-    for (auto i = 52U; i > 0; --i) {
-      if (bits[i - 1]) {
-        mantissa += 1.0 / (static_cast<uint64_t>(1) << (53 - i));
-      }
-    }
-    if (bits[63]) {
-      mantissa *= -1;
-    }
-    uint16_t exponent = 0;
-    for (auto i = 0U; i < 11; ++i) {
-      exponent += bits[i + 52] << i;
-    }
-    exponent -= 1023;
-    value = ldexp(mantissa, exponent);
-  } else {
-    if (safe_data() == int8 || safe_data() == int16 || safe_data() == int32 ||
-        safe_data() == int64) {
-      int64_t val = 0;
-      unpack_type(val);
-      value = static_cast<float>(val);
-    } else {
-      uint64_t val = 0;
-      unpack_type(val);
-      value = static_cast<float>(val);
-    }
+    value = FromBigEndianBytes<float>(data_pointer_);
+    safe_increment(4);
+    return;
   }
+
+  if (type == float64) {
+    if (data_end - data_pointer_ < 8) {
+      error_code_ = UnpackerError::OutOfRange;
+      return;
+    }
+    value = FromBigEndianBytes<double>(data_pointer_);
+    safe_increment(8);
+    return;
+  }
+
+  if (type == int8 || type == int16 || type == int32 || type == int64) {
+    int64_t val = 0;
+    unpack_type(val);
+    value = static_cast<double>(val);
+    return;
+  }
+
+  if (type == uint8 || type == uint16 || type == uint32 || type == uint64) {
+    int64_t val = 0;
+    unpack_type(val);
+    value = static_cast<double>(val);
+    return;
+  }
+  error_code_ = UnpackerError::OutOfRange;
 }
 
 template <>
