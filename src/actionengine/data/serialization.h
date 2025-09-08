@@ -37,7 +37,7 @@ class SerializerRegistry {
       T value, std::string_view mimetype) const;
 
   [[nodiscard]] absl::StatusOr<std::any> Deserialize(
-      const Bytes& data, std::string_view mimetype) const;
+      Bytes data, std::string_view mimetype) const;
 
   // The registered deserializer must return an std::any which actually
   // contains the type T. This is not checked at compile time and is not
@@ -185,7 +185,7 @@ absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},
 }
 
 absl::StatusOr<std::any> FromChunk(
-    const Chunk& chunk, std::string_view mimetype = {},
+    Chunk chunk, std::string_view mimetype = {},
     const SerializerRegistry* const registry = nullptr);
 
 template <typename T>

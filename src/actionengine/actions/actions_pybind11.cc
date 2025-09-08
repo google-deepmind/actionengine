@@ -60,10 +60,7 @@ struct FutureOrTaskHolder {
     if (!is_task) {
       if (thread::Cancelled()) {
         future_or_task.attr("cancel")();
-        return;
       }
-      // auto _ =
-      //     future_or_task.attr("result")();  // Wait for the Future to finish.
     }
   }
 
@@ -72,7 +69,7 @@ struct FutureOrTaskHolder {
 };
 
 ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
-  py_handler.inc_ref();
+  py_handler = py_handler.inc_ref();
   const py::function iscoroutinefunction =
       py::module_::import("inspect").attr("iscoroutinefunction");
   const bool is_coroutine = py::cast<bool>(iscoroutinefunction(py_handler));
@@ -125,7 +122,7 @@ ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
           py::gil_scoped_acquire gil;
           done.Notify();
         });  // Keep the callback alive until done.
-        future.attr("add_done_callback")(future_done_callback);
+        future.attr("add_done_callback")(std::move(future_done_callback));
         {
           py::gil_scoped_release release;
           thread::Select({done.OnEvent(), thread::OnCancel()});

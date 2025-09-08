@@ -129,7 +129,7 @@ class AsyncNode(_C.AsyncNode):
         else:
             return self.next_chunk_sync(timeout)
 
-    async def next_object(self, timeout: float = -1.0) -> Any | None:
+    async def next_object(self, timeout: float = -1.0) -> Any:
         """Returns the next object in the store, or None if the store is empty."""
         return await asyncio.create_task(
             asyncio.to_thread(self.next_object_sync, timeout)

@@ -43,7 +43,7 @@ namespace act::pybindings {
 auto PySerializerToCppSerializer(py::function py_serializer) -> Serializer {
   {
     py::gil_scoped_acquire gil;
-    py_serializer.inc_ref();
+    py_serializer = py::cast<py::function>(py_serializer.inc_ref());
   }
   return [py_serializer = std::move(py_serializer)](
              std::any value) -> absl::StatusOr<Bytes> {
@@ -66,7 +66,7 @@ auto PyDeserializerToCppDeserializer(py::function py_deserializer)
     -> Deserializer {
   {
     py::gil_scoped_acquire gil;
-    py_deserializer.inc_ref();
+    py_deserializer = py::cast<py::function>(py_deserializer.inc_ref());
   }
   return [py_deserializer = std::move(py_deserializer)](
              Bytes data) -> absl::StatusOr<std::any> {
@@ -90,8 +90,8 @@ absl::StatusOr<Chunk> PyToChunk(py::handle obj, std::string_view mimetype,
   if (mimetype_str.empty()) {
     const auto* data = static_cast<py::tuple*>(registry->GetUserData());
     const auto type_to_mimetype = (*data)[1].cast<py::dict>();
-    const auto mro = obj.get_type().attr("__mro__");
-    for (const auto& type : mro) {
+    for (const auto mro = py::type::of(obj).attr("__mro__");
+         const auto& type : mro) {
       mimetype_str =
           type_to_mimetype.attr("get")(type, py::str()).cast<std::string>();
       if (!mimetype_str.empty()) {
@@ -286,11 +286,11 @@ void BindSerializerRegistry(py::handle scope, std::string_view name) {
          std::string_view mimetype) -> absl::StatusOr<py::bytes> {
         auto mimetype_str = std::string(mimetype);
         if (mimetype_str.empty()) {
-          auto type_to_mimetype = GetTypeToMimetypeDict(self.get());
-          auto mro = value.get_type().attr("__mro__");
-          for (const auto& type : mro) {
-            auto mtype = type_to_mimetype.attr("get")(type, py::none());
-            if (!mtype.is_none()) {
+          const auto type_to_mimetype = GetTypeToMimetypeDict(self.get());
+          for (const auto mro = py::type::of(value).attr("__mro__");
+               const auto& type : mro) {
+            if (auto mtype = type_to_mimetype.attr("get")(type, py::none());
+                !mtype.is_none()) {
               mimetype_str = mtype.cast<std::string>();
               break;
             }
@@ -402,8 +402,8 @@ py::module_ MakeDataModule(py::module_ scope, std::string_view module_name) {
       "to_bytes",
       [](py::handle obj, std::string_view mimetype = "",
          SerializerRegistry* registry = nullptr) -> absl::StatusOr<py::bytes> {
-        ASSIGN_OR_RETURN(Chunk chunk, pybindings::PyToChunk(
-                                          std::move(obj), mimetype, registry));
+        ASSIGN_OR_RETURN(Chunk chunk,
+                         pybindings::PyToChunk(obj, mimetype, registry));
         return std::move(chunk.data);
       },
       py::arg("obj"), py::arg_v("mimetype", ""),
@@ -510,11 +510,10 @@ absl::StatusOr<std::any> CastPyObjectToAny(py::handle obj,
   auto& casters = GetCastersForMimetypes();
   const auto it = casters.find(std::string(mimetype));
   if (it == casters.end()) {
-    return std::any(std::move(obj));
+    return std::any(obj);
   }
 
-  // py::gil_scoped_acquire gil;  // Ensure GIL is held for Python calls.
-  return it->second(std::move(obj));
+  return it->second(obj);
 }
 
 absl::Status EgltAssignInto(PySerializationArgs args, std::any* dest) {
@@ -524,9 +523,9 @@ absl::Status EgltAssignInto(PySerializationArgs args, std::any* dest) {
     const py::handle global_type_to_mimetype = GetGlobalTypeToMimetype();
 
     if (mimetype_str.empty()) {
-      mimetype_str =
-          global_type_to_mimetype.attr("get")(args.object.get_type(), py::str())
-              .cast<std::string>();
+      mimetype_str = global_type_to_mimetype
+                         .attr("get")(py::type::of(args.object), py::str())
+                         .cast<std::string>();
     }
 
     if (mimetype_str.empty()) {
@@ -537,7 +536,7 @@ absl::Status EgltAssignInto(PySerializationArgs args, std::any* dest) {
   }
 
   absl::StatusOr<std::any> cpp_object =
-      CastPyObjectToAny(std::move(args.object), mimetype_str);
+      CastPyObjectToAny(args.object, mimetype_str);
   if (!cpp_object.ok()) {
     return absl::InvalidArgumentError(absl::StrCat(
         "Failed to convert object: ", cpp_object.status().message()));
@@ -553,7 +552,7 @@ absl::Status act::EgltAssignInto(const py::handle& obj, Chunk* chunk) {
       pybindings::GetGlobalTypeToMimetype();
 
   const auto mimetype =
-      global_type_to_mimetype.attr("get")(obj.get_type(), py::str())
+      global_type_to_mimetype.attr("get")(py::type::of(obj), py::str())
           .cast<std::string>();
 
   if (mimetype.empty()) {
@@ -600,7 +599,7 @@ absl::Status pybind11::EgltAssignInto(pybind11::handle obj, std::string* dest) {
   }
 
   try {
-    *dest = std::move(obj).cast<std::string>();
+    *dest = obj.cast<std::string>();
     return absl::OkStatus();
   } catch (const pybind11::cast_error& e) {
     return absl::InvalidArgumentError(

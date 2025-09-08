@@ -16,7 +16,7 @@
 
 namespace act {
 absl::StatusOr<std::any> SerializerRegistry::Deserialize(
-    const Bytes& data, std::string_view mimetype) const {
+    Bytes data, std::string_view mimetype) const {
   if (mimetype.empty()) {
     return absl::InvalidArgumentError(
         "Deserialize(data, mimetype) was called with an empty mimetype.");
@@ -104,8 +104,7 @@ void SetGlobalSerializerRegistry(const SerializerRegistry& registry) {
   GetGlobalSerializerRegistry() = registry;
 }
 
-absl::StatusOr<std::any> FromChunk(const Chunk& chunk,
-                                   std::string_view mimetype,
+absl::StatusOr<std::any> FromChunk(Chunk chunk, std::string_view mimetype,
                                    const SerializerRegistry* const registry) {
   const SerializerRegistry* resolved_registry =
       registry ? registry : GetGlobalSerializerRegistryPtr();
@@ -117,6 +116,7 @@ absl::StatusOr<std::any> FromChunk(const Chunk& chunk,
   }
 
   return resolved_registry->Deserialize(
-      chunk.data, !mimetype.empty() ? mimetype : chunk.metadata->mimetype);
+      std::move(chunk.data),
+      !mimetype.empty() ? mimetype : chunk.metadata->mimetype);
 }
 }  // namespace act
