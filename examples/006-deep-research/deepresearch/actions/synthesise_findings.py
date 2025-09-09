@@ -15,23 +15,30 @@ SYSTEM_INSTRUCTIONS = [
 
 
 async def run(action: actionengine.Action):
-    topic = await action["topic"].consume()
-    brief = await action["brief"].consume()
-    report_ids = [report_id async for report_id in action["report_ids"]]
-
-    node_map = action.get_node_map()
-    reports: list[str] = await asyncio.gather(
-        *(node_map.get(report_id).consume() for report_id in report_ids)
-    )
-    print("All reports have been received.")
-
-    prompt = (
-        f"The topic is: {topic}. Report in the same language. You have the "
-        f"following {len(reports)} intermediate "
-        f"reports: {'\n\n'.join(reports)}\n\n. {brief}"
-    )
-
     try:
+        topic = await action["topic"].consume()
+        brief = await action["brief"].consume()
+        report_ids = [report_id async for report_id in action["report_ids"]]
+
+        await action["user_log"].put(
+            f"[synthesise_findings] Synthesising findings for topic: {topic}. "
+            f"Awaiting reports. "
+        )
+
+        node_map = action.get_node_map()
+        reports: list[str] = await asyncio.gather(
+            *(node_map.get(report_id).consume() for report_id in report_ids)
+        )
+        await action["user_log"].put(
+            f"[synthesise_findings] Synthesising {len(reports)} reports."
+        )
+
+        prompt = (
+            f"The topic is: {topic}. Report in the same language. You have the "
+            f"following {len(reports)} intermediate "
+            f"reports: {'\n\n'.join(reports)}\n\n. {brief}"
+        )
+
         async for response in await generate_content_stream(
             api_key=await action["api_key"].consume(),
             contents=prompt,
@@ -41,8 +48,15 @@ async def run(action: actionengine.Action):
                 for part in candidate.content.parts:
                     if not part.thought:
                         await action["report"].put(part.text)
+                    else:
+                        await action["thoughts"].put(part.text)
+
     finally:
         await action["report"].finalize()
+        await action["thoughts"].finalize()
+        await action["user_log"].put_and_finalize(
+            f"[synthesise_findings] Synthesis complete."
+        )
 
 
 SCHEMA = actionengine.ActionSchema(
@@ -53,5 +67,9 @@ SCHEMA = actionengine.ActionSchema(
         ("brief", "text/plain"),
         ("report_ids", "text/plain"),
     ],
-    outputs=[("report", "text/plain")],
+    outputs=[
+        ("report", "text/plain"),
+        ("thoughts", "text/plain"),
+        ("user_log", "text/plain"),
+    ],
 )

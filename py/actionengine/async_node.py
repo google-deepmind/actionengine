@@ -111,11 +111,11 @@ class AsyncNode(_C.AsyncNode):
     def consume(self, timeout: float = -1.0) -> Any | Awaitable[Any]:
         try:
             asyncio.get_running_loop()
-            return asyncio.create_task(
-                asyncio.to_thread(self._consume_sync, timeout)
-            )
         except RuntimeError:
             return self._consume_sync(timeout)
+        return asyncio.create_task(
+            asyncio.to_thread(self._consume_sync, timeout)
+        )
 
     async def next(self, timeout: float = -1.0):
         if self.deserialize:
@@ -208,7 +208,7 @@ class AsyncNode(_C.AsyncNode):
         obj: Any,
         seq: int = -1,
         mimetype: str | None = None,
-    ):
+    ) -> None | Awaitable[None]:
         return self.put(obj, seq, True, mimetype)
 
     def put_sync(
@@ -250,15 +250,16 @@ class AsyncNode(_C.AsyncNode):
     ) -> None | Awaitable[None]:
         try:
             asyncio.get_running_loop()
-            return asyncio.to_thread(
-                self.put_sync,
-                obj,
-                seq,
-                final,
-                mimetype,
-            )
         except RuntimeError:
             return self.put_sync(obj, seq, final, mimetype)
+
+        return asyncio.to_thread(
+            self.put_sync,
+            obj,
+            seq,
+            final,
+            mimetype,
+        )
 
     def put_text(self, text: str, seq: int = -1, final: bool = False):
         """Puts a text/plain chunk into the node's chunk store."""
@@ -284,9 +285,9 @@ class AsyncNode(_C.AsyncNode):
     def finalize(self) -> None | Awaitable[None]:
         try:
             asyncio.get_running_loop()
-            return asyncio.to_thread(self.finalize_sync)
         except RuntimeError:
             return self.finalize_sync()
+        return asyncio.to_thread(self.finalize_sync)
 
     # pylint: disable-next=[useless-parent-delegation]
     def get_id(self) -> str:

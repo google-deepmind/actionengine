@@ -19,7 +19,7 @@ async def generate_content_stream(
     api_key: str,
     contents: str,
     *,
-    model: str = "gemini-2.5-flash-preview-05-20",
+    model: str = "gemini-2.5-flash",
     config: GenerateContentConfig | None = None,
     system_instruction_override: types.ContentUnion | None = None,
 ):

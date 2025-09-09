@@ -17,31 +17,43 @@ SYSTEM_INSTRUCTIONS = [
 
 
 async def run(action: actionengine.Action):
-    api_key, topic, brief = await asyncio.gather(
-        action["api_key"].consume(),
-        action["topic"].consume(),
-        action["brief"].consume(),
-    )
+    try:
+        api_key, topic, brief = await asyncio.gather(
+            action["api_key"].consume(),
+            action["topic"].consume(),
+            action["brief"].consume(),
+        )
 
-    prompt = (
-        f'The research topic is "{topic}".\n'
-        f"The brief for your investigation is as follows: {brief}\n\n"
-    )
+        prompt = (
+            f'The research topic is "{topic}".\n'
+            f"The brief for your investigation is as follows: {brief}\n\n"
+        )
 
-    response_parts = []
-    async for response in await generate_content_stream(
-        api_key=api_key,
-        contents=prompt,
-        system_instruction_override=SYSTEM_INSTRUCTIONS,
-    ):
-        for candidate in response.candidates:
-            for part in candidate.content.parts:
-                if not part.thought:
-                    response_parts.append(part)
+        await action["user_log"].put(
+            f"[investigate-{action.get_id()}] Investigating brief: {brief}."
+        )
+        response_parts = []
+        async for response in await generate_content_stream(
+            api_key=api_key,
+            contents=prompt,
+            system_instruction_override=SYSTEM_INSTRUCTIONS,
+        ):
+            for candidate in response.candidates:
+                for part in candidate.content.parts:
+                    if not part.thought:
+                        response_parts.append(part)
+                    else:
+                        await action["thoughts"].put(part.text)
 
-    await action["report"].put_and_finalize(
-        "".join([part.text for part in response_parts])
-    )
+        await action["report"].put_and_finalize(
+            "".join([part.text for part in response_parts])
+        )
+        await asyncio.sleep(0.04)
+    finally:
+        await action["thoughts"].finalize()
+        await action["user_log"].put_and_finalize(
+            f"[investigate-{action.get_id()}] Investigation complete."
+        )
 
 
 SCHEMA = actionengine.ActionSchema(
@@ -51,5 +63,9 @@ SCHEMA = actionengine.ActionSchema(
         ("topic", "text/plain"),
         ("brief", "text/plain"),
     ],
-    outputs=[("report", "text/plain")],
+    outputs=[
+        ("report", "text/plain"),
+        ("thoughts", "text/plain"),
+        ("user_log", "text/plain"),
+    ],
 )
