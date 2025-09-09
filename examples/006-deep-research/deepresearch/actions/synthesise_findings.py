@@ -5,6 +5,15 @@ import actionengine
 from ..gemini import generate_content_stream
 
 
+SYSTEM_INSTRUCTIONS = [
+    "You are a helpful research assistant that helps to synthesise the findings "
+    "of a research on a given topic, based on multiple intermediate reports. "
+    "You will synthesise the findings into a final report, based on the "
+    "intermediate reports you have been given. Make sure to address the brief "
+    "you have been given. ",
+]
+
+
 async def run(action: actionengine.Action):
     topic = await action["topic"].consume()
     brief = await action["brief"].consume()
@@ -17,16 +26,16 @@ async def run(action: actionengine.Action):
     print("All reports have been received.")
 
     prompt = (
-        f"You are asked to synthesise the findings of a research on the "
-        f"following topic: {topic}. Report in the same language. You have the "
+        f"The topic is: {topic}. Report in the same language. You have the "
         f"following {len(reports)} intermediate "
-        f"reports: {'\n\n'.join(reports)}\n\n NOW, {brief}"
+        f"reports: {'\n\n'.join(reports)}\n\n. {brief}"
     )
 
     try:
         async for response in await generate_content_stream(
             api_key=await action["api_key"].consume(),
             contents=prompt,
+            system_instruction_override=SYSTEM_INSTRUCTIONS,
         ):
             for candidate in response.candidates:
                 for part in candidate.content.parts:

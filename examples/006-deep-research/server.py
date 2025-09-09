@@ -21,6 +21,7 @@ async def main():
     await asyncio.gather(
         create_plan["api_key"].put_and_finalize(API_KEY),
         create_plan["topic"].put_and_finalize(topic_prompt),
+        create_plan["log_prefix"].put_and_finalize("drdebug"),
     )
 
     plan_items = [item async for item in create_plan["plan_items"]]
