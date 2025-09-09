@@ -74,7 +74,7 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
                        int64_t ttl = -1) {
              absl::Duration ttl_duration =
                  ttl < 0 ? absl::InfiniteDuration() : absl::Seconds(ttl);
-             return std::make_shared<redis::ChunkStore>(redis, id,
+             return std::make_unique<redis::ChunkStore>(redis, id,
                                                         ttl_duration);
            }),
            py::arg("redis"), py::arg("id"), py::arg("ttl"),

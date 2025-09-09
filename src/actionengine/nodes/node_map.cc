@@ -55,7 +55,7 @@ AsyncNode* absl_nonnull NodeMap::Get(
   act::MutexLock lock(&mu_);
   if (!nodes_.contains(id)) {
     nodes_.emplace(id, std::make_unique<AsyncNode>(
-                           id, this, MakeChunkStore(chunk_store_factory)));
+                           id, this, MakeChunkStore(chunk_store_factory, id)));
   }
   return nodes_[id].get();
 }
@@ -71,7 +71,7 @@ std::vector<AsyncNode*> NodeMap::Get(
   for (const auto& id : ids) {
     if (!nodes_.contains(id)) {
       nodes_[id] = std::make_unique<AsyncNode>(
-          id, this, MakeChunkStore(chunk_store_factory));
+          id, this, MakeChunkStore(chunk_store_factory, id));
     }
 
     nodes.push_back(nodes_[id].get());
@@ -92,7 +92,7 @@ AsyncNode* absl_nonnull NodeMap::operator[](std::string_view id) {
   act::MutexLock lock(&mu_);
   if (!nodes_.contains(id)) {
     nodes_.emplace(id, std::make_unique<AsyncNode>(
-                           id, this, MakeChunkStore(chunk_store_factory_)));
+                           id, this, MakeChunkStore(chunk_store_factory_, id)));
   }
   return nodes_[id].get();
 }

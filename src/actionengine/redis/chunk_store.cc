@@ -167,7 +167,30 @@ absl::StatusOr<Chunk> ChunkStore::GetByArrivalOrder(int64_t arrival_offset,
 }
 
 absl::StatusOr<std::optional<Chunk>> ChunkStore::Pop(int64_t seq) {
-  return absl::UnimplementedError("not implemented yet");
+  const std::string stream_id = GetKey();
+
+  std::vector<std::string> key_strings;
+  CommandArgs keys;
+  key_strings.reserve(kPopScriptKeys.size());
+  keys.reserve(kPopScriptKeys.size());
+  for (auto& key : kPopScriptKeys) {
+    std::string fully_qualified_key = key;
+    absl::StrReplaceAll({{"{}", stream_id}}, &fully_qualified_key);
+    key_strings.push_back(std::move(fully_qualified_key));
+    keys.push_back(key_strings.back());
+  }
+
+  const std::string arg_seq_to_pop = absl::StrCat(seq);
+
+  absl::StatusOr<Reply> reply =
+      redis_->ExecuteScript("CHUNK STORE POP", keys, {arg_seq_to_pop});
+  if (!reply.ok()) {
+    return reply.status();
+  }
+  if (reply->IsError()) {
+    return std::get<ErrorReplyData>(reply->data).AsAbslStatus();
+  }
+  return std::nullopt;
 }
 
 absl::Status ChunkStore::Put(int64_t seq, Chunk chunk, bool final) {

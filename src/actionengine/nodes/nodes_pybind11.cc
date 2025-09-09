@@ -18,7 +18,9 @@
 #include <string>
 #include <string_view>
 
+#include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
@@ -33,7 +35,8 @@ namespace act::pybindings {
 void BindNodeMap(py::handle scope, std::string_view name) {
   py::classh<NodeMap>(scope, std::string(name).c_str())
       .def(MakeSameObjectRefConstructor<NodeMap>())
-      .def(py::init([](const ChunkStoreFactory& factory = {}) {
+      .def(py::init([](const std::function<std::unique_ptr<ChunkStore>(
+                           std::string_view)>& factory = {}) {
              return std::make_shared<NodeMap>(factory);
            }),
            py::arg_v("chunk_store_factory", py::none()))

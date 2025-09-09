@@ -16,7 +16,9 @@
 
 from actionengine import _C
 
-ChunkStore = _C.chunk_store.ChunkStore
+
+class ChunkStore(_C.chunk_store.ChunkStore):
+    pass
 
 
 class LocalChunkStore(_C.chunk_store.LocalChunkStore):
