@@ -27,12 +27,7 @@ def make_action_registry():
     )
 
     actions.redis.register_actions(registry)
-
-    # these lines will not be needed later:
-    actionengine.to_bytes(actions.redis.ReadStoreRequest(key=""))
-    actionengine.to_bytes(
-        actions.redis.WriteRedisStoreRequest(key="", data=b"")
-    )
+    actions.deep_research.register_deep_research_actions(registry)
 
     return registry
 
@@ -44,6 +39,13 @@ def setup_action_engine():
     settings.readers_remove_read_chunks = True
 
     # will not be needed later:
+    actionengine.to_bytes(
+        actions.deep_research.DeepResearchAction(type="", id="")
+    )
+    actionengine.to_bytes(actions.redis.ReadStoreRequest(key=""))
+    actionengine.to_bytes(
+        actions.redis.WriteRedisStoreRequest(key="", data=b"")
+    )
     actionengine.to_chunk(
         actions.text_to_image.DiffusionRequest(
             prompt="a hack to get the schema registered for serialization",

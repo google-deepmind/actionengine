@@ -1,29 +1,10 @@
 import asyncio
+import os
 
 import actionengine
 from pydantic import BaseModel
 
 from . import create_plan, investigate, synthesise_findings
-
-
-def make_action_registry():
-    registry = actionengine.ActionRegistry()
-    registry.register(
-        "create_plan",
-        create_plan.SCHEMA,
-        create_plan.run,
-    )
-    registry.register(
-        "investigate",
-        investigate.SCHEMA,
-        investigate.run,
-    )
-    registry.register(
-        "synthesise_findings",
-        synthesise_findings.SCHEMA,
-        synthesise_findings.run,
-    )
-    return registry
 
 
 class DeepResearchAction(BaseModel):
@@ -33,17 +14,20 @@ class DeepResearchAction(BaseModel):
 
 async def run(action: actionengine.Action):
     try:
-        registry = make_action_registry()
-        node_map = action.get_node_map()
-
         api_key, topic = await asyncio.gather(
             action["api_key"].consume(),
             action["topic"].consume(),
         )
+        if api_key == "alpha-demos":
+            api_key = os.environ.get("GEMINI_API_KEY")
+
+        print(
+            "Got API key and topic, starting deep research workflow", flush=True
+        )
 
         # 1. Create a plan of investigations.
-        run_create_plan = registry.make_action(
-            "create_plan", node_map=node_map
+        run_create_plan = action.make_action_in_same_session(
+            "create_plan"
         ).run()
         await asyncio.gather(
             run_create_plan["api_key"].put_and_finalize(api_key),
@@ -60,8 +44,8 @@ async def run(action: actionengine.Action):
 
         investigations = []
         for idx, brief in enumerate(research_briefs):
-            investigation = registry.make_action(
-                "investigate", node_map=node_map
+            investigation = action.make_action_in_same_session(
+                "investigate"
             ).run()
             await asyncio.gather(
                 investigation["api_key"].put_and_finalize(api_key),
@@ -77,8 +61,8 @@ async def run(action: actionengine.Action):
             )
 
         # 3. Synthesize the findings.
-        synthesise = registry.make_action(
-            "synthesise_findings", node_map=node_map
+        synthesise = action.make_action_in_same_session(
+            "synthesise_findings"
         ).run()
         await asyncio.gather(
             synthesise["api_key"].put_and_finalize(api_key),
@@ -117,3 +101,30 @@ SCHEMA = actionengine.ActionSchema(
         ("actions", DeepResearchAction),
     ],
 )
+
+
+def register_deep_research_actions(
+    registry: actionengine.ActionRegistry | None = None,
+):
+    registry = registry or actionengine.ActionRegistry()
+    registry.register(
+        "create_plan",
+        create_plan.SCHEMA,
+        create_plan.run,
+    )
+    registry.register(
+        "investigate",
+        investigate.SCHEMA,
+        investigate.run,
+    )
+    registry.register(
+        "synthesise_findings",
+        synthesise_findings.SCHEMA,
+        synthesise_findings.run,
+    )
+    registry.register(
+        "deep_research",
+        SCHEMA,
+        run,
+    )
+    return registry

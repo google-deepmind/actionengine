@@ -35,6 +35,12 @@ export class NodeMap {
     this.mutex = new Mutex();
   }
 
+  async hasNode(id: string): Promise<boolean> {
+    return await this.mutex.runExclusive(async () => {
+      return this.nodes.has(id);
+    });
+  }
+
   async getNode(id: string): Promise<AsyncNode> {
     return await this.mutex.runExclusive(async () => {
       if (!this.nodes.has(id)) {

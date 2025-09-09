@@ -2,7 +2,7 @@ import asyncio
 
 import actionengine
 
-from ..gemini import generate_content_stream
+from .gemini_helper import generate_content_stream
 
 
 SYSTEM_INSTRUCTIONS = [

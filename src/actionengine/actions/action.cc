@@ -370,16 +370,26 @@ void Action::UnbindStreams() {
 
 ActionRegistry* Action::GetRegistry() const {
   act::MutexLock lock(&mu_);
+  if (session_ == nullptr) {
+    return nullptr;
+  }
   return session_->GetActionRegistry();
 }
 
 std::unique_ptr<Action> Action::MakeActionInSameSession(
     const std::string_view name, const std::string_view action_id) const {
-  auto action = GetRegistry()->MakeAction(name, action_id);
-  concurrency::TwoMutexLock lock(&mu_, &action->mu_);
-  action->node_map_ = node_map_;
-  action->stream_ = stream_;
-  action->session_ = session_;
+  const ActionRegistry* absl_nullable registry = GetRegistry();
+  if (registry == nullptr) {
+    return nullptr;
+  }
+  if (!registry->IsRegistered(name)) {
+    return nullptr;
+  }
+  auto action = registry->MakeAction(name, action_id);
+  act::MutexLock lock(&mu_);
+  action->BindNodeMap(node_map_);
+  action->BindStream(stream_);
+  action->BindSession(session_);
   return action;
 }
 
