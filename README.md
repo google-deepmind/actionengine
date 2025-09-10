@@ -123,5 +123,8 @@ insert images for [text to image](https://actionengine.dev/blob),
 - [ ] Cover the essentials with tests
 - [ ] Ensure no fatal errors and no hangs in basic session usage, including
   in Python bindings
+- [ ] Propagate action status to all output nodes
+- [ ] Make `ChunkStoreReader` and `ChunkStoreWriter` run tasks on a fiber
+  pool, not own fibers
 - [ ] Extend core PyBind11 bindings by more Pythonic interfaces more
   comprehensively; revise object ownership model

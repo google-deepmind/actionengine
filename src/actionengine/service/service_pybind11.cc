@@ -74,7 +74,7 @@ void BindStream(py::handle scope, std::string_view name) {
       .def(MakeSameObjectRefConstructor<PyWireStream>())
       .def("send", &PyWireStream::Send, py::arg("message"),
            py::call_guard<py::gil_scoped_release>())
-      .def("receive", &PyWireStream::Receive,
+      .def("receive", &PyWireStream::Receive, py::arg_v("timeout", -1.0),
            py::call_guard<py::gil_scoped_release>())
       .def("accept", &PyWireStream::Accept)
       .def("start", &PyWireStream::Start)
