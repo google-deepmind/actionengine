@@ -3,6 +3,7 @@ msgpack-python==0.5.6
 numpy<2
 ormsgpack
 Pillow
-pybind11==2.13.6
+pybind11>=2.13.6
+pybind11-stubgen>=2.5.5
 pydantic
 setuptools==78.1.0

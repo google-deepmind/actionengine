@@ -29,3 +29,8 @@ fi
 
 echo "Validating installation."
 python3 -c "import actionengine; print('Action Engine imports successfully!')"
+
+echo "Generating .pyi stubs."
+cd py
+pybind11-stubgen --ignore-invalid-expressions ".*" -o . actionengine._C
+echo "Done."

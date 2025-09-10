@@ -15,6 +15,7 @@
 """Imports data (types) from the C++ bindings."""
 
 import io
+import threading
 from typing import Any, Callable
 
 from actionengine import _C
@@ -94,9 +95,11 @@ def png_file_bytes_to_pil_image(png_bytes: bytes) -> Image.Image:
         return Image.open(input_stream).convert("RGB")
 
 
-_SERIALIZERS_REGISTERED = False
-if not _SERIALIZERS_REGISTERED:
-    _SERIALIZERS_REGISTERED = True
+_DEFAULT_SERIALIZERS_REGISTERED = False
+
+
+def _register_default_serializers():
+    global _DEFAULT_SERIALIZERS_REGISTERED
 
     registry = get_global_serializer_registry()
 
@@ -124,3 +127,11 @@ if not _SERIALIZERS_REGISTERED:
     registry.register_deserializer(
         "__BaseModel__", pydantic_helpers.bytes_to_base_model, BaseModel
     )
+
+    _DEFAULT_SERIALIZERS_REGISTERED = True
+
+
+_LOCK = threading.Lock()
+with _LOCK:
+    if not _DEFAULT_SERIALIZERS_REGISTERED:
+        _register_default_serializers()

@@ -17,7 +17,7 @@
 import asyncio
 import contextlib
 from collections.abc import Awaitable
-from typing import Any
+from typing import Any, Optional
 
 from actionengine import _C
 from actionengine import global_settings
@@ -45,9 +45,9 @@ class AsyncNode(_C.AsyncNode):
     def __init__(
         self,
         node_id: str,
-        chunk_store: _C.chunk_store.ChunkStore | None = None,
-        node_map: "NodeMap | None" = None,
-        serializer_registry: data.SerializerRegistry | None = None,
+        chunk_store: Optional[_C.chunk_store.ChunkStore] = None,
+        node_map: "Optional[NodeMap]" = None,
+        serializer_registry: Optional[data.SerializerRegistry] = None,
     ):
         # pytype: enable=name-error
         """Constructor for AsyncNode.
@@ -64,7 +64,7 @@ class AsyncNode(_C.AsyncNode):
           node_id: The id of the node.
           chunk_store: The chunk store to use for the node.
           node_map: The node map to use for the node.
-          serialiser_registry: The serialiser registry to use for the node.
+          serializer_registry: The serializer registry to use for the node.
         """
         if chunk_store is None:
             chunk_store = LocalChunkStore()
@@ -146,22 +146,26 @@ class AsyncNode(_C.AsyncNode):
             registry=self._serializer_registry,
         )
 
-    async def next_chunk(self, timeout: float = -1.0) -> Chunk | None:
+    async def next_chunk(self, timeout: float = -1.0) -> Optional[Chunk]:
         return await asyncio.create_task(
             asyncio.to_thread(self.next_chunk_sync, timeout)
         )
 
-    def next_chunk_sync(self, timeout: float = -1.0) -> Chunk | None:
+    def next_chunk_sync(self, timeout: float = -1.0) -> Optional[Chunk]:
         self._ensure_reader_options_set()
         return super().next_chunk(timeout)  # pytype: disable=attribute-error
 
-    async def next_fragment(self, timeout: float = -1.0) -> NodeFragment | None:
+    async def next_fragment(
+        self, timeout: float = -1.0
+    ) -> Optional[NodeFragment]:
         """Returns the next fragment in the store, or None if the store is empty."""
         return await asyncio.create_task(
             asyncio.to_thread(self.next_fragment_sync, timeout)
         )
 
-    def next_fragment_sync(self, timeout: float = -1.0) -> NodeFragment | None:
+    def next_fragment_sync(
+        self, timeout: float = -1.0
+    ) -> Optional[NodeFragment]:
         """Returns the next fragment in the store, or None if the store is empty."""
         self._ensure_reader_options_set()
         return super().next_fragment(timeout)
