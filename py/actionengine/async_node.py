@@ -27,13 +27,12 @@ from actionengine import utils
 Chunk = data.Chunk
 ChunkMetadata = data.ChunkMetadata
 NodeFragment = data.NodeFragment
-ChunkStoreFactory = data.ChunkStoreFactory
 LocalChunkStore = _C.chunk_store.LocalChunkStore
 
 global_setting_if_none = global_settings.global_setting_if_none
 
 
-class AsyncNode(_C.AsyncNode):
+class AsyncNode(_C.nodes.AsyncNode):
     """A Pythonic wrapper for the raw pybind11 AsyncNode bindings.
 
     AsyncNode is an accessor class that allows to access the chunks of a node
@@ -41,15 +40,13 @@ class AsyncNode(_C.AsyncNode):
     chunk store.
     """
 
-    # pytype: disable=name-error
     def __init__(
         self,
         node_id: str,
         chunk_store: Optional[_C.chunk_store.ChunkStore] = None,
-        node_map: "Optional[NodeMap]" = None,
+        node_map: "Optional[_C.nodes.NodeMap]" = None,
         serializer_registry: Optional[data.SerializerRegistry] = None,
     ):
-        # pytype: enable=name-error
         """Constructor for AsyncNode.
 
         Makes a new AsyncNode with the given id, referencing the given chunk store
@@ -153,7 +150,7 @@ class AsyncNode(_C.AsyncNode):
 
     def next_chunk_sync(self, timeout: float = -1.0) -> Optional[Chunk]:
         self._ensure_reader_options_set()
-        return super().next_chunk(timeout)  # pytype: disable=attribute-error
+        return super().next_chunk(timeout)
 
     async def next_fragment(
         self, timeout: float = -1.0
@@ -184,9 +181,7 @@ class AsyncNode(_C.AsyncNode):
           None if the fragment was put synchronously with no event loop, or an
           awaitable if the fragment was put asynchronously within an event loop.
         """
-        return super().put_fragment(
-            fragment, seq
-        )  # pytype: disable=attribute-error
+        return super().put_fragment(fragment, seq)
 
     def put_chunk(self, chunk: Chunk, seq: int = -1, final: bool = False):
         """Puts a chunk into the node's chunk store.
@@ -203,9 +198,7 @@ class AsyncNode(_C.AsyncNode):
           None if the chunk was put synchronously with no event loop, or an
           awaitable if the chunk was put asynchronously within an event loop.
         """
-        return super().put_chunk(
-            chunk, seq, final
-        )  # pytype: disable=attribute-error
+        return super().put_chunk(chunk, seq, final)
 
     def put_and_finalize(
         self,
@@ -296,7 +289,7 @@ class AsyncNode(_C.AsyncNode):
     # pylint: disable-next=[useless-parent-delegation]
     def get_id(self) -> str:
         """Returns the id of the node."""
-        return super().get_id()  # pytype: disable=attribute-error
+        return super().get_id()
 
     def set_reader_options(
         self,
@@ -320,7 +313,7 @@ class AsyncNode(_C.AsyncNode):
           The node itself.
         """
 
-        super().set_reader_options(  # pytype: disable=attribute-error
+        super().set_reader_options(
             global_setting_if_none(ordered, "readers_read_in_order"),
             global_setting_if_none(remove_chunks, "readers_remove_read_chunks"),
             global_setting_if_none(n_chunks_to_buffer, "readers_buffer_size"),

@@ -17,12 +17,10 @@
 import asyncio
 
 from actionengine import _C
-from actionengine import node_map
+from actionengine import node_map as eg_node_map
 from actionengine import stream as eg_stream
 from actionengine import data
 from actionengine import utils
-
-NodeMap = node_map.NodeMap
 
 
 def do_nothing():
@@ -34,14 +32,12 @@ class Session(_C.service.Session):
 
     def __init__(
         self,
-        node_map: NodeMap | None = None,
+        node_map: _C.nodes.NodeMap | None = None,
         action_registry: _C.actions.ActionRegistry | None = None,
-    ):  # pytype: disable=name-error
+    ):
         """Constructor for Session."""
 
-        super().__init__(
-            node_map, action_registry
-        )  # pytype: disable=attribute-error
+        super().__init__(node_map, action_registry)
 
         self._node_map = node_map
         self._action_registry = action_registry
@@ -50,11 +46,11 @@ class Session(_C.service.Session):
     def _add_python_specific_attributes(self):
         self._streams = set()
 
-    def get_node_map(self) -> "NodeMap":
+    def get_node_map(self) -> eg_node_map.NodeMap:
         """Returns the node map."""
         return utils.wrap_pybind_object(
-            NodeMap,
-            super().get_node_map(),  # pytype: disable=attribute-error
+            eg_node_map.NodeMap,
+            super().get_node_map(),
         )
 
     async def dispatch_message(
@@ -65,16 +61,14 @@ class Session(_C.service.Session):
         """Dispatches a message to the session."""
         return await asyncio.to_thread(
             super().dispatch_message, message, stream
-        )  # pytype: disable=attribute-error
+        )
 
     def dispatch_from(self, stream: eg_stream.WireStream, on_done=do_nothing):
         """Dispatches messages from the stream to the session."""
-        super().dispatch_from(
-            stream, on_done
-        )  # pytype: disable=attribute-error
+        super().dispatch_from(stream, on_done)
         self._streams.add(stream)
 
     def stop_dispatching_from(self, stream: eg_stream.WireStream):
         """Stops dispatching messages from the stream to the session."""
         self._streams.discard(stream)
-        super().stop_dispatching_from(stream)  # pytype: disable=attribute-error
+        super().stop_dispatching_from(stream)

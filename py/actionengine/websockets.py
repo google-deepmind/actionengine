@@ -14,7 +14,10 @@
 
 """Websocket support for ActionEngine."""
 
-from actionengine._C import websockets as websockets_pybind11
+from actionengine import _C
 
-make_websocket_stream = websockets_pybind11.make_websocket_stream
-WebsocketServer = websockets_pybind11.WebsocketServer
+make_websocket_stream = _C.websockets.make_websocket_stream
+
+
+class WebsocketServer(_C.websockets.WebsocketServer):
+    pass

@@ -18,6 +18,7 @@ import types
 import typing
 from types import NoneType, UnionType
 from typing import Any, ClassVar
+from typing import Optional
 
 import numpy as np
 import ormsgpack
@@ -30,8 +31,8 @@ from pydantic.v1.decorator import (
 )
 
 
-class DecsSchema(BaseModel):
-    _decs_schema_name: ClassVar[str | None] = None
+class ActSchema(BaseModel):
+    _act_schema_name: ClassVar[str | None] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -110,7 +111,7 @@ def _numpy_outer_type_to_dtype(outer_type: Any) -> np.dtype | None:
 
 
 def _deserialize_unpacked_numpy(
-    data: list, model: type[np.ndarray] | types.GenericAlias | None = None
+    data: list, model: Optional[type[np.ndarray] | types.GenericAlias] = None
 ):
     if issubclass(model, np.ndarray):
         dtype = np.uint8
@@ -291,11 +292,12 @@ def unpackb(
 
 
 def get_component_name(component_type: type) -> str:
-    if issubclass(component_type, DecsSchema):
+    if issubclass(component_type, ActSchema):
+        act_schema_name = getattr(component_type, "_act_schema_name", None)
         name_parts = (
             ["__d_"] + [component_type.__qualname__]
-            if component_type._decs_schema_name is None
-            else [component_type._decs_schema_name]
+            if act_schema_name is None
+            else [act_schema_name]
         )
         return "".join(name_parts)
 
@@ -309,7 +311,7 @@ def get_component_name(component_type: type) -> str:
 def _get_component_registry() -> dict[str, type]:
     if not hasattr(_get_component_registry, "_registry"):
         _get_component_registry._registry = {}
-    return _get_component_registry._registry
+    return getattr(_get_component_registry, "_registry")
 
 
 def base_model_to_bytes(component: BaseModel) -> bytes:

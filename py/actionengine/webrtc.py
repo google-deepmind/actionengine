@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from actionengine._C import webrtc as webrtc_pybind11
+from actionengine import _C
 
-make_webrtc_stream = webrtc_pybind11.make_webrtc_stream
-WebRtcServer = webrtc_pybind11.WebRtcServer
-TurnServer = webrtc_pybind11.TurnServer
-RtcConfig = webrtc_pybind11.RtcConfig
+make_webrtc_stream = _C.webrtc.make_webrtc_stream
+
+# Simply reexport "data" classes
+TurnServer = _C.webrtc.TurnServer
+RtcConfig = _C.webrtc.RtcConfig
+
+
+class WebRtcServer(_C.webrtc.WebRtcServer):
+    pass

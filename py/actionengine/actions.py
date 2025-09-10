@@ -107,9 +107,7 @@ class ActionRegistry(_C.actions.ActionRegistry):
 
         if not schema.name:
             schema.name = name
-        super().register(
-            name, schema, wrap_handler(handler)
-        )  # pytype: disable=attribute-error
+        super().register(name, schema, wrap_handler(handler))
 
     # pylint: disable-next=[useless-parent-delegation]
     def make_action_message(
@@ -124,26 +122,22 @@ class ActionRegistry(_C.actions.ActionRegistry):
         Returns:
           The action message.
         """
-        return super().make_action_message(
-            name, action_id
-        )  # pytype: disable=attribute-error
+        return super().make_action_message(name, action_id)
 
-    # pytype: disable=name-error
     def make_action(
         self,
         name: str,
         action_id: str = "",
         *,
         node_map: NodeMap | None = None,
-        stream: "WireStream | None" = None,
-        session: "Session | None" = None,
+        stream: _C.service.WireStream | None = None,
+        session: _C.service.Session | None = None,
     ) -> "Action":
-        # pytype: enable=name-error
         """Creates an action."""
 
         action = utils.wrap_pybind_object(
             Action,
-            super().make_action(  # pytype: disable=attribute-error
+            super().make_action(
                 name,
                 action_id,
                 node_map,
@@ -176,20 +170,16 @@ class Action(_C.actions.Action):
 
     def call_sync(self) -> None:
         """Calls the action by sending the action message to the stream."""
-        super().call()  # pytype: disable=attribute-error
+        super().call()
 
     def get_registry(self) -> ActionRegistry:
         """Returns the action registry from attached session."""
-        return utils.wrap_pybind_object(
-            ActionRegistry, super().get_registry()
-        )  # pytype: disable=attribute-error
+        return utils.wrap_pybind_object(ActionRegistry, super().get_registry())
 
-    # pytype: disable=name-error
     # pylint: disable-next=[useless-parent-delegation]
-    def get_stream(self) -> "WireStream | None":
-        # pytype: enable=name-error
+    def get_stream(self) -> _C.service.WireStream:
         """Returns attached stream."""
-        return super().get_stream()  # pytype: disable=attribute-error
+        return super().get_stream()
 
     def get_node_map(self) -> NodeMap:
         """Returns the NodeMap of the action."""
@@ -212,7 +202,6 @@ class Action(_C.actions.Action):
         return utils.wrap_pybind_object(
             AsyncNode,
             super().get_input(name, bind_stream),
-            # pytype: disable=attribute-error
         )
 
     def get_output(
@@ -232,7 +221,6 @@ class Action(_C.actions.Action):
         return utils.wrap_pybind_object(
             AsyncNode,
             super().get_output(name, bind_stream),
-            # pytype: disable=attribute-error
         )
 
     def __getitem__(self, name: str) -> AsyncNode:
@@ -254,12 +242,13 @@ class Action(_C.actions.Action):
 
         return utils.wrap_pybind_object(AsyncNode, node)
 
-    def make_action_in_same_session(self, name: str) -> "Action":
+    def make_action_in_same_session(
+        self, name: str, action_id: str = ""
+    ) -> "Action":
         """Creates an action in the same session."""
         return utils.wrap_pybind_object(
             Action,
             super().make_action_in_same_session(name),
-            # pytype: disable=attribute-error
         )
 
     def run(self) -> "Action":

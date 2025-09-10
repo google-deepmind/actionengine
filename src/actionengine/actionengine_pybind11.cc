@@ -47,10 +47,12 @@ PYBIND11_MODULE(_C, m) {
   py::module_ data = pybindings::MakeDataModule(m, "data");
 
   py::module_ chunk_store = pybindings::MakeChunkStoreModule(m, "chunk_store");
-  pybindings::BindNodeMap(m, "NodeMap");
-  pybindings::BindAsyncNode(m, "AsyncNode");
 
   py::module_ actions = pybindings::MakeActionsModule(m, "actions");
+  const py::module_ nodes = m.def_submodule(
+      "nodes", "ActionEngine interfaces for AsyncNode and NodeMap.");
+  pybindings::BindNodeMap(nodes, "NodeMap");
+  pybindings::BindAsyncNode(nodes, "AsyncNode");
   py::module_ redis = pybindings::MakeRedisModule(m, "redis");
   py::module_ service = pybindings::MakeServiceModule(m, "service");
   py::module_ webrtc = pybindings::MakeWebRtcModule(m, "webrtc");

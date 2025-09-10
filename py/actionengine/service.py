@@ -25,10 +25,7 @@ from actionengine import session as eg_session
 from actionengine import stream as eg_stream
 from actionengine import utils
 
-ActionRegistry = actions.ActionRegistry
-WireStream = eg_stream.WireStream
 Session = eg_session.Session
-StreamToSessionConnection = _C.service.StreamToSessionConnection
 
 
 class WireStream(eg_stream.WireStream):
@@ -108,21 +105,21 @@ class Service(_C.service.Service):
         super().__init__(action_registry, wrap_handler(connection_handler))
 
 
-class StreamToSessionConnection(StreamToSessionConnection):
+class StreamToSessionConnection(_C.service.StreamToSessionConnection):
     """A Pythonic wrapper for the raw pybind11 StreamToSessionConnection bindings."""
 
     def get_stream(self) -> "WireStream":
         """Returns the stream."""
         return utils.wrap_pybind_object(
             WireStream,
-            super().get_stream(),  # pytype: disable=attribute-error
+            super().get_stream(),
         )
 
     def get_session(self) -> "Session":
         """Returns the session."""
         return utils.wrap_pybind_object(
             Session,
-            super().get_session(),  # pytype: disable=attribute-error
+            super().get_session(),
         )
 
     def make_action(

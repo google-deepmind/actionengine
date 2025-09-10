@@ -42,7 +42,7 @@ AsyncNode = async_node.AsyncNode
 
 Chunk = data.Chunk
 ChunkMetadata = data.ChunkMetadata
-ChunkStoreFactory = data.ChunkStoreFactory
+ChunkStoreFactory = chunk_store.ChunkStoreFactory
 
 WireStream = eg_stream.WireStream
 

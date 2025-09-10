@@ -14,5 +14,10 @@
 
 from actionengine import _C
 
-Redis = _C.redis.Redis
-ChunkStore = _C.redis.ChunkStore
+
+class Redis(_C.redis.Redis):
+    pass
+
+
+class ChunkStore(_C.redis.ChunkStore):
+    pass

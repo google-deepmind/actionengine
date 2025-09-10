@@ -24,6 +24,7 @@ from actionengine import pydantic_helpers
 from PIL import Image
 from pydantic import BaseModel
 
+# Simply reexport "data" classes
 ChunkMetadata = _C.data.ChunkMetadata
 Chunk = _C.data.Chunk
 NodeFragment = _C.data.NodeFragment
@@ -31,10 +32,11 @@ Port = _C.data.Port
 ActionMessage = _C.data.ActionMessage
 WireMessage = _C.data.WireMessage
 
-ChunkStoreFactory = Callable[[str], _C.chunk_store.ChunkStore]
-
-SerializerRegistry = _C.data.SerializerRegistry
 get_global_serializer_registry = _C.data.get_global_serializer_registry
+
+
+class SerializerRegistry(_C.data.SerializerRegistry):
+    pass
 
 
 def to_bytes(

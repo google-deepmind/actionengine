@@ -14,7 +14,12 @@
 
 """A Pythonic wrapper for the raw pybind11 ChunkStore bindings."""
 
+from typing import Callable
+
 from actionengine import _C
+
+
+ChunkStoreFactory = Callable[[str], _C.chunk_store.ChunkStore]
 
 
 class ChunkStore(_C.chunk_store.ChunkStore):

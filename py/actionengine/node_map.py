@@ -16,14 +16,13 @@
 
 from actionengine import _C
 from actionengine import async_node
-from actionengine import data
 from actionengine import utils
+from actionengine.chunk_store import ChunkStoreFactory
 
 AsyncNode = async_node.AsyncNode
-ChunkStoreFactory = data.ChunkStoreFactory
 
 
-class NodeMap(_C.NodeMap):
+class NodeMap(_C.nodes.NodeMap):
     """An ActionEngine NodeMap.
 
     Simply contains AsyncNodes. Calls are thread-safe.
@@ -47,9 +46,7 @@ class NodeMap(_C.NodeMap):
 
     def get(self, node_id: str) -> AsyncNode:
         """Returns the AsyncNode with the given ID."""
-        return utils.wrap_pybind_object(
-            AsyncNode, super().get(node_id)
-        )  # pytype: disable=attribute-error
+        return utils.wrap_pybind_object(AsyncNode, super().get(node_id))
 
     def extract(self, node_id: str) -> AsyncNode:
         """Extracts the AsyncNode with the given ID.
@@ -60,7 +57,7 @@ class NodeMap(_C.NodeMap):
     # pylint: disable-next=[useless-parent-delegation]
     def contains(self, node_id: str) -> bool:
         """Returns whether the NodeMap contains the given ID."""
-        return super().contains(node_id)  # pytype: disable=attribute-error
+        return super().contains(node_id)
 
     def __getitem__(self, node_id: str) -> AsyncNode:
         """Returns the AsyncNode with the given ID."""

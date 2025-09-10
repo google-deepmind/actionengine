@@ -183,9 +183,9 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
             return self->Register(
                 name, def, MakeStatusAwareActionHandler(std::move(handler)));
           },
-          py::arg("name"), py::arg("def"), py::arg("handler"))
+          py::arg("name"), py::arg("definition"), py::arg("handler"))
       .def("make_action_message", &ActionRegistry::MakeActionMessage,
-           py::arg("name"), py::arg("id"),
+           py::arg("name"), py::arg("action_id"),
            py::call_guard<py::gil_scoped_release>())
       .def(
           "make_action",
@@ -198,10 +198,11 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
             action->BindSession(session);
             return std::shared_ptr(std::move(action));
           },
-          py::arg("name"), py::arg_v("id", ""), py::arg_v("node_map", nullptr),
-          py::arg_v("stream", nullptr), py::arg_v("session", nullptr),
-          py::keep_alive<0, 4>(), py::keep_alive<0, 5>(),
-          py::keep_alive<0, 6>(), pybindings::keep_event_loop_memo());
+          py::arg("name"), py::arg_v("action_id", ""),
+          py::arg_v("node_map", nullptr), py::arg_v("stream", nullptr),
+          py::arg_v("session", nullptr), py::keep_alive<0, 4>(),
+          py::keep_alive<0, 5>(), py::keep_alive<0, 6>(),
+          pybindings::keep_event_loop_memo());
 }
 
 void BindAction(py::handle scope, std::string_view name) {
@@ -267,7 +268,7 @@ void BindAction(py::handle scope, std::string_view name) {
           [](const std::shared_ptr<Action>& action, std::string_view id) {
             return ShareWithNoDeleter(action->GetNode(id));
           },
-          py::arg("id"), py::call_guard<py::gil_scoped_release>())
+          py::arg("node_id"), py::call_guard<py::gil_scoped_release>())
       .def(
           "get_input",
           [](const std::shared_ptr<Action>& action, std::string_view id,
@@ -290,7 +291,7 @@ void BindAction(py::handle scope, std::string_view name) {
              std::string_view id) {
             return std::shared_ptr(action->MakeActionInSameSession(name, id));
           },
-          py::arg("name"), py::arg_v("id", ""),
+          py::arg("name"), py::arg_v("action_id", ""),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "bind_handler",
