@@ -60,8 +60,6 @@ absl::Status ActionContext::Dispatch(std::shared_ptr<Action> action) {
     return absl::CancelledError("Action context is cancelled.");
   }
 
-  action->SetUserData(std::make_shared<internal::FromSessionTag>());
-
   Action* absl_nonnull action_ptr = action.get();
   running_actions_[action_ptr] =
       thread::NewTree({}, [action = std::move(action), this]() mutable {

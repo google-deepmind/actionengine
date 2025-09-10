@@ -197,6 +197,13 @@ class ChunkStoreReader {
     if (!chunk) {
       return std::nullopt;
     }
+    if (chunk->metadata && chunk->metadata->mimetype == "__status__") {
+      absl::StatusOr<absl::Status> status = ConvertTo<absl::Status>(*chunk);
+      if (!status.ok()) {
+        return status.status();
+      }
+      return *status;
+    }
     ASSIGN_OR_RETURN(T result, FromChunkAs<T>(*std::move(chunk)));
     return std::optional{result};
   }
@@ -251,6 +258,7 @@ class ChunkStoreReader {
 template <>
 absl::StatusOr<std::optional<std::pair<int, Chunk>>> ChunkStoreReader::Next(
     std::optional<absl::Duration> timeout);
+
 template <>
 absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
     std::optional<absl::Duration> timeout);

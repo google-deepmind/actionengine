@@ -94,6 +94,11 @@ class ChunkStoreWriter {
     CancelInternal();
   }
 
+  void WaitForBufferToDrain() {
+    act::MutexLock lock(&mu_);
+    WaitForBufferToDrainInternal();
+  }
+
   void Join() {
     act::MutexLock lock(&mu_);
     JoinInternal();
@@ -105,6 +110,11 @@ class ChunkStoreWriter {
   void SafelyCloseBuffer() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Status RunWriteLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  void WaitForBufferToDrainInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    SafelyCloseBuffer();
+    JoinInternal();
+  }
 
   void CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     SafelyCloseBuffer();

@@ -61,6 +61,10 @@ PYBIND11_MODULE(_C, m) {
   m.def("run_threadsafe_if_coroutine", &pybindings::RunThreadsafeIfCoroutine,
         py::arg("function_call_result"), py::arg_v("loop", py::none()),
         py::arg_v("return_future", false), pybindings::keep_event_loop_memo());
+
+  m.def("save_first_encountered_event_loop",
+        &pybindings::SaveFirstEncounteredEventLoop,
+        "Saves the first encountered event loop globally for later use.");
 }
 
 }  // namespace act

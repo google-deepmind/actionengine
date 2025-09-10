@@ -107,9 +107,9 @@ class Session {
   Session(const Session& other) = delete;
   Session& operator=(const Session& other) = delete;
 
-  [[nodiscard]] AsyncNode* absl_nonnull
-  GetNode(std::string_view id,
-          const ChunkStoreFactory& chunk_store_factory = {}) const;
+  [[nodiscard]] AsyncNode* absl_nonnull GetNode(
+      std::string_view id,
+      const ChunkStoreFactory& chunk_store_factory = {}) const;
 
   void DispatchFrom(const std::shared_ptr<WireStream>& stream,
                     absl::AnyInvocable<void()> on_done = {});
@@ -146,10 +146,6 @@ class Session {
 
   std::unique_ptr<ActionContext> action_context_ = nullptr;
 };
-
-namespace internal {
-struct FromSessionTag {};
-}  // namespace internal
 
 }  // namespace act
 

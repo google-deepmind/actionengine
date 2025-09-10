@@ -56,6 +56,13 @@ Action::~Action() {
 
   reffed_readers_.clear();
 
+  if (has_been_run_ && !run_status_.has_value()) {
+    CancelInternal();
+    while (!run_status_.has_value()) {
+      cv_.Wait(&mu_);
+    }
+  }
+
   // for (const auto& [input_name, input_id] : input_name_to_id_) {
   //   node_map_->Extract(input_id).reset();
   // }
@@ -239,6 +246,23 @@ absl::Status Action::Run() {
   absl::Status handler_status = std::move(handler)(shared_from_this());
   mu_.lock();
 
+  auto handler_status_chunk = ConvertToOrDie<Chunk>(handler_status);
+
+  // Propagate error statuses to all output nodes.
+  if (!handler_status.ok()) {
+    for (const auto& [output_name, output_id] : output_name_to_id_) {
+      AsyncNode* output_node = node_map_->Get(output_id);
+      output_node->Put(handler_status_chunk, /*seq=*/-1, /*final=*/true)
+          .IgnoreError();
+    }
+  }
+
+  // Wait for all output nodes to finish writing.
+  for (const auto& [output_name, output_id] : output_name_to_id_) {
+    AsyncNode* output_node = node_map_->Get(output_id);
+    output_node->GetWriter().WaitForBufferToDrain();
+  }
+
   for (auto& reader : reffed_readers_) {
     reader->Cancel();
   }
@@ -247,7 +271,6 @@ absl::Status Action::Run() {
   UnbindStreams();
 
   absl::Status full_run_status = handler_status;
-  auto handler_status_chunk = ConvertToOrDie<Chunk>(handler_status);
   if (stream_ != nullptr) {
     // If the stream is bound, we send the status chunk to it.
     // We are doing it here instead of relying on a bound stream.
@@ -265,8 +288,9 @@ absl::Status Action::Run() {
 
   AsyncNode* status_node =
       GetOutputInternal("__status__", /*bind_stream=*/false);
-  full_run_status.Update(status_node->Put(std::move(handler_status_chunk),
+  full_run_status.Update(status_node->Put(handler_status_chunk,
                                           /*seq=*/0, /*final=*/true));
+  status_node->GetWriter().WaitForBufferToDrain();
 
   run_status_ = full_run_status;
   cv_.SignalAll();
@@ -306,8 +330,7 @@ void Action::ClearOutputsAfterRun(bool clear) {
   clear_outputs_after_run_ = clear;
 }
 
-void Action::Cancel() const {
-  act::MutexLock lock(&mu_);
+void Action::CancelInternal() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (cancelled_->HasBeenNotified()) {
     return;
   }

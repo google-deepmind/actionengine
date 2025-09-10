@@ -138,9 +138,9 @@ class Action : public std::enable_shared_from_this<Action> {
    *   A pointer to the AsyncNode of the output with the given name, or nullptr
    *   if not on ActionSchema.
    */
-  AsyncNode* absl_nullable
-  GetOutput(std::string_view name,
-            const std::optional<bool> bind_stream = std::nullopt) {
+  AsyncNode* absl_nullable GetOutput(
+      std::string_view name,
+      const std::optional<bool> bind_stream = std::nullopt) {
     act::MutexLock lock(&mu_);
     return GetOutputInternal(name, bind_stream);
   }
@@ -288,7 +288,10 @@ class Action : public std::enable_shared_from_this<Action> {
    * handler terminates with an error, non-OK statuses will be sent to the
    * output nodes.
    */
-  void Cancel() const;
+  void Cancel() const {
+    act::MutexLock lock(&mu_);
+    CancelInternal();
+  }
 
   /** @brief
    *    Returns a thread::Case that handlers can use to synchronise with
@@ -319,6 +322,8 @@ class Action : public std::enable_shared_from_this<Action> {
   }
 
  private:
+  void CancelInternal() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
   // Implementation detail: gets the input node ID for the given name, unique
   // to this particular action run/call.
   std::string GetInputId(std::string_view name) const;

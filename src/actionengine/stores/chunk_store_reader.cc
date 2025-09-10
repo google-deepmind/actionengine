@@ -74,6 +74,13 @@ absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
   if (!chunk || chunk->IsNull()) {
     return std::nullopt;
   }
+  if (chunk->metadata && chunk->metadata->mimetype == "__status__") {
+    absl::StatusOr<absl::Status> status = ConvertTo<absl::Status>(*chunk);
+    if (!status.ok()) {
+      return status.status();
+    }
+    return *status;
+  }
   return chunk;
 }
 
@@ -88,7 +95,19 @@ template <>
 absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
     std::optional<absl::Duration> timeout) {
   act::MutexLock lock(&mu_);
-  return GetNextChunkFromBuffer(timeout.value_or(options_.timeout));
+  ASSIGN_OR_RETURN(std::optional<Chunk> chunk,
+                   GetNextChunkFromBuffer(timeout.value_or(options_.timeout)));
+  if (!chunk || chunk->IsNull()) {
+    return std::nullopt;
+  }
+  if (chunk->metadata && chunk->metadata->mimetype == "__status__") {
+    absl::StatusOr<absl::Status> status = ConvertTo<absl::Status>(*chunk);
+    if (!status.ok()) {
+      return status.status();
+    }
+    return *status;
+  }
+  return chunk;
 }
 
 absl::StatusOr<std::optional<std::pair<int, Chunk>>>
@@ -116,6 +135,15 @@ ChunkStoreReader::GetNextSeqAndChunkFromBuffer(absl::Duration timeout)
     RETURN_IF_ERROR(status_);
     // Otherwise it simply finished reading.
     return std::nullopt;
+  }
+  if (seq_and_chunk) {
+    if (const Chunk& chunk = seq_and_chunk->second;
+        chunk.metadata && chunk.metadata->mimetype == "__status__") {
+      if (absl::StatusOr<absl::Status> status = ConvertTo<absl::Status>(chunk);
+          !status.ok()) {
+        return status.status();
+      }
+    }
   }
   return seq_and_chunk;
 }

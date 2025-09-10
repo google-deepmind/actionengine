@@ -19,7 +19,7 @@ from typing import TypeVar
 from actionengine import data
 
 T = TypeVar("T")
-Instance = TypeVar("Instance")
+U = TypeVar("U")
 
 
 def is_null_chunk(chunk: data.Chunk) -> bool:
@@ -30,7 +30,7 @@ def is_null_chunk(chunk: data.Chunk) -> bool:
     )
 
 
-def wrap_pybind_object(cls: type[T], impl: T):
+def wrap_pybind_object(cls: type[T], impl: U) -> T:
     wrapped = cls.__new__(cls)
     super(cls, wrapped).__init__(impl)
     if add_python_specific_attributes := getattr(

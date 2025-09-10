@@ -156,10 +156,23 @@ class ActionRegistry(_C.actions.ActionRegistry):
 class Action(_C.actions.Action):
     """A Pythonic wrapper for the raw pybind11 Action bindings."""
 
+    @staticmethod
+    def from_schema(
+        schema: ActionSchema,
+        action_id: str = "",
+    ):
+        """Creates an action from a schema."""
+        return utils.wrap_pybind_object(
+            Action,
+            _C.actions.Action(schema, action_id),
+        )
+
     def _add_python_specific_attributes(self):
         """Adds Python-specific attributes to the action."""
         if not hasattr(self, "_schema"):
             self._schema = self.get_schema()
+        if not hasattr(self, "_task"):
+            self._task: asyncio.Task | None = None
 
     async def wait_until_complete(self):
         return await asyncio.to_thread(super().wait_until_complete)
@@ -183,6 +196,8 @@ class Action(_C.actions.Action):
 
     def get_node_map(self) -> NodeMap:
         """Returns the NodeMap of the action."""
+        if hasattr(self, "_node_map") and self._node_map is not None:
+            return self._node_map
         return utils.wrap_pybind_object(NodeMap, super().get_node_map())
 
     def get_input(
@@ -251,7 +266,26 @@ class Action(_C.actions.Action):
             super().make_action_in_same_session(name),
         )
 
+    def _clear_exception(self, _: asyncio.Task) -> None:
+        if (
+            self._task is not None
+            and self._task.done()
+            and not self._task.cancelled()
+        ):
+            _ = self._task.exception()
+
     def run(self) -> "Action":
         """Runs the action."""
-        super().run()
+        _C.save_first_encountered_event_loop()
+        self._task = asyncio.create_task(asyncio.to_thread(super().run))
+        self._task.add_done_callback(self._clear_exception)
         return self
+
+    def bind_handler(self, handler: ActionHandler) -> None:
+        """Binds a handler to the action."""
+        super().bind_handler(wrap_handler(handler))
+
+    def bind_node_map(self, node_map: NodeMap) -> None:
+        """Binds a NodeMap to the action."""
+        super().bind_node_map(node_map)
+        self._node_map = node_map

@@ -34,6 +34,7 @@ target_link_libraries(
         act::data
         act::net
         act::nodes
+        act::stores
 )
 
 # ------------------------------------------------------------------
@@ -55,6 +56,7 @@ target_sources(
 )
 target_link_libraries(
         actActionsPybind11 PRIVATE
+        absl::log
         act::actions
         ${ACTIONENGINE_PYBIND11_DEPENDENCIES}
 )

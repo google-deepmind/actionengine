@@ -43,29 +43,10 @@ namespace py = ::pybind11;
 
 struct FutureOrTaskHolder {
   explicit FutureOrTaskHolder(py::object obj) {
-    // Determine if the object is a Future or a Task.
-    is_task = py::isinstance(obj, py::module_::import("asyncio").attr("Task"));
     future_or_task = std::move(obj);
-
-    // // Remove the reference to the Future or Task from Python's
-    // // garbage collector on completion of the action.
-    // // This is to prevent memory leaks in case the action is not awaited.
-    // if (is_task) {
-    //   future_or_task.attr("add_done_callback")(
-    //       [this](py::handle) { future_or_task = py::none(); });
-    // }
-  }
-
-  ~FutureOrTaskHolder() {
-    if (!is_task) {
-      if (thread::Cancelled()) {
-        future_or_task.attr("cancel")();
-      }
-    }
   }
 
   py::object future_or_task;
-  bool is_task;
 };
 
 ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
@@ -79,12 +60,6 @@ ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
        is_coroutine](const std::shared_ptr<Action>& action) -> absl::Status {
     py::gil_scoped_acquire gil;
 
-    bool await_future_result = false;
-    auto from_session_tag =
-        static_cast<internal::FromSessionTag*>(action->GetUserData());
-    if (from_session_tag != nullptr) {
-      await_future_result = true;
-    }
     action->SetUserData(nullptr);
 
     try {
@@ -111,11 +86,6 @@ ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
             py::object future,
             RunThreadsafeIfCoroutine(coro, GetGloballySavedEventLoop(),
                                      /*return_future=*/true));
-        if (!await_future_result) {
-          action->SetUserData(
-              std::make_shared<FutureOrTaskHolder>(std::move(future)));
-          return absl::OkStatus();
-        }
 
         thread::PermanentEvent done;
         auto future_done_callback = py::cpp_function([&done](py::handle) {
@@ -218,6 +188,7 @@ void BindAction(py::handle scope, std::string_view name) {
             RETURN_IF_ERROR(action->Run());
             return action;
           },
+          pybindings::keep_event_loop_memo(),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "call",
@@ -299,7 +270,13 @@ void BindAction(py::handle scope, std::string_view name) {
             return self->BindHandler(
                 MakeStatusAwareActionHandler(std::move(handler)));
           },
-          py::arg("handler"));
+          py::arg("handler"))
+      .def(
+          "bind_node_map",
+          [](const std::shared_ptr<Action>& self, NodeMap* node_map) {
+            self->BindNodeMap(node_map);
+          },
+          py::arg("node_map"));
 }
 
 py::module_ MakeActionsModule(py::module_ scope, std::string_view module_name) {
