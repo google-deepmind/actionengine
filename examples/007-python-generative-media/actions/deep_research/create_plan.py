@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 import actionengine
 
@@ -66,6 +67,8 @@ async def run(action: actionengine.Action):
             await plan_items.finalize()
     except Exception:
         await action["user_log"].put("[create_plan] Failed to create plan.")
+        await action["user_log"].put(traceback.format_exc())
+        traceback.print_exc()
         raise
     else:
         await action["user_log"].put("[create_plan] Finished creating plan.")

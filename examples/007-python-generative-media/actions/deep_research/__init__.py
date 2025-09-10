@@ -1,5 +1,6 @@
 import asyncio
 import os
+import traceback
 
 import actionengine
 from pydantic import BaseModel
@@ -84,6 +85,9 @@ async def run(action: actionengine.Action):
 
         async for part in synthesise["report"]:
             await action["report"].put(part)
+
+    except Exception:
+        traceback.print_exc()
 
     finally:
         await action["actions"].finalize()

@@ -17,6 +17,13 @@ async def run(action: actionengine.Action) -> None:
         await response.finalize()
 
 
+SCHEMA = actionengine.ActionSchema(
+    name="echo",
+    inputs=[("text", "text/plain")],
+    outputs=[("response", "text/plain")],
+)
+
+
 class EchoRequest(BaseModel):
     text: str | list[str] = Field(
         ...,
@@ -65,10 +72,3 @@ async def http_handler(
         response += text_chunk
 
     return response
-
-
-SCHEMA = actionengine.ActionSchema(
-    name="echo",
-    inputs=[("text", "text/plain")],
-    outputs=[("response", "text/plain")],
-)
