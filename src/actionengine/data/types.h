@@ -290,11 +290,21 @@ struct WireMessage {
   }
 };
 
-absl::Status EgltAssignInto(Chunk chunk, std::string* string);
-absl::Status EgltAssignInto(std::string string, Chunk* chunk);
+template <typename T>
+absl::Status EgltAssignInto(T src, T* absl_nonnull dst) {
+  static_assert(std::is_move_constructible_v<T>);
+  static_assert(std::is_move_assignable_v<T>);
+  *dst = std::move(src);
+  return absl::OkStatus();
+}
 
-absl::Status EgltAssignInto(const Chunk& chunk, absl::Status* status);
-absl::Status EgltAssignInto(const absl::Status& status, Chunk* chunk);
+absl::Status EgltAssignInto(Chunk chunk, std::string* absl_nonnull string);
+absl::Status EgltAssignInto(std::string string, Chunk* absl_nonnull chunk);
+
+absl::Status EgltAssignInto(const Chunk& chunk,
+                            absl::Status* absl_nonnull status);
+absl::Status EgltAssignInto(const absl::Status& status,
+                            Chunk* absl_nonnull chunk);
 
 template <typename Sink>
 void AbslStringify(Sink& sink, const ChunkMetadata& metadata) {
@@ -404,16 +414,14 @@ void AbslStringify(Sink& sink, const WireMessage& message) {
 
 template <typename T>
 concept ConvertibleToChunk = requires(T t) {
-  {
-    EgltAssignInto(std::move(t), std::declval<Chunk*>())
-  } -> std::same_as<absl::Status>;
+  {EgltAssignInto(std::move(t), std::declval<Chunk*>())}
+      ->std::same_as<absl::Status>;
 };
 
 template <typename T>
 concept ConvertibleFromChunk = requires(Chunk chunk) {
-  {
-    EgltAssignInto(std::move(chunk), std::declval<T*>())
-  } -> std::same_as<absl::Status>;
+  {EgltAssignInto(std::move(chunk), std::declval<T*>())}
+      ->std::same_as<absl::Status>;
 };
 
 inline Chunk EndOfStream() {

@@ -79,7 +79,6 @@ absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
     if (!status.ok()) {
       return status.status();
     }
-    return *status;
   }
   return chunk;
 }
@@ -89,25 +88,6 @@ absl::StatusOr<std::optional<std::pair<int, Chunk>>> ChunkStoreReader::Next(
     std::optional<absl::Duration> timeout) {
   act::MutexLock lock(&mu_);
   return GetNextSeqAndChunkFromBuffer(timeout.value_or(options_.timeout));
-}
-
-template <>
-absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
-    std::optional<absl::Duration> timeout) {
-  act::MutexLock lock(&mu_);
-  ASSIGN_OR_RETURN(std::optional<Chunk> chunk,
-                   GetNextChunkFromBuffer(timeout.value_or(options_.timeout)));
-  if (!chunk || chunk->IsNull()) {
-    return std::nullopt;
-  }
-  if (chunk->metadata && chunk->metadata->mimetype == "__status__") {
-    absl::StatusOr<absl::Status> status = ConvertTo<absl::Status>(*chunk);
-    if (!status.ok()) {
-      return status.status();
-    }
-    return *status;
-  }
-  return chunk;
 }
 
 absl::StatusOr<std::optional<std::pair<int, Chunk>>>
@@ -260,6 +240,30 @@ absl::Status ChunkStoreReader::RunPrefetchLoop()
     status.Update(absl::CancelledError("Prefetcher fiber was cancelled."));
   }
   return status;
+}
+
+template <>
+absl::StatusOr<std::optional<absl::Status>>
+ChunkStoreReader::Next<absl::Status>(std::optional<absl::Duration> timeout) {
+  ASSIGN_OR_RETURN(std::optional<Chunk> chunk, Next(timeout));
+  if (!chunk) {
+    return std::nullopt;
+  }
+  if (chunk->metadata && chunk->metadata->mimetype == "__status__") {
+    absl::StatusOr<absl::Status> status = ConvertTo<absl::Status>(*chunk);
+    if (!status.ok()) {
+      return status.status();
+    }
+    if (!status->ok()) {
+      return *status;
+    }
+
+    absl::StatusOr<absl::Status> result;
+    result.emplace() = absl::OkStatus();
+    return result;
+  }
+  return absl::InvalidArgumentError(
+      "Expected a status chunk, but got a regular chunk.");
 }
 
 absl::Status ChunkStoreReader::GetStatus() const {

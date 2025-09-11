@@ -186,7 +186,7 @@ absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},
 
 absl::StatusOr<std::any> FromChunk(
     Chunk chunk, std::string_view mimetype = {},
-    const SerializerRegistry* const registry = nullptr);
+    const SerializerRegistry* registry = nullptr);
 
 template <typename T>
 absl::StatusOr<T> FromChunkAs(Chunk chunk, std::string_view mimetype = {},

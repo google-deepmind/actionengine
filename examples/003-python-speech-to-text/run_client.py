@@ -52,7 +52,7 @@ async def main(args: argparse.Namespace):
     print("You can start speaking now.")
 
     try:
-        async for text in action.get_output("text"):
+        async for text in action["text"]:
             print(text)
             if has_stop_command(text):
                 print("Stop command received, stopping recording.")
@@ -61,9 +61,12 @@ async def main(args: argparse.Namespace):
         shutdown = asyncio.to_thread(recorder.shutdown)
         print("Stopped recording.")
 
-        await action.get_input("speech").finalize()
         await shutdown
+        await action["speech"].finalize()
+        await action.wait_until_complete()
+
         print("Finalised the speech stream.")
+        session.stop_dispatching_from(stream)
 
 
 if __name__ == "__main__":

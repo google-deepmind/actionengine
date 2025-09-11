@@ -202,7 +202,13 @@ class ChunkStoreReader {
       if (!status.ok()) {
         return status.status();
       }
-      return *status;
+      // Nested status
+      if (!status->ok()) {
+        return *status;
+      }
+      return absl::FailedPreconditionError(
+          "Next<T>() cannot return an OK status chunk if T is not "
+          "absl::Status. ");
     }
     ASSIGN_OR_RETURN(T result, FromChunkAs<T>(*std::move(chunk)));
     return std::optional{result};
@@ -260,7 +266,7 @@ absl::StatusOr<std::optional<std::pair<int, Chunk>>> ChunkStoreReader::Next(
     std::optional<absl::Duration> timeout);
 
 template <>
-absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
+absl::StatusOr<std::optional<absl::Status>> ChunkStoreReader::Next(
     std::optional<absl::Duration> timeout);
 
 template <typename T>

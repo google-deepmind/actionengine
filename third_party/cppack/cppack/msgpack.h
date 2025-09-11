@@ -49,7 +49,7 @@ namespace cppack {
 enum class UnpackerError { OutOfRange = 1 };
 
 struct UnpackerErrCategory final : public std::error_category {
-  [[nodiscard]] const char* name() const noexcept override {
+  [[nodiscard]] const char* absl_nonnull name() const noexcept override {
     return "unpacker";
   };
 
@@ -69,11 +69,12 @@ namespace cppack {
 
 class Packer;
 template <typename PackableType>
-void PackStandalone(PackableType&& obj, Packer* packer);
+void PackStandalone(PackableType&& obj, Packer* absl_nonnull packer);
 
 class Unpacker;
 template <typename PackableType>
-absl::Status UnpackStandalone(PackableType&& obj, Unpacker* unpacker);
+absl::Status UnpackStandalone(PackableType&& obj,
+                              Unpacker* absl_nonnull unpacker);
 
 template <typename T, typename Enable = void>
 struct is_optional : std::false_type {};
@@ -515,8 +516,7 @@ class Unpacker {
  public:
   Unpacker() : data_pointer_(nullptr), data_end(nullptr) {};
 
-  Unpacker(const uint8_t* data_start, std::size_t bytes);
-  ;
+  Unpacker(const uint8_t* absl_nonnull data_start, std::size_t bytes);
 
   template <class... Types>
   void operator()(Types&... args) {
@@ -528,15 +528,15 @@ class Unpacker {
     (unpack_type(std::forward<Types&>(args)), ...);
   }
 
-  void set_data(const uint8_t* pointer, std::size_t size);
+  void set_data(const uint8_t* absl_nonnull pointer, std::size_t size);
 
   std::error_code GetErrorCode() const;
 
-  const uint8_t* GetDataPtr() const;
+  const uint8_t* absl_nonnull GetDataPtr() const;
 
  private:
-  const uint8_t* data_pointer_;
-  const uint8_t* data_end;
+  const uint8_t* absl_nonnull data_pointer_;
+  const uint8_t* absl_nonnull data_end;
   mutable std::error_code error_code_{};
 
   uint8_t safe_data() const;
@@ -1019,8 +1019,8 @@ std::vector<uint8_t> pack(PackableObject&& obj) {
 }
 
 template <class UnpackableObject>
-UnpackableObject unpack(const uint8_t* data_start, const std::size_t size,
-                        std::error_code& ec) {
+UnpackableObject unpack(const uint8_t* absl_nonnull data_start,
+                        const std::size_t size, std::error_code& ec) {
   auto obj = UnpackableObject{};
   auto unpacker = Unpacker(data_start, size);
   UnpackStandalone(obj, &unpacker);
@@ -1029,7 +1029,8 @@ UnpackableObject unpack(const uint8_t* data_start, const std::size_t size,
 }
 
 template <class UnpackableObject>
-UnpackableObject unpack(const uint8_t* data_start, const std::size_t size) {
+UnpackableObject unpack(const uint8_t* absl_nonnull data_start,
+                        const std::size_t size) {
   std::error_code error_code{};
   return unpack<UnpackableObject>(data_start, size, error_code);
 }
@@ -1046,12 +1047,13 @@ UnpackableObject unpack(const std::vector<uint8_t>& data) {
 }
 
 template <typename PackableType>
-void PackStandalone(PackableType&& obj, Packer* packer) {
+void PackStandalone(PackableType&& obj, Packer* absl_nonnull packer) {
   CppackToBytes(std::forward<PackableType>(obj), *packer).IgnoreError();
 }
 
 template <typename PackableType>
-absl::Status UnpackStandalone(PackableType&& obj, Unpacker* unpacker) {
+absl::Status UnpackStandalone(PackableType&& obj,
+                              Unpacker* absl_nonnull unpacker) {
   return CppackFromBytes(std::forward<PackableType>(obj), *unpacker);
 }
 
