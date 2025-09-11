@@ -60,6 +60,8 @@ class WebsocketWireStream final : public WireStream {
   explicit WebsocketWireStream(FiberAwareWebsocketStream stream,
                                std::string_view id = "");
 
+  ~WebsocketWireStream() override;
+
   absl::Status Send(WireMessage message) override;
 
   absl::StatusOr<std::optional<WireMessage>> Receive(

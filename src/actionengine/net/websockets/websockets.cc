@@ -63,6 +63,14 @@ absl::Status WebsocketWireStream::Send(WireMessage message) {
   return SendInternal(std::move(message));
 }
 
+WebsocketWireStream::~WebsocketWireStream() {
+  act::MutexLock lock(&mu_);
+  if (!closed_) {
+    HalfCloseInternal().IgnoreError();
+  }
+  closed_ = true;
+}
+
 absl::StatusOr<std::optional<WireMessage>> WebsocketWireStream::Receive(
     absl::Duration timeout) {
   act::MutexLock lock(&mu_);

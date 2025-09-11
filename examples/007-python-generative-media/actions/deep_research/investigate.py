@@ -53,7 +53,6 @@ async def run(action: actionengine.Action):
         await action["user_log"].put_and_finalize(
             f"[investigate-{action.get_id()}] Investigation complete."
         )
-        await asyncio.sleep(0.1)
 
 
 SCHEMA = actionengine.ActionSchema(

@@ -234,8 +234,7 @@ absl::Status Action::Run() {
 
   has_been_run_ = true;
 
-  ActionHandler handler = std::move(handler_);
-  if (handler == nullptr) {
+  if (handler_ == nullptr) {
     return absl::FailedPreconditionError(
         absl::StrFormat("Action %s with id=%s has no handler bound. "
                         "Cannot run the action.",
@@ -243,7 +242,7 @@ absl::Status Action::Run() {
   }
 
   mu_.unlock();
-  absl::Status handler_status = std::move(handler)(shared_from_this());
+  absl::Status handler_status = handler_(shared_from_this());
   mu_.lock();
 
   auto handler_status_chunk = ConvertToOrDie<Chunk>(handler_status);

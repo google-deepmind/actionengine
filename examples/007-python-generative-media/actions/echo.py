@@ -12,7 +12,6 @@ async def run(action: actionengine.Action) -> None:
     try:
         async for message in action.get_input("text"):
             await response.put(message)
-            await asyncio.sleep(0.05)  # Simulate processing delay
     finally:
         await response.finalize()
 

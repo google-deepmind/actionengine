@@ -48,7 +48,6 @@ async def run(action: actionengine.Action):
         await action["report"].put_and_finalize(
             "".join([part.text for part in response_parts])
         )
-        await asyncio.sleep(0.04)
     finally:
         await action["thoughts"].finalize()
         await action["user_log"].put_and_finalize(
