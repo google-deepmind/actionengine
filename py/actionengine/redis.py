@@ -20,4 +20,5 @@ class Redis(_C.redis.Redis):
 
 
 class ChunkStore(_C.redis.ChunkStore):
-    pass
+    def __init__(self, client: Redis, node_id: str, ttl: float = -1.0):
+        super().__init__(client, node_id, ttl)

@@ -85,7 +85,7 @@ AsyncNode::~AsyncNode() {
   }
   if (default_writer_ != nullptr) {
     mu_.unlock();
-    default_writer_->Join();
+    default_writer_->WaitForBufferToDrain();
     default_writer_.reset();
     mu_.lock();
   }

@@ -76,7 +76,7 @@ struct ChunkStoreEvent {
 class ChunkStore final : public act::ChunkStore {
   // For detailed documentation, see the base class, ChunkStore.
  public:
-  explicit ChunkStore(Redis* absl_nonnull redis, std::string_view id,
+  explicit ChunkStore(std::shared_ptr<Redis> redis, std::string_view id,
                       absl::Duration ttl = absl::InfiniteDuration());
 
   // No copy or move semantics allowed.
@@ -130,7 +130,7 @@ class ChunkStore final : public act::ChunkStore {
   absl::flat_hash_map<int, std::string> arrival_offset_to_stream_id_
       ABSL_GUARDED_BY(mu_);
 
-  Redis* absl_nonnull redis_;
+  std::shared_ptr<Redis> redis_;
   const std::string id_;
   RedisStream stream_;
   std::shared_ptr<Subscription> subscription_;

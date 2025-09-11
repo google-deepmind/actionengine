@@ -48,8 +48,9 @@ absl::StatusOr<ChunkStoreEvent> ChunkStoreEvent::FromString(
       "Unknown ChunkStoreEvent type: ", event.type, " in message: ", message));
 }
 
-ChunkStore::ChunkStore(Redis* redis, std::string_view id, absl::Duration ttl)
-    : redis_(redis), id_(id), stream_(redis, GetKey("s")) {
+ChunkStore::ChunkStore(std::shared_ptr<Redis> redis, std::string_view id,
+                       absl::Duration ttl)
+    : redis_(std::move(redis)), id_(id), stream_(redis_.get(), GetKey("s")) {
   if (ttl != absl::InfiniteDuration()) {
     CHECK(ttl >= absl::Seconds(1))
         << "TTL must not be less than one second, got: " << ttl;

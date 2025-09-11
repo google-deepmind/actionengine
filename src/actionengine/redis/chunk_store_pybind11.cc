@@ -70,15 +70,15 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
       .doc() = "Redis client for ActionEngine.";
 
   py::classh<redis::ChunkStore, act::ChunkStore>(redis_module, "ChunkStore")
-      .def(py::init([](redis::Redis* absl_nonnull redis, std::string_view id,
+      .def(py::init([](std::shared_ptr<redis::Redis> redis, std::string_view id,
                        int64_t ttl = -1) {
              absl::Duration ttl_duration =
                  ttl < 0 ? absl::InfiniteDuration() : absl::Seconds(ttl);
-             return std::make_unique<redis::ChunkStore>(redis, id,
+             return std::make_unique<redis::ChunkStore>(std::move(redis), id,
                                                         ttl_duration);
            }),
            py::arg("redis"), py::arg("id"), py::arg("ttl"),
-           keep_event_loop_memo())
+           keep_event_loop_memo(), py::keep_alive<0, 1>())
       .def(
           "get",
           [](const std::shared_ptr<redis::ChunkStore>& self, int seq,
