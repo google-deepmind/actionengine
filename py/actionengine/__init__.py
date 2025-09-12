@@ -32,7 +32,6 @@ from actionengine import webrtc
 from actionengine import websockets
 from actionengine import _C
 
-
 Action = actions.Action
 ActionSchema = actions.ActionSchema
 ActionMessage = data.ActionMessage
@@ -44,7 +43,8 @@ Chunk = data.Chunk
 ChunkMetadata = data.ChunkMetadata
 ChunkStoreFactory = chunk_store.ChunkStoreFactory
 
-WireStream = eg_stream.WireStream
+WireStreamAdapter = eg_stream.WireStreamAdapter
+InProcessWireStream = eg_stream.InProcessWireStream
 
 Port = data.Port
 

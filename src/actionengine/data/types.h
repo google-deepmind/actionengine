@@ -396,6 +396,10 @@ void AbslStringify(Sink& sink, const ActionMessage& action) {
 
 template <typename Sink>
 void AbslStringify(Sink& sink, const WireMessage& message) {
+  if (message.node_fragments.empty() && message.actions.empty()) {
+    sink.Append("<empty>\n");
+    return;
+  }
   if (!message.node_fragments.empty()) {
     sink.Append("node_fragments: \n");
     for (const auto& node_fragment : message.node_fragments) {

@@ -26,33 +26,13 @@ from actionengine import stream as eg_stream
 from actionengine import utils
 
 Session = eg_session.Session
+WireStream = eg_stream.WireStream
 
 
-class WireStream(eg_stream.WireStream):
-    """A Pythonic wrapper for the raw pybind11 WireStream bindings."""
-
-    def __init__(self, stream_id: str):
-        self._stream_id = stream_id
-        super().__init__()
-
-    def accept(self):
-        """Accepts the stream."""
-        pass
-
-    def start(self):
-        """Starts the stream."""
-        pass
-
-    def close(self):
-        """(Half-)closes the stream."""
-        pass
-
-    def get_id(self):
-        return self._stream_id
-
-
-AsyncConnectionHandler = Callable[[WireStream, Session], Awaitable[None]]
-SyncConnectionHandler = Callable[[WireStream, Session], None]
+AsyncConnectionHandler = Callable[
+    [_C.service.WireStream, Session], Awaitable[None]
+]
+SyncConnectionHandler = Callable[[_C.service.WireStream, Session], None]
 ConnectionHandler = SyncConnectionHandler | AsyncConnectionHandler
 
 
@@ -62,10 +42,10 @@ def wrap_async_handler(
     """Wraps the given handler to run in the event loop."""
     loop = asyncio.get_running_loop()
 
-    def sync_handler(stream: "WireStream", session: "Session") -> None:
+    def sync_handler(stream: _C.service.WireStream, session: Session) -> None:
         result = asyncio.run_coroutine_threadsafe(
             handler(
-                utils.wrap_pybind_object(WireStream, stream),
+                stream,
                 utils.wrap_pybind_object(Session, session),
             ),
             loop,
@@ -76,9 +56,9 @@ def wrap_async_handler(
 
 
 def wrap_sync_handler(handler: SyncConnectionHandler) -> SyncConnectionHandler:
-    def sync_handler(stream: "WireStream", session: "Session") -> None:
+    def sync_handler(stream: _C.service.WireStream, session: Session) -> None:
         return handler(
-            utils.wrap_pybind_object(WireStream, stream),
+            stream,
             utils.wrap_pybind_object(Session, session),
         )
 
@@ -108,14 +88,11 @@ class Service(_C.service.Service):
 class StreamToSessionConnection(_C.service.StreamToSessionConnection):
     """A Pythonic wrapper for the raw pybind11 StreamToSessionConnection bindings."""
 
-    def get_stream(self) -> "WireStream":
+    def get_stream(self) -> _C.service.WireStream:
         """Returns the stream."""
-        return utils.wrap_pybind_object(
-            WireStream,
-            super().get_stream(),
-        )
+        return super().get_stream()
 
-    def get_session(self) -> "Session":
+    def get_session(self) -> Session:
         """Returns the session."""
         return utils.wrap_pybind_object(
             Session,

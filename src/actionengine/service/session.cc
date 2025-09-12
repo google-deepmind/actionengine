@@ -155,9 +155,9 @@ Session::~Session() {
   JoinDispatchers(/*cancel=*/true);
 }
 
-AsyncNode* absl_nonnull
-Session::GetNode(const std::string_view id,
-                 const ChunkStoreFactory& chunk_store_factory) const {
+AsyncNode* absl_nonnull Session::GetNode(
+    const std::string_view id,
+    const ChunkStoreFactory& chunk_store_factory) const {
   ChunkStoreFactory factory = chunk_store_factory;
   if (factory == nullptr) {
     factory = chunk_store_factory_;

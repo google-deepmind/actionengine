@@ -55,6 +55,8 @@ target_sources(
 target_link_libraries(
         actDataPybind11 PRIVATE
         cppack
+        absl::status
+        absl::statusor
         act::data
         ${ACTIONENGINE_PYBIND11_DEPENDENCIES}
 )

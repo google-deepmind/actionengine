@@ -25,6 +25,8 @@
 #include <pybind11/gil.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 #include <pybind11_abseil/absl_casters.h>
 #include <pybind11_abseil/import_status_module.h>
 #include <pybind11_abseil/no_throw_status.h>
@@ -142,7 +144,6 @@ absl::StatusOr<py::object> PyFromChunk(Chunk chunk, std::string_view mimetype,
   return std::any_cast<py::object>(*std::move(obj));
 }
 
-/// @private
 void BindChunkMetadata(py::handle scope, std::string_view name) {
   py::class_<ChunkMetadata>(scope, std::string(name).c_str())
       .def(py::init<>())
@@ -151,6 +152,54 @@ void BindChunkMetadata(py::handle scope, std::string_view name) {
            }),
            py::kw_only(), py::arg_v("mimetype", "text/plain"))
       .def_readwrite("mimetype", &ChunkMetadata::mimetype)
+      .def_readwrite("timestamp", &ChunkMetadata::timestamp)
+      .def_property(
+          "attributes",
+          [](const ChunkMetadata& metadata) -> py::dict {
+            py::dict dict;
+            for (const auto& [key, value] : metadata.attributes) {
+              dict[py::str(key)] = py::bytes(value);
+            }
+            return dict;
+          },
+          [](ChunkMetadata& metadata, const py::dict& dict) {
+            metadata.attributes.clear();
+
+            for (auto it = dict.begin(); it != dict.end(); ++it) {
+              const auto key = it->first.cast<std::string>();
+              const auto value = it->second.cast<py::bytes>();
+              metadata.attributes[key] = std::string(value);
+            }
+          })
+      .def("has_attribute",
+           [](const ChunkMetadata& metadata, std::string_view key) {
+             return metadata.attributes.contains(key);
+           })
+      .def(
+          "get_attribute",
+          [](const ChunkMetadata& metadata,
+             std::string_view key) -> absl::StatusOr<py::bytes> {
+            const auto it = metadata.attributes.find(std::string(key));
+            if (it == metadata.attributes.end()) {
+              return absl::NotFoundError(
+                  absl::StrCat("Attribute not found: ", key));
+            }
+            return it->second;
+          },
+          py::arg("key"))
+      .def(
+          "set_attribute",
+          [](ChunkMetadata& metadata, std::string_view key,
+             const py::bytes& value) {
+            metadata.attributes[std::string(key)] = std::string(value);
+          },
+          py::arg("key"), py::arg("value"))
+      .def("set_attribute",
+           [](ChunkMetadata& metadata, std::string_view key,
+              const py::str& value) {
+             metadata.attributes[std::string(key)] =
+                 std::string(value.attr("encode")("utf-8").cast<std::string>());
+           })
       .def("__repr__",
            [](const ChunkMetadata& metadata) { return absl::StrCat(metadata); })
       .doc() = "Metadata for an ActionEngine Chunk.";
@@ -225,6 +274,8 @@ void BindPort(py::handle scope, std::string_view name) {
 }
 
 void BindActionMessage(py::handle scope, std::string_view name) {
+  py::bind_vector<std::vector<Port>>(scope, "PortList");
+
   py::class_<ActionMessage>(scope, std::string(name).c_str())
       .def(py::init<>())
       .def(py::init([](std::string_view action_name, std::vector<Port> inputs,
@@ -245,6 +296,9 @@ void BindActionMessage(py::handle scope, std::string_view name) {
 }
 
 void BindWireMessage(py::handle scope, std::string_view name) {
+  py::bind_vector<std::vector<NodeFragment>>(scope, "NodeFragmentList");
+  py::bind_vector<std::vector<ActionMessage>>(scope, "ActionMessageList");
+
   py::class_<WireMessage>(scope, std::string(name).c_str())
       .def(py::init<>())
       .def(py::init([](std::vector<NodeFragment> node_fragments,
@@ -255,8 +309,25 @@ void BindWireMessage(py::handle scope, std::string_view name) {
            py::kw_only(),
            py::arg_v("node_fragments", std::vector<NodeFragment>()),
            py::arg_v("actions", std::vector<ActionMessage>()))
-      .def_readwrite("node_fragments", &WireMessage::node_fragments)
-      .def_readwrite("actions", &WireMessage::actions)
+      .def_readwrite("node_fragments", &WireMessage::node_fragments,
+                     py::return_value_policy::reference)
+      .def_readwrite("actions", &WireMessage::actions,
+                     py::return_value_policy::reference)
+      .def("pack_msgpack",
+           [](const WireMessage& message) {
+             const std::vector<uint8_t> bytes = cppack::Pack(message);
+             return py::bytes(reinterpret_cast<const char*>(bytes.data()),
+                              bytes.size());
+           })
+      .def_static(
+          "from_msgpack",
+          [](const py::bytes& data) -> absl::StatusOr<WireMessage> {
+            const std::string data_str = static_cast<std::string>(data);
+            const std::vector<uint8_t> data_bytes(data_str.begin(),
+                                                  data_str.end());
+            return cppack::Unpack<WireMessage>(data_bytes);
+          },
+          py::arg("data"))
       .def("__repr__",
            [](const WireMessage& message) { return absl::StrCat(message); })
       .doc() = "An ActionEngine WireMessage data structure.";

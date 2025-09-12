@@ -311,6 +311,16 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   [[nodiscard]] bool Cancelled() const;
 
+  void BindStreamsOnInputsByDefault(bool bind) {
+    act::MutexLock lock(&mu_);
+    bind_streams_on_inputs_default_ = bind;
+  }
+
+  void BindStreamsOnOutputsByDefault(bool bind) {
+    act::MutexLock lock(&mu_);
+    bind_streams_on_outputs_default_ = bind;
+  }
+
   void SetUserData(std::shared_ptr<void> data) {
     act::MutexLock lock(&mu_);
     user_data_ = std::move(data);

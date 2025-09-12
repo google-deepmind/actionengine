@@ -147,6 +147,15 @@ class ActionRegistry {
    */
   [[nodiscard]] const ActionHandler& GetHandler(std::string_view name) const;
 
+  [[nodiscard]] std::vector<std::string> ListRegisteredActions() const {
+    std::vector<std::string> names;
+    names.reserve(schemas_.size());
+    for (const auto& [name, _] : schemas_) {
+      names.push_back(name);
+    }
+    return names;
+  }
+
   absl::flat_hash_map<std::string, ActionSchema> schemas_;
   absl::flat_hash_map<std::string, ActionHandler> handlers_;
 };

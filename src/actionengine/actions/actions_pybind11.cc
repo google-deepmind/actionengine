@@ -27,6 +27,7 @@
 #include <pybind11/gil.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
+#include <pybind11/stl.h>
 #include <pybind11_abseil/absl_casters.h>
 #include <pybind11_abseil/import_status_module.h>
 #include <pybind11_abseil/status_caster.h>
@@ -172,7 +173,33 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
           py::arg_v("node_map", nullptr), py::arg_v("stream", nullptr),
           py::arg_v("session", nullptr), py::keep_alive<0, 4>(),
           py::keep_alive<0, 5>(), py::keep_alive<0, 6>(),
-          pybindings::keep_event_loop_memo());
+          pybindings::keep_event_loop_memo())
+      .def(
+          "is_registered",
+          [](const std::shared_ptr<ActionRegistry>& self,
+             std::string_view action_name) {
+            return self->IsRegistered(action_name);
+          },
+          py::arg("name"))
+      .def(
+          "get_schema",
+          [](const std::shared_ptr<ActionRegistry>& self,
+             std::string_view action_name)
+              -> absl::StatusOr<std::shared_ptr<const ActionSchema>> {
+            RETURN_IF_ERROR(
+                self->IsRegistered(action_name)
+                    ? absl::OkStatus()
+                    : absl::NotFoundError(absl::StrCat("Action not found: '",
+                                                       action_name, "'")));
+            return std::shared_ptr<const ActionSchema>(
+                &self->GetSchema(action_name), [](const ActionSchema*) {});
+          },
+          py::arg("name"))
+      .def("list_registered_actions",
+           [](const std::shared_ptr<ActionRegistry>& self) {
+             return self->ListRegisteredActions();
+           })
+      .doc() = "Registry for action schemas and handlers.";
 }
 
 void BindAction(py::handle scope, std::string_view name) {
@@ -271,6 +298,18 @@ void BindAction(py::handle scope, std::string_view name) {
                 MakeStatusAwareActionHandler(std::move(handler)));
           },
           py::arg("handler"))
+      .def(
+          "bind_streams_on_inputs_by_default",
+          [](const std::shared_ptr<Action>& self, bool bind) {
+            self->BindStreamsOnInputsByDefault(bind);
+          },
+          py::arg("bind"))
+      .def(
+          "bind_streams_on_outputs_by_default",
+          [](const std::shared_ptr<Action>& self, bool bind) {
+            self->BindStreamsOnOutputsByDefault(bind);
+          },
+          py::arg("bind"))
       .def(
           "bind_node_map",
           [](const std::shared_ptr<Action>& self, NodeMap* node_map) {

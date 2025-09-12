@@ -107,7 +107,12 @@ class PyWireStream final : public WireStream {
     absl::StatusOr<py::object> result =
         pybindings::RunThreadsafeIfCoroutine(py_result);
 
-    if (!result.ok() || result->is_none()) {
+    if (!result.ok()) {
+      return result.status();
+    }
+
+    if (result->is_none()) {
+
       return std::nullopt;
     }
     return std::move(result)->cast<WireMessage>();
@@ -162,7 +167,25 @@ class PyWireStream final : public WireStream {
   }
 
   void HalfClose() override {
-    PYBIND11_OVERRIDE_PURE_NAME(void, PyWireStream, "half_close", HalfClose, );
+    py::gil_scoped_acquire gil;
+    const py::function function = py::get_override(this, "half_close");
+
+    if (!function) {
+      LOG(FATAL) << "half_close is not implemented in the Python subclass of "
+                    "WireStream.";
+      ABSL_ASSUME(false);
+    }
+    try {
+      const py::object py_result = function();
+      const absl::StatusOr<py::object> result =
+          pybindings::RunThreadsafeIfCoroutine(py_result);
+
+      if (!result.ok()) {
+        LOG(ERROR) << "Error in half_close: " << result.status();
+      }
+    } catch (const py::error_already_set& e) {
+      LOG(ERROR) << "Error in half_close: " << e.what();
+    }
   }
 
   void Abort() override {

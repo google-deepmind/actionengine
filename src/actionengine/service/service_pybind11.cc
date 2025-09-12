@@ -74,14 +74,31 @@ void BindStream(py::handle scope, std::string_view name) {
       .def(MakeSameObjectRefConstructor<PyWireStream>())
       .def("send", &PyWireStream::Send, py::arg("message"),
            py::call_guard<py::gil_scoped_release>())
-      .def("receive", &PyWireStream::Receive, py::arg_v("timeout", -1.0),
-           py::call_guard<py::gil_scoped_release>())
-      .def("accept", &PyWireStream::Accept)
-      .def("start", &PyWireStream::Start)
+      .def(
+          "receive",
+          [](const std::shared_ptr<PyWireStream>& self,
+             double timeout) -> absl::StatusOr<std::optional<WireMessage>> {
+            const absl::Duration timeout_duration =
+                timeout < 0 ? absl::InfiniteDuration() : absl::Seconds(timeout);
+            return self->Receive(timeout_duration);
+          },
+          py::arg_v("timeout", -1.0), py::call_guard<py::gil_scoped_release>())
+      .def(
+          "accept",
+          [](const std::shared_ptr<PyWireStream>& self) {
+            return self->Accept();
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "start",
+          [](const std::shared_ptr<PyWireStream>& self) {
+            return self->Start();
+          },
+          py::call_guard<py::gil_scoped_release>())
       .def("half_close", &PyWireStream::HalfClose)
       .def("abort", &PyWireStream::Abort,
            py::call_guard<py::gil_scoped_release>())
-      .def("get_last_send_status", &PyWireStream::GetStatus)
+      .def("get_status", &PyWireStream::GetStatus)
       .def("get_id", &PyWireStream::GetId);
 }
 

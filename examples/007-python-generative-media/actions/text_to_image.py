@@ -2,7 +2,12 @@ import asyncio
 
 import actionengine
 import torch
-from diffusers import StableDiffusionPipeline, UniPCMultistepScheduler
+from diffusers import (
+    AutoencoderKL,
+    UNet2DConditionModel,
+    StableDiffusionPipeline,
+    UniPCMultistepScheduler,
+)
 from pydantic import BaseModel
 
 
@@ -23,6 +28,41 @@ LOCKS = (asyncio.Lock(), asyncio.Lock())
 IDX = 0
 
 
+def get_unet():
+    model_id = "/opt/durer/data/checkpoints_diffusers/267b356f-7a31-432b-80cd-bc5b3952091f"
+    device = "cpu"
+    if torch.backends.mps.is_available():
+        device = "mps"
+    if torch.cuda.is_available():
+        device = "cuda"
+
+    unet = UNet2DConditionModel.from_pretrained(
+        model_id,
+        subfolder="unet",
+        revision=None,
+        torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+    )
+    unet.to(device)
+    return unet
+
+
+def get_vae():
+    model_id = "stabilityai/sd-vae-ft-ema"
+    device = "cpu"
+    if torch.backends.mps.is_available():
+        device = "mps"
+    if torch.cuda.is_available():
+        device = "cuda"
+
+    vae = AutoencoderKL.from_pretrained(
+        model_id,
+        revision=None,
+        torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+    )
+    vae.to(device)
+    return vae
+
+
 def get_pipeline(idx: int = 0) -> StableDiffusionPipeline:
     if not hasattr(get_pipeline, "pipe0"):
         device = "cpu"
@@ -32,12 +72,15 @@ def get_pipeline(idx: int = 0) -> StableDiffusionPipeline:
             device = "cuda"
 
         get_pipeline.pipe0 = StableDiffusionPipeline.from_pretrained(
-            "stabilityai/stable-diffusion-2-1",
+            "benjamin-paine/stable-diffusion-v1-5",
             torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+            unet=get_unet(),
+            vae=get_vae(),
             safety_checker=None,
             scheduler=UniPCMultistepScheduler.from_pretrained(
-                "stabilityai/stable-diffusion-2-1",
+                "benjamin-paine/stable-diffusion-v1-5",
                 subfolder="scheduler",
+                timestep_spacing="trailing",
             ),
             requires_safety_checker=False,
         )
@@ -52,11 +95,13 @@ def get_pipeline(idx: int = 0) -> StableDiffusionPipeline:
             device = "cuda"
 
         get_pipeline.pipe1 = StableDiffusionPipeline.from_pretrained(
-            "stabilityai/stable-diffusion-2-1",
+            "benjamin-paine/stable-diffusion-v1-5",
             torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+            unet=get_unet(),
+            vae=get_vae(),
             safety_checker=None,
             scheduler=UniPCMultistepScheduler.from_pretrained(
-                "stabilityai/stable-diffusion-2-1",
+                "benjamin-paine/stable-diffusion-v1-5",
                 subfolder="scheduler",
             ),
             requires_safety_checker=False,

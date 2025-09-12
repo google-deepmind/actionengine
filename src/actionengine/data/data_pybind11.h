@@ -18,11 +18,18 @@
 #include <string_view>
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 #include <pybind11_abseil/status_caster.h>
 #include <pybind11_abseil/statusor_caster.h>
 
 #include "actionengine/data/serialization.h"
+#include "actionengine/data/types.h"
 #include "actionengine/util/status_macros.h"
+
+PYBIND11_MAKE_OPAQUE(std::vector<act::Port>);
+PYBIND11_MAKE_OPAQUE(std::vector<act::NodeFragment>);
+PYBIND11_MAKE_OPAQUE(std::vector<act::ActionMessage>);
 
 namespace act {
 namespace py = ::pybind11;
@@ -44,9 +51,8 @@ struct PySerializationArgs {
 
 template <typename T>
 concept PyObjectEgltConvertsTo = requires(py::handle obj) {
-  {
-    EgltAssignInto(std::move(obj), std::declval<T*>())
-  } -> std::same_as<absl::Status>;
+  {EgltAssignInto(std::move(obj), std::declval<T*>())}
+      ->std::same_as<absl::Status>;
 };
 
 using PyObjectToStdAnyCaster =

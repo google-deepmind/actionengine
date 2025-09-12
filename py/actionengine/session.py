@@ -18,7 +18,6 @@ import asyncio
 
 from actionengine import _C
 from actionengine import node_map as eg_node_map
-from actionengine import stream as eg_stream
 from actionengine import data
 from actionengine import utils
 
@@ -56,19 +55,19 @@ class Session(_C.service.Session):
     async def dispatch_message(
         self,
         message: data.WireMessage,
-        stream: eg_stream.WireStream,
+        stream: _C.service.WireStream,
     ):
         """Dispatches a message to the session."""
         return await asyncio.to_thread(
             super().dispatch_message, message, stream
         )
 
-    def dispatch_from(self, stream: eg_stream.WireStream, on_done=do_nothing):
+    def dispatch_from(self, stream: _C.service.WireStream, on_done=do_nothing):
         """Dispatches messages from the stream to the session."""
         super().dispatch_from(stream, on_done)
         self._streams.add(stream)
 
-    def stop_dispatching_from(self, stream: eg_stream.WireStream):
+    def stop_dispatching_from(self, stream: _C.service.WireStream):
         """Stops dispatching messages from the stream to the session."""
         self._streams.discard(stream)
         super().stop_dispatching_from(stream)
