@@ -97,8 +97,9 @@ void BindRtcConfig(py::handle scope, std::string_view name) {
 }
 
 void BindWebRtcWireStream(py::handle scope, std::string_view name) {
-  py::classh<net::WebRtcWireStream, WireStream>(scope,
-                                                std::string(name).c_str())
+  py::classh<net::WebRtcWireStream, WireStream>(
+      scope, std::string(name).c_str(),
+      py::release_gil_before_calling_cpp_dtor())
       .def("send", &net::WebRtcWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
       .def("receive", &net::WebRtcWireStream::Receive,
@@ -122,7 +123,8 @@ void BindWebRtcWireStream(py::handle scope, std::string_view name) {
 
 void BindWebRtcServer(py::handle scope, std::string_view name) {
   py::classh<net::WebRtcServer>(scope, std::string(name).c_str(),
-                                "A WebRtcServer interface.")
+                                "A WebRtcServer interface.",
+                                py::release_gil_before_calling_cpp_dtor())
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port, std::string_view signalling_address,
                        uint16_t signalling_port, std::string_view identity,

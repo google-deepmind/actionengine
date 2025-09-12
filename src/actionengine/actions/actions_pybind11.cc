@@ -203,7 +203,8 @@ void BindActionRegistry(py::handle scope, std::string_view name) {
 }
 
 void BindAction(py::handle scope, std::string_view name) {
-  py::classh<Action>(scope, std::string(name).c_str())
+  py::classh<Action>(scope, std::string(name).c_str(),
+                     py::release_gil_before_calling_cpp_dtor())
       .def(MakeSameObjectRefConstructor<Action>(), py::keep_alive<0, 1>())
       .def(py::init([](ActionSchema schema, std::string_view id = "") {
         return std::make_shared<Action>(std::move(schema), id);

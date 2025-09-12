@@ -174,7 +174,9 @@ void BindChunkStore(py::handle scope, std::string_view name) {
 }
 
 void BindLocalChunkStore(py::handle scope, std::string_view name) {
-  py::classh<LocalChunkStore, ChunkStore>(scope, std::string(name).c_str())
+  py::classh<LocalChunkStore, ChunkStore>(
+      scope, std::string(name).c_str(),
+      py::release_gil_before_calling_cpp_dtor())
       .def(py::init<>(), keep_event_loop_memo())
       .def(
           "get",

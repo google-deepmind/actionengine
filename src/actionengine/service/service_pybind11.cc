@@ -50,7 +50,8 @@ namespace py = ::pybind11;
 void BindStream(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
-  py::classh<WireStream>(scope, absl::StrCat(name, "VirtualBase").c_str())
+  py::classh<WireStream>(scope, absl::StrCat(name, "VirtualBase").c_str(),
+                         py::release_gil_before_calling_cpp_dtor())
       .def("send", &WireStream::Send, py::call_guard<py::gil_scoped_release>())
       .def(
           "receive",
@@ -103,7 +104,8 @@ void BindStream(py::handle scope, std::string_view name) {
 }
 
 void BindSession(py::handle scope, std::string_view name) {
-  py::classh<Session>(scope, std::string(name).c_str())
+  py::classh<Session>(scope, std::string(name).c_str(),
+                      py::release_gil_before_calling_cpp_dtor())
       .def(py::init([](NodeMap* node_map = nullptr,
                        ActionRegistry* action_registry = nullptr) {
              return std::make_shared<Session>(node_map, action_registry);
@@ -154,7 +156,8 @@ void BindSession(py::handle scope, std::string_view name) {
 }
 
 void BindService(py::handle scope, std::string_view name) {
-  py::classh<Service>(scope, std::string(name).c_str())
+  py::classh<Service>(scope, std::string(name).c_str(),
+                      py::release_gil_before_calling_cpp_dtor())
       .def(
           py::init([](ActionRegistry* action_registry = nullptr,
                       ConnectionHandler connection_handler = RunSimpleSession) {

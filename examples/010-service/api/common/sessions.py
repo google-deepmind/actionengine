@@ -96,7 +96,7 @@ class SessionRegistry:
     def __init__(self):
         self._sessions: dict[str, PersistentSession] = {}
         self._cleanup_tasks: dict[str, asyncio.Task] = {}
-        self._ttl = 600  # 10 minutes
+        self._ttl = 600000  # 10 minutes that are suspiciously too long :)
 
     def get(self, session_id: str) -> PersistentSession:
         if session_id not in self._sessions:

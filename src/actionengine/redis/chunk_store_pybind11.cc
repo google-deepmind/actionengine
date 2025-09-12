@@ -33,7 +33,8 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
   redis_module.doc() =
       "Module for Redis chunk store and related functionality.";
 
-  py::classh<redis::Redis>(redis_module, "Redis")
+  py::classh<redis::Redis>(redis_module, "Redis",
+                           py::release_gil_before_calling_cpp_dtor())
       .def_static(
           "connect",
           [](std::string_view host,
@@ -69,7 +70,8 @@ py::module_ MakeRedisModule(py::module_ scope, std::string_view name) {
           py::call_guard<py::gil_scoped_release>())
       .doc() = "Redis client for ActionEngine.";
 
-  py::classh<redis::ChunkStore, act::ChunkStore>(redis_module, "ChunkStore")
+  py::classh<redis::ChunkStore, act::ChunkStore>(
+      redis_module, "ChunkStore", py::release_gil_before_calling_cpp_dtor())
       .def(py::init([](std::shared_ptr<redis::Redis> redis, std::string_view id,
                        int64_t ttl = -1) {
              absl::Duration ttl_duration =

@@ -90,7 +90,7 @@ async def create_session(
     return CreateSessionResponse(session_id=session_id)
 
 
-NON_STREAMING_MAX_LIMIT = 10
+NON_STREAMING_MAX_LIMIT = 100
 
 
 @router.get("/{session_id}/")
@@ -101,7 +101,6 @@ async def get_wire_messages(
     timeout: float = None,
     ae_api_key: ActionEngineApiKeyHeader = None,
 ):
-    print(f"GET /{session_id}/?limit={limit}&stream={stream}&timeout={timeout}")
     if ae_api_key is not None and ae_api_key.lower() == "wrong-key":
         raise HTTPException(status_code=403, detail="Invalid API key")
 

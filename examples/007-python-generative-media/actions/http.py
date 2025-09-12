@@ -26,7 +26,7 @@ class ActionEngineClient:
 
     def __init__(
         self,
-        stream: actionengine.WireStream,
+        stream: actionengine._C.service.WireStream,
         node_map: actionengine.NodeMap | None = None,
         action_registry: actionengine.ActionRegistry | None = None,
         session: actionengine.Session | None = None,

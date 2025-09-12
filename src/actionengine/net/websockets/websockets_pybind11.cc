@@ -44,8 +44,9 @@ namespace act::pybindings {
 namespace py = ::pybind11;
 
 void BindWebsocketWireStream(py::handle scope, std::string_view name) {
-  py::classh<net::WebsocketWireStream, WireStream>(scope,
-                                                   std::string(name).c_str())
+  py::classh<net::WebsocketWireStream, WireStream>(
+      scope, std::string(name).c_str(),
+      py::release_gil_before_calling_cpp_dtor())
       .def("send", &net::WebsocketWireStream::Send,
            py::call_guard<py::gil_scoped_release>())
       .def("receive", &net::WebsocketWireStream::Receive,
@@ -66,8 +67,9 @@ void BindWebsocketWireStream(py::handle scope, std::string_view name) {
 }
 
 void BindWebsocketServer(py::handle scope, std::string_view name) {
-  py::classh<net::WebsocketServer>(
-      scope, std::string(name).c_str(), "A WebsocketServer interface.")
+  py::classh<net::WebsocketServer>(scope, std::string(name).c_str(),
+                                   "A WebsocketServer interface.",
+                                   py::release_gil_before_calling_cpp_dtor())
       .def(py::init([](Service* absl_nonnull service, std::string_view address,
                        uint16_t port) {
              return std::make_shared<net::WebsocketServer>(service, address,
