@@ -2,8 +2,10 @@ add_library(
         actNetWebsockets STATIC
         fiber_aware_websocket_stream.h
         fiber_aware_websocket_stream.cc
-        websockets.h
-        websockets.cc
+        server.h
+        server.cc
+        wire_stream.cc
+        wire_stream.h
 )
 add_library(act::net::websockets ALIAS actNetWebsockets)
 target_include_directories(

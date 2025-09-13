@@ -12,18 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ACTIONENGINE_NET_WEBSOCKETS_WEBSOCKETS_H_
-#define ACTIONENGINE_NET_WEBSOCKETS_WEBSOCKETS_H_
-
-#include <memory>
-#include <optional>
-
-#define BOOST_ASIO_NO_DEPRECATED
+#ifndef ACTIONENGINE_NET_WEBSOCKETS_WIRE_STREAM_H_
+#define ACTIONENGINE_NET_WEBSOCKETS_WIRE_STREAM_H_
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+
+#define BOOST_ASIO_NO_DEPRECATED
 
 #include <absl/base/nullability.h>
 #include <absl/base/thread_annotations.h>
@@ -45,7 +43,7 @@ namespace act::net {
  * A class representing a WebSocket stream for sending and receiving Action
  * Engine WireMessages.
  *
- * @headerfile actionengine/net/websockets/websockets.h
+ * @headerfile actionengine/net/websockets/server.h
  *
  * This class implements the `WireStream` interface and provides methods for
  * sending and receiving messages over a WebSocket connection. It is designed to
@@ -105,36 +103,6 @@ class WebsocketWireStream final : public WireStream {
   absl::Status status_;
 };
 
-class WebsocketServer {
- public:
-  explicit WebsocketServer(act::Service* absl_nonnull service,
-                           std::string_view address = "0.0.0.0",
-                           uint16_t port = 20000);
-
-  ~WebsocketServer();
-
-  void Run();
-
-  absl::Status Cancel();
-
-  absl::Status Join();
-
- private:
-  absl::Status CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
-
-  absl::Status JoinInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
-
-  act::Service* absl_nonnull const service_;
-  std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
-
-  mutable act::Mutex mu_;
-  std::unique_ptr<thread::Fiber> main_loop_;
-  bool cancelled_ ABSL_GUARDED_BY(mu_) = false;
-  act::CondVar join_cv_ ABSL_GUARDED_BY(mu_);
-  bool joining_ ABSL_GUARDED_BY(mu_) = false;
-  absl::Status status_;
-};
-
 absl::StatusOr<std::unique_ptr<WebsocketWireStream>> MakeWebsocketWireStream(
     std::string_view address = "127.0.0.1", uint16_t port = 20000,
     std::string_view target = "/", std::string_view id = "",
@@ -142,4 +110,4 @@ absl::StatusOr<std::unique_ptr<WebsocketWireStream>> MakeWebsocketWireStream(
 
 }  // namespace act::net
 
-#endif  // ACTIONENGINE_NET_WEBSOCKETS_WEBSOCKETS_H_
+#endif  // ACTIONENGINE_NET_WEBSOCKETS_WIRE_STREAM_H_

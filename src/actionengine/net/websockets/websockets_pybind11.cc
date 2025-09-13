@@ -34,7 +34,8 @@
 #include <pybind11_abseil/statusor_caster.h>
 
 #include "actionengine/net/stream.h"
-#include "actionengine/net/websockets/websockets.h"
+#include "actionengine/net/websockets/server.h"
+#include "actionengine/net/websockets/wire_stream.h"
 #include "actionengine/service/service.h"
 #include "actionengine/util/status_macros.h"
 #include "actionengine/util/utils_pybind11.h"

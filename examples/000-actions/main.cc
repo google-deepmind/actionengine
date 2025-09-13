@@ -22,7 +22,6 @@
 #include <actionengine/data/types.h>
 #include <actionengine/net/webrtc/server.h>
 #include <actionengine/net/webrtc/wire_stream.h>
-#include <actionengine/net/websockets/websockets.h>
 #include <actionengine/nodes/async_node.h>
 #include <actionengine/service/service.h>
 #include <actionengine/util/random.h>
