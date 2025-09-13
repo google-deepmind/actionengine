@@ -2,8 +2,8 @@ add_library(
         actNetWebrtc STATIC
         server.cc
         server.h
-        signalling.h
-        signalling.cc
+        signalling_client.h
+        signalling_client.cc
         wire_stream.cc
         wire_stream.h
 )

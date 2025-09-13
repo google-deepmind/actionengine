@@ -40,7 +40,7 @@
 
 #include "actionengine/concurrency/concurrency.h"
 #include "actionengine/data/msgpack.h"
-#include "actionengine/net/webrtc/signalling.h"
+#include "actionengine/net/webrtc/signalling_client.h"
 #include "actionengine/stores/byte_chunking.h"
 #include "actionengine/util/status_macros.h"
 #include "cppack/msgpack.h"

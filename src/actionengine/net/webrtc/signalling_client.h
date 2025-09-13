@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ACTIONENGINE_NET_WEBRTC_SIGNALLING_H_
-#define ACTIONENGINE_NET_WEBRTC_SIGNALLING_H_
+#ifndef ACTIONENGINE_NET_WEBRTC_SIGNALLING_CLIENT_H_
+#define ACTIONENGINE_NET_WEBRTC_SIGNALLING_CLIENT_H_
 
 #include <cstdint>
 #include <functional>
@@ -48,7 +48,7 @@ using PeerJsonHandler =
  * candidates. It provides methods to set callbacks for handling these messages
  * and to connect with a specific identity.
  *
- * @headerfile actionengine/net/webrtc/signalling.h
+ * @headerfile actionengine/net/webrtc/signalling_client.h
  */
 class SignallingClient {
  public:
@@ -143,4 +143,4 @@ class SignallingClient {
 
 }  // namespace act::net
 
-#endif  // ACTIONENGINE_NET_WEBRTC_SIGNALLING_H_
+#endif  // ACTIONENGINE_NET_WEBRTC_SIGNALLING_CLIENT_H_

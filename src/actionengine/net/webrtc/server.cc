@@ -36,7 +36,7 @@
 #include <rtc/peerconnection.hpp>
 
 #include "actionengine/concurrency/concurrency.h"
-#include "actionengine/net/webrtc/signalling.h"
+#include "actionengine/net/webrtc/signalling_client.h"
 #include "actionengine/net/webrtc/wire_stream.h"
 #include "actionengine/util/map_util.h"
 
@@ -304,7 +304,7 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
 
   auto abort_establishment_with_error = [connections, this](
                                             std::string_view peer_id,
-                                            absl::Status status) {
+                                            const absl::Status& status) {
     DCHECK(!status.ok()) << "abort_establishment_with_error called with an OK "
                             "status, this should not "
                             "happen.";
@@ -377,7 +377,7 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
           }
         });
 
-    connection->onIceStateChange([peer_id = std::string(peer_id), connections,
+    connection->onIceStateChange([peer_id = std::string(peer_id),
                                   connection_ptr = connection.get(),
                                   &abort_establishment_with_error](
                                      rtc::PeerConnection::IceState state) {
