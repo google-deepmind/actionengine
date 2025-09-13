@@ -72,15 +72,8 @@ Fiber::Fiber(Unstarted, InvocableWork work, TreeOptions&&)
 void Fiber::Start() {
   EnsureWorkerThreadPool();
 
-  // If started from a thread in a worker pool, this is a no-op as those
-  // threads will have work-sharing/stealing schedulers assigned earlier
-  // than any call to Fiber::Start().
-  //
-  // No thread that only initializes its fiber scheduler here will actually
-  // run fibers. This initialization is done to init boost::context entities
-  // correctly, but round_robin makes sure no work is ever shared FROM any
-  // pool TO such a thread.
-  EnsureThreadHasScheduler<boost::fibers::algo::round_robin>();
+  // TODO: observe for some time if this works with shared_work, not round_robin
+  EnsureThreadHasScheduler<boost::fibers::algo::shared_work>(/*suspend=*/true);
 
   auto body = [this]() {
     std::move(work_)();
