@@ -1,9 +1,22 @@
-find_package(Protobuf REQUIRED)
-set(PROTO_FILES
-        types.proto)
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+add_library(actProto STATIC converters.h converters.cc)
 
-add_library(actProto STATIC ${PROTO_SRCS} ${PROTO_HDRS} converters.h converters.cc)
+find_package(Protobuf REQUIRED)
+set(PROTO_FILES types.proto)
+
+protobuf_generate(
+        LANGUAGE PYTHON
+        TARGET actProto
+        PROTOS ${PROTO_FILES}
+        PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+)
+protobuf_generate(
+        LANGUAGE CPP
+        TARGET actProto
+        PROTOS ${PROTO_FILES}
+        PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+)
+message(STATUS "Generated Python protobuf files: ${PY_PROTO_SRCS}")
+
 add_library(act::proto ALIAS actProto)
 
 target_include_directories(actProto PUBLIC
