@@ -34,7 +34,7 @@
 #include <absl/status/statusor.h>
 #include <hiredis/async.h>
 #include <hiredis/hiredis.h>
-#include <uvw/idle.h>
+#include <uvw/async.h>
 #include <uvw/loop.h>
 
 #include "actionengine/concurrency/concurrency.h"
@@ -64,15 +64,14 @@ class EventLoop {
  public:
   EventLoop();
 
-  ~EventLoop() {
-    handle_->stop();
-    thread_->join();
-  }
+  ~EventLoop();
 
-  uvw::loop* absl_nonnull Get() { return loop_.get(); }
+  [[nodiscard]] uvw::loop* absl_nonnull Get() const;
+
+  void Wakeup() const;
 
  private:
-  std::shared_ptr<uvw::idle_handle> handle_;
+  std::shared_ptr<uvw::async_handle> handle_;
   std::shared_ptr<uvw::loop> loop_;
   std::unique_ptr<std::thread> thread_;
 };

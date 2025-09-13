@@ -35,7 +35,7 @@ async def write_text_chunk(
         "write_store",
         node_map=NODE_MAP,
         stream=None,  # No stream needed for this action
-    )
+    ).run()
     await write_action["request"].put_and_finalize(
         actions.redis.WriteRedisStoreRequest(
             key=key,
@@ -44,7 +44,7 @@ async def write_text_chunk(
             data=text.encode("utf-8"),
         )
     )
-    await write_action.run()
+
     await write_action["response"].consume()
 
 
@@ -57,7 +57,7 @@ async def read_text_chunks(
         "read_store",
         node_map=NODE_MAP,
         stream=None,  # No stream needed for this action
-    )
+    ).run()
 
     await read_action["request"].put_and_finalize(
         actions.redis.ReadStoreRequest(
@@ -66,7 +66,7 @@ async def read_text_chunks(
             count=count,
         )
     )
-    await read_action.run()
+
     async for text in read_action["response"]:
         yield text
 

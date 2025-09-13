@@ -27,6 +27,7 @@
 #include <hiredis/adapters/libuv.h>
 #include <hiredis/hiredis.h>
 #include <hiredis/read.h>
+#include <uvw/async.h>
 #include <uvw/handle.hpp>
 
 #include "actionengine/redis/reply.h"
@@ -38,19 +39,26 @@
 namespace act::redis {
 
 internal::EventLoop::EventLoop() : loop_(uvw::loop::create()) {
-  handle_ = loop_->resource<uvw::idle_handle>();
+  handle_ = loop_->resource<uvw::async_handle>();
   handle_->init();
-  handle_->on<uvw::idle_event>([](const uvw::idle_event&, uvw::idle_handle& h) {
-    // TODO: this is a hack, and a better way to slash CPU usage should exist.
-    act::SleepFor(absl::Milliseconds(2));
-  });
-  handle_->on<uvw::close_event>(
-      [](const uvw::close_event&, uvw::idle_handle& h) { h.close(); });
+  handle_->on<uvw::async_event>(
+      [](const uvw::async_event&, uvw::async_handle&) {
+        // No-op. This is just to ensure the loop wakes up when `send()` is called.
+      });
+  thread_ = std::make_unique<std::thread>([this]() { loop_->run(); });
+}
 
-  thread_ = std::make_unique<std::thread>([this]() {
-    handle_->start();
-    loop_->run();
-  });
+internal::EventLoop::~EventLoop() {
+  handle_->close();
+  thread_->join();
+}
+
+uvw::loop* internal::EventLoop::Get() const {
+  return loop_.get();
+}
+
+void internal::EventLoop::Wakeup() const {
+  handle_->send();
 }
 
 absl::StatusOr<HelloReply> HelloReply::From(Reply reply) {
@@ -198,6 +206,7 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
   redis->context_ = std::move(context);
 
   redisLibuvAttach(redis->context_.get(), redis->event_loop_.Get()->raw());
+  redis->event_loop_.Wakeup();
 
   redisAsyncSetConnectCallback(redis->context_.get(), Redis::ConnectCallback);
   redisAsyncSetDisconnectCallback(redis->context_.get(),
@@ -463,6 +472,7 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
                           static_cast<int>(arg_values.size()),
                           arg_values.data(), arg_lengths.data());
   }
+  event_loop_.Wakeup();
   // mu_.lock();
 
   if (subscribe) {
