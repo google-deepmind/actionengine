@@ -72,8 +72,7 @@ Fiber::Fiber(Unstarted, InvocableWork work, TreeOptions&&)
 void Fiber::Start() {
   EnsureWorkerThreadPool();
 
-  // TODO: observe for some time if this works with shared_work, not round_robin
-  EnsureThreadHasScheduler<boost::fibers::algo::shared_work>(/*suspend=*/true);
+  EnsureThreadHasScheduler<boost::fibers::algo::round_robin>();
 
   auto body = [this]() {
     std::move(work_)();
