@@ -25,6 +25,11 @@ def make_action_registry():
     registry.register(
         "text_to_image", actions.text_to_image.SCHEMA, actions.text_to_image.run
     )
+    registry.register(
+        "execute_prompt",
+        actions.gemini_fc.EXECUTE_PROMPT_SCHEMA,
+        actions.gemini_fc.execute_prompt,
+    )
 
     actions.redis.register_actions(registry)
     actions.deep_research.register_deep_research_actions(registry)

@@ -35,18 +35,18 @@ enum WebRtcPacketType {
 }
 
 interface WebRtcPlainWireMessage {
-  serializedMessage: Uint8Array;
+  serializedMessage: Uint8Array<ArrayBuffer>;
   transientId: number;
 }
 
 interface WebRtcWireMessageChunk {
-  chunk: Uint8Array;
+  chunk: Uint8Array<ArrayBuffer>;
   seq: number;
   transientId: number;
 }
 
 interface WebRtcLengthSuffixedWireMessageChunk {
-  chunk: Uint8Array;
+  chunk: Uint8Array<ArrayBuffer>;
   length: number;
   seq: number;
   transientId: number;
@@ -59,7 +59,7 @@ type WebRtcPacket = (
 ) & { type: WebRtcPacketType };
 
 const parseLittleEndianNumber = (
-  data: Uint8Array,
+  data: Uint8Array<ArrayBuffer>,
   startOffset: number,
   length: number,
 ): number => {
@@ -81,7 +81,7 @@ const encodeLittleEndianNumber = (
   return data;
 };
 
-const parseWebRtcPacket = (data: Uint8Array): WebRtcPacket => {
+const parseWebRtcPacket = (data: Uint8Array<ArrayBuffer>): WebRtcPacket => {
   let dataEnd = data.length;
 
   const type = data[dataEnd - 1];
@@ -126,7 +126,9 @@ const parseWebRtcPacket = (data: Uint8Array): WebRtcPacket => {
   throw new Error(`Unknown WebRTC packet type: ${type}`);
 };
 
-const concatenate = (uint8arrays: Uint8Array[]): Uint8Array => {
+const concatenate = (
+  uint8arrays: Uint8Array<ArrayBuffer>[],
+): Uint8Array<ArrayBuffer> => {
   const totalLength = uint8arrays.reduce(
     (total, uint8array) => total + uint8array.byteLength,
     0,
@@ -144,7 +146,7 @@ const concatenate = (uint8arrays: Uint8Array[]): Uint8Array => {
 };
 
 const splitDataIntoWebRtcPackets = (
-  data: Uint8Array,
+  data: Uint8Array<ArrayBuffer>,
   transientId: number,
   packetSize: number,
 ): WebRtcPacket[] => {
@@ -196,7 +198,9 @@ const splitDataIntoWebRtcPackets = (
   return packets;
 };
 
-const serializeWebRtcPacket = (packet: WebRtcPacket): Uint8Array => {
+const serializeWebRtcPacket = (
+  packet: WebRtcPacket,
+): Uint8Array<ArrayBuffer> => {
   let transientId = 0;
   let typeByte = 0;
 
@@ -317,14 +321,14 @@ class ChunkedMessage {
     throw new Error('Not implemented');
   }
 
-  async consume(): Promise<Uint8Array> {
+  async consume(): Promise<Uint8Array<ArrayBuffer>> {
     if ((await this.chunkStore.size()) < this.totalChunksExpected) {
       throw new Error(
         `Not enough chunks to consume: expected ${this.totalChunksExpected}, got ${await this.chunkStore.size()}`,
       );
     }
 
-    const chunks: Uint8Array[] = [];
+    const chunks: Uint8Array<ArrayBuffer>[] = [];
     for (let i = 0; i < this.totalChunksExpected; i++) {
       chunks.push((await this.chunkStore.get(i)).data);
     }
@@ -350,13 +354,13 @@ const setupDataChannel = (
     await stream.close();
   };
   channel.onmessage = async (e) => {
-    let data: Uint8Array;
+    let data: Uint8Array<ArrayBuffer>;
     if (e.data instanceof ArrayBuffer) {
       data = new Uint8Array(e.data);
     } else if (e.data instanceof Blob) {
       data = new Uint8Array(await e.data.arrayBuffer());
     } else if (e.data instanceof Uint8Array) {
-      data = e.data;
+      data = e.data as Uint8Array<ArrayBuffer>;
     } else {
       console.warn('Received unknown data type:', e.data);
       return;
@@ -412,7 +416,7 @@ const openSignaling = async (url: string, connection: RTCPeerConnection) => {
   };
 
   ws.onclose = () => {
-    console.error('WebSocket disconnected');
+    console.log('WebSocket disconnected');
     // Optionally handle reconnection logic here
   };
 
@@ -550,7 +554,7 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
       currentTransientId = this.nextTransientId++;
     });
 
-    const encoded = encodeWireMessage(message);
+    const encoded = encodeWireMessage(message) as Uint8Array<ArrayBuffer>;
     const packets = splitDataIntoWebRtcPackets(
       encoded,
       currentTransientId,
@@ -561,6 +565,10 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
       const packetData = serializeWebRtcPacket(packet);
       this.rtcDataChannel.send(packetData);
     }
+  }
+
+  isReady() {
+    return this.ready;
   }
 
   async waitUntilReady(): Promise<boolean> {
@@ -615,6 +623,10 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
       this.connection.onicecandidate = (e) => {
         if (e.candidate && e.candidate.candidate) {
           const { candidate, sdpMid } = e.candidate;
+          if (ws.readyState !== WebSocket.OPEN) {
+            console.warn('WebSocket is not open, cannot send ICE candidate');
+            return;
+          }
           ws.send(
             JSON.stringify({
               id: serverId,
@@ -631,7 +643,14 @@ export class WebRtcActionEngineStream implements BaseActionEngineStream {
         setupDataChannel(this.rtcDataChannel, this);
       };
 
-      this.connection.oniceconnectionstatechange = () => {};
+      this.connection.oniceconnectionstatechange = () => {
+        if (
+          this.connection.iceConnectionState === 'connected' ||
+          this.connection.iceConnectionState == 'completed'
+        ) {
+          this.connection.onicecandidate = null;
+        }
+      };
 
       this.connection.onicegatheringstatechange = () => {};
 

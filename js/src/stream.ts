@@ -152,6 +152,9 @@ export interface BaseActionEngineStream {
   receive(): Promise<WireMessage>;
   send(message: WireMessage): Promise<void>;
   close(): Promise<void>;
+
+  isReady?(): boolean;
+  waitUntilReady?(): Promise<boolean>;
 }
 
 export class ActionEngineStream implements BaseActionEngineStream {
@@ -225,6 +228,19 @@ export class ActionEngineStream implements BaseActionEngineStream {
       send: send,
       close: close,
     };
+  }
+
+  isReady(): boolean {
+    return this.socketOpen && !this.closed;
+  }
+
+  async waitUntilReady(): Promise<boolean> {
+    return await this.mutex.runExclusive(async () => {
+      while (!this.closed && !this.socketOpen) {
+        await this.cv.wait(this.mutex);
+      }
+      return this.socketOpen && !this.closed;
+    });
   }
 
   async receive(): Promise<WireMessage> {

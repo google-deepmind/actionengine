@@ -78,7 +78,7 @@ export class Session {
 
   async bindStream(stream: BaseActionEngineStream) {
     // bindStream may be called in ctor, where this.stream can be undefined
-    if (this.stream !== undefined) {
+    if (this.stream) {
       await this.stream.close();
     }
 
@@ -88,7 +88,9 @@ export class Session {
 
     await this._mutex.runExclusive(() => {
       this.stream = stream;
-      this.loop = this.run();
+      if (this.stream) {
+        this.loop = this.run();
+      }
     });
   }
 

@@ -4,6 +4,8 @@ add_library(
         server.h
         signalling_client.h
         signalling_client.cc
+        signalling_server.cc
+        signalling_server.h
         wire_stream.cc
         wire_stream.h
 )

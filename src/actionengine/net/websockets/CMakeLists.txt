@@ -24,6 +24,8 @@ target_link_libraries(
         Boost::asio
         Boost::beast
         act::util::boost_asio
+        OpenSSL::SSL
+        OpenSSL::Crypto
 )
 
 # ------------------------------------------------------------------

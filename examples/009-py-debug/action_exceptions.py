@@ -37,6 +37,8 @@ async def main():
     except Exception as e:
         print(f"Caught exception from action: {e}")
 
+    # await echo.wait_until_complete()
+
 
 def sync_main():
     return asyncio.run(main())

@@ -16,7 +16,6 @@
 
 type AsyncNode = import('../asyncNode.js').AsyncNode;
 type NodeMap = import('../asyncNode.js').NodeMap;
-type BaseActionEngineStream = import('../stream.js').BaseActionEngineStream;
 type Session = import('../session.js').Session;
 
 declare interface ActionNode {

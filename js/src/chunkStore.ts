@@ -83,7 +83,7 @@ export class LocalChunkStore implements ChunkStore {
 
       if (this.noFurtherPutsFlag) {
         throw new Error(
-          `No further puts allowed, no sense to wait for chunks.`,
+          `No further puts allowed, no sense to wait for chunks. Store size: ${this.chunks.size}, seqId: ${seqId}`,
         );
       }
 
@@ -95,11 +95,6 @@ export class LocalChunkStore implements ChunkStore {
           )
         ) {
           throw new Error(`Timeout waiting for chunk with seqId ${seqId}`);
-        }
-        if (this.noFurtherPutsFlag) {
-          throw new Error(
-            `No further puts flag was set while waiting for chunk`,
-          );
         }
       }
 
@@ -132,11 +127,6 @@ export class LocalChunkStore implements ChunkStore {
         ) {
           throw new Error(
             `Timeout waiting for chunk with arrival offset ${arrivalOffset}`,
-          );
-        }
-        if (this.noFurtherPutsFlag) {
-          throw new Error(
-            `No further puts flag was set while waiting for chunk`,
           );
         }
       }

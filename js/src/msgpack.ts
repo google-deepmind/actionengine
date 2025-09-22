@@ -121,7 +121,7 @@ export const encodeBaseModelMessage = (model: string, data: unknown) => {
 
 export const decodeChunk = (bytes: Uint8Array): Chunk => {
   const [data, ref, metadataBytes] = decodeMulti(bytes) as unknown as [
-    Uint8Array,
+    Uint8Array<ArrayBuffer>,
     string,
     Uint8Array | null,
   ];

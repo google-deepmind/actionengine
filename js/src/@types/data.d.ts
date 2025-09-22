@@ -22,14 +22,14 @@ declare interface ChunkMetadata {
 
 declare interface DataChunk {
   readonly metadata?: ChunkMetadata;
-  readonly data: Uint8Array;
+  readonly data: Uint8Array<ArrayBuffer>;
   readonly ref?: string;
 }
 
 declare interface RefChunk {
   readonly metadata?: ChunkMetadata;
   readonly ref: string;
-  readonly data?: Uint8Array;
+  readonly data?: Uint8Array<ArrayBuffer>;
 }
 
 declare type Chunk = DataChunk | RefChunk;

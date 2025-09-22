@@ -14,3 +14,11 @@
  * limitations under the License.
  */
 
+declare interface BaseActionEngineStream {
+  receive(): Promise<WireMessage>;
+  send(message: WireMessage): Promise<void>;
+  close(): Promise<void>;
+
+  isReady?(): boolean;
+  waitUntilReady?(): Promise<boolean>;
+}

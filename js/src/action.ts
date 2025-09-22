@@ -18,6 +18,21 @@ import { AsyncNode, NodeMap } from './asyncNode.js';
 import { BaseActionEngineStream } from './stream.js';
 import { Session } from './session.js';
 
+const doNothing = async (_: Action) => {};
+
+interface ActionNode {
+  name: string;
+  type: string;
+}
+
+declare type ActionHandler = (action: Action) => Promise<void>;
+
+interface ActionDefinition {
+  name: string;
+  inputs: ActionNode[];
+  outputs: ActionNode[];
+}
+
 export class ActionRegistry {
   definitions: Map<string, ActionDefinition>;
   handlers: Map<string, ActionHandler>;
@@ -27,9 +42,9 @@ export class ActionRegistry {
     this.handlers = new Map();
   }
 
-  register(name: string, def: ActionDefinition, handler: ActionHandler) {
+  register(name: string, def: ActionDefinition, handler?: ActionHandler) {
     this.definitions.set(name, def);
-    this.handlers.set(name, handler);
+    this.handlers.set(name, handler || doNothing);
   }
 
   makeActionMessage(name: string, id: string): ActionMessage {
@@ -142,6 +157,7 @@ export class Action {
     this.bindStreamsOnInputsDefault = false;
     this.bindStreamsOnOutputsDefault = true;
 
+    // TODO: return status properly
     try {
       await this.handler(this);
     } finally {
