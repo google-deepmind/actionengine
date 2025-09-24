@@ -30,6 +30,11 @@ def make_action_registry():
         actions.gemini_fc.EXECUTE_PROMPT_SCHEMA,
         actions.gemini_fc.execute_prompt,
     )
+    registry.register(
+        "locate_objects",
+        actions.sam.LOCATE_OBJECTS_SCHEMA,
+        actions.sam.locate_objects,
+    )
 
     actions.redis.register_actions(registry)
     actions.deep_research.register_deep_research_actions(registry)
@@ -45,7 +50,7 @@ def setup_action_engine():
 
     # will not be needed later:
     actionengine.to_bytes(
-        actions.deep_research.DeepResearchAction(type="", id="")
+        actions.deep_research.deep_research.DeepResearchAction(type="", id="")
     )
     actionengine.to_bytes(actions.redis.ReadStoreRequest(key=""))
     actionengine.to_bytes(

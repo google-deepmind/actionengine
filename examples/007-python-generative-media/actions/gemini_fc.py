@@ -7,6 +7,7 @@ import ormsgpack
 import actionengine
 from google import genai
 from google.genai import types
+from PIL import Image
 
 
 async def do_nothing():
@@ -193,13 +194,11 @@ def get_config(tools: list[types.Tool]) -> types.GenerateContentConfig:
                     "their positions, and do other things according to definitions. Be sure to call the functions "
                     "appropriately based on user requests. You can see the scene through screenshots you take. "
                     "If you call take_screenshot, you will get a screenshot in a subsequent message, which you can use to understand the scene. "
-                    "Only use function calls before you complete the request. Once you "
-                    "have completed the user's request and your function calls "
-                    "have returned successfully, respond with a message "
-                    "DONE, just the word DONE. If the user asks for something "
+                    "Screenshots are for you to see and describe, not for the user to see. "
+                    "Only use function calls before you complete the request. If the user asks for something "
                     "subjective, like 'make it look nice', think about what that "
                     "means and do your best to implement it using the available functions. "
-                    "Treat 'blob' as a synonym for 'selected entity', and raw numbers as entity IDs. "
+                    "Treat object names such as 'blob', 'orb' etc. as a synonym for 'selected entity', and raw numbers as entity IDs. "
                     "Example: 'blob 3' means selected entity with ID 3. 'All blobs' means all selected entities, "
                     "but you must call get_selected_entity_ids to find out which ones they are. "
                     "DO NOT ask for colors. Just come up with ones most suitable. "
@@ -296,23 +295,42 @@ async def execute_prompt(action: actionengine.Action):
                     print(f"- Function {fc.name} returned {response}")
 
                     if "screenshot" in client_action.get_schema().outputs:
-                        with client_action[
+                        raw_screenshot: Image.Image = await client_action[
                             "screenshot"
-                        ].deserialize_automatically(False) as screenshot_node:
-                            screenshot: actionengine.Chunk = (
-                                await screenshot_node.consume(timeout=5.0)
+                        ].consume(timeout=5.0)
+
+                        screenshot = Image.new(
+                            "RGBA",
+                            (raw_screenshot.width, raw_screenshot.height),
+                            "WHITE",
+                        )
+
+                        screenshot.alpha_composite(raw_screenshot)
+                        screenshot = screenshot.convert("RGB")
+
+                        locate = action.make_action_in_same_session(
+                            "locate_objects"
+                        ).run()
+                        await locate["prompt"].put_and_finalize(
+                            "amorphous blob"
+                        )
+                        await locate["image"].put_and_finalize(screenshot)
+
+                        image_bytes = await asyncio.to_thread(
+                            actionengine.to_bytes, screenshot, "image/png"
+                        )
+
+                        contents.append(
+                            types.Content(
+                                role="user",
+                                parts=[
+                                    types.Part.from_bytes(
+                                        data=image_bytes,
+                                        mime_type="image/png",
+                                    )
+                                ],
                             )
-                            contents.append(
-                                types.Content(
-                                    role="user",
-                                    parts=[
-                                        types.Part.from_bytes(
-                                            data=screenshot.data,
-                                            mime_type=screenshot.metadata.mimetype,
-                                        )
-                                    ],
-                                )
-                            )
+                        )
 
             else:
                 text = turn.text
@@ -323,7 +341,7 @@ async def execute_prompt(action: actionengine.Action):
     except Exception as e:
         traceback.print_exc()
         await action["logs"].put(f"Exception in execute_prompt: {e}")
-    finally:
+    else:
         await action["logs"].finalize()
 
 

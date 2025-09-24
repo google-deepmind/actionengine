@@ -94,7 +94,9 @@ def pil_image_to_png_file_bytes(image: Image.Image) -> bytes:
 
 def png_file_bytes_to_pil_image(png_bytes: bytes) -> Image.Image:
     with io.BytesIO(png_bytes) as input_stream:
-        return Image.open(input_stream).convert("RGB")
+        image = Image.open(input_stream)
+        image.load()  # Make sure the image is loaded before the stream is closed
+        return image
 
 
 _DEFAULT_SERIALIZERS_REGISTERED = False
