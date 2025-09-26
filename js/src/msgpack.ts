@@ -15,6 +15,15 @@
  */
 
 import { encode, decode, decodeAsync, decodeMulti } from '@msgpack/msgpack';
+import {
+  Chunk,
+  ChunkMetadata,
+  NodeRef,
+  NodeFragment,
+  Port,
+  ActionMessage,
+  WireMessage,
+} from './data.js';
 
 const rawDecode = async (blob: Blob | Uint8Array) => {
   if (blob instanceof ArrayBuffer) {
@@ -116,7 +125,7 @@ export const decodeBaseModelChunk = (chunk: Chunk) => {
 };
 
 export const encodeBaseModelMessage = (model: string, data: unknown) => {
-  return encode([model, encode(data)]);
+  return encode([model, encode(data)]) as Uint8Array<ArrayBuffer>;
 };
 
 export const decodeChunk = (bytes: Uint8Array): Chunk => {

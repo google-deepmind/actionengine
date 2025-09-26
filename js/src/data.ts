@@ -14,6 +14,56 @@
  * limitations under the License.
  */
 
+export interface ChunkMetadata {
+  readonly mimetype: string;
+  readonly timestamp?: Date;
+  readonly attributes?: { [key: string]: string };
+}
+
+export interface DataChunk {
+  readonly metadata?: ChunkMetadata;
+  readonly data: Uint8Array<ArrayBuffer>;
+  readonly ref?: string;
+}
+
+export interface RefChunk {
+  readonly metadata?: ChunkMetadata;
+  readonly ref: string;
+  readonly data?: Uint8Array<ArrayBuffer>;
+}
+
+export type Chunk = DataChunk | RefChunk;
+
+export interface NodeRef {
+  readonly id: string;
+  readonly offset: number;
+  readonly length?: number;
+}
+
+export interface NodeFragment {
+  readonly id: string;
+  readonly data: Chunk | NodeRef;
+  readonly seq: number;
+  readonly continued: boolean;
+}
+
+export interface Port {
+  name: string;
+  id: string;
+}
+
+export interface ActionMessage {
+  id: string;
+  name: string;
+  inputs: Port[];
+  outputs: Port[];
+}
+
+export interface WireMessage {
+  nodeFragments?: NodeFragment[];
+  actions?: ActionMessage[];
+}
+
 const getEmptyArray = () => {
   return new Uint8Array(0);
 };

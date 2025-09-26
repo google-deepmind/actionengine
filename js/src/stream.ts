@@ -17,6 +17,16 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { Channel, CondVar, Mutex } from './utils.js';
+import { WireMessage } from './data.js';
+
+export interface BaseActionEngineStream {
+  receive(): Promise<WireMessage>;
+  send(message: WireMessage): Promise<void>;
+  close(): Promise<void>;
+
+  isReady?(): boolean;
+  waitUntilReady?(): Promise<boolean>;
+}
 
 let kWorker: Worker | null = null;
 

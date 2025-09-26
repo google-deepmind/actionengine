@@ -2,11 +2,16 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "actionengine": ["."],
+      "actionengine": [
+        "."
+      ]
     },
     "rootDir": ".",
     "outDir": "build",
@@ -22,9 +27,18 @@
     "noImplicitAny": false,
     "noImplicitThis": false,
     "strictNullChecks": false,
-    "typeRoots": [
-      "src/@types"
+    "types": [
+      "node"
     ],
+    "typeRoots": [
+      "src/@types",
+      "node_modules/@types"
+    ]
   },
-  "include": ["**/*.ts", "**/*.tsx", "next-env.d.ts", "**/*.d.ts"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    "**/*.d.ts"
+  ]
 }

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { Chunk } from './data.js';
 import { CondVar, Mutex } from './utils.js';
 
 export interface ChunkStore {

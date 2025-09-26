@@ -16,7 +16,7 @@
 
 import { ChunkStore } from './chunkStore.js';
 import { Channel } from './utils.js';
-import { isEndOfStream } from './data.js';
+import { Chunk, isEndOfStream, NodeFragment } from './data.js';
 
 export class ChunkStoreWriter {
   private chunkStore: ChunkStore;

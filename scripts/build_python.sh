@@ -1,8 +1,11 @@
+#!/usr/bin/env bash
+
 set -e
 
 nproc=8
 
-repo_root=$(pwd)
+repo_root=$(dirname "$(realpath "$0")")/..
+cd "$repo_root" || exit 1
 
 echo "Building project..."
 cd build

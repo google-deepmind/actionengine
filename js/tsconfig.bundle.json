@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "target": "esnext",
+    "module": "esnext",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "moduleResolution": "bundler",
+    "baseUrl": "./src",
+    "paths": {
+      "actionengine": [
+        "."
+      ]
+    },
+    "rootDir": ".",
+    "outDir": "build",
+    "allowSyntheticDefaultImports": true,
+    "importHelpers": true,
+    "alwaysStrict": true,
+    "sourceMap": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "strictNullChecks": false,
+    "types": [
+      "node"
+    ],
+    "typeRoots": [
+      "src/@types",
+      "node_modules/@types"
+    ]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    "**/*.d.ts"
+  ],
+  "exclude": [
+    "__tests__"
+  ]
+}

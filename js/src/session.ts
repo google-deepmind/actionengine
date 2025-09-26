@@ -16,7 +16,7 @@
 
 import { BaseActionEngineStream } from './stream.js';
 import { NodeMap } from './asyncNode.js';
-import { isNullChunk } from './data.js';
+import { Chunk, isNullChunk, WireMessage } from './data.js';
 import { ActionRegistry, fromActionMessage } from './action.js';
 import { Mutex } from './utils.js';
 

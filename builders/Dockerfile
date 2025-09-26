@@ -68,10 +68,10 @@ ENV CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 
 RUN cd /opt/actionengine/actionengine && \
     git config --global --add safe.directory /opt/actionengine/actionengine && \
-    ./configure.sh
+    ./scripts/configure.sh
 
 RUN cd /opt/actionengine/actionengine && \
-    ./build_pybindings_for_dev.sh
+    ./scripts/build_python.sh
 
 RUN mkdir -p /opt/actionengine/py_build && \
     cd /opt/actionengine/py_build && \

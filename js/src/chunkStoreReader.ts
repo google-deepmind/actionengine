@@ -16,7 +16,7 @@
 
 import { Channel, Mutex } from './utils.js';
 import { ChunkStore } from './chunkStore.js';
-import { isEndOfStream } from './data.js';
+import { Chunk, isEndOfStream } from './data.js';
 
 export interface NumberedChunk {
   seq: number;

@@ -31,6 +31,23 @@
 
 namespace act {
 
+// struct StoreReaderPoolTask {
+//   int read_offset;
+//   ChunkStore* absl_nonnull chunk_store;
+//   bool pop = false;
+//   bool cancelled = false;
+//   absl::AnyInvocable<void(
+//       absl::StatusOr<std::optional<std::pair<int, Chunk>>> /*result*/,
+//       bool /*cancelled*/) &&>
+//       on_done;
+// };
+//
+// class StoreReaderFiberPool {
+//  public:
+//  private:
+//   thread::Channel<std::shared_ptr<StoreReaderPoolTask>> tasks_;
+// };
+
 ChunkStoreReader::ChunkStoreReader(ChunkStore* absl_nonnull chunk_store,
                                    ChunkStoreReaderOptions options)
     : chunk_store_(chunk_store), options_(std::move(options)) {}

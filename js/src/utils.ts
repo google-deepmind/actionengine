@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { Chunk } from './data.js';
+
 class Waiter {
   private readonly promise: Promise<void>;
   private waiters: Set<Waiter>;
@@ -335,7 +337,9 @@ export class Channel<ValueType> {
 }
 
 export const makeBlobFromChunk = (chunk: Chunk): Blob => {
-  return new Blob([chunk.data], { type: chunk.metadata.mimetype });
+  return new Blob([chunk.data as Uint8Array<ArrayBuffer>], {
+    type: chunk.metadata.mimetype,
+  });
 };
 
 export const makeChunkFromBlob = async (blob: Blob): Promise<Chunk> => {

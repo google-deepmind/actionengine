@@ -15,7 +15,7 @@
  */
 
 import { ChunkStore, LocalChunkStore } from './chunkStore.js';
-import { endOfStream } from './data.js';
+import { Chunk, endOfStream } from './data.js';
 import { ChunkStoreReader, NumberedChunk } from './chunkStoreReader.js';
 import { ChunkStoreWriter } from './chunkStoreWriter.js';
 import { BaseActionEngineStream } from './stream.js';

@@ -59,8 +59,8 @@ follow these steps:
 3. Compile and install the PyBind11 bindings and the Python package:
 
    ```bash
-   ./configure.sh
-   ./build_pybindings_for_dev.sh
+   ./scripts/configure.sh
+   ./scripts/build_python.sh
    ```
 4. At this point, you should have an editable installation of the Python package
    `actionengine` in your virtual environment. This command should work:

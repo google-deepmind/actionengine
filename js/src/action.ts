@@ -17,6 +17,7 @@
 import { AsyncNode, NodeMap } from './asyncNode.js';
 import { BaseActionEngineStream } from './stream.js';
 import { Session } from './session.js';
+import { ActionMessage, Port } from './data.js';
 
 const doNothing = async (_: Action) => {};
 

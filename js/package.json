@@ -6,16 +6,17 @@
   "description": "A TypeScript client library for Action Engine.",
   "type": "module",
   "exports": {
-    ".": "./build/actionengine.js"
+    ".": "./build/main.js",
+    "./*": "./build/src/*.js"
   },
-  "types": "index.ts",
+  "types": "main.ts",
   "engines": {
     "node": ">= 23.0"
   },
   "devDependencies": {
     "@eslint/js": "~9.17",
     "@types/eslint__js": "~8.42",
-    "@types/node": "~20",
+    "@types/node": "^20.19.17",
     "@typescript-eslint/parser": "~8.19",
     "@vitest/coverage-v8": "~2.1",
     "@vitest/eslint-plugin": "~1.1",
@@ -33,7 +34,7 @@
     "clean": "rimraf coverage build tmp",
     "prebuild": "npm run lint",
     "build": "tsc -p tsconfig.json",
-    "build:bundle": "esbuild --bundle index.ts --format=esm --outfile=build/actionengine.js && esbuild --bundle src/wsworker.ts --format=esm --outfile=build/wsworker.js",
+    "build:bundle": "npm run clean && tsc -p tsconfig.bundle.json",
     "build:watch": "tsc -w -p tsconfig.json",
     "build:release": "npm run clean && tsc -p tsconfig.release.json",
     "build:typings": "tsc --declaration --emitDeclarationOnly --outDir build",

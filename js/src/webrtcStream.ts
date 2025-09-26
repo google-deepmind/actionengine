@@ -17,6 +17,7 @@
 import { LocalChunkStore } from './chunkStore';
 import { BaseActionEngineStream } from './stream';
 import { v4 as uuidv4 } from 'uuid';
+import { WireMessage } from './data';
 import { Channel, CondVar, Mutex } from './utils';
 import { decodeWireMessage, encodeWireMessage } from './msgpack';
 
