@@ -10,7 +10,7 @@ fi
 
 cc_standard=20
 
-repo_root=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+repo_root=$(dirname "$(realpath "$0")")/..
 deps_dir="${repo_root}/third_party"
 build_dir="${repo_root}/build"
 
