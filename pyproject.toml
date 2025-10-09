@@ -1,6 +1,6 @@
 [project]
 name = "actionengine"
-version = "0.1.1"
+version = "0.1.2"
 
 authors = [
     { name = "Helena Pankov", email = "helenapankov@google.com" },
@@ -27,7 +27,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["py"]
-include = ["actionengine"]
+include = ["actionengine", "actionengine.proto"]
 
 [tool.setuptools.package-data]
-actionengine = ["*.so"]
+actionengine = ["*.so", "_C/*.pyi"]

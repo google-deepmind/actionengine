@@ -24,7 +24,6 @@ from actionengine import service as eg_service
 from actionengine import session as eg_session
 from actionengine import stream as eg_stream
 from actionengine import data
-from actionengine import proto
 from actionengine import pydantic_helpers
 from actionengine import redis
 from actionengine import status

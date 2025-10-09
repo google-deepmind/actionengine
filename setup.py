@@ -22,18 +22,22 @@ _PREBUILT_EXTENSIONS = [
     str(path.relative_to(_CURRENT_DIR))
     for path in (pathlib.Path(_CURRENT_DIR) / "py").glob("**/*.so")
 ]
+_PROTO = [
+    str(path.relative_to(_CURRENT_DIR))
+    for path in (pathlib.Path(_CURRENT_DIR) / "py").glob("proto/*")
+]
 print(f"Prebuilt extensions found: {_PREBUILT_EXTENSIONS}")
 
 setup(
     name="actionengine",
-    version="0.1.1",
+    version="0.1.2",
     author="Google LLC",
     author_email="helenapankov@google.com",
     license="Apache License, Version 2.0",
     url="https://github.com/google-deepmind/actionengine-cpp",
     packages=find_packages("py"),
     package_data={
-        "": _PREBUILT_EXTENSIONS,
+        "": _PREBUILT_EXTENSIONS + _PROTO,
     },
     include_package_data=True,
     classifiers=[
