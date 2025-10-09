@@ -85,7 +85,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
   boost_stream->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::request_type& req) {
         req.set(boost::beast::http::field::user_agent,
-                "Action Engine / ActionEngine Light 0.1.0 "
+                "Action Engine 0.1.1 "
                 "WebsocketWireStream client");
       }));
   boost_stream->set_option(boost::beast::websocket::stream_base::timeout(

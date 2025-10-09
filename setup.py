@@ -26,7 +26,7 @@ print(f"Prebuilt extensions found: {_PREBUILT_EXTENSIONS}")
 
 setup(
     name="actionengine",
-    version="0.1.0",
+    version="0.1.1",
     author="Google LLC",
     author_email="helenapankov@google.com",
     license="Apache License, Version 2.0",
