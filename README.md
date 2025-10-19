@@ -1,4 +1,4 @@
-# Action Engine (this repo is in a WIP pre-release state)
+# Action Engine
 
 Action Engine is a cross-language library for building interactive applications
 that need streaming, multimodal, interactive capabilities. Think of:
