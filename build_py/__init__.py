@@ -80,8 +80,6 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
 
     # Create a temporary directory for our wheel contents
     with tempfile.TemporaryDirectory() as temp_dir:
-        os.chdir(temp_dir)
-
         p = subprocess.Popen(
             [
                 str(REPO_ROOT / "scripts" / "build_python.sh"),

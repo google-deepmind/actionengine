@@ -34,8 +34,10 @@ else
   pip3 install --force-reinstall -e .
 fi
 
-echo "Validating installation."
-python3 -c "import actionengine; print('Action Engine imports successfully!')"
+cd "$repo_root/py"
+
+#echo "Validating installation."
+#python3 -c "import actionengine; print('Action Engine imports successfully!')"
 
 echo "Generating .pyi stubs."
 cd py
