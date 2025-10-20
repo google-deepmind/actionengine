@@ -14,6 +14,21 @@ The core library is written in C++, and there are bindings for Python with
 almost complete feature coverage. A TypeScript library is also available for
 building UIs that interact with the core library.
 
+## Quickstart in Python
+
+Install Action Engine directly from the GitHub repository and run a simple test
+to verify the installation:
+
+```bash
+pip install --no-build-isolation git+https://github.com/google-deepmind/actionengine -v
+python -c 'import actionengine; print(actionengine.to_chunk("Hello, world!"))'
+```
+
+You can then explore the examples in the `examples` folder, such as
+[007-python-generative-media](examples/007-python-generative-media), which
+showcases how to build generative media applications with LLMs and text-to-image
+models.
+
 ## Features
 
 - **Flexible unopinionated architecture** based on two core concepts:
