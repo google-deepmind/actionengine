@@ -3,11 +3,10 @@ A fully custom PEP 517 build backend that manually builds a .whl file
 without setuptools or other build backends.
 """
 
-import multiprocessing
+import tomllib
 import os
 import platform
 import sys
-import json
 import shutil
 import subprocess
 import tempfile
@@ -95,6 +94,10 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     # ):
     #     raise RuntimeError("Build failed during stub generation step.")
 
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    dependencies = project.get("project", {}).get("dependencies", [])
+    requires_dist = "\nRequires-Dist: ".join(dependencies)
+
     # Create a temporary directory for our wheel contents
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)
@@ -110,6 +113,7 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
             f"""Metadata-Version: 2.1
 Name: {NAME}
 Version: {VERSION}
+Requires-Dist: {requires_dist}
 """
         )
 
@@ -151,13 +155,3 @@ def get_requires_for_build_wheel(config_settings=None):
 
 def build_sdist(sdist_directory, config_settings=None):
     raise RuntimeError("SDist build is not supported in this custom backend.")
-    print(">>> Custom build_sdist(): creating source tar.gz manually")
-    import tarfile
-
-    sdist_path = Path(sdist_directory) / f"{NAME}-{VERSION}.tar.gz"
-    with tarfile.open(sdist_path, "w:gz") as tar:
-        tar.add("src", arcname=f"{NAME}-{VERSION}/src")
-        tar.add("pyproject.toml", arcname=f"{NAME}-{VERSION}/pyproject.toml")
-        tar.add("build_backend", arcname=f"{NAME}-{VERSION}/build_backend")
-    print(f"✅ Built source dist: {sdist_path}")
-    return str(sdist_path)
