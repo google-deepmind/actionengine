@@ -12,7 +12,6 @@ import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
-from setuptools import build_meta
 
 NAME = "actionengine"
 VERSION = "0.1.2"
@@ -51,6 +50,9 @@ def get_tag():
 
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     print(">>> Custom build_wheel(): building a pure wheel manually")
+
+    if sys.version_info.minor < 11:
+        raise RuntimeError("This package requires Python 3.11 or higher.")
 
     shutil.rmtree(REPO_ROOT / "build", ignore_errors=True)
 
@@ -147,10 +149,6 @@ Tag: {get_tag()}
 
         print(f"✅ Built wheel: {wheel_path}")
         return wheel_name
-
-
-def get_requires_for_build_wheel(config_settings=None):
-    return build_meta.get_requires_for_build_wheel(config_settings)
 
 
 def build_sdist(sdist_directory, config_settings=None):

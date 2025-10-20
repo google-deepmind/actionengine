@@ -12,7 +12,6 @@ license-files = ["LICENSE"]
 
 dependencies = [
     "absl-py>=2.2.2",
-    "msgpack-python>=0.5.6",
     "numpy>=2,<2.3.0",
     "ormsgpack",
     "Pillow",
@@ -24,7 +23,7 @@ dependencies = [
 [build-system]
 requires = ["wheel", "build", "clang==19.1.7", "cmake==4.1.0", "ninja", "setuptools"]
 build-backend = "build_py"
-backend-path = [""]
+backend-path = ["./"]
 
 [tool.setuptools]
 include-package-data = true
