@@ -10,6 +10,8 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 
+
+
 dependencies = [
     "absl-py>=2.2.2",
     "msgpack-python>=0.5.6",
@@ -21,6 +23,11 @@ dependencies = [
     "pybind11-stubgen>=2.5.5",
     "setuptools==78.1.0",
 ]
+
+[build-system]
+requires = ["wheel", "build"]
+build-backend = "build_py"
+backend-path = [""]
 
 [tool.setuptools]
 include-package-data = true
