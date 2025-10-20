@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["wheel", "build", "clang==19.1.7", "cmake==4.1.0", "ninja"]
+requires = ["wheel", "build", "clang==19.1.7", "cmake==4.1.0", "ninja", "setuptools"]
 build-backend = "build_py"
 backend-path = [""]
 
