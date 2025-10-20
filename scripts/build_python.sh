@@ -4,7 +4,7 @@ set -e
 
 nproc=8
 
-repo_root=$(dirname "$(realpath "$0")")/..
+repo_root=$(realpath "$(dirname "$(realpath "$0")")/..")
 cd "$repo_root" || exit 1
 
 echo "Building project..."
@@ -33,13 +33,3 @@ else
   pip3 install -r py/requirements.txt
   pip3 install --force-reinstall -e .
 fi
-
-cd "$repo_root/py"
-
-#echo "Validating installation."
-#python3 -c "import actionengine; print('Action Engine imports successfully!')"
-
-echo "Generating .pyi stubs."
-cd py
-pybind11-stubgen --ignore-invalid-expressions ".*" -o . actionengine._C
-echo "Done."

@@ -66,35 +66,37 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
 
     os.chdir(REPO_ROOT)
     # Build the C++ extensions:
-    p = subprocess.Popen(
-        [str(REPO_ROOT / "scripts" / "configure.sh")],
-        env=os.environ,
-        # stdout=subprocess.PIPE,
-        # stderr=subprocess.PIPE,
-    )
-    stdout, stderr = p.communicate()
-    if p.returncode != 0:
-        print(stdout.decode() if stdout else "")
-        print(stderr.decode() if stderr else "")
+    if (
+        subprocess.Popen(
+            [str(REPO_ROOT / "scripts" / "configure.sh")],
+            env=os.environ,
+        )
+    ).wait() != 0:
         raise RuntimeError("Build failed during configure step.")
 
-    # Create a temporary directory for our wheel contents
-    with tempfile.TemporaryDirectory() as temp_dir:
-        p = subprocess.Popen(
+    if (
+        subprocess.Popen(
             [
                 str(REPO_ROOT / "scripts" / "build_python.sh"),
                 "--only-rebuild-pybind11",
             ],
             env=os.environ,
-            # stdout=subprocess.PIPE,
-            # stderr=subprocess.PIPE,
-        )
-        stdout, stderr = p.communicate()
-        if p.returncode != 0:
-            print(stdout.decode() if stdout else "")
-            print(stderr.decode() if stderr else "")
-            raise RuntimeError("Build failed during cmake build step.")
+        ).wait()
+        != 0
+    ):
+        raise RuntimeError("Build failed during cmake build step.")
 
+    if (
+        subprocess.Popen(
+            [str(REPO_ROOT / "scripts" / "generate_stubs.sh")],
+            env=os.environ,
+        ).wait()
+        != 0
+    ):
+        raise RuntimeError("Build failed during stub generation step.")
+
+    # Create a temporary directory for our wheel contents
+    with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)
 
         # Copy package files into the temp directory
