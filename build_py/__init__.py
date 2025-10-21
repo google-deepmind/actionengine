@@ -14,6 +14,7 @@ import zipfile
 from pathlib import Path
 
 NAME = "actionengine"
+NAME_WITH_HYPHEN = "action-engine"
 VERSION = "0.1.2"
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 
@@ -47,12 +48,14 @@ def get_platform_tag():
 
 def get_tag():
     """Return the wheel tag for this build."""
-    py_version = f"py{sys.version_info.major}{sys.version_info.minor}"
+    py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
     abi_tag = "abi3"
     return f"{py_version}-{abi_tag}-{get_platform_tag()}"
 
 
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+
     print(">>> Custom build_wheel(): building a pure wheel manually")
 
     path_env = os.environ.get("PATH")
@@ -144,7 +147,6 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     # ):
     #     raise RuntimeError("Build failed during stub generation step.")
 
-    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     dependencies = project.get("project", {}).get("dependencies", [])
     requires_dist = "\nRequires-Dist: ".join(dependencies)
 
@@ -157,11 +159,14 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         shutil.copytree((REPO_ROOT / "py" / "actionengine"), pkg_target)
 
         # Generate METADATA
-        dist_info = temp_dir / f"{NAME}-{VERSION}.dist-info"
+        dist_info = (
+            temp_dir
+            / f"{NAME_WITH_HYPHEN.replace('-', '_')}-{VERSION}.dist-info"
+        )
         dist_info.mkdir()
         (dist_info / "METADATA").write_text(
             f"""Metadata-Version: 2.1
-Name: {NAME}
+Name: {NAME_WITH_HYPHEN}
 Version: {VERSION}
 Requires-Dist: {requires_dist}
 """
@@ -170,7 +175,7 @@ Requires-Dist: {requires_dist}
         # Generate WHEEL file
         (dist_info / "WHEEL").write_text(
             f"""Wheel-Version: 1.0
-Generator: actionengine
+Generator: {NAME_WITH_HYPHEN}
 Root-Is-Purelib: false
 Tag: {get_tag()}
 """
@@ -186,7 +191,9 @@ Tag: {get_tag()}
         (dist_info / "RECORD").write_text("".join(record_lines))
 
         # Build wheel filename
-        wheel_name = f"{NAME}-{VERSION}-{get_tag()}.whl"
+        wheel_name = (
+            f"{NAME_WITH_HYPHEN.replace('-', '_')}-{VERSION}-{get_tag()}.whl"
+        )
         wheel_path = Path(wheel_directory) / wheel_name
 
         # Zip it up
