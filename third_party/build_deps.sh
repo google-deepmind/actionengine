@@ -166,6 +166,7 @@ cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/libuv" \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DLIBUV_BUILD_SHARED=OFF \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${parallelism}" --target install

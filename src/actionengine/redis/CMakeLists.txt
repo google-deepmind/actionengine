@@ -31,7 +31,7 @@ target_link_libraries(
         act::stores
         act::util
         Thread
-        libuv::uv
+        libuv::uv_a
         uvw::uvw
 )
 
