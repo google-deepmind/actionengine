@@ -17,6 +17,10 @@ NAME = "actionengine"
 VERSION = "0.1.2"
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 
+CLANG_RESOURCES = """- https://clang.llvm.org/get_started.html
+- https://launchpad.net/ubuntu/noble/+package/clang-19
+- https://formulae.brew.sh/formula/llvm"""
+
 
 def get_arch_tag():
     """Return the architecture tag for this build."""
@@ -50,6 +54,50 @@ def get_tag():
 
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     print(">>> Custom build_wheel(): building a pure wheel manually")
+
+    path_env = os.environ.get("PATH")
+    if path_env is None:
+        raise RuntimeError("PYTHONPATH is not set.")
+
+    sep = ";" if sys.platform == "win32" else ":"
+    path_dirs = path_env.split(sep)
+
+    exe_suffix = ".exe" if sys.platform == "win32" else ""
+    cc = os.environ.get("CC")
+    cxx = os.environ.get("CXX")
+    if cc is None or cxx is None:
+        for directory in path_dirs:
+            if cc is not None and cxx is not None:
+                break
+
+            directory = Path(directory)
+            cc_path = directory / f"clang{exe_suffix}"
+            cxx_path = directory / f"clang++{exe_suffix}"
+            if cc_path.exists() and cxx_path.exists():
+                cc = str(cc_path)
+                cxx = str(cxx_path)
+                break
+
+    if cc is None:
+        raise RuntimeError(
+            "Could not find 'clang' compiler in PATH. "
+            "Please install a clang build appropriate for your platform, "
+            "or set the CC environment variable if you are sure you have "
+            "one installed. You may find these resources helpful:\n"
+            f"{CLANG_RESOURCES}"
+        )
+
+    if cxx is None:
+        raise RuntimeError(
+            "Could not find 'clang++' compiler in PATH. "
+            "Please install a clang build appropriate for your platform, "
+            "or set the CXX environment variable if you are sure you have "
+            "one installed. You may find these resources helpful:\n"
+            f"{CLANG_RESOURCES}"
+        )
+
+    os.environ["CC"] = cc if cc is not None else f"clang{exe_suffix}"
+    os.environ["CXX"] = cxx if cxx is not None else f"clang++{exe_suffix}"
 
     if sys.version_info.minor < 11:
         raise RuntimeError("This package requires Python 3.11 or higher.")

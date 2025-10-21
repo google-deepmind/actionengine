@@ -7,11 +7,23 @@ nproc=8
 repo_root=$(realpath "$(dirname "$(realpath "$0")")/..")
 cd "$repo_root" || exit 1
 
+if [[ -z "$CC" ]]; then
+  cc="clang"
+else
+  cc="$CC"
+fi
+
+if [[ -z "$CXX" ]]; then
+  cxx="clang++"
+else
+  cxx="$CXX"
+fi
+
 echo "Building project..."
 cd build
-CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target actionengine_pybind11
-CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target actProto
-CC=clang CXX=clang++ cmake --build . --parallel "${nproc}" --target pybind11_abseil_status_module
+CC=${cc} CXX=${cxx} cmake --build . --parallel "${nproc}" --target actionengine_pybind11
+CC=${cc} CXX=${cxx} cmake --build . --parallel "${nproc}" --target actProto
+CC=${cc} CXX=${cxx} cmake --build . --parallel "${nproc}" --target pybind11_abseil_status_module
 
 echo "Moving compiled files to Python code directory..."
 cd "$repo_root"
