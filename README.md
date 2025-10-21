@@ -16,11 +16,21 @@ building UIs that interact with the core library.
 
 ## Quickstart in Python
 
-Install Action Engine directly from the GitHub repository and run a simple test
-to verify the installation:
+If there is a wheel already built for your platform, you can install Action
+Engine
+from PyPI (note that the package is still under development, so the API is not
+stable yet):
 
 ```bash
-pip install --no-build-isolation git+https://github.com/google-deepmind/actionengine -v
+pip install action-engine
+python -c 'import actionengine; print(actionengine.to_chunk("Hello, world!"))'
+```
+
+Otherwise, you can install Action Engine directly from the GitHub repository.
+First, make sure you have a recent C++20-compatible `clang` installed, then run:
+
+```bash
+pip install git+https://github.com/google-deepmind/actionengine -v
 python -c 'import actionengine; print(actionengine.to_chunk("Hello, world!"))'
 ```
 
@@ -28,6 +38,8 @@ You can then explore the examples in the `examples` folder, such as
 [007-python-generative-media](examples/007-python-generative-media), which
 showcases how to build generative media applications with LLMs and text-to-image
 models.
+
+Action Engine requires Python 3.11 or higher.
 
 ## Features
 
