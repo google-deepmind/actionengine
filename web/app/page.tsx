@@ -189,7 +189,7 @@ export default function Page() {
             <h2 className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'>
               Super quick start:
             </h2>
-            <div className='flex flex-row flex-wrap mb-2'>
+            <div className='flex flex-row flex-wrap mb-2 items-start'>
               <div className='w-full md:w-1/2 pr-12'>
                 <div className='mb-4 text-gray-600 max-w-full'>
                   <h3 className='mb-3 font-semibold text-gray-800'>
@@ -235,8 +235,8 @@ export default function Page() {
             </h3>
           </div>
         </div>
-        <div className='flex flex-row w-full items-center flex-wrap'>
-          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-8 md:mb-18 pr-6'>
+        <div className='flex flex-row w-full items-start flex-wrap'>
+          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-6 pr-6'>
             <h2 className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'>
               First-class streaming and multimodality
             </h2>
@@ -258,22 +258,22 @@ export default function Page() {
               alt='Text-to-image generation'
               width={600}
               height={400}
-              className='relative my-8 h-full w-full py-6 sm:w-1/2 md:mb-18'
+              className='relative my-8 h-full w-full py-6 sm:w-1/2'
             />
           </Suspense>
         </div>
         {/* second row */}
-        <div className='flex flex-row w-full items-center flex-wrap'>
+        <div className='flex flex-row w-full items-start flex-wrap'>
           <Suspense>
             <Image
               src='/ollama.gif'
               alt='Stateful LLM chat with a thought stream'
               width={600}
               height={400}
-              className='relative h-full w-full py-6 my-8 sm:w-1/2 md:mb-18 order-last sm:order-first'
+              className='relative h-full w-full py-6 my-8 sm:w-1/2 order-last sm:order-first'
             />
           </Suspense>
-          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-8 md:mb-18 pr-6 sm:pl-6'>
+          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-6 pr-6 sm:pl-6'>
             <h2 className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'>
               Dedicated I/O channels, selective persistence
             </h2>
@@ -291,8 +291,8 @@ export default function Page() {
           </div>
         </div>
         {/* third row */}
-        <div className='flex flex-row w-full items-center flex-wrap'>
-          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-8 md:mb-12'>
+        <div className='flex flex-row w-full items-start flex-wrap'>
+          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-6 md:mb-12'>
             <h2 className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'>
               Observable workflows
             </h2>
@@ -317,13 +317,13 @@ export default function Page() {
               alt='Planning and executing a research task'
               width={600}
               height={400}
-              className='relative my-8 h-full w-full py-6 sm:w-1/2 md:mb-18'
+              className='relative my-8 h-full w-full py-6 sm:w-1/2'
             />
           </Suspense>
         </div>
         {/* fourth row */}
 
-        <div className='flex flex-row w-full items-center flex-wrap'>
+        <div className='flex flex-row w-full items-start flex-wrap'>
           <div className='relative h-fit w-full pb-6 pr-6'>
             <h2 className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'>
               Explore Action Engine in code examples:
@@ -487,15 +487,15 @@ export default function Page() {
             </div>
           </div>
         </div>
-        <div className='flex flex-row w-full items-center flex-wrap'>
-          <div className='relative  h-48 w-full py-6 my-8 sm:w-1/2 md:mb-18 order-last sm:order-first'>
+        <div className='flex flex-row w-full items-start flex-wrap'>
+          <div className='relative  h-48 w-full py-6 my-8 sm:w-1/2 order-last sm:order-first'>
             <View className='relative h-full sm:h-48 sm:w-full'>
               <Suspense fallback={null}>
                 <Common color={'lightblue'} />
               </Suspense>
             </View>
           </div>
-          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-8 md:mb-18 pr-6 sm:pl-6'>
+          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-6 pr-6 sm:pl-6'>
             <h2 className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'>
               ...and much more.
             </h2>
@@ -514,7 +514,7 @@ export default function Page() {
               or take a look at{' '}
               <Link
                 className='text-blue-600'
-                href='https://github.com/google-deepmind/actionengine/tree/main/examples/web'
+                href='https://github.com/google-deepmind/actionengine/tree/main/web'
               >
                 <u>these very pages in React</u>
               </Link>
@@ -535,6 +535,44 @@ export default function Page() {
               —and start building your own!
             </p>
           </div>
+        </div>
+        <div className='flex flex-row w-full items-start flex-wrap mt-4'>
+          <p className='mb-4 text-gray-500 text-sm'>
+            Action Engine is an open source project licensed under the{' '}
+            <Link
+              className='text-blue-600'
+              href='https://www.apache.org/licenses/LICENSE-2.0'
+            >
+              <u>Apache 2.0 License</u>
+            </Link>{' '}
+            and released by Google DeepMind. The source code is hosted on GitHub
+            at{' '}
+            <Link
+              className='text-blue-600'
+              href='https://github.com/google-deepmind/actionengine'
+            >
+              <u>google-deepmind/actionengine</u>
+            </Link>
+            . Static non-code assets are provided under the{' '}
+            <Link
+              className='text-blue-600'
+              href='https://creativecommons.org/licenses/by/4.0/'
+            >
+              <u>Creative Commons Attribution 4.0 International License</u>
+            </Link>
+            .
+          </p>
+          <p className='mb-4 text-gray-500 text-sm'>
+            This page, demos, and any other resources or services provided at
+            actionengine.dev are provided “as is” by individual maintainers, not
+            by or on behalf of Google or its affiliates, and without warranty of
+            any kind.
+          </p>
+          <p className='mb-4 text-gray-500 text-sm'>
+            Unless explicitly stated otherwise, Google and Google DeepMind do
+            not endorse or support any third party services, products, or
+            applications mentioned, demonstrated, or linked to from this page.
+          </p>
         </div>
       </div>
     </>
