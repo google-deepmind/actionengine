@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Blob } from '@/components/canvas/Examples'
 import { useWorld } from 'koota/react'
 import { Check, Clipboard } from 'lucide-react'
+import Image from 'next/image'
 
 const View = dynamic(
   () => import('@/components/canvas/View').then((mod) => mod.View),
@@ -251,23 +252,27 @@ export default function Page() {
               generation demo with live progress updates.
             </p>
           </div>
-          <div className='relative my-8 h-48 w-full py-6 sm:w-1/2 md:mb-18'>
-            <View className='relative h-full  sm:h-48 sm:w-full'>
-              <Suspense fallback={null}>
-                <Common color={'lightpink'} />
-              </Suspense>
-            </View>
-          </div>
+          <Suspense>
+            <Image
+              src='/genmedia.gif'
+              alt='Text-to-image generation'
+              width={600}
+              height={400}
+              className='relative my-8 h-full w-full py-6 sm:w-1/2 md:mb-18'
+            />
+          </Suspense>
         </div>
         {/* second row */}
         <div className='flex flex-row w-full items-center flex-wrap'>
-          <div className='relative h-48 w-full py-6 my-8 sm:w-1/2 md:mb-18 order-last sm:order-first'>
-            <View className='relative h-full sm:h-48 sm:w-full'>
-              <Suspense fallback={null}>
-                <Common color={'lightgreen'} />
-              </Suspense>
-            </View>
-          </div>
+          <Suspense>
+            <Image
+              src='/ollama.gif'
+              alt='Stateful LLM chat with a thought stream'
+              width={600}
+              height={400}
+              className='relative h-full w-full py-6 my-8 sm:w-1/2 md:mb-18 order-last sm:order-first'
+            />
+          </Suspense>
           <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-8 md:mb-18 pr-6 sm:pl-6'>
             <h2 className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'>
               Dedicated I/O channels, selective persistence
@@ -306,13 +311,15 @@ export default function Page() {
               Tap into the intermediate steps, logs and thoughts as they happen.
             </p>
           </div>
-          <div className='relative my-8 h-48 w-full py-6 sm:w-1/2 md:mb-12'>
-            <View className='relative h-full  sm:h-48 sm:w-full'>
-              <Suspense fallback={null}>
-                <Common color={'lightblue'} />
-              </Suspense>
-            </View>
-          </div>
+          <Suspense>
+            <Image
+              src='/planning.png'
+              alt='Planning and executing a research task'
+              width={600}
+              height={400}
+              className='relative my-8 h-full w-full py-6 sm:w-1/2 md:mb-18'
+            />
+          </Suspense>
         </div>
         {/* fourth row */}
 
