@@ -1,10 +1,12 @@
 {
-  "name": "actionengine",
-  "version": "0.1.2",
+  "name": "@helenapankov/actionengine",
+  "version": "0.1.3",
   "author": "Google DeepMind <no-reply@google.com>",
   "license": "Apache-2.0",
   "description": "A TypeScript client library for Action Engine.",
   "type": "module",
+  "main": "build/main.js",
+  "module": "build/main.js",
   "exports": {
     ".": "./build/main.js",
     "./*": "./build/src/*.js"
