@@ -129,6 +129,13 @@ const GoogleBlobs = () => {
 export default function Page() {
   const world = useWorld()
 
+  useEffect(() => {
+    const element = document.getElementById('why-another-framework')
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [])
+
   return (
     <>
       <div className='mx-auto flex w-full flex-col flex-wrap items-center md:flex-row  xl:w-4/5'>
