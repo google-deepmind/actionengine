@@ -129,13 +129,6 @@ const GoogleBlobs = () => {
 export default function Page() {
   const world = useWorld()
 
-  useEffect(() => {
-    const element = document.getElementById('why-another-framework')
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [])
-
   return (
     <>
       <div className='mx-auto flex w-full flex-col flex-wrap items-center md:flex-row  xl:w-4/5'>
@@ -240,181 +233,6 @@ export default function Page() {
             >
               Show me code examples!
             </h3>
-          </div>
-        </div>
-        <div className='flex flex-row w-full items-start flex-wrap'>
-          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-6 pr-6'>
-            <h2
-              className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'
-              id='why-another-framework'
-            >
-              Why another framework?
-            </h2>
-            <p className='mb-2 text-gray-600'>
-              <i>Framework</i> is a loaded word, but it is hard to find anything
-              better and still have people understand what the project is about.
-              The problem of <i>“agentic frameworks”</i> is that they give
-              excessively rigid abstractions. The novel challenge is not to{' '}
-              <i>define</i> “agents”. They are just chains of calls in some
-              distributed context.
-            </p>
-            <p className='mb-2 text-gray-600'>
-              The actual novel challenge is to{' '}
-              <i>cultivate a common language</i> to express highly dynamic,
-              highly experimental interactions performantly (and safely!) in
-              very different kinds of applications and environments—and{' '}
-              <i>build tools</i> to do so. In other words, the challenge is to
-              acknowledge and enable the diversity of applications and contexts
-              code runs from.
-            </p>
-            <h2
-              className='mt-6 mb-3 text-2xl font-bold leading-[1.15] text-gray-800'
-              id='observations-and-principles'
-            >
-              Observations and principles
-            </h2>
-            <h3 className='mb-2 text-gray-600 underline decoration-dotted'>
-              Developers don't really need <i>“loop runner”</i> type frameworks
-              with tight abstractions, but rather a set of thin layers they can
-              combine to:
-            </h3>
-            <ul content='space' className='list-disc pl-5 mb-6 text-gray-600'>
-              <li className='mb-2'>
-                relieve “daily”, “boring” issues (e.g. serialisation of custom
-                types, chaining tasks),
-              </li>
-              <li className='mb-2'>
-                have consistent, similar ways to store and transmit state and
-                express agentic behaviour across backend peers, browser clients,
-                model servers etc. (edge devices even),
-              </li>
-              <li className='mb-2'>
-                “productionise”: serve, scale, authorise, discover.
-              </li>
-            </ul>
-            <h3 className='mb-6 text-gray-600 underline decoration-dotted'>
-              It is important to design such tools and frameworks at the full
-              stack to enable builders of all types of apps: web/native, client
-              orchestration or a worker group in a cluster, and everything in
-              between.
-            </h3>
-            <h3 className='mb-6 text-gray-600 underline decoration-dotted'>
-              Data representation, storage and transport matter much more than
-              the runtime/execution context.
-            </h3>
-            <p className='mb-2 text-gray-600'>
-              Obligatory opt-in into heavy abstractions or dense, non-obvious
-              runtimes can solve some problems in one ecosystem, but often at
-              the cost of being unusable in another, therefore hindering
-              innovation and interoperability.
-            </p>
-            <p className='mb-2 text-gray-600 font-semibold'>
-              Applications dictate the abstractions and shape runtimes, and
-              frameworks should adapt to them, not the other way round.
-            </p>
-          </div>
-          <div className='relative h-full w-full md:my-6 py-6 sm:w-1/2'>
-            <h2
-              className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'
-              id='what-is-action-engine'
-            >
-              What is Action Engine?
-            </h2>
-            <p className='mb-2 text-gray-600'>
-              Action Engine is a kit of <i>optional</i> components, for
-              different needs of different applications. That makes it stand out
-              from other frameworks: they lock you in the whole set of
-              abstractions, which you might not need.
-            </p>
-            <p className='mb-2 text-gray-600'>
-              We, early supporters at Google and DeepMind, want a flexible,
-              quick-feedback way to navigate the fast-evolving landscape of AI
-              infrastructure. Current frameworks solidified around abstractions
-              that are growing increasingly inadequate for the new demands of
-              multimodal, streaming, stateful, long-running, agentic
-              applications.
-            </p>
-            <p className='mb-6 text-gray-600 font-semibold'>
-              Action Engine aims to be a common building block for these new
-              kinds of applications, without imposing rigid abstractions or
-              heavy dependencies.
-            </p>
-            <h2
-              className='mt-6 mb-3 text-2xl font-bold leading-[1.15] text-gray-800'
-              id='architecture-overview'
-            >
-              Architecture overview
-            </h2>
-            <p className='mb-2 text-gray-600'>
-              At its core, Action Engine provides{' '}
-              <u className='decoration-dotted'>actions</u> and{' '}
-              <u className='decoration-dotted'>async nodes</u>.
-            </p>
-            <p className='mb-2 text-gray-600'>
-              <u className='decoration-dotted'>Action</u> is simple: it's just
-              executable code with a name and i/o schema assigned, and some
-              well-defined behaviour to prepare and clean up.
-            </p>
-            <p className='mb-2 text-gray-600'>
-              <u className='decoration-dotted'>Async node</u> is more
-              interesting: it is a logical “stream” of data: a channel-like
-              interface that one party (or parties!) can write into, and another
-              can read with a{' '}
-              <Link
-                href='https://actionengine.dev/docs/classact_1_1_chunk_store.html'
-                className='text-blue-600'
-              >
-                <u>“block with timeout” semantic</u>
-              </Link>
-              .
-            </p>
-            <p className='mb-2 text-gray-600'>
-              These core concepts are easy to understand, but <i>powerful</i>.
-              Unlike with loaded terms like “agent”, “context” or “graph
-              executor”, you won't make any big mistake thinking about{' '}
-              <u className='decoration-dotted'>actions</u> as about functions,
-              and about <u className='decoration-dotted'>async nodes</u> as
-              about channels or queues that go as inputs and outputs to those
-              functions.
-            </p>
-            <p className='mb-2 text-gray-600'>
-              They are <b>familiar</b>, yet flexible building blocks to express
-              complex, dynamic, streaming, multimodal workflows.
-            </p>
-            <p className='mb-2 text-gray-600'>
-              The rest of the library simply cares about building context to run
-              or call actions, but leaves it up to you how to compose them,
-              store their state, or transport their data. There are components
-              to help you with that, but you can also build your own—for{' '}
-              <Link
-                href='https://actionengine.dev/docs/classact_1_1_session.html'
-                className='text-blue-600'
-              >
-                <u>sessions</u>
-              </Link>
-              ,{' '}
-              <Link
-                href='https://actionengine.dev/docs/classact_1_1_service.html'
-                className='text-blue-600'
-              >
-                <u>services</u>
-              </Link>
-              ,{' '}
-              <Link
-                href='https://actionengine.dev/docs/classact_1_1_wire_stream.html'
-                className='text-blue-600'
-              >
-                <u>transports</u>
-              </Link>
-              ,{' '}
-              <Link
-                href='https://github.com/google-deepmind/actionengine/blob/main/examples/007-python-generative-media/server.py'
-                className='text-blue-600'
-              >
-                <u>servers</u>
-              </Link>
-              , and more (these docs will get filled out over time!).
-            </p>
           </div>
         </div>
         <div className='flex flex-row w-full items-start flex-wrap'>
@@ -801,6 +619,181 @@ export default function Page() {
                 <u>a starter C++ project</u>
               </Link>
               —and start building your own!
+            </p>
+          </div>
+        </div>
+        <div className='flex flex-row w-full items-start flex-wrap'>
+          <div className='relative h-fit w-full py-6 sm:w-1/2 md:my-6 pr-6'>
+            <h2
+              className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'
+              id='why-another-framework'
+            >
+              Why another framework?
+            </h2>
+            <p className='mb-2 text-gray-600'>
+              <i>Framework</i> is a loaded word, but it is hard to find anything
+              better and still have people understand what the project is about.
+              The problem of <i>“agentic frameworks”</i> is that they give
+              excessively rigid abstractions. The novel challenge is not to{' '}
+              <i>define</i> “agents”. They are just chains of calls in some
+              distributed context.
+            </p>
+            <p className='mb-2 text-gray-600'>
+              The actual novel challenge is to{' '}
+              <i>cultivate a common language</i> to express highly dynamic,
+              highly experimental interactions performantly (and safely!) in
+              very different kinds of applications and environments—and{' '}
+              <i>build tools</i> to do so. In other words, the challenge is to
+              acknowledge and enable the diversity of applications and contexts
+              code runs from.
+            </p>
+            <h2
+              className='mt-6 mb-3 text-2xl font-bold leading-[1.15] text-gray-800'
+              id='observations-and-principles'
+            >
+              Observations and principles
+            </h2>
+            <h3 className='mb-2 text-gray-600 underline decoration-dotted'>
+              Developers don't really need <i>“loop runner”</i> type frameworks
+              with tight abstractions, but rather a set of thin layers they can
+              combine to:
+            </h3>
+            <ul content='space' className='list-disc pl-5 mb-6 text-gray-600'>
+              <li className='mb-2'>
+                relieve “daily”, “boring” issues (e.g. serialisation of custom
+                types, chaining tasks),
+              </li>
+              <li className='mb-2'>
+                have consistent, similar ways to store and transmit state and
+                express agentic behaviour across backend peers, browser clients,
+                model servers etc. (edge devices even),
+              </li>
+              <li className='mb-2'>
+                “productionise”: serve, scale, authorise, discover.
+              </li>
+            </ul>
+            <h3 className='mb-6 text-gray-600 underline decoration-dotted'>
+              It is important to design such tools and frameworks at the full
+              stack to enable builders of all types of apps: web/native, client
+              orchestration or a worker group in a cluster, and everything in
+              between.
+            </h3>
+            <h3 className='mb-6 text-gray-600 underline decoration-dotted'>
+              Data representation, storage and transport matter much more than
+              the runtime/execution context.
+            </h3>
+            <p className='mb-2 text-gray-600'>
+              Obligatory opt-in into heavy abstractions or dense, non-obvious
+              runtimes can solve some problems in one ecosystem, but often at
+              the cost of being unusable in another, therefore hindering
+              innovation and interoperability.
+            </p>
+            <p className='mb-2 text-gray-600 font-semibold'>
+              Applications dictate the abstractions and shape runtimes, and
+              frameworks should adapt to them, not the other way round.
+            </p>
+          </div>
+          <div className='relative h-full w-full md:my-6 py-6 sm:w-1/2'>
+            <h2
+              className='mb-3 text-2xl font-bold leading-[1.15] text-gray-800'
+              id='what-is-action-engine'
+            >
+              What is Action Engine?
+            </h2>
+            <p className='mb-2 text-gray-600'>
+              Action Engine is a kit of <i>optional</i> components, for
+              different needs of different applications. That makes it stand out
+              from other frameworks: they lock you in the whole set of
+              abstractions, which you might not need.
+            </p>
+            <p className='mb-2 text-gray-600'>
+              We, early supporters at Google and DeepMind, want a flexible,
+              quick-feedback way to navigate the fast-evolving landscape of AI
+              infrastructure. Current frameworks solidified around abstractions
+              that are growing increasingly inadequate for the new demands of
+              multimodal, streaming, stateful, long-running, agentic
+              applications.
+            </p>
+            <p className='mb-6 text-gray-600 font-semibold'>
+              Action Engine aims to be a common building block for these new
+              kinds of applications, without imposing rigid abstractions or
+              heavy dependencies.
+            </p>
+            <h2
+              className='mt-6 mb-3 text-2xl font-bold leading-[1.15] text-gray-800'
+              id='architecture-overview'
+            >
+              Architecture overview
+            </h2>
+            <p className='mb-2 text-gray-600'>
+              At its core, Action Engine provides{' '}
+              <u className='decoration-dotted'>actions</u> and{' '}
+              <u className='decoration-dotted'>async nodes</u>.
+            </p>
+            <p className='mb-2 text-gray-600'>
+              <u className='decoration-dotted'>Action</u> is simple: it's just
+              executable code with a name and i/o schema assigned, and some
+              well-defined behaviour to prepare and clean up.
+            </p>
+            <p className='mb-2 text-gray-600'>
+              <u className='decoration-dotted'>Async node</u> is more
+              interesting: it is a logical “stream” of data: a channel-like
+              interface that one party (or parties!) can write into, and another
+              can read with a{' '}
+              <Link
+                href='https://actionengine.dev/docs/classact_1_1_chunk_store.html'
+                className='text-blue-600'
+              >
+                <u>“block with timeout” semantic</u>
+              </Link>
+              .
+            </p>
+            <p className='mb-2 text-gray-600'>
+              These core concepts are easy to understand, but <i>powerful</i>.
+              Unlike with loaded terms like “agent”, “context” or “graph
+              executor”, you won't make any big mistake thinking about{' '}
+              <u className='decoration-dotted'>actions</u> as about functions,
+              and about <u className='decoration-dotted'>async nodes</u> as
+              about channels or queues that go as inputs and outputs to those
+              functions.
+            </p>
+            <p className='mb-2 text-gray-600'>
+              They are <b>familiar</b>, yet flexible building blocks to express
+              complex, dynamic, streaming, multimodal workflows.
+            </p>
+            <p className='mb-2 text-gray-600'>
+              The rest of the library simply cares about building context to run
+              or call actions, but leaves it up to you how to compose them,
+              store their state, or transport their data. There are components
+              to help you with that, but you can also build your own—for{' '}
+              <Link
+                href='https://actionengine.dev/docs/classact_1_1_session.html'
+                className='text-blue-600'
+              >
+                <u>sessions</u>
+              </Link>
+              ,{' '}
+              <Link
+                href='https://actionengine.dev/docs/classact_1_1_service.html'
+                className='text-blue-600'
+              >
+                <u>services</u>
+              </Link>
+              ,{' '}
+              <Link
+                href='https://actionengine.dev/docs/classact_1_1_wire_stream.html'
+                className='text-blue-600'
+              >
+                <u>transports</u>
+              </Link>
+              ,{' '}
+              <Link
+                href='https://github.com/google-deepmind/actionengine/blob/main/examples/007-python-generative-media/server.py'
+                className='text-blue-600'
+              >
+                <u>servers</u>
+              </Link>
+              , and more (these docs will get filled out over time!).
             </p>
           </div>
         </div>

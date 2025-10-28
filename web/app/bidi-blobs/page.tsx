@@ -190,7 +190,7 @@ export default function Page() {
     {
       id: 'start',
       sender: 'Intro',
-      text: 'Try sending various instructions about the position and color of blobs. See an example in the placeholder.',
+      text: 'Try sending various instructions about the position and color of blobs. See an example in the placeholder. If nothing happens when you send a message, try reloading the page.',
     },
   ])
 
