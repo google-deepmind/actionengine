@@ -35,6 +35,11 @@ def make_action_registry():
         actions.sam.LOCATE_OBJECTS_SCHEMA,
         actions.sam.locate_objects,
     )
+    registry.register(
+        "ocr",
+        actions.ocr.SCHEMA,
+        actions.ocr.run,
+    )
 
     actions.redis.register_actions(registry)
     actions.deep_research.register_deep_research_actions(registry)
@@ -60,6 +65,9 @@ def setup_action_engine():
         actions.text_to_image.DiffusionRequest(
             prompt="a hack to get the schema registered for serialization",
         )
+    )
+    actionengine.to_bytes(
+        actions.ocr.TextBox(text="", bbox=(0, 0, 0, 0)),
     )
 
 

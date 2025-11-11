@@ -108,6 +108,10 @@ cmake \
   -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/libzmq" \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DBUILD_TESTS=OFF \
+  -DZMQ_BUILD_TESTS=OFF \
+  -DBUILD_SHARED=OFF \
+  -DBUILD_STATIC=ON \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${parallelism}" --target install
@@ -121,6 +125,7 @@ cmake \
   -DCMAKE_INSTALL_PREFIX="${third_party_root}/build_deps/cppzmq" \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DCPPZMQ_BUILD_TESTS=OFF \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -G "Ninja" \
   ..
 cmake --build . --parallel "${parallelism}" --target install

@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.22)
 
-if (APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "Minimum OS X deployment version")
-endif ()
-
 project(actionengine
         VERSION 0.1
         LANGUAGES C CXX
 )
+
+if (APPLE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "Minimum OS X deployment version")
+endif ()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wthread-safety -Werror=thread-safety")

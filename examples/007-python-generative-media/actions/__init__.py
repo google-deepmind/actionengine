@@ -2,6 +2,7 @@ from . import deep_research
 from . import echo
 from . import gemini
 from . import gemini_fc
+from . import ocr
 from . import sam
 from . import text_to_image
 from . import redis
@@ -11,6 +12,7 @@ __all__ = [
     "echo",
     "gemini",
     "gemini_fc",
+    "ocr",
     "sam",
     "text_to_image",
     "redis",

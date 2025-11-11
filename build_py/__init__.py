@@ -3,10 +3,17 @@ A fully custom PEP 517 build backend that manually builds a .whl file
 without setuptools or other build backends.
 """
 
-import tomllib
+import sys
+
+if sys.version_info < (3, 11):
+    import tomli as tomllib
+else:
+    import tomllib
+
+import base64
+import hashlib
 import os
 import platform
-import sys
 import shutil
 import subprocess
 import tempfile
@@ -15,7 +22,7 @@ from pathlib import Path
 
 NAME = "actionengine"
 NAME_WITH_HYPHEN = "action-engine"
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 
 CLANG_RESOURCES = """- https://clang.llvm.org/get_started.html
@@ -27,6 +34,10 @@ def get_arch_tag():
     """Return the architecture tag for this build."""
     machine = platform.machine().lower()
     if "arm" in machine or "aarch64" in machine:
+        if sys.platform.startswith("linux"):
+            return "aarch64"
+        elif sys.platform == "darwin":
+            return "arm64"
         return "arm64"
 
     return "x86_64"
@@ -102,9 +113,6 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     os.environ["CC"] = cc if cc is not None else f"clang{exe_suffix}"
     os.environ["CXX"] = cxx if cxx is not None else f"clang++{exe_suffix}"
 
-    if sys.version_info.minor < 11:
-        raise RuntimeError("This package requires Python 3.11 or higher.")
-
     shutil.rmtree(REPO_ROOT / "build", ignore_errors=True)
 
     print("Cleaning previous builds...")
@@ -137,15 +145,6 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         != 0
     ):
         raise RuntimeError("Build failed during cmake build step.")
-    #
-    # if (
-    #     subprocess.Popen(
-    #         [str(REPO_ROOT / "scripts" / "generate_stubs.sh")],
-    #         env=os.environ,
-    #     ).wait()
-    #     != 0
-    # ):
-    #     raise RuntimeError("Build failed during stub generation step.")
 
     dependencies = project.get("project", {}).get("dependencies", [])
     requires_dist = "\nRequires-Dist: ".join(dependencies)
@@ -157,6 +156,29 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         # Copy package files into the temp directory
         pkg_target = temp_dir / NAME
         shutil.copytree((REPO_ROOT / "py" / "actionengine"), pkg_target)
+
+        # make stubs: generate .pyi files from compiled .so files in current
+        # environment (need to import the compiled extensions)
+        pythonpath = os.environ.get("PYTHONPATH", "")
+        pythonpaths = pythonpath.split(os.pathsep) if pythonpath else []
+        pythonpaths = [pkg_target.parent] + pythonpaths
+        os.environ["PYTHONPATH"] = os.pathsep.join(
+            [str(p) for p in pythonpaths]
+        )
+        if (
+            subprocess.Popen(
+                [
+                    str(REPO_ROOT / "scripts" / "generate_stubs.sh"),
+                    str(pkg_target.parent),
+                ],
+                env=os.environ,
+            ).wait()
+            != 0
+        ):
+            raise RuntimeError("Build failed during stub generation step.")
+
+        for cache_dir in pkg_target.rglob("__pycache__"):
+            shutil.rmtree(cache_dir)
 
         # Generate METADATA
         dist_info = (
@@ -184,9 +206,19 @@ Tag: {get_tag()}
         # Write RECORD file (will list all files)
         record_lines = []
         for file_path in temp_dir.rglob("*"):
-            if file_path.is_file():
-                rel = file_path.relative_to(temp_dir)
-                record_lines.append(f"{rel},,\n")
+            if not file_path.is_file():
+                continue
+            with open(file_path, "rb") as f:
+                data = f.read()
+
+            hash_digest = hashlib.sha256(data).digest()
+            hash_b64 = base64.urlsafe_b64encode(hash_digest).rstrip(b"=")
+            hash_str = f"sha256={hash_b64.decode('utf-8')}"
+            size = len(data)
+
+            rel = file_path.relative_to(temp_dir)
+            record_lines.append(f"{rel},{hash_str},{size}\n")
+        record_lines.append(f"{dist_info.relative_to(temp_dir) / 'RECORD'},,\n")
 
         (dist_info / "RECORD").write_text("".join(record_lines))
 

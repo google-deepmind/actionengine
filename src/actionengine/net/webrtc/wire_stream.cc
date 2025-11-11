@@ -546,6 +546,10 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
 
   RETURN_IF_ERROR(signalling_client.ConnectWithIdentity(identity));
 
+  std::string offer_message =
+      MakeOfferMessage(peer_identity, connection->createOffer());
+  RETURN_IF_ERROR(signalling_client.Send(offer_message));
+
   auto init = rtc::DataChannelInit{};
   init.reliability.unordered = true;
   auto data_channel =
@@ -560,10 +564,6 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
       done.Notify();
     }
   });
-
-  std::string offer_message =
-      MakeOfferMessage(peer_identity, connection->createOffer());
-  RETURN_IF_ERROR(signalling_client.Send(offer_message));
 
   thread::Select(
       {done.OnEvent(), signalling_client.OnError(), thread::OnCancel()});
