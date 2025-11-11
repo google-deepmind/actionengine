@@ -28,9 +28,19 @@ googletest_install_dir="${third_party_root}/build_deps/googletest"
 libdatachannel_install_dir="${third_party_root}/build_deps/libdatachannel"
 pybind11_install_dir="${third_party_root}/build_deps/pybind11"
 
+clear_build_env="0"
+if [[ -n "${ACTIONENGINE_CLEAR_3P_BUILDS}" ]]; then
+    clear_build_env="${ACTIONENGINE_CLEAR_3P_BUILDS}"
+fi
+
 # Google Test
 mkdir -p build_deps/googletest
 cd googletest
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${googletest_install_dir}"
+fi
 mkdir -p "${build_folder_name}"
 cd "${build_folder_name}"
 cmake \
@@ -46,6 +56,11 @@ cd "${third_party_root}"
 # Abseil
 mkdir -p build_deps/abseil-cpp
 cd abseil-cpp
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${abseil_install_dir}"
+fi
 mkdir -p "${build_folder_name}"
 cd "${build_folder_name}"
 cmake \
@@ -70,6 +85,11 @@ cd "${third_party_root}"
 # Pybind11
 mkdir -p build_deps/pybind11
 cd pybind11
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${pybind11_install_dir}"
+fi
 mkdir -p "${build_folder_name}"
 cd "${build_folder_name}"
 cmake \
@@ -88,6 +108,11 @@ cd "${third_party_root}"
 # cppitertools
 mkdir -p build_deps/cppitertools
 cd cppitertools
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "$__{build_folder_name}"
+    rm -rf "${cppitertools_install_dir}"
+fi
 mkdir -p "__${build_folder_name}"
 cd "__${build_folder_name}"
 cmake \
@@ -102,6 +127,11 @@ cd "${third_party_root}"
 
 # ZMQ
 mkdir -p build_deps/libzmq && cd libzmq
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${third_party_root}/build_deps/libzmq"
+fi
 mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
@@ -118,6 +148,11 @@ cmake --build . --parallel "${parallelism}" --target install
 cd "${third_party_root}"
 
 mkdir -p build_deps/cppzmq && cd cppzmq
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${third_party_root}/build_deps/cppzmq"
+fi
 mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
@@ -133,6 +168,11 @@ cd "${third_party_root}"
 
 # libdatachannel
 mkdir -p build_deps/libdatachannel && cd libdatachannel
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${libdatachannel_install_dir}"
+fi
 mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
 cmake \
   -DUSE_GNUTLS=0 \
@@ -151,6 +191,11 @@ cd "${third_party_root}"
 
 # hiredis
 mkdir -p build_deps/hiredis && cd hiredis
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${third_party_root}/build_deps/hiredis"
+fi
 mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
 cmake \
   -DCMAKE_BUILD_TYPE=Release \
@@ -165,6 +210,11 @@ cd "${third_party_root}"
 
 # libuv
 mkdir -p build_deps/libuv && cd libuv
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${third_party_root}/build_deps/libuv"
+fi
 mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
 cmake \
   -DCMAKE_BUILD_TYPE=Release \
@@ -180,6 +230,11 @@ cd "${third_party_root}"
 
 # uvw
 mkdir -p build_deps/uvw && cd uvw
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${third_party_root}/build_deps/uvw"
+fi
 mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
 cmake \
   -DCMAKE_BUILD_TYPE=Release \
@@ -195,6 +250,11 @@ cd "${third_party_root}"
 
 # protobuf
 mkdir -p build_deps/protobuf && cd protobuf
+# if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
+if [[ "${clear_build_env}" == "1" ]]; then
+    rm -rf "${build_folder_name}"
+    rm -rf "${third_party_root}/build_deps/protobuf"
+fi
 mkdir -p "${build_folder_name}" && cd "${build_folder_name}"
 cmake \
   -DBUILD_SHARED_LIBS=OFF \
