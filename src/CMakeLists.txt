@@ -69,6 +69,7 @@ target_include_directories(
 add_subdirectory(actionengine/actions)
 add_subdirectory(actionengine/concurrency)
 add_subdirectory(actionengine/data)
+add_subdirectory(actionengine/distributed)
 add_subdirectory(actionengine/msgpack)
 add_subdirectory(actionengine/net)
 add_subdirectory(actionengine/nodes)
