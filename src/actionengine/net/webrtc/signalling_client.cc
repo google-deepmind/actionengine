@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "actionengine/net/webrtc/signalling_client.h"
+
 #include <absl/strings/str_format.h>
 #include <absl/time/time.h>
 #include <boost/json/parse.hpp>
 
-#include "actionengine/net/webrtc/signalling_client.h"
 #include "actionengine/util/boost_asio_utils.h"
 #include "boost/asio/detail/impl/kqueue_reactor.hpp"
 #include "boost/asio/detail/impl/reactive_socket_service_base.ipp"
@@ -85,7 +86,7 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
   boost_stream->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::request_type& req) {
         req.set(boost::beast::http::field::user_agent,
-                "Action Engine 0.1.3 "
+                "Action Engine 0.1.4 "
                 "WebsocketWireStream client");
       }));
   boost_stream->set_option(boost::beast::websocket::stream_base::timeout(
@@ -119,7 +120,6 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
 
 void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   std::string message;
-  boost::json::value parsed_message;
   absl::Status status;
 
   while (!thread::Cancelled()) {
@@ -134,7 +134,7 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
 
     boost::system::error_code error;
-    parsed_message = boost::json::parse(message, error);
+    boost::json::value parsed_message = boost::json::parse(message, error);
     if (error) {
       LOG(ERROR) << "WebsocketActionEngineServer parse() failed: "
                  << error.message();
@@ -142,7 +142,7 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
 
     std::string client_id;
-    if (auto id_ptr = parsed_message.find_pointer("/id", error);
+    if (const auto id_ptr = parsed_message.find_pointer("/id", error);
         id_ptr == nullptr || error) {
       LOG(ERROR) << "WebsocketActionEngineServer no 'id' field in message: "
                  << message;
@@ -152,7 +152,7 @@ void SignallingClient::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
 
     std::string type;
-    if (auto type_ptr = parsed_message.find_pointer("/type", error);
+    if (const auto type_ptr = parsed_message.find_pointer("/type", error);
         type_ptr == nullptr || error) {
       LOG(ERROR) << "WebsocketActionEngineServer no 'type' field in message: "
                  << message;

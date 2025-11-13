@@ -1,6 +1,6 @@
 [project]
 name = "action-engine"
-version = "0.1.3"
+version = "0.1.4"
 
 authors = [
     { name = "Helena Pankov", email = "helenapankov@google.com" },
@@ -23,12 +23,12 @@ dependencies = [
 requires = [
     "wheel",
     "build",
-    "cmake>3.22.0,<=3.31.6",
-    "ninja",
+    "cmake==3.31.6",
+#    "ninja",
     "setuptools",
     "ormsgpack",
     "numpy>=2,<2.3.0",
-    "pybind11>=2.13.6",
+#    "pybind11>=2.13.6",
     "pybind11-stubgen>=2.5.5",
     "Pillow",
     "pydantic"]

@@ -17,7 +17,7 @@ if isunset parallelism; then
   fi
 fi
 if isunset build_folder_name; then
-  build_folder_name="build"
+  build_folder_name="__build"
 fi
 
 python_exec_prefix=$(python3 -c "import sys; print(sys.exec_prefix)")
@@ -110,11 +110,11 @@ mkdir -p build_deps/cppitertools
 cd cppitertools
 # if ACTIONENGINE_CLEAR_3P_BUILDS is set to 1, remove previous build folders
 if [[ "${clear_build_env}" == "1" ]]; then
-    rm -rf "$__{build_folder_name}"
+    rm -rf "${build_folder_name}"
     rm -rf "${cppitertools_install_dir}"
 fi
-mkdir -p "__${build_folder_name}"
-cd "__${build_folder_name}"
+mkdir -p "${build_folder_name}"
+cd "${build_folder_name}"
 cmake \
   -DCMAKE_CXX_STANDARD="${cc_standard}" \
   -DCMAKE_INSTALL_PREFIX="${cppitertools_install_dir}" \

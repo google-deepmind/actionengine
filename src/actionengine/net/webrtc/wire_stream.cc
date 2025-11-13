@@ -546,14 +546,14 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
 
   RETURN_IF_ERROR(signalling_client.ConnectWithIdentity(identity));
 
-  std::string offer_message =
-      MakeOfferMessage(peer_identity, connection->createOffer());
-  RETURN_IF_ERROR(signalling_client.Send(offer_message));
-
   auto init = rtc::DataChannelInit{};
   init.reliability.unordered = true;
   auto data_channel =
       connection->createDataChannel(std::string(identity), std::move(init));
+
+  std::string offer_message =
+      MakeOfferMessage(peer_identity, connection->createOffer());
+  RETURN_IF_ERROR(signalling_client.Send(offer_message));
 
   data_channel->onOpen([&done]() { done.Notify(); });
   connection->onIceStateChange([&done, connection = connection.get()](
@@ -565,7 +565,8 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     }
   });
 
-  thread::Select(
+  const int selected = thread::SelectUntil(
+      absl::Now() + absl::Seconds(30),
       {done.OnEvent(), signalling_client.OnError(), thread::OnCancel()});
   signalling_client.ResetCallbacks();
 
@@ -578,6 +579,10 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
   // data_channel->resetCallbacks();
 
   if (!data_channel->isOpen()) {
+    if (selected == -1) {
+      return absl::DeadlineExceededError(
+          "WebRtcWireStream data channel failed to open within timeout.");
+    }
     return absl::InternalError(
         "WebRtcWireStream data channel is not open, likely due to a failed "
         "connection.");
