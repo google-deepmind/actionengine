@@ -282,9 +282,15 @@ WebRtcWireStream::WebRtcWireStream(
 
 WebRtcWireStream::~WebRtcWireStream() {
   data_channel_->close();
+  const absl::Time deadline = absl::Now() + absl::Seconds(10);
   act::MutexLock lock(&mu_);
   while (!closed_) {
-    cv_.Wait(&mu_);
+    if (cv_.WaitWithDeadline(&mu_, deadline)) {
+      break;
+    }
+  }
+  if (!closed_) {
+    LOG(WARNING) << "WebRtcWireStream destructor timed out waiting for close.";
   }
   connection_->close();
 }
@@ -306,8 +312,13 @@ absl::Status WebRtcWireStream::Send(WireMessage message) {
 
 absl::Status WebRtcWireStream::SendInternal(WireMessage message)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  constexpr absl::Duration openOrCloseTimeout = absl::Seconds(10);
+  const absl::Time deadline = absl::Now() + openOrCloseTimeout;
   while (!opened_ && !closed_) {
-    cv_.Wait(&mu_);
+    if (cv_.WaitWithDeadline(&mu_, deadline) && !opened_ && !closed_) {
+      return absl::DeadlineExceededError(
+          "WebRtcWireStream Send timed out waiting for channel to open.");
+    }
   }
 
   if (closed_) {

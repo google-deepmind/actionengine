@@ -22,7 +22,7 @@ from pathlib import Path
 
 NAME = "actionengine"
 NAME_WITH_HYPHEN = "action-engine"
-VERSION = "0.1.4"
+VERSION = "0.1.6"
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 
 CLANG_RESOURCES = """- https://clang.llvm.org/get_started.html
@@ -113,7 +113,8 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     os.environ["CC"] = cc if cc is not None else f"clang{exe_suffix}"
     os.environ["CXX"] = cxx if cxx is not None else f"clang++{exe_suffix}"
 
-    shutil.rmtree(REPO_ROOT / "build", ignore_errors=True)
+    if os.environ.get("ACTIONENGINE_KEEP_BUILD_DIR", None) is None:
+        shutil.rmtree(REPO_ROOT / "build", ignore_errors=True)
 
     print("Cleaning previous builds...")
     for so_file in (REPO_ROOT / "py" / "actionengine").glob("*.so"):

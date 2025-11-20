@@ -1,5 +1,3 @@
-import asyncio
-
 import actionengine
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -20,6 +18,7 @@ SCHEMA = actionengine.ActionSchema(
     name="echo",
     inputs=[("text", "text/plain")],
     outputs=[("response", "text/plain")],
+    description='Echoes back the text provided in the input "text" into the output "response", chunk by chunk.',
 )
 
 

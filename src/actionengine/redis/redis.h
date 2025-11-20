@@ -136,8 +136,9 @@ class Redis {
   // Deleted default constructor to prevent instantiation without connection.
   Redis() = delete;
 
-  static absl::StatusOr<std::unique_ptr<Redis>> Connect(std::string_view host,
-                                                        int port = 6379);
+  static absl::StatusOr<std::unique_ptr<Redis>> Connect(
+      std::string_view host, int port = 6379,
+      absl::Duration timeout = absl::Seconds(10));
 
   // Non-copyable, non-moveable.
   Redis(const Redis&) = delete;
@@ -200,7 +201,7 @@ class Redis {
                   Reply* absl_nonnull reply_out)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  absl::Status CheckConnected() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  absl::Status EnsureConnected() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Status UnsubscribeInternal(std::string_view channel);
 

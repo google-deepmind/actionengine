@@ -42,7 +42,6 @@ namespace act {
 
 ActionContext::~ActionContext() {
   act::MutexLock lock(&mu_);
-  DLOG(INFO) << "ActionContext::~ActionContext()";
 
   CancelContextInternal();
 

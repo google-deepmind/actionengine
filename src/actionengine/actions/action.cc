@@ -58,8 +58,15 @@ Action::~Action() {
 
   if (has_been_run_ && !run_status_.has_value()) {
     CancelInternal();
+    const absl::Time deadline = absl::Now() + absl::Seconds(10);
     while (!run_status_.has_value()) {
-      cv_.Wait(&mu_);
+      if (cv_.WaitWithDeadline(&mu_, deadline)) {
+        LOG(WARNING) << absl::StrFormat(
+            "Action destructor timed out waiting for action %s (id=%s) to "
+            "complete after cancellation.",
+            schema_.name, id_);
+        break;
+      }
     }
   }
 
@@ -178,13 +185,22 @@ Session* absl_nullable Action::GetSession() const {
   return session_;
 }
 
+void Action::BindRegistry(ActionRegistry* registry) {
+  act::MutexLock lock(&mu_);
+  registry_ = registry;
+}
+
 absl::Status Action::Await(absl::Duration timeout) {
   const absl::Time started_at = absl::Now();
 
   act::MutexLock lock(&mu_);
   if (has_been_run_) {
-    while (!run_status_.has_value()) {
-      cv_.WaitWithDeadline(&mu_, started_at + timeout);
+    while (!run_status_) {
+      if (cv_.WaitWithDeadline(&mu_, started_at + timeout) && !run_status_) {
+        return absl::DeadlineExceededError(
+            absl::StrFormat("Awaiting action %s (id=%s) timed out after %v",
+                            schema_.name, id_, timeout));
+      }
     }
     return *run_status_;
   }
@@ -390,17 +406,16 @@ void Action::UnbindStreams() {
   nodes_with_bound_streams_.clear();
 }
 
-ActionRegistry* Action::GetRegistry() const {
+ActionRegistry* absl_nullable Action::GetRegistry() const {
   act::MutexLock lock(&mu_);
-  if (session_ == nullptr) {
-    return nullptr;
-  }
-  return session_->GetActionRegistry();
+  return registry_ != nullptr
+             ? registry_
+             : (session_ != nullptr ? session_->GetActionRegistry() : nullptr);
 }
 
 std::unique_ptr<Action> Action::MakeActionInSameSession(
     const std::string_view name, const std::string_view action_id) const {
-  const ActionRegistry* absl_nullable registry = GetRegistry();
+  ActionRegistry* absl_nullable registry = GetRegistry();
   if (registry == nullptr) {
     return nullptr;
   }

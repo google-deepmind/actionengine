@@ -193,6 +193,18 @@ class Action : public std::enable_shared_from_this<Action> {
   [[nodiscard]] Session* absl_nullable GetSession() const;
 
   /** @brief
+   *    Binds a registry to the action.
+   *
+   * The registry provides the action with a way to create nested actions
+   * by name, and is accessible to the action handler in case it needs to do
+   * custom logic based on the registry.
+   * @param registry
+   *   The registry to bind the action to. If nullptr, the action will not be
+   *   bound to any registry.
+   */
+  void BindRegistry(ActionRegistry* absl_nullable registry);
+
+  /** @brief
    *    Makes a different action in the same session. Should be used to create
    *    nested actions.
    *
@@ -363,6 +375,7 @@ class Action : public std::enable_shared_from_this<Action> {
   NodeMap* absl_nullable node_map_ ABSL_GUARDED_BY(mu_) = nullptr;
   WireStream* absl_nullable stream_ ABSL_GUARDED_BY(mu_) = nullptr;
   Session* absl_nullable session_ ABSL_GUARDED_BY(mu_) = nullptr;
+  ActionRegistry* absl_nullable registry_ ABSL_GUARDED_BY(mu_) = nullptr;
 
   absl::flat_hash_set<ChunkStoreReader*> reffed_readers_ ABSL_GUARDED_BY(mu_);
 

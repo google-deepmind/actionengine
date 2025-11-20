@@ -98,9 +98,9 @@ class PyWireStream final : public WireStream {
     const py::function function = py::get_override(this, "receive");
 
     if (!function) {
-      LOG(FATAL) << "receive is not implemented in the Python subclass of "
-                    "WireStream.";
-      ABSL_ASSUME(false);
+      return absl::UnimplementedError(
+          "receive is not implemented in the Python subclass of "
+          "WireStream.");
     }
     const py::object py_result = function(absl::ToDoubleSeconds(timeout));
 

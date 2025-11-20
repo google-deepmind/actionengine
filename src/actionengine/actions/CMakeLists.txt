@@ -27,6 +27,7 @@ target_link_libraries(
         absl::statusor
         absl::strings
         absl::strings_internal
+        Boost::json
 )
 target_link_libraries(
         actActions

@@ -382,7 +382,7 @@ AsyncNode& operator<<(AsyncNode& node, std::vector<T> value) {
   for (auto& element : std::move(value)) {
     auto status = node.Put(std::move(element));
     if (!status.ok()) {
-      LOG(ERROR) << "Failed to put element: " << status;
+      LOG(FATAL) << "Failed to put element: " << status;
       break;
     }
   }

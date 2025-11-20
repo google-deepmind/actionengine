@@ -36,6 +36,9 @@
 
 namespace act {
 
+// Forward declaration
+class Action;
+
 /** A registry for ActionEngine actions.
  *
  * This class is used to register actions with their schemas and handlers, and
@@ -46,6 +49,8 @@ namespace act {
  */
 class ActionRegistry {
  public:
+  ActionRegistry();
+
   /** @brief
    *    Registers an action with the given name, schema, and handler.
    *
@@ -119,7 +124,7 @@ class ActionRegistry {
    */
   [[nodiscard]] std::unique_ptr<Action> MakeAction(
       std::string_view name, std::string_view action_id = "",
-      std::vector<Port> inputs = {}, std::vector<Port> outputs = {}) const;
+      std::vector<Port> inputs = {}, std::vector<Port> outputs = {});
 
   /** @brief
    *    Gets the schema of the action with the given name.

@@ -69,6 +69,7 @@ class ActionSchema(_C.actions.ActionSchema):
         name: str = "",
         inputs: list[tuple[str, str | type[BaseModel]]],
         outputs: list[tuple[str, str | type[BaseModel]]],
+        description: str = "",
     ):
         """Constructor for ActionSchema.
 
@@ -91,7 +92,9 @@ class ActionSchema(_C.actions.ActionSchema):
             )
             for name, mimetype in outputs
         ]
-        super().__init__(name=name, inputs=inputs, outputs=outputs)
+        super().__init__(
+            name=name, inputs=inputs, outputs=outputs, description=description
+        )
 
 
 class ActionRegistry(_C.actions.ActionRegistry):

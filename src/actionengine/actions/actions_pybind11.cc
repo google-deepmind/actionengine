@@ -84,7 +84,7 @@ ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
         }
 
         ASSIGN_OR_RETURN(
-            py::object future,
+            const py::object future,
             RunThreadsafeIfCoroutine(coro, GetGloballySavedEventLoop(),
                                      /*return_future=*/true));
 
@@ -92,24 +92,41 @@ ActionHandler MakeStatusAwareActionHandler(py::handle py_handler) {
         auto future_done_callback = py::cpp_function([&done](py::handle) {
           py::gil_scoped_acquire gil;
           done.Notify();
-        });  // Keep the callback alive until done.
+        });
         future.attr("add_done_callback")(std::move(future_done_callback));
         {
           py::gil_scoped_release release;
           thread::Select({done.OnEvent(), thread::OnCancel()});
         }
-        if (thread::Cancelled()) {
+
+        const bool cancelled = thread::Cancelled();
+        // If we were cancelled, we need to cancel the future.
+        if (cancelled) {
           auto _ = future.attr("cancel")();
+        }
+        // Even if we were cancelled, we still need to wait for the future to
+        // finish to avoid resource leaks and no-GIL refcount change attempts.
+        {
+          const absl::Time deadline = !cancelled
+                                          ? absl::InfiniteFuture()
+                                          : absl::Now() + absl::Seconds(10);
+          py::gil_scoped_release release;
+          thread::SelectUntil(deadline, {done.OnEvent()});
+        }
+        if (thread::Cancelled()) {
           return absl::CancelledError(
               "Action handler was cancelled while waiting for the "
               "coroutine.");
         }
-        auto _ = future.attr("result")();  // Wait for the coroutine to finish.
+
+        // At this point, the future is done, but it might have failed.
+        // If it failed, this will catch and propagate the exception.
+        auto _ = future.attr("result")();
+
         return absl::OkStatus();
-      } else {
-        // If the handler is not a coroutine, we can call it directly.
-        auto _ = py_handler(action);
       }
+      // (else), if the handler is not a coroutine, we can call it directly.
+      auto _ = py_handler(action);
     } catch (py::error_already_set& e) {
       return absl::InternalError(
           absl::StrCat("Python error in action handler: ", e.what()));
@@ -126,18 +143,22 @@ void BindActionSchema(py::handle scope, std::string_view name) {
       .def(MakeSameObjectRefConstructor<ActionSchema>())
       .def(py::init([](std::string_view action_name,
                        const std::vector<NameAndMimetype>& inputs,
-                       const std::vector<NameAndMimetype>& outputs) {
+                       const std::vector<NameAndMimetype>& outputs,
+                       std::string_view description = "") {
              NameToMimetype input_map(inputs.begin(), inputs.end());
              NameToMimetype output_map(outputs.begin(), outputs.end());
              return std::make_shared<ActionSchema>(std::string(action_name),
-                                                   input_map, output_map);
+                                                   input_map, output_map,
+                                                   std::string(description));
            }),
            py::kw_only(), py::arg("name"),
            py::arg_v("inputs", std::vector<NameAndMimetype>()),
-           py::arg_v("outputs", std::vector<NameAndMimetype>()))
+           py::arg_v("outputs", std::vector<NameAndMimetype>()),
+           py::arg_v("description", ""))
       .def_readwrite("name", &ActionSchema::name)
       .def_readwrite("inputs", &ActionSchema::inputs)
       .def_readwrite("outputs", &ActionSchema::outputs)
+      .def_readwrite("description", &ActionSchema::description)
       .def("__repr__",
            [](const ActionSchema& def) { return absl::StrCat(def); })
       .doc() = "An action schema.";

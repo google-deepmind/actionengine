@@ -49,6 +49,8 @@ internal::EventLoop::EventLoop() : loop_(uvw::loop::create()) {
 }
 
 internal::EventLoop::~EventLoop() {
+  loop_->stop();
+  handle_->send();
   handle_->close();
   thread_->join();
 }
@@ -170,8 +172,6 @@ void Redis::ReplyCallback(redisAsyncContext* absl_nonnull context,
 }
 
 void Redis::PushReplyCallback(redisAsyncContext* context, void* hiredis_reply) {
-  DLOG(INFO) << "Redis::PushReplyCallback called with redisAsyncContext: "
-             << context;
   const auto redis = static_cast<Redis*>(context->data);
   CHECK(redis != nullptr)
       << "Redis::DisconnectCallback called with redisAsyncContext not "
@@ -180,7 +180,8 @@ void Redis::PushReplyCallback(redisAsyncContext* context, void* hiredis_reply) {
 }
 
 absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
-                                                      int port) {
+                                                      int port,
+                                                      absl::Duration timeout) {
   auto redis = std::make_unique<Redis>(internal::PrivateConstructorTag{});
 
   redisOptions options{};
@@ -192,6 +193,12 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
   REDIS_OPTIONS_SET_PRIVDATA(&options, redis.get(), [](void*) {});
 
   redisAsyncContext* context_ptr = redisAsyncConnectWithOptions(&options);
+  if (context_ptr->err) {
+    absl::Status status = absl::InternalError(context_ptr->errstr);
+    redisAsyncFree(context_ptr);
+    return status;
+  }
+
   std::unique_ptr<redisAsyncContext, internal::RedisContextDeleter> context(
       context_ptr);
   if (context == nullptr) {
@@ -206,15 +213,37 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
   redis->context_ = std::move(context);
 
   redisLibuvAttach(redis->context_.get(), redis->event_loop_.Get()->raw());
-  redis->event_loop_.Wakeup();
-
   redisAsyncSetConnectCallback(redis->context_.get(), Redis::ConnectCallback);
   redisAsyncSetDisconnectCallback(redis->context_.get(),
                                   Redis::DisconnectCallback);
+  redisAsyncSetTimeout(
+      redis->context_.get(),
+      {static_cast<int32_t>(absl::ToInt64Seconds(timeout)),
+       static_cast<int32_t>(absl::ToInt64Microseconds(timeout) %
+                            absl::ToInt64Microseconds(absl::Seconds(1)))});
   redisAsyncSetPushCallback(redis->context_.get(), Redis::PushReplyCallback);
 
+  redis->event_loop_.Wakeup();
+
+  const absl::Time deadline = absl::Now() + timeout;
   while (!redis->connected_ && redis->status_.ok()) {
-    redis->cv_.Wait(&redis->mu_);
+    if (redis->cv_.WaitWithDeadline(&redis->mu_, deadline)) {
+      break;
+    }
+  }
+
+  if (!redis->status_.ok()) {
+    return redis->status_;
+  }
+
+  if (!redis->connected_) {
+    if (absl::Now() >= deadline) {
+      return absl::DeadlineExceededError(
+          absl::StrCat("Timed out connecting to Redis server at ", host, ":",
+                       port, " after ", timeout, "."));
+    }
+    return absl::InternalError(absl::StrCat(
+        "Failed to connect to Redis server at ", host, ":", port, "."));
   }
 
   redis->mu_.unlock();
@@ -225,14 +254,19 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
     return redis->status_;
   }
 
+  DLOG(INFO) << "Connected to Redis server at " << host << ":" << port << ".";
+
   return redis;
 }
 
 Redis::~Redis() {
   act::MutexLock lock(&mu_);
 
-  LOG(INFO) << "~Redis: Disconnecting from Redis server.";
+  if (!connected_) {
+    return;
+  }
 
+  DLOG(INFO) << "~Redis: Disconnecting from Redis server.";
   for (const auto& [channel, subscription] : subscriptions_) {
     ExecuteCommandWithGuards("UNSUBSCRIBE", {channel}).IgnoreError();
   }
@@ -268,7 +302,7 @@ absl::StatusOr<std::shared_ptr<Subscription>> Redis::Subscribe(
   act::MutexLock lock(&mu_);
 
   if (channel.empty()) {
-    LOG(ERROR) << "Subscribe called with empty channel.";
+    LOG(ERROR) << "Subscribe called with an empty channel.";
     return nullptr;
   }
 
@@ -353,7 +387,7 @@ absl::StatusOr<Reply> Redis::ExecuteCommandWithGuards(std::string_view command,
     return absl::InvalidArgumentError("Command cannot be empty.");
   }
   RETURN_IF_ERROR(status_);
-  RETURN_IF_ERROR(CheckConnected());
+  RETURN_IF_ERROR(EnsureConnected());
 
   ++num_pending_commands_;
   absl::StatusOr<Reply> reply = ExecuteCommandInternal(command, args);
@@ -422,7 +456,7 @@ bool Redis::ParseReply(redisReply* hiredis_reply, Reply* reply_out) {
   return true;
 }
 
-absl::Status Redis::CheckConnected() const {
+absl::Status Redis::EnsureConnected() const {
   if (!connected_) {
     return absl::FailedPreconditionError(
         "Redis is not connected to the Redis server.");
@@ -506,7 +540,6 @@ void Redis::OnConnect(int status) {
     connected_ = true;
   }
   cv_.SignalAll();
-  // TODO: attempt to reconnect
 }
 
 void Redis::OnDisconnect(int status) {

@@ -17,11 +17,60 @@
 #include <functional>
 #include <utility>
 
+#include <boost/json/object.hpp>
+#include <boost/json/serialize.hpp>
+#include <boost/json/string.hpp>
+#include <boost/json/value.hpp>
+#include <boost/system/detail/error_code.hpp>
+
 #include "actionengine/actions/action.h"
 #include "actionengine/data/types.h"
 #include "actionengine/util/map_util.h"
+#include "actionengine/util/status_macros.h"
 
 namespace act {
+
+ActionRegistry::ActionRegistry() {
+  Register(kListActionsSchema.name, kListActionsSchema,
+           [this](const std::shared_ptr<Action>& action) -> absl::Status {
+             AsyncNode* actions_output = action->GetOutput("actions");
+             if (actions_output == nullptr) {
+               return absl::FailedPreconditionError(
+                   "Action has no 'actions' output. Cannot list actions.");
+             }
+
+             for (const auto& name : ListRegisteredActions()) {
+               boost::json::object schema_obj;
+               schema_obj["name"] = boost::json::string(name);
+               const ActionSchema& schema = GetSchema(name);
+
+               boost::json::object inputs_obj;
+               for (const auto& [input_name, input_type] : schema.inputs) {
+                 inputs_obj["name"] = boost::json::string(input_name);
+                 inputs_obj["type"] = boost::json::string(input_type);
+               }
+               schema_obj["inputs"] = std::move(inputs_obj);
+
+               boost::json::object outputs_obj;
+               for (const auto& [output_name, output_type] : schema.outputs) {
+                 outputs_obj["name"] = boost::json::string(output_name);
+                 outputs_obj["type"] = boost::json::string(output_type);
+               }
+               schema_obj["outputs"] = std::move(outputs_obj);
+
+               schema_obj["description"] =
+                   boost::json::string(schema.description);
+
+               RETURN_IF_ERROR(actions_output->Put({
+                   .metadata = ChunkMetadata{.mimetype = "application/json"},
+                   .data = boost::json::serialize(schema_obj),
+               }));
+             }
+
+             RETURN_IF_ERROR(actions_output->Put(act::EndOfStream()));
+             return absl::OkStatus();
+           });
+}
 
 void ActionRegistry::Register(std::string_view name, const ActionSchema& schema,
                               const ActionHandler& handler) {
@@ -38,14 +87,16 @@ ActionMessage ActionRegistry::MakeActionMessage(std::string_view name,
   return act::FindOrDie(schemas_, name).GetActionMessage(id);
 }
 
-std::unique_ptr<Action> ActionRegistry::MakeAction(
-    std::string_view name, std::string_view action_id, std::vector<Port> inputs,
-    std::vector<Port> outputs) const {
+std::unique_ptr<Action> ActionRegistry::MakeAction(std::string_view name,
+                                                   std::string_view action_id,
+                                                   std::vector<Port> inputs,
+                                                   std::vector<Port> outputs) {
 
   auto action =
       std::make_unique<Action>(act::FindOrDie(schemas_, name), action_id,
                                std::move(inputs), std::move(outputs));
   action->BindHandler(act::FindOrDie(handlers_, name));
+  action->BindRegistry(this);
 
   return action;
 }

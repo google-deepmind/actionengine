@@ -99,6 +99,25 @@ struct ActionSchema {
    * produced by the action for a given output.
    */
   NameToMimetype outputs;
+
+  /** A description of the action. */
+  std::string description;
+};
+
+constexpr std::string_view kListActionsDescription =
+    "Lists all registered actions in the action registry. Returns a stream of "
+    "JSON objects, each representing an action schema with its name, inputs, "
+    "and outputs. Example: "
+    "{\"name\": \"__list_actions\", "
+    "\"inputs\": [], "
+    "\"outputs\": [{\"name\": \"actions\", \"type\": \"application/json\"}, "
+    "...]}";
+
+const ActionSchema kListActionsSchema = {
+    .name = "__list_actions",
+    .inputs = {},
+    .outputs = {{"actions", "application/json"}},
+    .description = std::string(kListActionsDescription),
 };
 
 /** @private */

@@ -15,8 +15,9 @@
 """Imports data (types) from the C++ bindings."""
 
 import io
+import json
 import threading
-from typing import Any, Callable
+from typing import Any
 
 from actionengine import _C
 from actionengine import status
@@ -99,6 +100,14 @@ def png_file_bytes_to_pil_image(png_bytes: bytes) -> Image.Image:
         return image
 
 
+def dict_to_bytes(value: dict) -> bytes:
+    return json.dumps(value).encode("utf-8")
+
+
+def bytes_to_dict(value: bytes) -> dict:
+    return json.loads(value.decode("utf-8"))
+
+
 _DEFAULT_SERIALIZERS_REGISTERED = False
 
 
@@ -113,6 +122,9 @@ def _register_default_serializers():
     registry.register_deserializer(
         "image/png", png_file_bytes_to_pil_image, Image.Image
     )
+
+    registry.register_serializer("application/json", dict_to_bytes)
+    registry.register_deserializer("application/json", bytes_to_dict, dict)
 
     registry.register_serializer(
         "application/octet-stream", bytes_to_bytes, bytes

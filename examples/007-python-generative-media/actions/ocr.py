@@ -73,6 +73,11 @@ SCHEMA = actionengine.ActionSchema(
     name="ocr",
     inputs=[("image", "image/png")],
     outputs=[("text_boxes", TextBox), ("_user_log", "text/plain")],
+    description=(
+        f"Extracts text boxes from an image using a vision-language model. "
+        f"Outputs each text box as a JSON object with text and bounding box "
+        f"coordinates:\n{json.dumps(TextBox.model_json_schema(mode="serialization"))}"
+    ),
 )
 
 
