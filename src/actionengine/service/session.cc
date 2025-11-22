@@ -239,10 +239,20 @@ absl::Status Session::DispatchMessage(WireMessage message,
     }
     return absl::OkStatus();
   }
+
+  std::vector<std::string> error_messages;
+
   for (auto& node_fragment : message.node_fragments) {
     AsyncNode* absl_nonnull node = GetNode(node_fragment.id);
-    status.Update(node->Put(std::move(node_fragment)));
+    const std::string node_id = node_fragment.id;
+    if (absl::Status node_fragment_status = node->Put(std::move(node_fragment));
+        !node_fragment_status.ok()) {
+      error_messages.push_back(
+          absl::StrCat("node fragment ", node_id, ": ", node_fragment_status));
+      status.Update(node_fragment_status);
+    }
   }
+
   for (auto& [action_id, action_name, inputs, outputs] : message.actions) {
     if (!action_registry_->IsRegistered(action_name)) {
       status.Update(
@@ -262,10 +272,19 @@ absl::Status Session::DispatchMessage(WireMessage message,
     action->ClearInputsAfterRun(true);
     action->ClearOutputsAfterRun(true);
 
-    status.Update(action_context_->Dispatch(std::move(action)));
+    absl::Status action_dispatch_status =
+        action_context_->Dispatch(std::move(action));
+    if (!action_dispatch_status.ok()) {
+      error_messages.push_back(absl::StrCat("action ", action_name, " ",
+                                            action_id, ": ",
+                                            action_dispatch_status));
+      status.Update(action_dispatch_status);
+    }
   }
+
   if (!status.ok()) {
-    DLOG(ERROR) << "Failed to dispatch message: " << status;
+    DLOG(ERROR) << "Failed to dispatch message. Details:\n"
+                << absl::StrJoin(error_messages, ";\n");
   }
   return status;
 }
