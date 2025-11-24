@@ -1,5 +1,9 @@
 import { Entity, unpackEntity, World } from 'koota'
-import { Action, makeChunkFromBlob, makeTextChunk } from 'actionengine'
+import {
+  Action,
+  makeChunkFromBlob,
+  makeTextChunk,
+} from '@helenapankov/actionengine'
 import {
   Color,
   IsSelected,

@@ -1,4 +1,4 @@
-import { AsyncNode } from 'actionengine'
+import { AsyncNode } from '@helenapankov/actionengine'
 
 import { ChatMessage } from '@/components/dom/Chat'
 

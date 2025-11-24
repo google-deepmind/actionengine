@@ -2,8 +2,8 @@
 
 import { Chat, ChatMessage } from '@/components/dom/Chat'
 
-import { AsyncNode, makeTextChunk } from 'actionengine'
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { AsyncNode, makeTextChunk } from '@helenapankov/actionengine'
+import { useCallback, useContext, useEffect, useState } from 'react'
 import { useControls } from 'leva'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { ActionEngineContext, makeAction } from '@/helpers/actionengine'

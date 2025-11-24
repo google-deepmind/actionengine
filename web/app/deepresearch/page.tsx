@@ -3,7 +3,12 @@
 import { Chat, ChatMessage } from '@/components/dom/Chat'
 import { decode } from '@msgpack/msgpack'
 
-import { Action, ActionRegistry, AsyncNode, makeTextChunk } from 'actionengine'
+import {
+  Action,
+  ActionRegistry,
+  AsyncNode,
+  makeTextChunk,
+} from '@helenapankov/actionengine'
 import { useCallback, useContext, useEffect, useState } from 'react'
 import { useControls } from 'leva'
 import { useSearchParams } from 'next/navigation'

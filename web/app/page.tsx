@@ -1,6 +1,9 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { common, createStarryNight } from '@wooorm/starry-night'
+import '@/helpers/codeStyle.css'
+import { toHtml } from 'hast-util-to-html'
 import { Suspense, useEffect, useState } from 'react'
 import { Common } from '@/components/canvas/View'
 import { useRouter } from 'next/navigation'
@@ -126,8 +129,36 @@ const GoogleBlobs = () => {
   )
 }
 
+const HighlightedCode = ({
+  language,
+  starryNightInstance,
+  children,
+  ...props
+}) => {
+  if (!starryNightInstance) {
+    return <pre>{children}</pre>
+  }
+  const scope = starryNightInstance.flagToScope(language)
+  const tree = starryNightInstance.highlight(children, scope)
+  const html = toHtml(tree)
+  return <pre {...props} dangerouslySetInnerHTML={{ __html: html }} />
+}
+
 export default function Page() {
   const world = useWorld()
+
+  const [starryNightInstance, setStarryNightInstance] = useState(null)
+  useEffect(() => {
+    let cancel = false
+    createStarryNight(common).then((instance) => {
+      if (!cancel) {
+        setStarryNightInstance(instance)
+      }
+    })
+    return () => {
+      cancel = true
+    }
+  }, [])
 
   return (
     <>
@@ -233,6 +264,17 @@ export default function Page() {
             >
               Show me code examples!
             </h3>
+{/*            <HighlightedCode*/}
+{/*              language='python'*/}
+{/*              className='w-full mb-6'*/}
+{/*              starryNightInstance={starryNightInstance}*/}
+{/*            >*/}
+{/*              {`*/}
+{/*import actionengine*/}
+{/*actionengine.to_chunk("Hello, world!")*/}
+{/*a = True*/}
+{/*`}*/}
+{/*            </HighlightedCode>*/}
           </div>
         </div>
         <div className='flex flex-row w-full items-start flex-wrap'>

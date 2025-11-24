@@ -6,7 +6,7 @@ import {
   Session,
   ActionEngineStream,
   WebRtcActionEngineStream,
-} from 'actionengine'
+} from '@helenapankov/actionengine'
 import { v4 as uuidv4 } from 'uuid'
 import { ReadonlyURLSearchParams } from 'next/navigation'
 import {

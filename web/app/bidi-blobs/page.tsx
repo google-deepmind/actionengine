@@ -2,7 +2,12 @@
 
 import dynamic from 'next/dynamic'
 import { useWorld } from 'koota/react'
-import { makeTextChunk, Action, ActionRegistry, AsyncNode } from 'actionengine'
+import {
+  makeTextChunk,
+  Action,
+  ActionRegistry,
+  AsyncNode,
+} from '@helenapankov/actionengine'
 import {
   ActionEngineState,
   bindActionHandlerToWorld,

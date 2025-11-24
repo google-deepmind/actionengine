@@ -1,6 +1,10 @@
 'use client'
 
-import { Action, encodeBaseModelMessage, makeBlobFromChunk } from 'actionengine'
+import {
+  Action,
+  encodeBaseModelMessage,
+  makeBlobFromChunk,
+} from '@helenapankov/actionengine'
 
 import { OrbitControls, useTexture } from '@react-three/drei'
 import { makeAction } from '@/helpers/actionengine'
@@ -13,12 +17,14 @@ import React, {
   useState,
 } from 'react'
 import { useCursor } from '@react-three/drei'
-import { ActionRegistry, makeTextChunk, NodeMap } from 'actionengine'
-import { v4 as uuidv4 } from 'uuid'
+import {
+  ActionRegistry,
+  makeTextChunk,
+} from '@helenapankov/actionengine'
 import { levaStore, useControls } from 'leva'
 import { trait } from 'koota'
 import { useWorld } from 'koota/react'
-import { useQueryFirst, useTrait, useTraitEffect } from 'koota/react'
+import { useTrait, useTraitEffect } from 'koota/react'
 import {
   GlobalUIState,
   Material,

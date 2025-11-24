@@ -1,4 +1,3 @@
-import { AsyncNode } from 'actionengine'
 import { ChatMessage } from '@/components/dom/Chat'
 
 type MessageSetter = (fn: (prev: ChatMessage[]) => ChatMessage[]) => void

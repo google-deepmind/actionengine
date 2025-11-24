@@ -2,7 +2,7 @@
 
 import { Chat, ChatMessage } from '@/components/dom/Chat'
 
-import { AsyncNode, makeTextChunk } from 'actionengine'
+import { AsyncNode, makeTextChunk } from '@helenapankov/actionengine'
 import { useCallback, useContext, useEffect, useState } from 'react'
 import { ECHO_SCHEMA } from '@/actions/echo'
 import { ActionEngineContext, makeAction } from '@/helpers/actionengine'
