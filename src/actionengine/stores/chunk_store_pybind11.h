@@ -40,12 +40,11 @@ namespace act::pybindings {
 
 namespace py = ::pybind11;
 
-class PyChunkStore final : public ChunkStore, py::trampoline_self_life_support {
+class PyChunkStore final : public ChunkStore,
+                           public py::trampoline_self_life_support {
   // For detailed documentation, see the base class, ChunkStore.
  public:
   using ChunkStore::ChunkStore;
-
-  PyChunkStore() : ChunkStore() {}
 
   absl::StatusOr<Chunk> Get(int64_t seq, absl::Duration timeout) override;
 
@@ -89,11 +88,5 @@ void BindLocalChunkStore(py::handle scope,
 py::module_ MakeChunkStoreModule(py::module_ scope,
                                  std::string_view module_name = "chunk_store");
 }  // namespace act::pybindings
-
-namespace pybind11::detail {
-template <>
-class type_caster<std::unique_ptr<act::ChunkStore>>
-    : public type_caster_base<std::unique_ptr<act::ChunkStore>> {};
-}  // namespace pybind11::detail
 
 #endif  // ACTIONENGINE_PYBIND11_ACTIONENGINE_CHUNK_STORE_H_

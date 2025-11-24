@@ -288,6 +288,7 @@ void BindActionMessage(py::handle scope, std::string_view name) {
            py::arg_v("inputs", std::vector<Port>()),
            py::arg_v("outputs", std::vector<Port>()))
       .def_readwrite("name", &ActionMessage::name)
+      .def_readwrite("id", &ActionMessage::id)
       .def_readwrite("inputs", &ActionMessage::inputs)
       .def_readwrite("outputs", &ActionMessage::outputs)
       .def("__repr__",

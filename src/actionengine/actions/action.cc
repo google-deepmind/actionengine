@@ -234,13 +234,15 @@ absl::Status Action::Call() {
   bind_streams_on_outputs_default_ = false;
   has_been_called_ = true;
 
-  WireStream* stream = stream_;
-  mu_.unlock();
-  absl::Status status =
-      stream->Send(WireMessage{.actions = {GetActionMessage()}});
-  mu_.lock();
+  if (WireStream* stream = stream_; stream != nullptr) {
+    mu_.unlock();
+    absl::Status status =
+        stream->Send(WireMessage{.actions = {GetActionMessage()}});
+    mu_.lock();
+    return status;
+  }
 
-  return status;
+  return absl::OkStatus();
 }
 
 absl::Status Action::Run() {

@@ -335,11 +335,17 @@ absl::Status WebRtcWireStream::SendInternal(WireMessage message)
       message_uint8_t, transient_id,
       static_cast<int64_t>(connection_->remoteMaxMessageSize()));
 
+  std::vector<std::vector<uint8_t>> serialized_packets;
+  serialized_packets.reserve(packets.size());
+  for (auto& packet : packets) {
+    serialized_packets.push_back(data::SerializeBytePacket(packet));
+    // TODO: clear packet to save memory
+  }
+
   absl::Status status;
-  for (const auto& packet : packets) {
-    std::vector<uint8_t> serialized_packet = data::SerializeBytePacket(packet);
-    const rtc::byte* message_chunk_data =
-        reinterpret_cast<rtc::byte*>(serialized_packet.data());
+  for (const auto& serialized_packet : serialized_packets) {
+    const auto* message_chunk_data =
+        reinterpret_cast<const rtc::byte*>(serialized_packet.data());
     rtc::binary message_chunk_bytes(
         message_chunk_data, message_chunk_data + serialized_packet.size());
     data_channel_->send(std::move(message_chunk_bytes));

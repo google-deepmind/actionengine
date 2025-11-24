@@ -259,6 +259,8 @@ void BindAction(py::handle scope, std::string_view name) {
             self->ClearOutputsAfterRun(clear);
           },
           py::arg_v("clear", true))
+      .def("_hint_run",
+           [](const std::shared_ptr<Action>& self) { self->HintRun(); })
       .def(
           "cancel",
           [](const std::shared_ptr<Action>& self) { return self->Cancel(); },

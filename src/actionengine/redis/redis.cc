@@ -269,18 +269,29 @@ Redis::~Redis() {
   }
 
   DLOG(INFO) << "~Redis: Disconnecting from Redis server.";
+  std::vector<std::string> channels;
+  channels.reserve(subscriptions_.size());
   for (const auto& [channel, subscription] : subscriptions_) {
-    ExecuteCommandWithGuards("UNSUBSCRIBE", {channel}).IgnoreError();
+    channels.push_back(channel);
   }
-  // for (auto& [channel, subscription_set] : subscriptions_) {
-  //   for (const auto& subscription : subscription_set) {
-  //     thread::Select({subscription->OnUnsubscribe()});
-  //   }
-  // }
-  // subscriptions_.clear();
 
-  while (num_pending_commands_ > 0) {
+  std::vector<std::string_view> channels_args;
+  channels_args.reserve(channels.size());
+  for (const auto& channel : channels) {
+    channels_args.push_back(channel);
+  }
+
+  ExecuteCommandWithGuards("UNSUBSCRIBE", channels_args).IgnoreError();
+
+  while (num_pending_commands_ > 0 && connected_ && status_.ok()) {
     cv_.Wait(&mu_);
+  }
+
+  if (connected_) {
+    mu_.unlock();
+    redisAsyncDisconnect(context_.get());
+    mu_.lock();
+    context_.release();
   }
 }
 
@@ -355,8 +366,8 @@ void Redis::RemoveSubscription(
   }
   if (it->second.empty()) {
     // If no more subscriptions to this channel, unsubscribe from the channel.
-    absl::Status status = UnsubscribeInternal(channel);
     subscription->Unsubscribe();
+    absl::Status status = UnsubscribeInternal(channel);
     if (!status.ok()) {
       LOG(ERROR) << "Failed to unsubscribe from channel: " << channel
                  << ", error: " << status.message();
@@ -517,11 +528,6 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
   event_loop_.Wakeup();
 
   if (subscribe) {
-    // // For subscription commands, we don't expect an immediate reply.
-    // const auto subscription = static_cast<Subscription*>(privdata);
-    // mu_.unlock();
-    // thread::Select({subscription->OnSubscribe()});
-    // mu_.lock();
     return Reply{.type = ReplyType::Nil, .data = NilReplyData{}};
   }
 

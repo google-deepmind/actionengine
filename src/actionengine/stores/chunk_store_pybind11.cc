@@ -40,13 +40,13 @@
 namespace act::pybindings {
 
 absl::StatusOr<Chunk> PyChunkStore::Get(int64_t seq, absl::Duration timeout) {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<Chunk>, PyChunkStore, "get", Get,
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<Chunk>, ChunkStore, "get", Get,
                               seq, timeout);
 }
 
 absl::StatusOr<Chunk> PyChunkStore::GetByArrivalOrder(int64_t seq,
                                                       absl::Duration timeout) {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<Chunk>, PyChunkStore,
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<Chunk>, ChunkStore,
                               "get_by_arrival_order", GetByArrivalOrder, seq,
                               timeout);
 }
@@ -54,60 +54,59 @@ absl::StatusOr<Chunk> PyChunkStore::GetByArrivalOrder(int64_t seq,
 absl::StatusOr<std::reference_wrapper<const Chunk>> PyChunkStore::GetRef(
     int64_t seq, absl::Duration timeout) {
   PYBIND11_OVERRIDE_PURE_NAME(
-      absl::StatusOr<std::reference_wrapper<const Chunk>>, PyChunkStore, "get",
+      absl::StatusOr<std::reference_wrapper<const Chunk>>, ChunkStore, "get",
       Get, seq);
 }
 
 absl::StatusOr<std::reference_wrapper<const Chunk>>
 PyChunkStore::GetRefByArrivalOrder(int64_t seq, absl::Duration timeout) {
   PYBIND11_OVERRIDE_PURE_NAME(
-      absl::StatusOr<std::reference_wrapper<const Chunk>>, PyChunkStore,
+      absl::StatusOr<std::reference_wrapper<const Chunk>>, ChunkStore,
       "get_by_arrival_order", GetByArrivalOrder, seq);
 }
 
 absl::StatusOr<std::optional<Chunk>> PyChunkStore::Pop(int64_t seq) {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<std::optional<Chunk>>,
-                              PyChunkStore, "pop", Pop, seq);
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<std::optional<Chunk>>, ChunkStore,
+                              "pop", Pop, seq);
 }
 
 absl::Status PyChunkStore::Put(int64_t seq, Chunk chunk, bool final) {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "put", Put, seq,
-                              chunk, final);
+  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, ChunkStore, "put", Put, seq, chunk,
+                              final);
 }
 
 absl::Status PyChunkStore::CloseWritesWithStatus(absl::Status status) {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "no_further_puts",
+  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, ChunkStore, "no_further_puts",
                               CloseWritesWithStatus, status);
 }
 
 absl::StatusOr<size_t> PyChunkStore::Size() {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<size_t>, PyChunkStore, "size",
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<size_t>, ChunkStore, "size",
                               Size, );
 }
 
 absl::StatusOr<bool> PyChunkStore::Contains(int64_t seq) {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<bool>, PyChunkStore, "contains",
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<bool>, ChunkStore, "contains",
                               Contains, seq);
 }
 
 absl::Status PyChunkStore::SetId(std::string_view id) {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, PyChunkStore, "set_id", SetId, id);
+  PYBIND11_OVERRIDE_PURE_NAME(absl::Status, ChunkStore, "set_id", SetId, id);
 }
 
 std::string_view PyChunkStore::GetId() const {
-  PYBIND11_OVERRIDE_PURE_NAME(std::string_view, PyChunkStore, "get_id",
-                              GetId, );
+  PYBIND11_OVERRIDE_PURE_NAME(std::string_view, ChunkStore, "get_id", GetId, );
 }
 
 absl::StatusOr<int64_t> PyChunkStore::GetSeqForArrivalOffset(
     int64_t arrival_offset) {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, PyChunkStore,
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, ChunkStore,
                               "get_seq_for_arrival_offset",
                               GetSeqForArrivalOffset, arrival_offset);
 }
 
 absl::StatusOr<int64_t> PyChunkStore::GetFinalSeq() {
-  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, PyChunkStore,
+  PYBIND11_OVERRIDE_PURE_NAME(absl::StatusOr<int64_t>, ChunkStore,
                               "get_final_seq", GetFinalSeq, );
 }
 
@@ -128,8 +127,49 @@ void BindChunkStoreReaderOptions(py::handle scope, std::string_view name) {
 void BindChunkStore(py::handle scope, std::string_view name) {
   const std::string name_str(name);
 
-  py::classh<ChunkStore, PyChunkStore>(scope, name_str.c_str())
-      .def(py::init<>(), keep_event_loop_memo())
+  py::classh<ChunkStore>(scope, absl::StrCat(name, "VirtualBase").c_str(),
+                         py::release_gil_before_calling_cpp_dtor())
+      .def(
+          "get",
+          [](const std::shared_ptr<ChunkStore>& self, int seq, double timeout) {
+            return self->Get(seq, timeout < 0 ? absl::InfiniteDuration()
+                                              : absl::Seconds(timeout));
+          },
+          py::arg("seq"), py::arg_v("timeout", -1),
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "get_by_arrival_order",
+          [](const std::shared_ptr<ChunkStore>& self, int seq, double timeout) {
+            return self->GetByArrivalOrder(seq, timeout < 0
+                                                    ? absl::InfiniteDuration()
+                                                    : absl::Seconds(timeout));
+          },
+          py::arg("seq"), py::arg_v("timeout", -1),
+          py::call_guard<py::gil_scoped_release>())
+      .def("pop", &ChunkStore::Pop, py::arg("seq"),
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "put",
+          [](const std::shared_ptr<ChunkStore>& self, int seq,
+             const Chunk& chunk,
+             bool final) { return self->Put(seq, chunk, final); },
+          py::arg("seq"), py::arg("chunk"), py::arg_v("final", false),
+          py::call_guard<py::gil_scoped_release>())
+      .def("no_further_puts", &ChunkStore::CloseWritesWithStatus,
+           py::call_guard<py::gil_scoped_release>())
+      .def("size", &ChunkStore::Size, py::call_guard<py::gil_scoped_release>())
+      .def("contains", &ChunkStore::Contains)
+      .def("set_id", &ChunkStore::SetId)
+      .def("get_id", &ChunkStore::GetId)
+      .def("get_final_seq", &ChunkStore::GetFinalSeq)
+      .def("get_seq_for_arrival_offset", &ChunkStore::GetSeqForArrivalOffset,
+           py::arg("arrival_offset"), py::call_guard<py::gil_scoped_release>())
+      .def("__len__", &ChunkStore::Size)
+      .def("__contains__", &ChunkStore::Contains)
+
+      .doc() = "An ActionEngine ChunkStore interface.";
+
+  py::classh<PyChunkStore, ChunkStore>(scope, name_str.c_str())
       .def(
           "get",
           [](const std::shared_ptr<PyChunkStore>& self, int seq,
@@ -149,7 +189,7 @@ void BindChunkStore(py::handle scope, std::string_view name) {
           },
           py::arg("seq"), py::arg_v("timeout", -1),
           py::call_guard<py::gil_scoped_release>())
-      .def("pop", &ChunkStore::Pop, py::arg("seq"),
+      .def("pop", &PyChunkStore::Pop, py::arg("seq"),
            py::call_guard<py::gil_scoped_release>())
       .def(
           "put",
@@ -158,17 +198,18 @@ void BindChunkStore(py::handle scope, std::string_view name) {
              bool final) { return self->Put(seq, chunk, final); },
           py::arg("seq"), py::arg("chunk"), py::arg_v("final", false),
           py::call_guard<py::gil_scoped_release>())
-      .def("no_further_puts", &ChunkStore::CloseWritesWithStatus,
+      .def("no_further_puts", &PyChunkStore::CloseWritesWithStatus,
            py::call_guard<py::gil_scoped_release>())
-      .def("size", &ChunkStore::Size, py::call_guard<py::gil_scoped_release>())
-      .def("contains", &ChunkStore::Contains)
-      .def("set_id", &ChunkStore::SetId)
-      .def("get_id", &ChunkStore::GetId)
-      .def("get_final_seq", &ChunkStore::GetFinalSeq)
-      .def("get_seq_for_arrival_offset", &ChunkStore::GetSeqForArrivalOffset,
+      .def("size", &PyChunkStore::Size,
+           py::call_guard<py::gil_scoped_release>())
+      .def("contains", &PyChunkStore::Contains)
+      .def("set_id", &PyChunkStore::SetId)
+      .def("get_id", &PyChunkStore::GetId)
+      .def("get_final_seq", &PyChunkStore::GetFinalSeq)
+      .def("get_seq_for_arrival_offset", &PyChunkStore::GetSeqForArrivalOffset,
            py::arg("arrival_offset"), py::call_guard<py::gil_scoped_release>())
-      .def("__len__", &ChunkStore::Size)
-      .def("__contains__", &ChunkStore::Contains)
+      .def("__len__", &PyChunkStore::Size)
+      .def("__contains__", &PyChunkStore::Contains)
 
       .doc() = "An ActionEngine ChunkStore interface.";
 }

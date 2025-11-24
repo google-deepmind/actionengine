@@ -323,6 +323,11 @@ class Action : public std::enable_shared_from_this<Action> {
    */
   [[nodiscard]] bool Cancelled() const;
 
+  void HintRun() {
+    act::MutexLock lock(&mu_);
+    has_been_run_ = true;
+  }
+
   void BindStreamsOnInputsByDefault(bool bind) {
     act::MutexLock lock(&mu_);
     bind_streams_on_inputs_default_ = bind;

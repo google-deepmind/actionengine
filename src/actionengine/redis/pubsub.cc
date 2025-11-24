@@ -56,7 +56,9 @@ void Subscription::Subscribe() {
 void Subscription::Unsubscribe() {
   act::MutexLock lock(&mu_);
   CloseWriter();
-  unsubscribe_event_.Notify();
+  if (!unsubscribe_event_.HasBeenNotified()) {
+    unsubscribe_event_.Notify();
+  }
 }
 
 void Subscription::CloseWriter() {

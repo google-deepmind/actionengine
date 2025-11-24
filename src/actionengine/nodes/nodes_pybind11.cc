@@ -36,8 +36,7 @@ void BindNodeMap(py::handle scope, std::string_view name) {
   py::classh<NodeMap>(scope, std::string(name).c_str(),
                       py::release_gil_before_calling_cpp_dtor())
       .def(MakeSameObjectRefConstructor<NodeMap>())
-      .def(py::init([](const std::function<std::unique_ptr<ChunkStore>(
-                           std::string_view)>& factory = {}) {
+      .def(py::init([](const ChunkStoreFactory& factory = {}) {
              return std::make_shared<NodeMap>(factory);
            }),
            py::arg_v("chunk_store_factory", py::none()))

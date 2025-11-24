@@ -280,6 +280,7 @@ class Action(_C.actions.Action):
     def run(self) -> "Action":
         """Runs the action."""
         _C.save_first_encountered_event_loop()
+        self._hint_run()
         self._task = asyncio.create_task(asyncio.to_thread(super().run))
         self._task.add_done_callback(self._clear_exception)
         return self

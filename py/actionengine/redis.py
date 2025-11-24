@@ -13,12 +13,11 @@
 # limitations under the License.
 
 from actionengine import _C
+from actionengine._C import chunk_store
 
 
 class Redis(_C.redis.Redis):
     pass
 
 
-class ChunkStore(_C.redis.ChunkStore):
-    def __init__(self, client: Redis, node_id: str, ttl: float = -1.0):
-        super().__init__(client, node_id, ttl)
+ChunkStore = _C.redis.ChunkStore

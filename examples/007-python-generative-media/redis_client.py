@@ -81,8 +81,7 @@ def get_global_redis_client():
 
 def make_redis_chunk_store(node_id: str) -> actionengine.redis.ChunkStore:
     redis_client = get_global_redis_client()
-    store = actionengine.redis.ChunkStore(redis_client, node_id, -1)  # No TTL
-    return store
+    return actionengine.redis.ChunkStore(redis_client, node_id, -1)  # No TTL
 
 
 async def print_hello_async():

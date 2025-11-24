@@ -33,6 +33,12 @@
 #include "actionengine/stores/chunk_store_pybind11.h"
 #include "actionengine/util/utils_pybind11.h"
 
+namespace pybind11::detail {
+template <>
+class type_caster<std::unique_ptr<act::ChunkStore>>
+    : public type_caster_base<std::unique_ptr<act::ChunkStore>> {};
+}  // namespace pybind11::detail
+
 namespace act {
 
 PYBIND11_MODULE(_C, m) {
