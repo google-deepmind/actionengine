@@ -258,6 +258,7 @@ async def execute_prompt(action: actionengine.Action):
                         request_data = await asyncio.to_thread(
                             ormsgpack.packb, fc.args
                         )
+                        print(f"Args: {fc.args}")
                         await client_action["request"].put_and_finalize(
                             actionengine.Chunk(
                                 data=request_data,
@@ -334,9 +335,15 @@ async def execute_prompt(action: actionengine.Action):
 
             else:
                 text = turn.text
-                await action["logs"].put(text)
-                print(f"- {text}")
-                if text.strip().upper().startswith("DONE"):
+
+                if text is not None:
+                    print(f"- {text}")
+                    if text.strip().upper().startswith("DONE"):
+                        done = True
+                    else:
+                        print(f"Logging text: {text}")
+                        await action["logs"].put(text)
+                else:
                     done = True
     except Exception as e:
         traceback.print_exc()

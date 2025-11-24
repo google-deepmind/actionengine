@@ -29,21 +29,32 @@ IDX = 0
 
 
 def get_unet():
-    model_id = "/opt/durer/data/checkpoints_diffusers/267b356f-7a31-432b-80cd-bc5b3952091f"
+    model_candidates = (
+        "/opt/durer/data/checkpoints_diffusers/267b356f-7a31-432b-80cd-bc5b3952091f",
+        "/home/ubuntu/267b356f-7a31-432b-80cd-bc5b3952091f",
+        "stable-diffusion-v1-5/stable-diffusion-v1-5",
+    )
+
     device = "cpu"
     if torch.backends.mps.is_available():
         device = "mps"
     if torch.cuda.is_available():
         device = "cuda"
 
-    unet = UNet2DConditionModel.from_pretrained(
-        model_id,
-        subfolder="unet",
-        revision=None,
-        torch_dtype=torch.float32 if device == "cpu" else torch.float16,
-    )
-    unet.to(device)
-    return unet
+    for candidate_model_id in model_candidates:
+        try:
+            unet = UNet2DConditionModel.from_pretrained(
+                candidate_model_id,
+                subfolder="unet",
+                revision=None,
+                torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+            )
+            unet.to(device)
+            return unet
+        except Exception:
+            continue
+
+    raise RuntimeError("UNet not found.")
 
 
 def get_vae():
@@ -72,13 +83,13 @@ def get_pipeline(idx: int = 0) -> StableDiffusionPipeline:
             device = "cuda"
 
         get_pipeline.pipe0 = StableDiffusionPipeline.from_pretrained(
-            "benjamin-paine/stable-diffusion-v1-5",
+            "stable-diffusion-v1-5/stable-diffusion-v1-5",
             torch_dtype=torch.float32 if device == "cpu" else torch.float16,
             unet=get_unet(),
             vae=get_vae(),
             safety_checker=None,
             scheduler=UniPCMultistepScheduler.from_pretrained(
-                "benjamin-paine/stable-diffusion-v1-5",
+                "stable-diffusion-v1-5/stable-diffusion-v1-5",
                 subfolder="scheduler",
                 timestep_spacing="trailing",
             ),
@@ -95,13 +106,13 @@ def get_pipeline(idx: int = 0) -> StableDiffusionPipeline:
             device = "cuda"
 
         get_pipeline.pipe1 = StableDiffusionPipeline.from_pretrained(
-            "benjamin-paine/stable-diffusion-v1-5",
+            "stable-diffusion-v1-5/stable-diffusion-v1-5",
             torch_dtype=torch.float32 if device == "cpu" else torch.float16,
             unet=get_unet(),
             vae=get_vae(),
             safety_checker=None,
             scheduler=UniPCMultistepScheduler.from_pretrained(
-                "benjamin-paine/stable-diffusion-v1-5",
+                "stable-diffusion-v1-5/stable-diffusion-v1-5",
                 subfolder="scheduler",
             ),
             requires_safety_checker=False,

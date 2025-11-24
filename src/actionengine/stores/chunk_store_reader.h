@@ -161,26 +161,7 @@ class ChunkStoreReader {
       std::optional<absl::Duration> timeout = std::nullopt);
 
   absl::StatusOr<std::optional<NodeFragment>> NextFragment(
-      std::optional<absl::Duration> timeout = std::nullopt) {
-    act::MutexLock lock(&mu_);
-    absl::StatusOr<std::optional<std::pair<int, Chunk>>> seq_and_chunk =
-        GetNextSeqAndChunkFromBuffer(timeout.value_or(options_.timeout));
-    RETURN_IF_ERROR(seq_and_chunk.status());
-    ASSIGN_OR_RETURN(const int64_t final_seq, chunk_store_->GetFinalSeq());
-    if (!seq_and_chunk->has_value()) {
-      return std::nullopt;
-    }
-    if (seq_and_chunk->value().second.IsNull()) {
-      // If the chunk is null, it means that the stream has ended.
-      // TODO: this logic is not ideal, as it does not allow to distinguish
-      //   between an empty chunk and the end of the stream. We should rethink it.
-      return std::nullopt;
-    }
-    auto& chunk = seq_and_chunk->value().second;
-    const int seq = seq_and_chunk->value().first;
-    return NodeFragment{std::string(chunk_store_->GetId()), std::move(chunk),
-                        seq, final_seq == -1 || seq != final_seq};
-  }
+      std::optional<absl::Duration> timeout = std::nullopt);
 
   /** @brief
    *    Same as Next(), but casts the chunk to the specified type `T`.
@@ -255,7 +236,10 @@ class ChunkStoreReader {
       buffer_;
   int total_chunks_read_ = 0;
 
+  size_t pending_ops_ ABSL_GUARDED_BY(mu_) = 0;
+
   absl::Status status_;
+  act::CondVar cv_ ABSL_GUARDED_BY(mu_);
   mutable act::Mutex mu_;
 };
 

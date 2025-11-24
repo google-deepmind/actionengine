@@ -100,6 +100,9 @@ struct ReplyFuture {
   Reply reply;
   absl::Status status;
   thread::PermanentEvent event;
+
+  std::string debug_command;
+  std::vector<std::string> debug_args;
 };
 }  // namespace internal
 

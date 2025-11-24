@@ -66,6 +66,10 @@ ChunkStoreReader::~ChunkStoreReader() {
   mu_.unlock();
   fiber->Join();
   mu_.lock();
+
+  while (pending_ops_ > 0) {
+    cv_.Wait(&mu_);
+  }
 }
 
 void ChunkStoreReader::Cancel() const {
@@ -100,6 +104,28 @@ absl::StatusOr<std::optional<Chunk>> ChunkStoreReader::Next(
   return chunk;
 }
 
+absl::StatusOr<std::optional<NodeFragment>> ChunkStoreReader::NextFragment(
+    std::optional<absl::Duration> timeout) {
+  act::MutexLock lock(&mu_);
+  absl::StatusOr<std::optional<std::pair<int, Chunk>>> seq_and_chunk =
+      GetNextSeqAndChunkFromBuffer(timeout.value_or(options_.timeout));
+  RETURN_IF_ERROR(seq_and_chunk.status());
+  ASSIGN_OR_RETURN(const int64_t final_seq, chunk_store_->GetFinalSeq());
+  if (!seq_and_chunk->has_value()) {
+    return std::nullopt;
+  }
+  if (seq_and_chunk->value().second.IsNull()) {
+    // If the chunk is null, it means that the stream has ended.
+    // TODO: this logic is not ideal, as it does not allow to distinguish
+    //   between an empty chunk and the end of the stream. We should rethink it.
+    return std::nullopt;
+  }
+  auto& chunk = seq_and_chunk->value().second;
+  const int seq = seq_and_chunk->value().first;
+  return NodeFragment{std::string(chunk_store_->GetId()), std::move(chunk), seq,
+                      final_seq == -1 || seq != final_seq};
+}
+
 template <>
 absl::StatusOr<std::optional<std::pair<int, Chunk>>> ChunkStoreReader::Next(
     std::optional<absl::Duration> timeout) {
@@ -114,11 +140,14 @@ ChunkStoreReader::GetNextSeqAndChunkFromBuffer(absl::Duration timeout)
 
   std::optional<std::pair<int, Chunk>> seq_and_chunk;
   bool ok;
+  ++pending_ops_;
   mu_.unlock();
   const int selected = thread::SelectUntil(
       absl::Now() + timeout,
       {buffer_->reader()->OnRead(&seq_and_chunk, &ok), thread::OnCancel()});
   mu_.lock();
+  --pending_ops_;
+  cv_.SignalAll();
 
   if (selected == -1) {
     return absl::DeadlineExceededError("Timed out waiting for chunk.");

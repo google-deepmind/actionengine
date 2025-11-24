@@ -23,6 +23,7 @@
 #include <absl/log/check.h>
 #include <absl/log/log.h>
 #include <absl/strings/str_cat.h>
+#include <absl/strings/str_join.h>
 #include <absl/time/time.h>
 #include <hiredis/adapters/libuv.h>
 #include <hiredis/hiredis.h>
@@ -83,8 +84,10 @@ absl::StatusOr<HelloReply> HelloReply::From(Reply reply) {
       act::FindOrDie(fields, "server").ConsumeStringContentOrDie();
   hello_reply.version =
       act::FindOrDie(fields, "version").ConsumeStringContentOrDie();
-  hello_reply.protocol_version = act::FindOrDie(fields, "proto").ToIntOrDie();
-  hello_reply.id = act::FindOrDie(fields, "id").ToIntOrDie();
+  hello_reply.protocol_version =
+      static_cast<int32_t>(act::FindOrDie(fields, "proto").ToIntOrDie());
+  hello_reply.id =
+      static_cast<int32_t>(act::FindOrDie(fields, "id").ToIntOrDie());
   hello_reply.mode = act::FindOrDie(fields, "mode").ConsumeStringContentOrDie();
   hello_reply.role = act::FindOrDie(fields, "role").ConsumeStringContentOrDie();
 
@@ -150,9 +153,11 @@ void Redis::ReplyCallback(redisAsyncContext* absl_nonnull context,
          "internal::ReplyFuture).";
 
   if (hiredis_reply == nullptr) {
-    future->status = absl::InternalError(
-        "Received null reply in ReplyCallback. "
-        "This may indicate a connection error.");
+    const auto error_message = std::string(context->errstr);
+    future->status = absl::InternalError(absl::StrCat(
+        "Received null reply in ReplyCallback. Command: ",
+        future->debug_command, " ", absl::StrJoin(future->debug_args, ", "),
+        "error code: ", context->err, ", message: ", error_message));
     future->event.Notify();
     return;
   }
@@ -184,12 +189,16 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
                                                       absl::Duration timeout) {
   auto redis = std::make_unique<Redis>(internal::PrivateConstructorTag{});
 
+  const std::string host_str = std::string(host);
+  const timeval connect_timeout = absl::ToTimeval(timeout);
+
   redisOptions options{};
   options.options |= REDIS_OPT_NO_PUSH_AUTOFREE;
   options.options |= REDIS_OPT_NONBLOCK;
   options.options |= REDIS_OPT_NOAUTOFREEREPLIES;
   options.options |= REDIS_OPT_NOAUTOFREE;
-  REDIS_OPTIONS_SET_TCP(&options, std::string(host).c_str(), port);
+  options.connect_timeout = &connect_timeout;
+  REDIS_OPTIONS_SET_TCP(&options, host_str.c_str(), port);
   REDIS_OPTIONS_SET_PRIVDATA(&options, redis.get(), [](void*) {});
 
   redisAsyncContext* context_ptr = redisAsyncConnectWithOptions(&options);
@@ -216,20 +225,13 @@ absl::StatusOr<std::unique_ptr<Redis>> Redis::Connect(std::string_view host,
   redisAsyncSetConnectCallback(redis->context_.get(), Redis::ConnectCallback);
   redisAsyncSetDisconnectCallback(redis->context_.get(),
                                   Redis::DisconnectCallback);
-  redisAsyncSetTimeout(
-      redis->context_.get(),
-      {static_cast<int32_t>(absl::ToInt64Seconds(timeout)),
-       static_cast<int32_t>(absl::ToInt64Microseconds(timeout) %
-                            absl::ToInt64Microseconds(absl::Seconds(1)))});
   redisAsyncSetPushCallback(redis->context_.get(), Redis::PushReplyCallback);
 
   redis->event_loop_.Wakeup();
 
   const absl::Time deadline = absl::Now() + timeout;
   while (!redis->connected_ && redis->status_.ok()) {
-    if (redis->cv_.WaitWithDeadline(&redis->mu_, deadline)) {
-      break;
-    }
+    redis->cv_.Wait(&redis->mu_);
   }
 
   if (!redis->status_.ok()) {
@@ -480,7 +482,14 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
   }
 
   bool subscribe = false;
+
   internal::ReplyFuture future;
+  future.debug_command = std::string(command);
+  future.debug_args.reserve(args.size());
+  for (const auto& arg : args) {
+    future.debug_args.emplace_back(arg);
+  }
+
   void* privdata = &future;
   redisCallbackFn* callback = Redis::ReplyCallback;
 
@@ -498,7 +507,6 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
     callback = Redis::PubsubCallback;
   }
 
-  // mu_.unlock();
   if (args.empty()) {
     redisAsyncCommand(context_.get(), callback, privdata, command.data());
   } else {
@@ -507,7 +515,6 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
                           arg_values.data(), arg_lengths.data());
   }
   event_loop_.Wakeup();
-  // mu_.lock();
 
   if (subscribe) {
     // // For subscription commands, we don't expect an immediate reply.
@@ -675,10 +682,12 @@ Redis::ZRange(std::string_view key, int64_t start, int64_t end,
   CommandArgs args;
   args.reserve(4);
   args.push_back(key);
-  args.push_back(absl::StrCat(start));
-  args.push_back(absl::StrCat(end));
+  std::string start_str = absl::StrCat(start);
+  std::string end_str = absl::StrCat(end);
+  args.push_back(start_str);
+  args.push_back(end_str);
   if (withscores) {
-    args.push_back("WITHSCORES");
+    args.emplace_back("WITHSCORES");
   }
   ASSIGN_OR_RETURN(Reply reply, ExecuteCommandWithGuards("ZRANGE", args));
   if (reply.type != ReplyType::Array) {
@@ -691,8 +700,8 @@ Redis::ZRange(std::string_view key, int64_t start, int64_t end,
         ConvertTo<absl::flat_hash_map<std::string, int64_t>>(std::move(reply));
     RETURN_IF_ERROR(value_map.status());
     result.reserve(value_map->size());
-    for (const auto& [key, value] : *value_map) {
-      result.emplace(key, value);
+    for (const auto& [result_key, value] : *value_map) {
+      result.emplace(result_key, value);
     }
   } else {
     auto value_array = ConvertTo<std::vector<int64_t>>(std::move(reply));
