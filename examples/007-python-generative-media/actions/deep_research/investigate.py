@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import actionengine
 
@@ -14,6 +15,8 @@ SYSTEM_INSTRUCTIONS = [
     "In the beginning of your report, concisely mention the brief you were given.",
     "Respond in the same language as the input.",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 async def run(action: actionengine.Action):
@@ -31,6 +34,9 @@ async def run(action: actionengine.Action):
 
         await action["user_log"].put(
             f"[investigate-{action.get_id()}] Investigating brief: {brief}."
+        )
+        logger.info(
+            f"{action.get_id()} Investigating brief: {brief}.",
         )
         response_parts = []
         async for response in await generate_content_stream(
@@ -52,6 +58,9 @@ async def run(action: actionengine.Action):
         await action["thoughts"].finalize()
         await action["user_log"].put_and_finalize(
             f"[investigate-{action.get_id()}] Investigation complete."
+        )
+        logger.info(
+            f"{action.get_id()} Investigation complete.",
         )
 
 

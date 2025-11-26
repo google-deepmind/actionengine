@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import actionengine
 
@@ -13,6 +14,8 @@ SYSTEM_INSTRUCTIONS = [
     "you have been given. ",
 ]
 
+logger = logging.getLogger(__name__)
+
 
 async def run(action: actionengine.Action):
     try:
@@ -24,6 +27,10 @@ async def run(action: actionengine.Action):
             f"[synthesise_findings] Synthesising findings for topic: {topic}. "
             f"Awaiting {len(report_ids)} reports."
         )
+        logger.info(
+            f"{action.get_id()} Synthesising findings for "
+            f"topic: {topic}. Awaiting {len(report_ids)} reports.",
+        )
 
         node_map = action.get_node_map()
         reports: list[str] = await asyncio.gather(
@@ -31,6 +38,9 @@ async def run(action: actionengine.Action):
         )
         await action["user_log"].put(
             f"[synthesise_findings] Synthesising {len(reports)} reports."
+        )
+        logger.info(
+            f"{action.get_id()} Synthesising {len(reports)} " f"reports.",
         )
 
         prompt = (
@@ -48,6 +58,7 @@ async def run(action: actionengine.Action):
                 for part in candidate.content.parts:
                     if not part.thought:
                         await action["report"].put(part.text)
+                        print(part.text, end="", flush=True)
                     else:
                         await action["thoughts"].put(part.text)
 
@@ -56,6 +67,9 @@ async def run(action: actionengine.Action):
         await action["thoughts"].finalize()
         await action["user_log"].put_and_finalize(
             f"[synthesise_findings] Synthesis complete."
+        )
+        logger.info(
+            f"{action.get_id()} Synthesis complete.",
         )
 
 

@@ -1,9 +1,13 @@
 import asyncio
+import logging
 import os
 import traceback
 
 import actionengine
 from pydantic import BaseModel
+
+
+logger = logging.getLogger(__name__)
 
 
 class DeepResearchAction(BaseModel):
@@ -24,8 +28,8 @@ async def run(action: actionengine.Action):
         if api_key == "alpha-demos":
             api_key = os.environ.get("GEMINI_API_KEY")
 
-        print(
-            "Got API key and topic, starting deep research workflow", flush=True
+        logging.info(
+            f"{action.get_id()} Got API key and topic, starting deep research workflow"
         )
 
         # 1. Create a plan of investigations.

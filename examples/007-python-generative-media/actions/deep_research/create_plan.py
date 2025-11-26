@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import traceback
 
 import actionengine
@@ -22,6 +23,8 @@ SYSTEM_INSTRUCTIONS = [
     "different agents. Reply in the same language as the input. ",
 ]
 
+logger = logging.getLogger(__name__)
+
 
 async def run(action: actionengine.Action):
     try:
@@ -38,6 +41,7 @@ async def run(action: actionengine.Action):
             await action["user_log"].put(
                 f"[create_plan] Creating plan for topic: {topic}."
             )
+            logger.info(f"{action.get_id()} Creating plan for topic: {topic}.")
             async for response in await generate_content_stream(
                 api_key=api_key,
                 contents=prompt,
@@ -53,6 +57,9 @@ async def run(action: actionengine.Action):
             await action["thoughts"].finalize()
 
         await action["user_log"].put("[create_plan] Processing plan items.")
+        logger.info(
+            f"{action.get_id()} Processing plan items.",
+        )
 
         full_response = "".join([part.text for part in response_parts])
         lines = full_response.split("\n")
@@ -62,16 +69,25 @@ async def run(action: actionengine.Action):
         try:
             for line in lines_no_numbers:
                 await action["user_log"].put(f"[create_plan] Plan item: {line}")
+                logger.info(
+                    f"{action.get_id()} Plan item: {line}.",
+                )
                 await plan_items.put(line)
         finally:
             await plan_items.finalize()
     except Exception:
         await action["user_log"].put("[create_plan] Failed to create plan.")
+        logger.info(
+            f"{action.get_id()} Failed to create plan.",
+        )
         await action["user_log"].put(traceback.format_exc())
         traceback.print_exc()
         raise
     else:
         await action["user_log"].put("[create_plan] Finished creating plan.")
+        logger.info(
+            f"{action.get_id()} Finished creating plan.",
+        )
     finally:
         await action["user_log"].finalize()
 

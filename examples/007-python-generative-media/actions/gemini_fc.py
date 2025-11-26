@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import traceback
 
@@ -8,6 +9,9 @@ import actionengine
 from google import genai
 from google.genai import types
 from PIL import Image
+
+
+logger = logging.getLogger(__name__)
 
 
 async def do_nothing():
@@ -216,6 +220,7 @@ async def execute_prompt(action: actionengine.Action):
 
         with action["prompt"].deserialize_automatically() as prompt_node:
             prompt = await prompt_node.consume(timeout=5.0)
+        logger.info(f"{action.get_id()} Received prompt: {prompt}")
 
         model = "gemini-2.5-flash-lite"
         contents = [
@@ -243,10 +248,14 @@ async def execute_prompt(action: actionengine.Action):
             if turn.function_calls is not None:
                 for fc in turn.function_calls:
                     if not client_action_registry.is_registered(fc.name):
-                        print(f"- Function {fc.name} not registered, skipping")
+                        logger.warning(
+                            f"{action.get_id()} Function {fc.name} not registered, skipping."
+                        )
                         continue
 
-                    print(f"- Function call: {fc.name} with args {fc.args}")
+                    logger.info(
+                        f"{action.get_id()} Function call: {fc.name} with args {fc.args}"
+                    )
                     client_action = client_action_registry.make_action(
                         fc.name,
                         node_map=action.get_node_map(),
@@ -294,6 +303,9 @@ async def execute_prompt(action: actionengine.Action):
                         )
                     )
                     print(f"- Function {fc.name} returned {response}")
+                    logger.info(
+                        f"{action.get_id()} Function {fc.name} returned {response}"
+                    )
 
                     if "screenshot" in client_action.get_schema().outputs:
                         raw_screenshot: Image.Image = await client_action[
@@ -337,12 +349,13 @@ async def execute_prompt(action: actionengine.Action):
                 text = turn.text
 
                 if text is not None:
-                    print(f"- {text}")
                     if text.strip().upper().startswith("DONE"):
                         done = True
                     else:
-                        print(f"Logging text: {text}")
                         await action["logs"].put(text)
+                        logger.info(
+                            f"{action.get_id()} Output text: {text}",
+                        )
                 else:
                     done = True
     except Exception as e:
@@ -350,6 +363,8 @@ async def execute_prompt(action: actionengine.Action):
         await action["logs"].put(f"Exception in execute_prompt: {e}")
     else:
         await action["logs"].finalize()
+
+    logger.info(f"{action.get_id()} execute_prompt complete.")
 
 
 EXECUTE_PROMPT_SCHEMA = actionengine.ActionSchema(
