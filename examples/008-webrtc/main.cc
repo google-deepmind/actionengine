@@ -7,7 +7,7 @@
 #include <actionengine/net/webrtc/server.h>
 #include <actionengine/net/webrtc/wire_stream.h>
 
-ABSL_FLAG(std::string, webrtc_signalling_address, "demos.helena.direct",
+ABSL_FLAG(std::string, webrtc_signalling_address, "actionengine.dev",
           "Signalling address for WebRTC connections.");
 
 ABSL_FLAG(uint16_t, webrtc_signalling_port, 19000,

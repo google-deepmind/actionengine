@@ -60,7 +60,7 @@ class ActionEngineClient:
         self._stream = actionengine.webrtc.make_webrtc_stream(
             str(uuid.uuid4()),
             "demoserver",
-            "demos.helena.direct",
+            "actionengine.dev",
             19000,
         )
         self._session = None
@@ -100,7 +100,7 @@ class ActionEngineClient:
                 stream=actionengine.webrtc.make_webrtc_stream(
                     str(uuid.uuid4()),
                     "demoserver",
-                    "demos.helena.direct",
+                    "actionengine.dev",
                     19000,
                 ),
                 node_map=actionengine.NodeMap(),

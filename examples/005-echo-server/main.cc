@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
   ActionRegistry action_registry = MakeActionRegistry();
   act::Service service(&action_registry);
   act::net::WebRtcServer server(&service, "0.0.0.0", port,
-                                /*signalling_address=*/"demos.helena.direct",
+                                /*signalling_address=*/"actionengine.dev",
                                 /*signalling_port=*/19000,
                                 /*signalling_identity=*/identity);
   // act::net::WebsocketServer server(&service, "0.0.0.0", port);

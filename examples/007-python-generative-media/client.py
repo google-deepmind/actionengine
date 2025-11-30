@@ -22,7 +22,7 @@ async def main():
     #     "localhost", "/", 20000
     # )
     stream = actionengine.webrtc.make_webrtc_stream(
-        str(uuid.uuid4()), "demoserver", "demos.helena.direct", 19000
+        str(uuid.uuid4()), "demoserver", "actionengine.dev", 19000
     )
 
     session = actionengine.Session(node_map, action_registry)

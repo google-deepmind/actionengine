@@ -68,7 +68,7 @@ export const parseWebRtcParamsFromSearchParams = (
   const peer = params.get('webrtc_peer') || 'demoserver'
 
   const signallingHost =
-    params.get('webrtc_signalling_host') || 'wss://demos.helena.direct:19001'
+    params.get('webrtc_signalling_host') || 'wss://actionengine.dev:19001'
 
   const turnServer = params.get('webrtc_turn_server') || 'actionengine.dev:3478'
   const turnUsername = params.get('webrtc_turn_username') || 'helena'

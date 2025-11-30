@@ -173,7 +173,7 @@ class ChatResponse(BaseModel):
         None,
         description="Optional URL for the GUI to view the session.",
         examples=[
-            "https://demos.helena.direct/gemini/?session_token=pLA9rUID&q=ollama",
+            "https://actionengine.dev/gemini/?session_token=pLA9rUID&q=ollama",
         ],
     )
 
@@ -390,7 +390,7 @@ async def send_message_to_session(
         response=response,
         thought=thought if thought else None,
         session_token=new_session_token if new_session_token else None,
-        gui_url=f"https://demos.helena.direct/gemini/"
+        gui_url=f"https://actionengine.dev/gemini/"
         f"?session_token={new_session_token}&q={request.api_key or 'ollama'}",
     )
 

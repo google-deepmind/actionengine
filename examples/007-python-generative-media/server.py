@@ -138,10 +138,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--webrtc-signalling-server",
         type=str,
-        default="demos.helena.direct",
+        default="actionengine.dev",
         help=(
-            "WebRTC signalling server address. You may use demos.helena.direct "
-            "or your own server, but if you use demos.helena.direct, please "
+            "WebRTC signalling server address. You may use actionengine.dev "
+            "or your own server, but if you use actionengine.dev, please "
             "also set the identity to something unique."
         ),
     )

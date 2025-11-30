@@ -263,7 +263,7 @@ async def main():
         service,
         "0.0.0.0",
         20002,
-        "demos.helena.direct",
+        "actionengine.dev",
         19000,
         "bidi-demo",
         rtc_config,

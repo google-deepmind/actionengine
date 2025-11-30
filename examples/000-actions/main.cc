@@ -184,7 +184,7 @@ absl::Status Main(int argc, char** argv) {
   // zmq streams and msgpack messages in one of the showcases.
   act::Service service(&action_registry);
   act::net::WebRtcServer server(&service, "127.0.0.1", port,
-                                /*signalling_address=*/"demos.helena.direct",
+                                /*signalling_address=*/"actionengine.dev",
                                 /*signalling_port=*/19000,
                                 /*signalling_identity=*/"server");
   server.Run();
@@ -196,7 +196,7 @@ absl::Status Main(int argc, char** argv) {
   LOG(INFO) << "Identity: " << identity;
   ASSIGN_OR_RETURN(std::shared_ptr<act::WireStream> stream,
                    act::net::StartStreamWithSignalling(
-                       identity, "server", "demos.helena.direct", 19000));
+                       identity, "server", "actionengine.dev", 19000));
 
   session.DispatchFrom(stream);
 
