@@ -19,11 +19,10 @@ async def run_echo(action: actionengine.Action):
     with action["input"].deserialize_automatically():
         async for message in action["input"]:
             await action["output"].put(message)
-            print(message)
+            print(f"[echo] Echoing `{message}`")
 
     worker_name = os.environ.get("WORKER_NAME", "unknown")
     await action["output"].put(f" (worker: {worker_name})")
-    print()
 
     await action["output"].finalize()
 

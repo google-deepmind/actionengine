@@ -60,6 +60,24 @@ struct RedisContextDeleter {
 
 struct PrivateConstructorTag {};
 
+struct ReplyFuture {
+  Reply reply;
+  absl::Status status;
+  thread::PermanentEvent event;
+
+  std::string debug_command;
+  std::vector<std::string> debug_args;
+};
+
+struct RedisCommand {
+  std::string command;
+  std::vector<std::string> args;
+
+  redisAsyncContext* absl_nonnull context;
+  void* absl_nullable privdata = nullptr;
+  redisCallbackFn* absl_nullable callback = nullptr;
+};
+
 class EventLoop {
  public:
   EventLoop();
@@ -68,12 +86,15 @@ class EventLoop {
 
   [[nodiscard]] uvw::loop* absl_nonnull Get() const;
 
-  void Wakeup() const;
+  void Wakeup(std::optional<RedisCommand> command = {});
 
  private:
   std::shared_ptr<uvw::async_handle> handle_;
   std::shared_ptr<uvw::loop> loop_;
   std::unique_ptr<std::thread> thread_;
+
+  thread::Channel<RedisCommand> command_channel_{16};
+  std::atomic<size_t> command_count_{0};
 };
 
 }  // namespace internal
@@ -94,17 +115,6 @@ struct Script {
   std::string sha1;
   std::string code;
 };
-
-namespace internal {
-struct ReplyFuture {
-  Reply reply;
-  absl::Status status;
-  thread::PermanentEvent event;
-
-  std::string debug_command;
-  std::vector<std::string> debug_args;
-};
-}  // namespace internal
 
 class Redis {
   // A Redis client that binds hiredis for asynchronous communication with a Redis

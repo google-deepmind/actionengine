@@ -43,8 +43,40 @@ internal::EventLoop::EventLoop() : loop_(uvw::loop::create()) {
   handle_ = loop_->resource<uvw::async_handle>();
   handle_->init();
   handle_->on<uvw::async_event>(
-      [](const uvw::async_event&, uvw::async_handle&) {
-        // No-op. This is just to ensure the loop wakes up when `send()` is called.
+      [this](const uvw::async_event&, uvw::async_handle&) {
+        const bool wakeup = command_count_ > 0;
+        while (command_count_ > 0) {
+          RedisCommand command;
+          if (command_channel_.reader()->Read(&command)) {
+            std::vector<size_t> arg_lengths;
+            std::vector<const char*> arg_values;
+            arg_lengths.reserve(command.args.size() + 1);
+            arg_values.reserve(command.args.size() + 1);
+
+            arg_lengths.push_back(command.command.size());
+            arg_values.push_back(command.command.data());
+
+            for (const auto& arg : command.args) {
+              arg_lengths.push_back(arg.size());
+              arg_values.push_back(arg.data());
+            }
+
+            if (command.args.empty()) {
+              redisAsyncCommand(command.context, command.callback,
+                                command.privdata, command.command.data());
+            } else {
+              redisAsyncCommandArgv(command.context, command.callback,
+                                    command.privdata,
+                                    static_cast<int>(arg_values.size()),
+                                    arg_values.data(), arg_lengths.data());
+            }
+          }
+          --command_count_;
+        }
+
+        if (wakeup) {
+          Wakeup();
+        }
       });
   thread_ = std::make_unique<std::thread>([this]() { loop_->run(); });
 }
@@ -60,7 +92,11 @@ uvw::loop* internal::EventLoop::Get() const {
   return loop_.get();
 }
 
-void internal::EventLoop::Wakeup() const {
+void internal::EventLoop::Wakeup(std::optional<RedisCommand> command) {
+  if (command) {
+    command_channel_.writer()->Write(*std::move(command));
+    ++command_count_;
+  }
   handle_->send();
 }
 
@@ -287,12 +323,12 @@ Redis::~Redis() {
     cv_.Wait(&mu_);
   }
 
-  if (connected_) {
-    mu_.unlock();
-    redisAsyncDisconnect(context_.get());
-    mu_.lock();
-    context_.release();
-  }
+  // if (connected_) {
+  //   mu_.unlock();
+  //   redisAsyncDisconnect(context_.get());
+  //   mu_.lock();
+  //   context_.release();
+  // }
 }
 
 void Redis::SetKeyPrefix(std::string_view prefix) {
@@ -479,18 +515,6 @@ absl::Status Redis::EnsureConnected() const {
 
 absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
                                                     const CommandArgs& args) {
-  std::vector<size_t> arg_lengths;
-  std::vector<const char*> arg_values;
-  arg_lengths.reserve(args.size() + 1);
-  arg_values.reserve(args.size() + 1);
-
-  arg_lengths.push_back(command.size());
-  arg_values.push_back(command.data());
-
-  for (const auto& arg : args) {
-    arg_lengths.push_back(arg.size());
-    arg_values.push_back(arg.data());
-  }
 
   bool subscribe = false;
 
@@ -518,14 +542,16 @@ absl::StatusOr<Reply> Redis::ExecuteCommandInternal(std::string_view command,
     callback = Redis::PubsubCallback;
   }
 
-  if (args.empty()) {
-    redisAsyncCommand(context_.get(), callback, privdata, command.data());
-  } else {
-    redisAsyncCommandArgv(context_.get(), callback, privdata,
-                          static_cast<int>(arg_values.size()),
-                          arg_values.data(), arg_lengths.data());
+  internal::RedisCommand redis_command{.context = context_.get()};
+  redis_command.command = std::string(command);
+  redis_command.args.reserve(args.size());
+  for (const auto& arg : args) {
+    redis_command.args.emplace_back(arg);
   }
-  event_loop_.Wakeup();
+  redis_command.privdata = privdata;
+  redis_command.callback = callback;
+
+  event_loop_.Wakeup(std::move(redis_command));
 
   if (subscribe) {
     return Reply{.type = ReplyType::Nil, .data = NilReplyData{}};
