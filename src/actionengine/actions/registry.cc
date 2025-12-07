@@ -44,17 +44,21 @@ ActionRegistry::ActionRegistry() {
                schema_obj["name"] = boost::json::string(name);
                const ActionSchema& schema = GetSchema(name);
 
-               boost::json::object inputs_obj;
+               boost::json::array inputs_obj;
                for (const auto& [input_name, input_type] : schema.inputs) {
-                 inputs_obj["name"] = boost::json::string(input_name);
-                 inputs_obj["type"] = boost::json::string(input_type);
+                 boost::json::object input_obj;
+                 input_obj["name"] = boost::json::string(input_name);
+                 input_obj["type"] = boost::json::string(input_type);
+                 inputs_obj.push_back(std::move(input_obj));
                }
                schema_obj["inputs"] = std::move(inputs_obj);
 
-               boost::json::object outputs_obj;
+               boost::json::array outputs_obj;
                for (const auto& [output_name, output_type] : schema.outputs) {
-                 outputs_obj["name"] = boost::json::string(output_name);
-                 outputs_obj["type"] = boost::json::string(output_type);
+                 boost::json::object output_obj;
+                 output_obj["name"] = boost::json::string(output_name);
+                 output_obj["type"] = boost::json::string(output_type);
+                 outputs_obj.push_back(std::move(output_obj));
                }
                schema_obj["outputs"] = std::move(outputs_obj);
 

@@ -292,7 +292,9 @@ def unpackb(
 
 
 def get_component_name(component_type: type) -> str:
-    if issubclass(component_type, ActSchema):
+    if issubclass(component_type, ActSchema) or issubclass(
+        component_type, BaseModel
+    ):
         act_schema_name = getattr(component_type, "_act_schema_name", None)
         name_parts = (
             ["__d_"] + [component_type.__qualname__]
