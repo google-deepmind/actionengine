@@ -1,6 +1,6 @@
 {
   "name": "@helenapankov/actionengine",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "author": "Google DeepMind <no-reply@google.com>",
   "license": "Apache-2.0",
   "description": "A TypeScript client library for Action Engine.",

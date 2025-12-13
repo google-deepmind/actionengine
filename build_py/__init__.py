@@ -22,7 +22,7 @@ from pathlib import Path
 
 NAME = "actionengine"
 NAME_WITH_HYPHEN = "action-engine"
-VERSION = "0.1.7"
+VERSION = "0.1.8"
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 
 CLANG_RESOURCES = """- https://clang.llvm.org/get_started.html

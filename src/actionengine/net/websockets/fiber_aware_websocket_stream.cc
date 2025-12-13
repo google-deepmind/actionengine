@@ -100,7 +100,7 @@ absl::Status PrepareClientStream(BoostWebsocketStream* stream) {
   stream->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::request_type& req) {
         req.set(boost::beast::http::field::user_agent,
-                "Action Engine 0.1.7 "
+                "Action Engine 0.1.8 "
                 "WebsocketWireStream client");
       }));
   stream->write_buffer_bytes(16);
@@ -121,7 +121,7 @@ absl::Status PrepareServerStream(BoostWebsocketStream* stream) {
   stream->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::request_type& req) {
         req.set(boost::beast::http::field::user_agent,
-                "Action Engine 0.1.7 "
+                "Action Engine 0.1.8 "
                 "WebsocketWireStream server");
       }));
   stream->write_buffer_bytes(16);
@@ -486,7 +486,7 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
   stream_->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::response_type& res) {
         res.set(boost::beast::http::field::server,
-                "Action Engine 0.1.7 "
+                "Action Engine 0.1.8 "
                 "WebsocketActionEngineServer");
       }));
   stream_->write_buffer_bytes(16);
