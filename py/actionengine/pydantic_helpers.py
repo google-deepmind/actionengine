@@ -292,16 +292,16 @@ def unpackb(
 
 
 def get_component_name(component_type: type) -> str:
-    if issubclass(component_type, ActSchema) or issubclass(
-        component_type, BaseModel
-    ):
-        act_schema_name = getattr(component_type, "_act_schema_name", None)
-        name_parts = (
-            ["__d_"] + [component_type.__qualname__]
-            if act_schema_name is None
-            else [act_schema_name]
-        )
-        return "".join(name_parts)
+    act_schema_name = getattr(component_type, "_act_schema_name", None)
+
+    if issubclass(component_type, ActSchema):
+        if act_schema_name is not None:
+            return act_schema_name
+        else:
+            return f"__d_{component_type.__qualname__}"
+
+    if act_schema_name is not None:
+        return act_schema_name
 
     module = component_type.__module__
     if module == "builtins" or module == "__main__":
@@ -326,6 +326,8 @@ def bytes_to_base_model(data: bytes) -> BaseModel:
 
     model = _get_component_registry().get(component_name)
     if model is None:
+        component_registry = _get_component_registry()
+        print("Available components:", list(component_registry.keys()))
         raise ValueError(f"Unknown component name: {component_name}")
 
     return unpackb(packed_data, model=model)
