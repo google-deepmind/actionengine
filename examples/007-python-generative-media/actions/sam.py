@@ -1,11 +1,12 @@
 import asyncio
 
 import actionengine
-from lang_sam import LangSAM
 from PIL import Image
 
 
-def get_lang_sam() -> LangSAM:
+def get_lang_sam() -> "LangSAM":
+    from lang_sam import LangSAM
+
     if not hasattr(get_lang_sam, "model"):
         get_lang_sam.model = LangSAM()
     return get_lang_sam.model
