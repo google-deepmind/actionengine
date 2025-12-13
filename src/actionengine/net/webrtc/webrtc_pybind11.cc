@@ -125,20 +125,23 @@ void BindWebRtcServer(py::handle scope, std::string_view name) {
   py::classh<net::WebRtcServer>(scope, std::string(name).c_str(),
                                 "A WebRtcServer interface.",
                                 py::release_gil_before_calling_cpp_dtor())
-      .def(py::init([](Service* absl_nonnull service, std::string_view address,
-                       uint16_t port, std::string_view signalling_address,
-                       uint16_t signalling_port, std::string_view identity,
-                       net::RtcConfig rtc_config) {
-             return std::make_shared<net::WebRtcServer>(
-                 service, address, port, signalling_address, signalling_port,
-                 identity, std::move(rtc_config));
-           }),
-           py::arg("service"), py::arg_v("address", "0.0.0.0"),
-           py::arg_v("port", 20000),
-           py::arg_v("signalling_address", "localhost"),
-           py::arg_v("signalling_port", 80), py::arg_v("identity", "server"),
-           py::arg_v("rtc_config", net::RtcConfig{}),
-           pybindings::keep_event_loop_memo())
+      .def_static(
+          "create",
+          [](Service* absl_nonnull service, std::string_view address,
+             uint16_t port, std::string_view identity,
+             std::string_view signalling_url, net::RtcConfig rtc_config)
+              -> absl::StatusOr<std::shared_ptr<net::WebRtcServer>> {
+            ASSIGN_OR_RETURN(auto ws_signalling_url,
+                             net::WsUrl::FromString(signalling_url));
+            return std::make_shared<net::WebRtcServer>(
+                service, address, port, identity, ws_signalling_url,
+                std::move(rtc_config));
+          },
+          py::arg("service"), py::arg_v("address", "0.0.0.0"),
+          py::arg_v("port", 20000), py::arg_v("identity", "server"),
+          py::arg_v("signalling_url", "wss://actionengine.dev:19001"),
+          py::arg_v("rtc_config", net::RtcConfig{}),
+          pybindings::keep_event_loop_memo())
       .def("run", &net::WebRtcServer::Run,
            py::call_guard<py::gil_scoped_release>())
       .def(
@@ -169,17 +172,28 @@ py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
   webrtc.def(
       "make_webrtc_stream",
       [](std::string_view identity, std::string_view peer_identity,
-         std::string_view signalling_address, uint16_t port)
+         std::string_view signalling_address, std::optional<uint16_t> port)
           -> absl::StatusOr<std::shared_ptr<net::WebRtcWireStream>> {
-        ASSIGN_OR_RETURN(
-            std::unique_ptr<net::WebRtcWireStream> stream,
-            net::StartStreamWithSignalling(identity, peer_identity,
-                                           signalling_address, port));
+        std::string signalling_url = absl::StrCat(signalling_address);
+        if (port.has_value()) {
+          absl::StrAppend(&signalling_url, ":", *port);
+        }
+        if (!signalling_url.starts_with("ws://") &&
+            !signalling_url.starts_with("wss://")) {
+          if (port == 443) {
+            signalling_url = absl::StrCat("wss://", signalling_url);
+          } else {
+            signalling_url = absl::StrCat("ws://", signalling_url);
+          }
+        }
+        ASSIGN_OR_RETURN(std::unique_ptr<net::WebRtcWireStream> stream,
+                         net::StartStreamWithSignalling(identity, peer_identity,
+                                                        signalling_url));
         return stream;
       },
       py::arg_v("identity", "client"), py::arg_v("peer_identity", "server"),
-      py::arg_v("signalling_address", "localhost"),
-      py::arg_v("signalling_port", 80),
+      py::arg_v("signalling_address", "wss://actionengine.dev:19001"),
+      py::arg_v("port", std::nullopt),
       py::call_guard<py::gil_scoped_release>());
 
   return webrtc;

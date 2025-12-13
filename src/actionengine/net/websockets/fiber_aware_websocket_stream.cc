@@ -14,6 +14,10 @@
 
 #include "actionengine/net/websockets/fiber_aware_websocket_stream.h"
 
+#include <variant>
+
+#include <absl/strings/numbers.h>
+#include <absl/strings/str_cat.h>
 #include <boost/asio/bind_cancellation_slot.hpp>
 #include <boost/asio/cancellation_signal.hpp>
 
@@ -23,6 +27,74 @@
 namespace act::net {
 
 static constexpr absl::Duration kDebugWarningTimeout = absl::Seconds(5);
+
+BoostWebsocketStream::BoostWebsocketStream(
+    boost::asio::ip::tcp::socket&& socket)
+    : stream_(PlainStream(std::move(socket))) {}
+
+BoostWebsocketStream::BoostWebsocketStream(
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket>&& stream)
+    : stream_(SslStream(std::move(stream))) {}
+
+void BoostWebsocketStream::binary(bool value) {
+  std::visit([value](auto& s) { s.binary(value); }, stream_);
+}
+
+void BoostWebsocketStream::text(bool value) {
+  std::visit([value](auto& s) { s.text(value); }, stream_);
+}
+
+bool BoostWebsocketStream::got_text() const {
+  return std::visit([](auto& s) { return s.got_text(); }, stream_);
+}
+
+bool BoostWebsocketStream::is_open() const {
+  return std::visit([](auto& s) { return s.is_open(); }, stream_);
+}
+
+void BoostWebsocketStream::write_buffer_bytes(std::size_t bytes) {
+  std::visit([bytes](auto& s) { s.write_buffer_bytes(bytes); }, stream_);
+}
+
+boost::asio::ip::tcp::socket& BoostWebsocketStream::next_layer() {
+  if (std::holds_alternative<PlainStream>(stream_)) {
+    return std::get<PlainStream>(stream_).next_layer();
+  }
+  return std::get<SslStream>(stream_).next_layer().next_layer();
+}
+
+const boost::asio::ip::tcp::socket& BoostWebsocketStream::next_layer() const {
+  if (std::holds_alternative<PlainStream>(stream_)) {
+    return std::get<PlainStream>(stream_).next_layer();
+  }
+  return std::get<SslStream>(stream_).next_layer().next_layer();
+}
+
+void BoostWebsocketStream::handshake(std::string_view host,
+                                     std::string_view target,
+                                     boost::system::error_code& ec) {
+  std::visit([&](auto& s) { s.handshake(host, target, ec); }, stream_);
+}
+
+void BoostWebsocketStream::async_ssl_handshake(
+    boost::asio::ssl::stream_base::handshake_type type,
+    std::function<void(boost::system::error_code)> cb) {
+  if (std::holds_alternative<SslStream>(stream_)) {
+    std::get<SslStream>(stream_).next_layer().async_handshake(type,
+                                                              std::move(cb));
+  } else {
+    // should not happen if logic is correct
+    cb(boost::asio::error::no_protocol_option);
+  }
+}
+
+BoostWebsocketStream::SslStream* absl_nullable
+BoostWebsocketStream::GetSslStreamOrNull() {
+  if (auto* ssl_stream = std::get_if<SslStream>(&stream_)) {
+    return ssl_stream;
+  }
+  return nullptr;
+}
 
 absl::Status PrepareClientStream(BoostWebsocketStream* stream) {
   stream->set_option(boost::beast::websocket::stream_base::decorator(
@@ -66,6 +138,82 @@ absl::Status PrepareServerStream(BoostWebsocketStream* stream) {
   return absl::OkStatus();
 }
 
+absl::StatusOr<WsUrl> WsUrl::FromString(std::string_view url_str) {
+  bool use_ssl = false;
+  bool explicit_no_ssl = false;
+
+  if (url_str.substr(0, 6) == "wss://") {
+    use_ssl = true;
+    url_str = url_str.substr(6);
+  } else if (url_str.substr(0, 5) == "ws://") {
+    url_str = url_str.substr(5);
+    explicit_no_ssl = true;
+  }
+
+  std::string_view address;
+  std::string_view target = "/";
+  uint16_t port;
+  if (const size_t colon_pos = url_str.find(':');
+      colon_pos == std::string_view::npos) {
+    address = url_str;
+    port = use_ssl ? 443 : 80;
+  } else {
+    address = url_str.substr(0, colon_pos);
+    const size_t port_start = colon_pos + 1;
+    const size_t slash_pos = url_str.find('/', port_start);
+
+    std::string_view port_str;
+    if (slash_pos == std::string_view::npos) {
+      port_str = url_str.substr(port_start);
+    } else {
+      port_str = url_str.substr(port_start, slash_pos - port_start);
+    }
+
+    if (!absl::SimpleAtoi(port_str, &port)) {
+      LOG(ERROR)
+          << "Failed to parse port from signalling server URL: address is "
+          << address << " port string is '" << port_str << "'";
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Signalling server URL contains an invalid port: '", port_str, "'"));
+    }
+
+    if (slash_pos != std::string_view::npos) {
+      target = url_str.substr(slash_pos);
+    }
+  }
+
+  if (address.empty()) {
+    return absl::InvalidArgumentError(
+        "Signalling server URL must contain a hostname");
+  }
+
+  if (target.empty() || target[0] != '/') {
+    return absl::InvalidArgumentError(
+        "Signalling server URL target must start with '/'");
+  }
+
+  if (port == 0) {
+    return absl::InvalidArgumentError(
+        "Signalling server URL port must be greater than 0");
+  }
+
+  if (port == 443 && !explicit_no_ssl) {
+    use_ssl = true;
+  }
+
+  return WsUrl{.scheme = use_ssl ? "wss" : "ws",
+               .host = std::string(address),
+               .port = port,
+               .target = std::string(target)};
+}
+
+WsUrl WsUrl::FromStringOrDie(std::string_view url_str) {
+  auto result = FromString(url_str);
+  CHECK(result.ok()) << "Failed to parse WsUrl from string: "
+                     << result.status();
+  return *std::move(result);
+}
+
 FiberAwareWebsocketStream::FiberAwareWebsocketStream(
     std::unique_ptr<BoostWebsocketStream> stream,
     PerformHandshakeFn handshake_fn)
@@ -86,6 +234,7 @@ FiberAwareWebsocketStream::FiberAwareWebsocketStream(
     }
   }
   stream_ = std::move(other.stream_);
+  ssl_ctx_ = std::move(other.ssl_ctx_);
   handshake_fn_ = std::move(other.handshake_fn_);
 }
 
@@ -124,8 +273,10 @@ FiberAwareWebsocketStream& FiberAwareWebsocketStream::operator=(
   }
 
   stream_ = std::move(other.stream_);
+  ssl_ctx_ = std::move(other.ssl_ctx_);
   handshake_fn_ = std::move(other.handshake_fn_);
   other.stream_ = nullptr;  // Ensure the moved-from object is empty
+  other.ssl_ctx_ = nullptr;
 
   return *this;
 }
@@ -156,9 +307,9 @@ FiberAwareWebsocketStream::~FiberAwareWebsocketStream() {
 
 absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
     std::string_view address, uint16_t port, std::string_view target,
-    PrepareStreamFn prepare_stream_fn) {
+    PrepareStreamFn prepare_stream_fn, bool use_ssl) {
   return Connect(*util::GetDefaultAsioExecutionContext(), address, port, target,
-                 std::move(prepare_stream_fn));
+                 std::move(prepare_stream_fn), use_ssl);
 }
 
 BoostWebsocketStream& FiberAwareWebsocketStream::GetStream() const {

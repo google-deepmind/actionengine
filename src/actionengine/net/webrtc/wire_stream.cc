@@ -502,8 +502,9 @@ static std::string MakeOfferMessage(std::string_view peer_id,
 absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     std::string_view identity, std::string_view peer_identity,
     std::string_view signalling_address, uint16_t signalling_port,
-    std::optional<RtcConfig> rtc_config) {
-  SignallingClient signalling_client{signalling_address, signalling_port};
+    std::optional<RtcConfig> rtc_config, bool use_ssl) {
+  SignallingClient signalling_client{signalling_address, signalling_port,
+                                     use_ssl};
 
   RtcConfig config = std::move(rtc_config).value_or(RtcConfig());
   config.port_range_begin = 1025;
@@ -613,10 +614,21 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
 
 absl::StatusOr<std::unique_ptr<WebRtcWireStream>> StartStreamWithSignalling(
     std::string_view identity, std::string_view peer_identity,
-    std::string_view address, uint16_t port) {
+    std::string_view signalling_url) {
+
+  ASSIGN_OR_RETURN(auto ws_url, WsUrl::FromString(signalling_url));
+
+  return StartStreamWithSignalling(identity, peer_identity, ws_url.host,
+                                   ws_url.port, ws_url.scheme == "wss");
+}
+
+absl::StatusOr<std::unique_ptr<WebRtcWireStream>> StartStreamWithSignalling(
+    std::string_view identity, std::string_view peer_identity,
+    std::string_view address, uint16_t port, bool use_ssl) {
 
   absl::StatusOr<WebRtcDataChannelConnection> connection =
-      StartWebRtcDataChannel(identity, peer_identity, address, port);
+      StartWebRtcDataChannel(identity, peer_identity, address, port,
+                             std::nullopt, use_ssl);
   if (!connection.ok()) {
     return connection.status();
   }

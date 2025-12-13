@@ -44,20 +44,27 @@
 
 namespace act::net {
 
-WebRtcServer::WebRtcServer(act::Service* absl_nonnull service,
-                           std::string_view address, uint16_t port,
-                           std::string_view signalling_address,
-                           uint16_t signalling_port,
-                           std::string_view signalling_identity,
+WebRtcServer::WebRtcServer(act::Service* service, std::string_view address,
+                           uint16_t port, std::string_view signalling_identity,
+                           const WsUrl& signalling_url,
                            std::optional<RtcConfig> rtc_config)
     : service_(service),
       address_(address),
       port_(port),
-      signalling_address_(signalling_address),
-      signalling_port_(signalling_port),
+      signalling_address_(signalling_url.host),
+      signalling_port_(signalling_url.port),
       signalling_identity_(signalling_identity),
       rtc_config_(std::move(rtc_config)),
+      signalling_use_ssl_(signalling_url.scheme == "wss"),
       ready_data_connections_(32) {}
+
+WebRtcServer::WebRtcServer(act::Service* service, std::string_view address,
+                           uint16_t port, std::string_view signalling_identity,
+                           std::string_view signalling_url,
+                           std::optional<RtcConfig> rtc_config)
+    : WebRtcServer(service, address, port, signalling_identity,
+                   WsUrl::FromStringOrDie(signalling_url),
+                   std::move(rtc_config)) {}
 
 WebRtcServer::~WebRtcServer() {
   act::MutexLock lock(&mu_);
@@ -174,8 +181,9 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 
   while (true) {
     if (signalling_client == nullptr) {
-      signalling_client = InitSignallingClient(signalling_address_,
-                                               signalling_port_, &connections);
+      signalling_client =
+          InitSignallingClient(signalling_address_, signalling_port_,
+                               signalling_use_ssl_, &connections);
       if (const auto status =
               signalling_client->ConnectWithIdentity(signalling_identity_);
           !status.ok()) {
@@ -297,10 +305,10 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 }
 
 std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
-    std::string_view signalling_address, uint16_t signalling_port,
+    std::string_view signalling_address, uint16_t signalling_port, bool use_ssl,
     DataChannelConnectionMap* absl_nonnull connections) {
-  auto signalling_client =
-      std::make_shared<SignallingClient>(signalling_address, signalling_port);
+  auto signalling_client = std::make_shared<SignallingClient>(
+      signalling_address, signalling_port, use_ssl);
 
   auto abort_establishment_with_error = [connections, this](
                                             std::string_view peer_id,

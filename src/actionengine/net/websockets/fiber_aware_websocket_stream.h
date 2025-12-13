@@ -17,30 +17,130 @@
 
 #define BOOST_ASIO_NO_DEPRECATED
 
+#include <variant>
+#include <vector>
+
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
+#include <absl/strings/string_view.h>
 #include <boost/asio/cancellation_signal.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
+#include <boost/beast/websocket/ssl.hpp>
+#include <openssl/ssl.h>
 
 #include "actionengine/concurrency/concurrency.h"
 
 namespace act::net {
 
-using BoostWebsocketStream =
-    boost::beast::websocket::stream<boost::asio::ip::tcp::socket>;
+// Forward declaration of the wrapper class.
+class BoostWebsocketStream;
 
 using PrepareStreamFn =
+    std::function<absl::Status(BoostWebsocketStream* absl_nonnull)>;
+
+using PerformHandshakeFn =
     std::function<absl::Status(BoostWebsocketStream* absl_nonnull)>;
 
 absl::Status PrepareClientStream(BoostWebsocketStream* absl_nonnull stream);
 absl::Status PrepareServerStream(BoostWebsocketStream* absl_nonnull stream);
 
-using PerformHandshakeFn =
-    std::function<absl::Status(BoostWebsocketStream* absl_nonnull)>;
+class BoostWebsocketStream {
+ public:
+  using PlainStream =
+      boost::beast::websocket::stream<boost::asio::ip::tcp::socket>;
+  using SslStream = boost::beast::websocket::stream<
+      boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>;
+
+  // Constructs a wrapper holding a Plain stream.
+  explicit BoostWebsocketStream(boost::asio::ip::tcp::socket&& socket);
+
+  // Constructs a wrapper holding an SSL stream.
+  explicit BoostWebsocketStream(
+      boost::asio::ssl::stream<boost::asio::ip::tcp::socket>&& stream);
+
+  template <typename ExecutionContext>
+  explicit BoostWebsocketStream(ExecutionContext& context)
+      : stream_(PlainStream(boost::asio::make_strand(context))) {}
+
+  template <typename ExecutionContext>
+  explicit BoostWebsocketStream(ExecutionContext& context,
+                                boost::asio::ssl::context& ssl_ctx)
+      : stream_(SslStream(boost::asio::make_strand(context), ssl_ctx)) {}
+
+  BoostWebsocketStream(BoostWebsocketStream&&) = default;
+
+  template <class Option>
+  void set_option(Option&& opt) {
+    std::visit([&](auto& s) { s.set_option(std::forward<Option>(opt)); },
+               stream_);
+  }
+
+  void binary(bool value);
+  void text(bool value);
+  [[nodiscard]] bool got_text() const;
+  [[nodiscard]] bool is_open() const;
+  void write_buffer_bytes(std::size_t bytes);
+
+  boost::asio::ip::tcp::socket& next_layer();
+  [[nodiscard]] const boost::asio::ip::tcp::socket& next_layer() const;
+
+  // wrappers for async operations
+
+  template <typename Buffer, typename Callback>
+  void async_write(const Buffer& buffer, Callback&& cb) {
+    std::visit(
+        [&](auto& s) { s.async_write(buffer, std::forward<Callback>(cb)); },
+        stream_);
+  }
+
+  template <typename DynamicBuffer, typename Callback>
+  void async_read(DynamicBuffer& buffer, Callback&& cb) {
+    std::visit(
+        [&](auto& s) { s.async_read(buffer, std::forward<Callback>(cb)); },
+        stream_);
+  }
+
+  template <typename Callback>
+  void async_close(boost::beast::websocket::close_code code, Callback&& cb) {
+    std::visit(
+        [&](auto& s) { s.async_close(code, std::forward<Callback>(cb)); },
+        stream_);
+  }
+
+  template <typename Callback>
+  void async_accept(Callback&& cb) {
+    std::visit([&](auto& s) { s.async_accept(std::forward<Callback>(cb)); },
+               stream_);
+  }
+
+  void handshake(std::string_view host, std::string_view target,
+                 boost::system::error_code& ec);
+
+  // returns error if called on a plain stream (shouldn't happen)
+  void async_ssl_handshake(boost::asio::ssl::stream_base::handshake_type type,
+                           std::function<void(boost::system::error_code)> cb);
+
+  SslStream* absl_nullable GetSslStreamOrNull();
+
+ private:
+  std::variant<PlainStream, SslStream> stream_;
+};
+
+struct WsUrl {
+  std::string scheme;
+  std::string host;
+  uint16_t port;
+  std::string target;
+
+  static absl::StatusOr<WsUrl> FromString(std::string_view url_str);
+
+  static WsUrl FromStringOrDie(std::string_view url_str);
+};
 
 class FiberAwareWebsocketStream {
  public:
@@ -61,11 +161,13 @@ class FiberAwareWebsocketStream {
   static absl::StatusOr<FiberAwareWebsocketStream> Connect(
       ExecutionContext& context, std::string_view address, uint16_t port,
       std::string_view target = "/",
-      PrepareStreamFn prepare_stream_fn = PrepareClientStream);
+      PrepareStreamFn prepare_stream_fn = PrepareClientStream,
+      bool use_ssl = false);
 
   static absl::StatusOr<FiberAwareWebsocketStream> Connect(
       std::string_view address, uint16_t port, std::string_view target = "/",
-      PrepareStreamFn prepare_stream_fn = PrepareClientStream);
+      PrepareStreamFn prepare_stream_fn = PrepareClientStream,
+      bool use_ssl = false);
 
   BoostWebsocketStream& GetStream() const;
 
@@ -99,6 +201,8 @@ class FiberAwareWebsocketStream {
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   std::unique_ptr<BoostWebsocketStream> stream_;
+  std::shared_ptr<boost::asio::ssl::context> ssl_ctx_;
+
   PerformHandshakeFn handshake_fn_;
 
   mutable act::Mutex mu_;
@@ -148,13 +252,55 @@ absl::Status DoHandshake(BoostWebsocketStream* absl_nonnull stream,
 template <typename ExecutionContext>
 absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
     ExecutionContext& context, std::string_view address, uint16_t port,
-    std::string_view target, PrepareStreamFn prepare_stream_fn) {
-  auto ws_stream = std::make_unique<BoostWebsocketStream>(context);
+    std::string_view target, PrepareStreamFn prepare_stream_fn, bool use_ssl) {
+  std::unique_ptr<BoostWebsocketStream> ws_stream;
+  std::shared_ptr<boost::asio::ssl::context> ssl_ctx;
+
+  if (use_ssl) {
+    ssl_ctx = std::make_shared<boost::asio::ssl::context>(
+        boost::asio::ssl::context::tls_client);
+    ssl_ctx->set_default_verify_paths();
+    ws_stream = std::make_unique<BoostWebsocketStream>(context, *ssl_ctx);
+  } else {
+    ws_stream = std::make_unique<BoostWebsocketStream>(context);
+  }
 
   if (absl::Status resolve_status =
           ResolveAndConnect(context, ws_stream.get(), address, port);
       !resolve_status.ok()) {
     return resolve_status;
+  }
+
+  if (use_ssl) {
+    // Set SNI Hostname (Server Name Indication)
+    BoostWebsocketStream::SslStream* ssl_stream =
+        ws_stream->GetSslStreamOrNull();
+    if (ssl_stream == nullptr) {
+      return absl::InternalError("Expected SSL stream, but got Plain stream");
+    }
+    if (!SSL_set_tlsext_host_name(ssl_stream->next_layer().native_handle(),
+                                  std::string(address).c_str())) {
+      return absl::InternalError("Failed to set SNI hostname");
+    }
+
+    boost::system::error_code error;
+    thread::PermanentEvent ssl_handshake_done;
+    ws_stream->async_ssl_handshake(
+        boost::asio::ssl::stream_base::client,
+        [&error, &ssl_handshake_done](const boost::system::error_code& ec) {
+          error = ec;
+          ssl_handshake_done.Notify();
+        });
+
+    thread::Select({ssl_handshake_done.OnEvent()});
+
+    if (thread::Cancelled()) {
+      return absl::CancelledError("SSL Handshake cancelled");
+    }
+    if (error) {
+      return absl::InternalError(
+          absl::StrFormat("SSL Handshake failed: %s", error.message()));
+    }
   }
 
   if (prepare_stream_fn) {
@@ -171,8 +317,11 @@ absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
     return DoHandshake(stream, host, target);
   };
 
-  return FiberAwareWebsocketStream(std::move(ws_stream),
-                                   std::move(do_handshake));
+  FiberAwareWebsocketStream fa_stream(std::move(ws_stream),
+                                      std::move(do_handshake));
+  fa_stream.ssl_ctx_ = std::move(ssl_ctx);
+
+  return std::move(fa_stream);
 }
 
 }  // namespace act::net

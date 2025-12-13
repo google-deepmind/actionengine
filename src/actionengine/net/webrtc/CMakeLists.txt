@@ -22,6 +22,7 @@ target_link_libraries(
         Boost::json
         Boost::beast
         LibDataChannel::LibDataChannel
+        actNetWebsockets
 )
 target_link_libraries(
         actNetWebrtc PRIVATE
@@ -29,7 +30,6 @@ target_link_libraries(
         act::concurrency
         act::nodes
         act::stores
-        actNetWebsockets
 )
 
 # ------------------------------------------------------------------

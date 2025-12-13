@@ -83,15 +83,13 @@ class WebRtcServer {
    *   means the server will accept connections on all available interfaces.
    * @param port
    *   The port to bind the server to. Defaults to `20000`.
-   * @param signalling_address
-   *   The address of the signalling server to connect to. Defaults to
-   *   `localhost`.
-   * @param signalling_port
-   *   The port of the signalling server to connect to. Defaults to `80`.
    * @param signalling_identity
    *   The identity of the server in the signalling server. Defaults to
    *   `server`. This identity is used to identify the server in the signalling
    *   server and to establish connections with clients.
+   * @param signalling_url
+   *   The URL of the signalling server to use for WebRTC signalling. This URL
+   *   should include the scheme (`ws://` or `wss://`), hostname, and port.
    * @note
    *   Notice that no special measures are taken to protect the server's
    *   identity, so in production setups, signalling servers MUST make sure
@@ -103,11 +101,15 @@ class WebRtcServer {
    *   parameters.
    */
   explicit WebRtcServer(act::Service* absl_nonnull service,
-                        std::string_view address = "0.0.0.0",
-                        uint16_t port = 20000,
-                        std::string_view signalling_address = "localhost",
-                        uint16_t signalling_port = 80,
-                        std::string_view signalling_identity = "server",
+                        std::string_view address, uint16_t port,
+                        std::string_view signalling_identity,
+                        const WsUrl& signalling_url,
+                        std::optional<RtcConfig> rtc_config = std::nullopt);
+
+  explicit WebRtcServer(act::Service* absl_nonnull service,
+                        std::string_view address, uint16_t port,
+                        std::string_view signalling_identity,
+                        std::string_view signalling_url,
                         std::optional<RtcConfig> rtc_config = std::nullopt);
 
   ~WebRtcServer();
@@ -160,7 +162,7 @@ class WebRtcServer {
 
   std::shared_ptr<SignallingClient> InitSignallingClient(
       std::string_view signalling_address, uint16_t signalling_port,
-      DataChannelConnectionMap* absl_nonnull connections);
+      bool use_ssl, DataChannelConnectionMap* absl_nonnull connections);
 
   act::Service* absl_nonnull const service_;
 
@@ -170,6 +172,7 @@ class WebRtcServer {
   const uint16_t signalling_port_;
   const std::string signalling_identity_;
   const std::optional<RtcConfig> rtc_config_;
+  const bool signalling_use_ssl_;
 
   thread::Channel<absl::StatusOr<WebRtcDataChannelConnection>>
       ready_data_connections_;

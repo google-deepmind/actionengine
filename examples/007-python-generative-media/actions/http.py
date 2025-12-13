@@ -58,10 +58,7 @@ class ActionEngineClient:
         if sleep_for := sleep_for.total_seconds() > 0:
             time.sleep(sleep_for)
         self._stream = actionengine.webrtc.make_webrtc_stream(
-            str(uuid.uuid4()),
-            "demoserver",
-            "actionengine.dev",
-            19000,
+            str(uuid.uuid4()), "demoserver"
         )
         self._session = None
         self._session_invalidated_at = None
@@ -100,8 +97,6 @@ class ActionEngineClient:
                 stream=actionengine.webrtc.make_webrtc_stream(
                     str(uuid.uuid4()),
                     "demoserver",
-                    "actionengine.dev",
-                    19000,
                 ),
                 node_map=actionengine.NodeMap(),
                 action_registry=None,

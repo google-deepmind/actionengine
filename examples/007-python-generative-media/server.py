@@ -79,20 +79,18 @@ async def sleep_forever():
 async def main(args: argparse.Namespace):
     action_registry = make_action_registry()
     service = actionengine.Service(action_registry)
-    # server = actionengine.websockets.WebsocketActionEngineServer(service)
     rtc_config = actionengine.webrtc.RtcConfig()
     rtc_config.turn_servers = [
         actionengine.webrtc.TurnServer.from_string(
             "helena:actionengine-webrtc-testing@actionengine.dev",
         ),
     ]
-    server = actionengine.webrtc.WebRtcServer(
+    server = actionengine.webrtc.WebRtcServer.create(
         service,
         args.host,
         args.port,
-        args.webrtc_signalling_server,
-        args.webrtc_signalling_port,
         args.webrtc_identity,
+        f"wss://{args.webrtc_signalling_server}:{args.webrtc_signalling_port}",
         rtc_config,
     )
 
@@ -148,7 +146,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--webrtc-signalling-port",
         type=int,
-        default=19000,
+        default=19001,
         help="WebRTC signalling server port.",
     )
     parser.add_argument(

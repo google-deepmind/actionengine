@@ -7,10 +7,12 @@
 #include <actionengine/net/webrtc/server.h>
 #include <actionengine/net/webrtc/wire_stream.h>
 
+#include "actionengine/util/random.h"
+
 ABSL_FLAG(std::string, webrtc_signalling_address, "actionengine.dev",
           "Signalling address for WebRTC connections.");
 
-ABSL_FLAG(uint16_t, webrtc_signalling_port, 19000,
+ABSL_FLAG(uint16_t, webrtc_signalling_port, 19001,
           "Signalling port for WebRTC connections.");
 
 ABSL_FLAG(std::string, webrtc_signalling_identity, "server",
@@ -36,14 +38,17 @@ int main(int argc, char** argv) {
 
   act::Service service;
 
+  std::string signalling_url = absl::StrFormat(
+      "wss://%s:%d", absl::GetFlag(FLAGS_webrtc_signalling_address),
+      absl::GetFlag(FLAGS_webrtc_signalling_port));
+
   act::net::RtcConfig rtc_config;
   rtc_config.turn_servers = absl::GetFlag(FLAGS_webrtc_turn_servers);
   act::net::WebRtcServer server(
       &service, /*address=*/absl::GetFlag(FLAGS_webrtc_bind_address),
       /*port=*/absl::GetFlag(FLAGS_webrtc_port),
-      /*signalling_address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
-      /*signalling_port=*/absl::GetFlag(FLAGS_webrtc_signalling_port),
       /*signalling_identity=*/absl::GetFlag(FLAGS_webrtc_signalling_identity),
+      /*signalling_url=*/signalling_url,
       /*rtc_config=*/std::move(rtc_config));
   server.Run();
 
@@ -52,10 +57,9 @@ int main(int argc, char** argv) {
   for (int i = 0; i < 10; ++i) {
     auto status_or_stream = act::net::StartStreamWithSignalling(
         /*identity=*/act::GenerateUUID4(),
-                     /*peer_identity=*/
-                     absl::GetFlag(FLAGS_webrtc_signalling_identity),
-                     /*address=*/absl::GetFlag(FLAGS_webrtc_signalling_address),
-                     /*port=*/absl::GetFlag(FLAGS_webrtc_signalling_port));
+        /*peer_identity=*/
+        absl::GetFlag(FLAGS_webrtc_signalling_identity),
+        /*signalling_url=*/signalling_url);
     if (!status_or_stream.ok()) {
       LOG(ERROR) << "Failed to start WebRTC stream: "
                  << status_or_stream.status().message();
@@ -68,10 +72,10 @@ int main(int argc, char** argv) {
     wire_message.node_fragments.push_back({
         .id = "test",
         .data =
-        act::Chunk{.metadata = act::ChunkMetadata{.mimetype = "text/plain",
-                                                  .timestamp = absl::Now()},
-                   .data = absl::StrFormat(
-                       "Hello, Action Engine from client %v!", i)},
+            act::Chunk{.metadata = act::ChunkMetadata{.mimetype = "text/plain",
+                                                      .timestamp = absl::Now()},
+                       .data = absl::StrFormat(
+                           "Hello, Action Engine from client %v!", i)},
         .seq = 0,
         .continued = false,
     });

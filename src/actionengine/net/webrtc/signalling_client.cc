@@ -19,6 +19,7 @@
 #include <boost/json/parse.hpp>
 
 #include "actionengine/util/boost_asio_utils.h"
+#include "actionengine/util/status_macros.h"
 #include "boost/asio/detail/impl/kqueue_reactor.hpp"
 #include "boost/asio/detail/impl/reactive_socket_service_base.ipp"
 #include "boost/asio/detail/impl/service_registry.hpp"
@@ -52,9 +53,11 @@
 
 namespace act::net {
 
-SignallingClient::SignallingClient(std::string_view address, uint16_t port)
+SignallingClient::SignallingClient(std::string_view address, uint16_t port,
+                                   bool use_ssl)
     : address_(address),
       port_(port),
+      use_ssl_(use_ssl),
       thread_pool_(std::make_unique<boost::asio::thread_pool>(2)) {}
 
 SignallingClient::~SignallingClient() {
@@ -81,29 +84,10 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
 
   identity_ = std::string(identity);
 
-  auto boost_stream = std::make_unique<BoostWebsocketStream>(*thread_pool_);
-
-  boost_stream->set_option(boost::beast::websocket::stream_base::decorator(
-      [](boost::beast::websocket::request_type& req) {
-        req.set(boost::beast::http::field::user_agent,
-                "Action Engine 0.1.7 "
-                "WebsocketWireStream client");
-      }));
-  boost_stream->set_option(boost::beast::websocket::stream_base::timeout(
-      boost::beast::websocket::stream_base::timeout::suggested(
-          boost::beast::role_type::server)));
-
-  if (absl::Status status =
-          ResolveAndConnect(*thread_pool_, boost_stream.get(), address_, port_);
-      !status.ok()) {
-    return status;
-  }
-
-  stream_ = FiberAwareWebsocketStream(
-      std::move(boost_stream), [this](BoostWebsocketStream* stream) {
-        return DoHandshake(stream, absl::StrFormat("%s:%d", address_, port_),
-                           absl::StrFormat("/%s", identity_));
-      });
+  ASSIGN_OR_RETURN(stream_, FiberAwareWebsocketStream::Connect(
+                                *thread_pool_, address_, port_,
+                                absl::StrFormat("/%s", identity_),
+                                PrepareClientStream, use_ssl_));
 
   loop_status_ = stream_.Start();
   if (!loop_status_.ok()) {

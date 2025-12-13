@@ -74,7 +74,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--webrtc-signalling-port",
         type=int,
-        default=19000,
+        default=19001,
         help="WebRTC signalling server port.",
     )
     parser.add_argument(

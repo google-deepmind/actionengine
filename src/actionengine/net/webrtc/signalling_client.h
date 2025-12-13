@@ -53,7 +53,7 @@ using PeerJsonHandler =
 class SignallingClient {
  public:
   explicit SignallingClient(std::string_view address = "localhost",
-                            uint16_t port = 80);
+                            uint16_t port = 80, bool use_ssl = false);
 
   // This class is not copyable or movable
   SignallingClient(const SignallingClient&) = delete;
@@ -128,6 +128,7 @@ class SignallingClient {
   std::string identity_;
   const std::string address_;
   const uint16_t port_;
+  const bool use_ssl_;
 
   PeerJsonHandler on_offer_;
   PeerJsonHandler on_candidate_;

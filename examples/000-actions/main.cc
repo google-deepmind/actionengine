@@ -183,10 +183,11 @@ absl::Status Main(int argc, char** argv) {
   // and into their transport-level messages. There is an example of using
   // zmq streams and msgpack messages in one of the showcases.
   act::Service service(&action_registry);
-  act::net::WebRtcServer server(&service, "127.0.0.1", port,
-                                /*signalling_address=*/"actionengine.dev",
-                                /*signalling_port=*/19000,
-                                /*signalling_identity=*/"server");
+  act::net::WebRtcServer server(
+      &service, "127.0.0.1", port,
+      /*signalling_identity=*/"server",
+      /*signalling_url=*/"wss://actionengine.dev:19001",
+      /*rtc_config=*/std::nullopt);
   server.Run();
   act::SleepFor(absl::Seconds(0.2));
 
@@ -196,7 +197,7 @@ absl::Status Main(int argc, char** argv) {
   LOG(INFO) << "Identity: " << identity;
   ASSIGN_OR_RETURN(std::shared_ptr<act::WireStream> stream,
                    act::net::StartStreamWithSignalling(
-                       identity, "server", "actionengine.dev", 19000));
+                       identity, "server", "wss://actionengine.dev:19001"));
 
   session.DispatchFrom(stream);
 
