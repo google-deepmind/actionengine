@@ -205,7 +205,7 @@ class AsyncNode(_C.nodes.AsyncNode):
         obj: Any,
         seq: int = -1,
         mimetype: str | None = None,
-    ) -> None | Awaitable[None]:
+    ) -> Optional[Awaitable[None]]:
         return self.put(obj, seq, True, mimetype)
 
     def put_sync(
@@ -244,7 +244,7 @@ class AsyncNode(_C.nodes.AsyncNode):
         seq: int = -1,
         final: bool = False,
         mimetype: str | None = None,
-    ) -> None | Awaitable[None]:
+    ) -> Optional[Awaitable[None]]:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -279,7 +279,7 @@ class AsyncNode(_C.nodes.AsyncNode):
             final=True,
         )
 
-    def finalize(self) -> None | Awaitable[None]:
+    def finalize(self) -> Optional[Awaitable[None]]:
         try:
             asyncio.get_running_loop()
         except RuntimeError:

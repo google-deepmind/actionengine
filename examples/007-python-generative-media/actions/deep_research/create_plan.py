@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import traceback
 
 import actionengine
@@ -32,6 +33,9 @@ async def run(action: actionengine.Action):
             action["api_key"].consume(),
             action["topic"].consume(),
         )
+
+        if api_key in ("alpha-demos",):
+            api_key = os.environ.get("GEMINI_API_KEY", "")
 
         response_parts = []
 

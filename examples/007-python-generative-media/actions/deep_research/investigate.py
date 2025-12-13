@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 import actionengine
 
@@ -26,6 +27,9 @@ async def run(action: actionengine.Action):
             action["topic"].consume(),
             action["brief"].consume(),
         )
+
+        if api_key in ("alpha-demos",):
+            api_key = os.environ.get("GEMINI_API_KEY", "")
 
         prompt = (
             f'The research topic is "{topic}".\n'

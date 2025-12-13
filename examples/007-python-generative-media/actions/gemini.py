@@ -226,7 +226,7 @@ async def generate_content_gemini(
         while retries_left > 0:
             try:
                 stream = await gemini_client.models.generate_content_stream(
-                    model="gemini-2.5-flash-preview-05-20",
+                    model="gemini-2.5-flash",
                     contents=contents,
                     config=types.GenerateContentConfig(
                         thinking_config=types.ThinkingConfig(
@@ -416,7 +416,6 @@ GENERATE_CONTENT_SCHEMA = actionengine.ActionSchema(
     name="generate_content",
     inputs=[
         ("api_key", "text/plain"),
-        ("prompt", "text/plain"),
         ("chat_input", "text/plain"),
         ("session_token", "text/plain"),
     ],

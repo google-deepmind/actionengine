@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 import actionengine
 
@@ -49,8 +50,12 @@ async def run(action: actionengine.Action):
             f"reports: {'\n\n'.join(reports)}\n\n. {brief}"
         )
 
+        api_key = await action["api_key"].consume()
+        if api_key in ("alpha-demos",):
+            api_key = os.environ.get("GEMINI_API_KEY", "")
+
         async for response in await generate_content_stream(
-            api_key=await action["api_key"].consume(),
+            api_key=api_key,
             contents=prompt,
             system_instruction_override=SYSTEM_INSTRUCTIONS,
         ):

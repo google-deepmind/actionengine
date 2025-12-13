@@ -16,10 +16,9 @@ ECHO_SCHEMA = actionengine.ActionSchema(
 
 async def run_echo(action: actionengine.Action):
     action["input"].set_reader_options(timeout=10.0, ordered=True)
-    with action["input"].deserialize_automatically():
-        async for message in action["input"]:
-            await action["output"].put(message)
-            print(f"[echo] Echoing `{message}`")
+    async for message in action["input"]:
+        await action["output"].put(message)
+        print(f"[echo] Echoing `{message}`")
 
     worker_name = os.environ.get("WORKER_NAME", "unknown")
     await action["output"].put(f" (worker: {worker_name})")
@@ -57,10 +56,6 @@ def make_redis_chunk_store(node_id: str) -> actionengine.redis.ChunkStore:
     return store
 
 
-async def await_action_completion(action: actionengine.Action):
-    await action.wait_until_complete()
-
-
 async def listen_and_execute_actions(
     queue: str,
     action_registry: actionengine.ActionRegistry,
@@ -84,7 +79,7 @@ async def listen_and_execute_actions(
             )
             action.run()
 
-            task = asyncio.create_task(await_action_completion(action))
+            task = asyncio.create_task(action.wait_until_complete())
             pending_tasks.add(task)
             task.add_done_callback(pending_tasks.discard)
 
