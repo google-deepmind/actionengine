@@ -17,10 +17,7 @@ import React, {
   useState,
 } from 'react'
 import { useCursor } from '@react-three/drei'
-import {
-  ActionRegistry,
-  makeTextChunk,
-} from '@helenapankov/actionengine'
+import { ActionRegistry, makeTextChunk } from '@helenapankov/actionengine'
 import { levaStore, useControls } from 'leva'
 import { trait } from 'koota'
 import { useWorld } from 'koota/react'
@@ -67,7 +64,6 @@ const registerGenerateContentAction = (registry: ActionRegistry) => {
       inputs: [
         { name: 'api_key', type: 'text/plain' },
         { name: 'session_token', type: 'text/plain' },
-        { name: 'prompt', type: 'text/plain' },
         { name: 'chat_input', type: 'text/plain' },
       ],
       outputs: [
@@ -152,9 +148,6 @@ const useBlobControls = () => {
             set({ prompt: 'Generating...' }, false)
             const action = makeAction('generate_content', actionEngine)
             await action.call()
-
-            const promptNode = await action.getInput('prompt')
-            await promptNode.putAndFinalize(makeTextChunk(kCreatePromptPrompt))
 
             const apiKeyNode = await action.getInput('api_key')
             await apiKeyNode.putAndFinalize(makeTextChunk('ollama'))
@@ -377,13 +370,6 @@ export const GenmediaExample = () => {
     setControl({ prompt: 'Generating...' })
     const action = makeAction('generate_content', actionEngine)
     await action.call()
-
-    const promptNode = await action.getInput('prompt')
-    await promptNode.putAndFinalize(
-      makeTextChunk(
-        'surprise me with a prompt to generate a really nice image. keep it short. only use small letters and no punctuation. only output one prompt. do NOT think much. --nothink',
-      ),
-    )
 
     const apiKeyNode = await action.getInput('api_key')
     await apiKeyNode.putAndFinalize(makeTextChunk('ollama'))
