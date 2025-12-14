@@ -96,12 +96,17 @@ BoostWebsocketStream::GetSslStreamOrNull() {
   return nullptr;
 }
 
-absl::Status PrepareClientStream(BoostWebsocketStream* stream) {
+absl::Status PrepareClientStream(
+    BoostWebsocketStream* stream,
+    absl::AnyInvocable<void(boost::beast::websocket::request_type&)>
+        decorator) {
   stream->set_option(boost::beast::websocket::stream_base::decorator(
-      [](boost::beast::websocket::request_type& req) {
+      [decorator = std::move(decorator)](
+          boost::beast::websocket::request_type& req) mutable {
         req.set(boost::beast::http::field::user_agent,
                 "Action Engine 0.1.8 "
                 "WebsocketWireStream client");
+        std::move(decorator)(req);
       }));
   stream->write_buffer_bytes(16);
 

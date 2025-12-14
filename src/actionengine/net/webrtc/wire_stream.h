@@ -88,7 +88,8 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     std::string_view identity, std::string_view peer_identity = "server",
     std::string_view signalling_address = "localhost",
     uint16_t signalling_port = 80,
-    std::optional<RtcConfig> rtc_config = std::nullopt, bool use_ssl = false);
+    std::optional<RtcConfig> rtc_config = std::nullopt, bool use_ssl = false,
+    const absl::flat_hash_map<std::string, std::string>& headers = {});
 
 /**
  * WebRtcWireStream is a concrete implementation of WireStream that
@@ -165,11 +166,13 @@ class WebRtcWireStream final : public WireStream {
 
 absl::StatusOr<std::unique_ptr<WebRtcWireStream>> StartStreamWithSignalling(
     std::string_view identity, std::string_view peer_identity,
-    std::string_view signalling_url);
+    std::string_view signalling_url,
+    const absl::flat_hash_map<std::string, std::string>& headers = {});
 
 absl::StatusOr<std::unique_ptr<WebRtcWireStream>> StartStreamWithSignalling(
     std::string_view identity, std::string_view peer_identity,
-    std::string_view address, uint16_t port, bool use_ssl);
+    std::string_view address, uint16_t port, bool use_ssl,
+    const absl::flat_hash_map<std::string, std::string>& headers = {});
 
 }  // namespace act::net
 

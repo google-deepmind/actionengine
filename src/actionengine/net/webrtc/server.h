@@ -152,6 +152,8 @@ class WebRtcServer {
    */
   absl::Status Join();
 
+  void SetSignallingHeader(std::string_view key, std::string_view value);
+
  private:
   using DataChannelConnectionMap =
       absl::flat_hash_map<std::string, WebRtcDataChannelConnection>;
@@ -173,6 +175,8 @@ class WebRtcServer {
   const std::string signalling_identity_;
   const std::optional<RtcConfig> rtc_config_;
   const bool signalling_use_ssl_;
+
+  absl::flat_hash_map<std::string, std::string> signalling_headers_;
 
   thread::Channel<absl::StatusOr<WebRtcDataChannelConnection>>
       ready_data_connections_;

@@ -14,6 +14,7 @@
 
 #include "actionengine/net/webrtc/signalling_client.h"
 
+#include <absl/container/flat_hash_map.h>
 #include <absl/strings/str_format.h>
 #include <absl/time/time.h>
 #include <boost/json/parse.hpp>
@@ -73,7 +74,21 @@ void SignallingClient::ResetCallbacks() {
   on_answer_ = nullptr;
 }
 
-absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
+static absl::Status PrepareStreamWithHeaders(
+    BoostWebsocketStream* absl_nonnull stream,
+    const absl::flat_hash_map<std::string, std::string>& headers) {
+  auto decorator = [&headers](boost::beast::websocket::request_type& req) {
+    for (const auto& [key, value] : headers) {
+      req.set(key, value);
+    }
+  };
+  RETURN_IF_ERROR(PrepareClientStream(stream, std::move(decorator)));
+  return absl::OkStatus();
+}
+
+absl::Status SignallingClient::ConnectWithIdentity(
+    std::string_view identity,
+    const absl::flat_hash_map<std::string, std::string>& headers) {
   act::MutexLock l(&mu_);
 
   if (!on_answer_ && !on_offer_ && !on_candidate_) {
@@ -84,10 +99,17 @@ absl::Status SignallingClient::ConnectWithIdentity(std::string_view identity) {
 
   identity_ = std::string(identity);
 
-  ASSIGN_OR_RETURN(stream_, FiberAwareWebsocketStream::Connect(
-                                *thread_pool_, address_, port_,
-                                absl::StrFormat("/%s", identity_),
-                                PrepareClientStream, use_ssl_));
+  ASSIGN_OR_RETURN(
+      stream_,
+      FiberAwareWebsocketStream::Connect(
+          *thread_pool_, address_, port_, absl::StrFormat("/%s", identity_),
+          [&headers](BoostWebsocketStream* absl_nonnull stream,
+                     absl::AnyInvocable<void(
+                         boost::beast::websocket::request_type&)>) {
+            return PrepareStreamWithHeaders(
+                stream, headers);  // No extra headers in this lambda.
+          },
+          use_ssl_));
 
   loop_status_ = stream_.Start();
   if (!loop_status_.ok()) {

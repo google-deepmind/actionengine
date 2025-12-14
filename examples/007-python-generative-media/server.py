@@ -94,6 +94,16 @@ async def main(args: argparse.Namespace):
         rtc_config,
     )
 
+    if api_key := os.environ.get("AEP_API_KEY"):
+        print("Using API key from AEP_API_KEY environment variable.")
+        server.set_signalling_header("X-API-Key", api_key)
+
+    if timed_peer_token := os.environ.get("AEP_TIMED_PEER_TOKEN"):
+        print(
+            "Using timed peer token from AEP_TIMED_PEER_TOKEN environment variable."
+        )
+        server.set_signalling_header("X-Timed-Peer-Token", timed_peer_token)
+
     server.run()
     try:
         await sleep_forever()

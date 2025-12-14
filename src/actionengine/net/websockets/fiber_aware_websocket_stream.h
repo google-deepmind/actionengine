@@ -40,13 +40,17 @@ namespace act::net {
 // Forward declaration of the wrapper class.
 class BoostWebsocketStream;
 
-using PrepareStreamFn =
-    std::function<absl::Status(BoostWebsocketStream* absl_nonnull)>;
+using PrepareStreamFn = std::function<absl::Status(
+    BoostWebsocketStream* absl_nonnull,
+    absl::AnyInvocable<void(boost::beast::websocket::request_type&)>)>;
 
 using PerformHandshakeFn =
     std::function<absl::Status(BoostWebsocketStream* absl_nonnull)>;
 
-absl::Status PrepareClientStream(BoostWebsocketStream* absl_nonnull stream);
+absl::Status PrepareClientStream(
+    BoostWebsocketStream* absl_nonnull stream,
+    absl::AnyInvocable<void(boost::beast::websocket::request_type&)> decorator =
+        {});
 absl::Status PrepareServerStream(BoostWebsocketStream* absl_nonnull stream);
 
 class BoostWebsocketStream {
@@ -305,7 +309,7 @@ absl::StatusOr<FiberAwareWebsocketStream> FiberAwareWebsocketStream::Connect(
 
   if (prepare_stream_fn) {
     if (absl::Status prepare_status =
-            std::move(prepare_stream_fn)(ws_stream.get());
+            std::move(prepare_stream_fn)(ws_stream.get(), {});
         !prepare_status.ok()) {
       return prepare_status;
     }

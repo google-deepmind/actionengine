@@ -91,6 +91,11 @@ absl::Status WebRtcServer::Join() {
   return status;
 }
 
+void WebRtcServer::SetSignallingHeader(std::string_view key,
+                                       std::string_view value) {
+  signalling_headers_[std::string(key)] = std::string(value);
+}
+
 absl::Status WebRtcServer::CancelInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   if (main_loop_ == nullptr) {
     return absl::FailedPreconditionError(
@@ -184,8 +189,8 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       signalling_client =
           InitSignallingClient(signalling_address_, signalling_port_,
                                signalling_use_ssl_, &connections);
-      if (const auto status =
-              signalling_client->ConnectWithIdentity(signalling_identity_);
+      if (const auto status = signalling_client->ConnectWithIdentity(
+              signalling_identity_, signalling_headers_);
           !status.ok()) {
         LOG(ERROR) << "WebRtcServer failed to connect to "
                       "signalling server: "

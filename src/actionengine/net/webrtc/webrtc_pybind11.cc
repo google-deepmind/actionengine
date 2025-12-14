@@ -44,6 +44,7 @@
 #include "actionengine/service/service.h"
 #include "actionengine/util/status_macros.h"
 #include "actionengine/util/utils_pybind11.h"
+#include "pybind11_abseil/absl_casters.h"
 #include "pybind11_abseil/status_caster.h"
 #include "pybind11_abseil/statusor_caster.h"
 
@@ -142,6 +143,8 @@ void BindWebRtcServer(py::handle scope, std::string_view name) {
           py::arg_v("signalling_url", "wss://actionengine.dev:19001"),
           py::arg_v("rtc_config", net::RtcConfig{}),
           pybindings::keep_event_loop_memo())
+      .def("set_signalling_header", &net::WebRtcServer::SetSignallingHeader,
+           py::arg("key"), py::arg("value"))
       .def("run", &net::WebRtcServer::Run,
            py::call_guard<py::gil_scoped_release>())
       .def(
@@ -172,7 +175,9 @@ py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
   webrtc.def(
       "make_webrtc_stream",
       [](std::string_view identity, std::string_view peer_identity,
-         std::string_view signalling_address, std::optional<uint16_t> port)
+         std::string_view signalling_address,
+         const absl::flat_hash_map<std::string, std::string>& headers,
+         std::optional<uint16_t> port)
           -> absl::StatusOr<std::shared_ptr<net::WebRtcWireStream>> {
         std::string signalling_url = absl::StrCat(signalling_address);
         if (port.has_value()) {
@@ -187,12 +192,13 @@ py::module_ MakeWebRtcModule(py::module_ scope, std::string_view module_name) {
           }
         }
         ASSIGN_OR_RETURN(std::unique_ptr<net::WebRtcWireStream> stream,
-                         net::StartStreamWithSignalling(identity, peer_identity,
-                                                        signalling_url));
+                         net::StartStreamWithSignalling(
+                             identity, peer_identity, signalling_url, headers));
         return stream;
       },
       py::arg_v("identity", "client"), py::arg_v("peer_identity", "server"),
       py::arg_v("signalling_address", "wss://actionengine.dev:19001"),
+      py::arg_v("headers", absl::flat_hash_map<std::string, std::string>{}),
       py::arg_v("port", std::nullopt),
       py::call_guard<py::gil_scoped_release>());
 

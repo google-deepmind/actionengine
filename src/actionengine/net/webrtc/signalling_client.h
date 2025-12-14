@@ -23,6 +23,7 @@
 #include <utility>
 
 #include <absl/base/thread_annotations.h>
+#include <absl/container/flat_hash_map.h>
 #include <absl/log/log.h>
 #include <absl/status/status.h>
 #include <boost/json/value.hpp>
@@ -80,7 +81,9 @@ class SignallingClient {
     return loop_status_;
   }
 
-  absl::Status ConnectWithIdentity(std::string_view identity);
+  absl::Status ConnectWithIdentity(
+      std::string_view identity,
+      const absl::flat_hash_map<std::string, std::string>& headers = {});
 
   absl::Status Send(const std::string& message) {
     return stream_.WriteText(message);
