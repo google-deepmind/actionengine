@@ -22,7 +22,6 @@ from pathlib import Path
 
 NAME = "actionengine"
 NAME_WITH_HYPHEN = "action-engine"
-VERSION = "0.1.8"
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 
 CLANG_RESOURCES = """- https://clang.llvm.org/get_started.html
@@ -181,16 +180,20 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         for cache_dir in pkg_target.rglob("__pycache__"):
             shutil.rmtree(cache_dir)
 
+        version = project.get("project", {}).get("version")
+        if version is None:
+            raise RuntimeError("Version not found in pyproject.toml")
+
         # Generate METADATA
         dist_info = (
             temp_dir
-            / f"{NAME_WITH_HYPHEN.replace('-', '_')}-{VERSION}.dist-info"
+            / f"{NAME_WITH_HYPHEN.replace('-', '_')}-{version}.dist-info"
         )
         dist_info.mkdir()
         (dist_info / "METADATA").write_text(
             f"""Metadata-Version: 2.1
 Name: {NAME_WITH_HYPHEN}
-Version: {VERSION}
+Version: {version}
 Requires-Dist: {requires_dist}
 """
         )
@@ -225,7 +228,7 @@ Tag: {get_tag()}
 
         # Build wheel filename
         wheel_name = (
-            f"{NAME_WITH_HYPHEN.replace('-', '_')}-{VERSION}-{get_tag()}.whl"
+            f"{NAME_WITH_HYPHEN.replace('-', '_')}-{version}-{get_tag()}.whl"
         )
         wheel_path = Path(wheel_directory) / wheel_name
 

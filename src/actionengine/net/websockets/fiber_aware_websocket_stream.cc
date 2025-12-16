@@ -26,6 +26,7 @@
 
 namespace act::net {
 
+static constexpr std::string_view kVersionString = "Action Engine 0.1.9";
 static constexpr absl::Duration kDebugWarningTimeout = absl::Seconds(5);
 
 BoostWebsocketStream::BoostWebsocketStream(
@@ -104,8 +105,7 @@ absl::Status PrepareClientStream(
       [decorator = std::move(decorator)](
           boost::beast::websocket::request_type& req) mutable {
         req.set(boost::beast::http::field::user_agent,
-                "Action Engine 0.1.8 "
-                "WebsocketWireStream client");
+                absl::StrCat(kVersionString, "WebsocketWireStream client"));
         std::move(decorator)(req);
       }));
   stream->write_buffer_bytes(16);
@@ -126,8 +126,7 @@ absl::Status PrepareServerStream(BoostWebsocketStream* stream) {
   stream->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::request_type& req) {
         req.set(boost::beast::http::field::user_agent,
-                "Action Engine 0.1.8 "
-                "WebsocketWireStream server");
+                absl::StrCat(kVersionString, "WebsocketWireStream server"));
       }));
   stream->write_buffer_bytes(16);
 
@@ -491,8 +490,7 @@ absl::Status FiberAwareWebsocketStream::Accept() const noexcept {
   stream_->set_option(boost::beast::websocket::stream_base::decorator(
       [](boost::beast::websocket::response_type& res) {
         res.set(boost::beast::http::field::server,
-                "Action Engine 0.1.8 "
-                "WebsocketActionEngineServer");
+                absl::StrCat(kVersionString, "WebsocketActionEngineServer"));
       }));
   stream_->write_buffer_bytes(16);
 

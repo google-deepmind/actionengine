@@ -529,7 +529,10 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
         ParseDescriptionFromMessage(message);
     if (!description.ok()) {
       status = description.status();
-      done.Notify();
+      if (!done.HasBeenNotified()) {
+        done.Notify();
+      }
+
       return;
     }
     connection->setRemoteDescription(*std::move(description));
@@ -547,7 +550,9 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
             ParseCandidateFromMessage(message);
         if (!candidate.ok()) {
           status = candidate.status();
-          done.Notify();
+          if (!done.HasBeenNotified()) {
+            done.Notify();
+          }
           return;
         }
         connection->addRemoteCandidate(*std::move(candidate));
@@ -559,7 +564,9 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
     const std::string message = MakeCandidateMessage(peer_id, candidate);
     status.Update(signalling_client.Send(message));
     if (!status.ok()) {
-      done.Notify();
+      if (!done.HasBeenNotified()) {
+        done.Notify();
+      }
     }
   });
 
@@ -574,13 +581,19 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
       MakeOfferMessage(peer_identity, connection->createOffer());
   RETURN_IF_ERROR(signalling_client.Send(offer_message));
 
-  data_channel->onOpen([&done]() { done.Notify(); });
+  data_channel->onOpen([&done]() {
+    if (!done.HasBeenNotified()) {
+      done.Notify();
+    }
+  });
   connection->onIceStateChange([&done, connection = connection.get()](
                                    rtc::PeerConnection::IceState state) {
     if (state == rtc::PeerConnection::IceState::Failed) {
       connection->resetCallbacks();
       connection->close();
-      done.Notify();
+      if (!done.HasBeenNotified()) {
+        done.Notify();
+      }
     }
   });
 
@@ -588,6 +601,11 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
       absl::Now() + absl::Seconds(30),
       {done.OnEvent(), signalling_client.OnError(), thread::OnCancel()});
   signalling_client.ResetCallbacks();
+
+  if (!status.ok() || !signalling_client.GetStatus().ok()) {
+    connection->resetCallbacks();
+    connection->close();
+  }
 
   RETURN_IF_ERROR(status);
   RETURN_IF_ERROR(signalling_client.GetStatus());

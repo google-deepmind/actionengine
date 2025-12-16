@@ -195,7 +195,12 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
         LOG(ERROR) << "WebRtcServer failed to connect to "
                       "signalling server: "
                    << status;
-        break;
+        mu_.unlock();
+        act::SleepFor(absl::Seconds(0.5));
+        mu_.lock();
+        signalling_client = nullptr;
+        --retries_remaining;
+        continue;
       }
     }
 
