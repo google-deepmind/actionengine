@@ -184,12 +184,23 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         if version is None:
             raise RuntimeError("Version not found in pyproject.toml")
 
-        # Generate METADATA
         dist_info = (
             temp_dir
             / f"{NAME_WITH_HYPHEN.replace('-', '_')}-{version}.dist-info"
         )
         dist_info.mkdir()
+
+        project_scripts = project.get("project", {}).get("scripts", {})
+        script_lines = []
+        for script_name, entry_point in project_scripts.items():
+            script_lines.append(f"{script_name}={entry_point}\n")
+
+        # Create entry_points.txt for console_scripts
+        (dist_info / "entry_points.txt").write_text(
+            "[console_scripts]\n" + "".join(script_lines)
+        )
+
+        # Generate METADATA
         (dist_info / "METADATA").write_text(
             f"""Metadata-Version: 2.1
 Name: {NAME_WITH_HYPHEN}
@@ -204,6 +215,7 @@ Requires-Dist: {requires_dist}
 Generator: {NAME_WITH_HYPHEN}
 Root-Is-Purelib: false
 Tag: {get_tag()}
+Entry-Points: console_scripts
 """
         )
 
