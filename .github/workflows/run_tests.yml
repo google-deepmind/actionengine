@@ -30,7 +30,7 @@ jobs:
         command: |
           pyenv global 3.12.8
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         submodules: recursive
     - name: Build dependencies
