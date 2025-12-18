@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 
+from actionengine.cli.auth import register_command
 from actionengine.cli.serve import serve_command
 from actionengine.cli.utils import setup_action_engine
 
@@ -30,6 +31,12 @@ async def main(args: argparse.Namespace):
 
     if args.command == "serve":
         return await serve_command(args)
+    elif args.command == "register":
+        return await register_command()
+    elif args.command == "create-api-key":
+        raise NotImplementedError(
+            "create-api-key command is not implemented yet."
+        )
 
     raise ValueError(f"Unknown command: {args.command}")
 
@@ -41,11 +48,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "command",
         help="The command to execute.",
-        choices=["serve"],
+        choices=["serve", "register", "create-api-key"],
     )
     parser.add_argument(
         "--api-key",
         type=str,
+        default=None,
         help="API key for authenticating with the Action Engine API.",
     )
     parser.add_argument(

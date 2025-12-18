@@ -9,10 +9,12 @@ import sys
 from importlib import util as importlib_util
 
 import actionengine
-from actionengine.cli.utils import sleep_forever
+from actionengine.cli.utils import (
+    API_ROOT,
+    load_username_and_api_key_from_file,
+    sleep_forever,
+)
 
-
-API_ROOT = "https://actionengine.dev/api"
 
 logger = logging.getLogger(__name__)
 
@@ -112,19 +114,37 @@ async def serve_command(args: argparse.Namespace):
             "instance of ActionRegistry."
         )
 
+    owner_username = None
+    api_key = args.api_key
+
+    if api_key is None:
+        owner_username, api_key = load_username_and_api_key_from_file()
+        logger.info("Loaded API key from credentials file.")
+
+    if api_key is None:
+        raise ValueError(
+            "API key must be provided via --api-key or credentials file."
+        )
+
     api_key_info_response: requests.Response = await asyncio.to_thread(
         requests.get,
-        f"{API_ROOT}/auth/api-keys/get-info/{args.api_key}",
-        headers={"X-API-Key": args.api_key},
+        f"{API_ROOT}/auth/api-keys/get-info/{api_key}",
+        headers={"X-API-Key": api_key},
     )
     api_key_info_response.raise_for_status()
     api_key_info_data = await asyncio.to_thread(api_key_info_response.json)
-    owner_username = api_key_info_data.get("owner_username")
-    if not owner_username:
+    actual_owner_username = api_key_info_data.get("owner_username")
+    if not actual_owner_username:
         raise ValueError("API key is invalid or has no associated user.")
-    logger.info(
-        f"API key is valid for user: {api_key_info_data.get('owner_username')}"
-    )
+    logger.info(f"API key is valid for user: {actual_owner_username}")
+
+    if owner_username is None:
+        owner_username = actual_owner_username
+    if owner_username != actual_owner_username:
+        raise ValueError(
+            "The provided API key does not belong to the specified "
+            f"owner username '{owner_username}'."
+        )
 
     timed_token = None
     full_host_name = f"@{owner_username}:{args.host}"
@@ -133,7 +153,7 @@ async def serve_command(args: argparse.Namespace):
     response: requests.Response = await asyncio.to_thread(
         requests.get,
         f"{API_ROOT}/hosts/{full_host_name}/get-active-timed-tokens",
-        headers={"X-API-Key": args.api_key},
+        headers={"X-API-Key": api_key},
     )
     if response.ok:
         response_data = await asyncio.to_thread(response.json)
@@ -148,7 +168,7 @@ async def serve_command(args: argparse.Namespace):
         return await serve(
             action_registry,
             full_host_name,
-            args.api_key,
+            api_key,
             timed_token,
         )
 
@@ -159,7 +179,7 @@ async def serve_command(args: argparse.Namespace):
     create_host_response: requests.Response = await asyncio.to_thread(
         requests.post,
         f"{API_ROOT}/hosts/",
-        headers={"X-API-Key": args.api_key},
+        headers={"X-API-Key": api_key},
         json={
             "name": args.host,
             "display_name": args.display_name or f"Host for {args.host}",
@@ -175,7 +195,7 @@ async def serve_command(args: argparse.Namespace):
     create_timed_token_response: requests.Response = await asyncio.to_thread(
         requests.post,
         f"{API_ROOT}/hosts/{full_host_name}/create-timed-token",
-        headers={"X-API-Key": args.api_key},
+        headers={"X-API-Key": api_key},
         params={"ttl": 3600 * 24 * 7},  # 7 days
     )
     create_timed_token_response.raise_for_status()
@@ -191,6 +211,6 @@ async def serve_command(args: argparse.Namespace):
     return await serve(
         action_registry,
         full_host_name,
-        args.api_key,
+        api_key,
         timed_token,
     )
