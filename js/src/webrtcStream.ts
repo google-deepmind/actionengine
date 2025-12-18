@@ -24,7 +24,7 @@ import { decodeWireMessage, encodeWireMessage } from './msgpack';
 const kRtcConfig: RTCConfiguration = {
   iceServers: [
     {
-      urls: 'stun:stun.l.google.com:19302', // change to your STUN server
+      urls: 'stun:actionengine.dev:3478', // change to your STUN server
     },
   ],
 };

@@ -3,6 +3,7 @@ import base64
 import os
 import random
 import traceback
+from functools import lru_cache
 
 import actionengine
 from google import genai
@@ -10,6 +11,7 @@ from google.genai import types
 from ollama import chat, Options
 
 
+@lru_cache(maxsize=1)
 def get_gemini_client(api_key: str):
     return genai.client.AsyncClient(
         genai.client.BaseApiClient(

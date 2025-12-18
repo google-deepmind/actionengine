@@ -88,7 +88,6 @@ async def main(args: argparse.Namespace):
     server = actionengine.webrtc.WebRtcServer.create(
         service,
         args.host,
-        args.port,
         args.webrtc_identity,
         f"wss://{args.webrtc_signalling_server}:{args.webrtc_signalling_port}",
         rtc_config,
@@ -136,12 +135,6 @@ if __name__ == "__main__":
         type=str,
         default="0.0.0.0",
         help="Host address to bind the server to.",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=20002,
-        help="Port to bind the server to.",
     )
     parser.add_argument(
         "--webrtc-signalling-server",

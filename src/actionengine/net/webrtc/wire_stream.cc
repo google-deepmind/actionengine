@@ -155,8 +155,8 @@ std::string AbslUnparseFlag(const std::vector<act::net::TurnServer>& servers) {
 rtc::Configuration RtcConfig::BuildLibdatachannelConfig() const {
   rtc::Configuration config;
   config.maxMessageSize = max_message_size;
-  config.portRangeBegin = port_range_begin;
-  config.portRangeEnd = port_range_end;
+  config.portRangeBegin = 1024;
+  config.portRangeEnd = 65535;
   config.enableIceUdpMux = enable_ice_udp_mux;
 
   for (const auto& server : stun_servers) {
@@ -508,8 +508,6 @@ absl::StatusOr<WebRtcDataChannelConnection> StartWebRtcDataChannel(
                                      use_ssl};
 
   RtcConfig config = std::move(rtc_config).value_or(RtcConfig());
-  config.port_range_begin = 1025;
-  config.port_range_end = 65535;
 
   auto connection =
       std::make_unique<rtc::PeerConnection>(config.BuildLibdatachannelConfig());

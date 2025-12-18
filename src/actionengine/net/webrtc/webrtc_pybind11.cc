@@ -79,10 +79,6 @@ void BindRtcConfig(py::handle scope, std::string_view name) {
       .def(py::init([]() { return net::RtcConfig{}; }))
       .def_readwrite("max_message_size", &net::RtcConfig::max_message_size,
                      "The maximum message size for WebRTC data channels.")
-      .def_readwrite("port_range_begin", &net::RtcConfig::port_range_begin,
-                     "The beginning of the port range for WebRTC connections.")
-      .def_readwrite("port_range_end", &net::RtcConfig::port_range_end,
-                     "The end of the port range for WebRTC connections.")
       .def_readwrite("enable_ice_udp_mux", &net::RtcConfig::enable_ice_udp_mux,
                      "Whether to enable ICE UDP multiplexing.")
       .def_readwrite("stun_servers", &net::RtcConfig::stun_servers,
@@ -129,17 +125,17 @@ void BindWebRtcServer(py::handle scope, std::string_view name) {
       .def_static(
           "create",
           [](Service* absl_nonnull service, std::string_view address,
-             uint16_t port, std::string_view identity,
-             std::string_view signalling_url, net::RtcConfig rtc_config)
+             std::string_view identity, std::string_view signalling_url,
+             net::RtcConfig rtc_config)
               -> absl::StatusOr<std::shared_ptr<net::WebRtcServer>> {
             ASSIGN_OR_RETURN(auto ws_signalling_url,
                              net::WsUrl::FromString(signalling_url));
             return std::make_shared<net::WebRtcServer>(
-                service, address, port, identity, ws_signalling_url,
+                service, address, identity, ws_signalling_url,
                 std::move(rtc_config));
           },
           py::arg("service"), py::arg_v("address", "0.0.0.0"),
-          py::arg_v("port", 20000), py::arg_v("identity", "server"),
+          py::arg_v("identity", "server"),
           py::arg_v("signalling_url", "wss://actionengine.dev:19001"),
           py::arg_v("rtc_config", net::RtcConfig{}),
           pybindings::keep_event_loop_memo())

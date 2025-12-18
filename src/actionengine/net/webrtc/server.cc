@@ -45,12 +45,11 @@
 namespace act::net {
 
 WebRtcServer::WebRtcServer(act::Service* service, std::string_view address,
-                           uint16_t port, std::string_view signalling_identity,
+                           std::string_view signalling_identity,
                            const WsUrl& signalling_url,
                            std::optional<RtcConfig> rtc_config)
     : service_(service),
       address_(address),
-      port_(port),
       signalling_address_(signalling_url.host),
       signalling_port_(signalling_url.port),
       signalling_identity_(signalling_identity),
@@ -59,10 +58,10 @@ WebRtcServer::WebRtcServer(act::Service* service, std::string_view address,
       ready_data_connections_(32) {}
 
 WebRtcServer::WebRtcServer(act::Service* service, std::string_view address,
-                           uint16_t port, std::string_view signalling_identity,
+                           std::string_view signalling_identity,
                            std::string_view signalling_url,
                            std::optional<RtcConfig> rtc_config)
-    : WebRtcServer(service, address, port, signalling_identity,
+    : WebRtcServer(service, address, signalling_identity,
                    WsUrl::FromStringOrDie(signalling_url),
                    std::move(rtc_config)) {}
 
@@ -290,6 +289,16 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     // connection from here on out.
   }
 
+  // Very important: callbacks for the signalling client must be reset
+  // because their closures contain shared pointers to the client itself.
+  // If we don't reset them, the client will never be destroyed.
+  signalling_client->ResetCallbacks();
+  DCHECK(signalling_client.use_count() == 1)
+      << "WebRtcServer signalling client should be the only owner of "
+         "the SignallingClient instance at this point, but it is not. "
+         "This indicates a bug in the code.";
+  signalling_client.reset();
+
   // Clean up all connections that might not be ready yet.
   for (auto& [peer_id, connection] : connections) {
     connection.data_channel->resetCallbacks();
@@ -302,16 +311,6 @@ void WebRtcServer::RunLoop() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     }
   }
   connections.clear();
-
-  // Very important: callbacks for the signalling client must be reset
-  // because their closures contain shared pointers to the client itself.
-  // If we don't reset them, the client will never be destroyed.
-  signalling_client->ResetCallbacks();
-  DCHECK(signalling_client.use_count() == 1)
-      << "WebRtcServer signalling client should be the only owner of "
-         "the SignallingClient instance at this point, but it is not. "
-         "This indicates a bug in the code.";
-  signalling_client.reset();
 }
 
 std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
@@ -323,6 +322,7 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
   auto abort_establishment_with_error = [connections, this](
                                             std::string_view peer_id,
                                             const absl::Status& status) {
+    act::MutexLock lock(&mu_);
     DCHECK(!status.ok()) << "abort_establishment_with_error called with an OK "
                             "status, this should not "
                             "happen.";
@@ -338,9 +338,10 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
   };
 
   signalling_client->OnOffer([this, connections, signalling_client,
-                              &abort_establishment_with_error](
+                              abort_establishment_with_error](
                                  std::string_view peer_id,
                                  const boost::json::value& message) {
+    act::MutexLock lock(&mu_);
     if (connections->contains(std::string(peer_id))) {
       abort_establishment_with_error(
           peer_id,
@@ -358,10 +359,8 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
 
     RtcConfig config = rtc_config_.value_or(RtcConfig());
     config.enable_ice_udp_mux = true;
-    config.port_range_begin = port_;
-    config.port_range_end = port_;
     if (config.stun_servers.empty()) {
-      config.stun_servers.emplace_back("stun.l.google.com:19302");
+      config.stun_servers.emplace_back("stun:actionengine.dev:3478");
     }
     rtc::Configuration libdatachannel_config =
         config.BuildLibdatachannelConfig();
@@ -370,9 +369,15 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
     auto connection =
         std::make_unique<rtc::PeerConnection>(std::move(libdatachannel_config));
 
-    connection->onLocalDescription(
+    rtc::PeerConnection* connection_ptr = connection.get();
+
+    connections->emplace(peer_id, WebRtcDataChannelConnection{
+                                      .connection = std::move(connection),
+                                      .data_channel = nullptr});
+
+    connection_ptr->onLocalDescription(
         [peer_id = std::string(peer_id), signalling_client,
-         &abort_establishment_with_error](
+         abort_establishment_with_error](
             const rtc::Description& local_description) {
           const std::string answer_message =
               MakeAnswerMessage(peer_id, local_description);
@@ -383,9 +388,9 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
           }
         });
 
-    connection->onLocalCandidate(
+    connection_ptr->onLocalCandidate(
         [peer_id = std::string(peer_id), signalling_client,
-         &abort_establishment_with_error](const rtc::Candidate& candidate) {
+         abort_establishment_with_error](const rtc::Candidate& candidate) {
           const std::string candidate_message =
               MakeCandidateMessage(peer_id, candidate);
           if (const auto candidate_status =
@@ -395,10 +400,10 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
           }
         });
 
-    connection->onIceStateChange([peer_id = std::string(peer_id),
-                                  connection_ptr = connection.get(),
-                                  &abort_establishment_with_error](
-                                     rtc::PeerConnection::IceState state) {
+    connection_ptr->onIceStateChange([peer_id = std::string(peer_id),
+                                      connection_ptr,
+                                      abort_establishment_with_error](
+                                         rtc::PeerConnection::IceState state) {
       // Unsuccessful connections should be cleaned up: data channel closed,
       // if any, and connection closed.
       if (state == rtc::PeerConnection::IceState::Failed) {
@@ -420,34 +425,34 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
       }
     });
 
-    connection->onDataChannel([this, peer_id = std::string(peer_id),
-                               connection_ptr = connection.get(), connections](
-                                  std::shared_ptr<rtc::DataChannel> dc) {
-      const auto map_node = connections->extract(peer_id);
-      DCHECK(!map_node.empty())
-          << "WebRtcServer no connection for peer: " << peer_id;
+    connection_ptr->onDataChannel(
+        [this, peer_id = std::string(peer_id),
+         connections](std::shared_ptr<rtc::DataChannel> dc) {
+          act::MutexLock lock(&mu_);
+          const auto map_node = connections->extract(peer_id);
+          DCHECK(!map_node.empty())
+              << "WebRtcServer no connection for peer: " << peer_id;
 
-      WebRtcDataChannelConnection connection_from_map =
-          std::move(map_node.mapped());
-      connection_from_map.data_channel = std::move(dc);
+          WebRtcDataChannelConnection connection_from_map =
+              std::move(map_node.mapped());
+          connection_from_map.data_channel = std::move(dc);
 
-      ready_data_connections_.writer()->WriteUnlessCancelled(
-          std::move(connection_from_map));
-    });
-
-    connections->emplace(peer_id, WebRtcDataChannelConnection{
-                                      .connection = std::move(connection),
-                                      .data_channel = nullptr});
+          ready_data_connections_.writer()->WriteUnlessCancelled(
+              std::move(connection_from_map));
+        });
 
     FindOrDie(*connections, peer_id)
         .connection->setRemoteDescription(*std::move(description));
   });
 
   signalling_client->OnCandidate(
-      [connections, &abort_establishment_with_error](
+      [connections, abort_establishment_with_error, this](
           std::string_view peer_id, const boost::json::value& message) {
-        if (!connections->contains(peer_id)) {
-          return;
+        {
+          act::MutexLock lock(&mu_);
+          if (!connections->contains(peer_id)) {
+            return;
+          }
         }
 
         absl::StatusOr<rtc::Candidate> candidate =
@@ -457,8 +462,11 @@ std::shared_ptr<SignallingClient> WebRtcServer::InitSignallingClient(
           return;
         }
 
-        FindOrDie(*connections, peer_id)
-            .connection->addRemoteCandidate(*std::move(candidate));
+        {
+          act::MutexLock lock(&mu_);
+          FindOrDie(*connections, peer_id)
+              .connection->addRemoteCandidate(*std::move(candidate));
+        }
       });
 
   return signalling_client;

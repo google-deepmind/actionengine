@@ -56,12 +56,6 @@ if __name__ == "__main__":
         help="Host address to bind the server to.",
     )
     parser.add_argument(
-        "--port",
-        type=int,
-        default=20002,
-        help="Port to bind the server to.",
-    )
-    parser.add_argument(
         "--webrtc-signalling-server",
         type=str,
         default="actionengine.dev",

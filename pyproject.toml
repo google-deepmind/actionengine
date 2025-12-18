@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-actionengine = "actionengine.cli:sync_main"
+actionengine = "actionengine.cli.main:sync_main"
 
 [build-system]
 requires = [

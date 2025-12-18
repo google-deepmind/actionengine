@@ -101,13 +101,13 @@ class WebRtcServer {
    *   parameters.
    */
   explicit WebRtcServer(act::Service* absl_nonnull service,
-                        std::string_view address, uint16_t port,
+                        std::string_view address,
                         std::string_view signalling_identity,
                         const WsUrl& signalling_url,
                         std::optional<RtcConfig> rtc_config = std::nullopt);
 
   explicit WebRtcServer(act::Service* absl_nonnull service,
-                        std::string_view address, uint16_t port,
+                        std::string_view address,
                         std::string_view signalling_identity,
                         std::string_view signalling_url,
                         std::optional<RtcConfig> rtc_config = std::nullopt);
@@ -169,7 +169,6 @@ class WebRtcServer {
   act::Service* absl_nonnull const service_;
 
   const std::string address_;
-  const uint16_t port_;
   const std::string signalling_address_;
   const uint16_t signalling_port_;
   const std::string signalling_identity_;

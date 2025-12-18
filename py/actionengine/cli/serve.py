@@ -3,27 +3,18 @@ import asyncio
 import importlib
 import logging
 import os
+import pathlib
+import requests
 import sys
+from importlib import util as importlib_util
 
 import actionengine
-import requests
+from actionengine.cli.utils import sleep_forever
 
 
 API_ROOT = "https://actionengine.dev/api"
 
 logger = logging.getLogger(__name__)
-
-
-def setup_action_engine():
-    settings = actionengine.get_global_act_settings()
-    settings.readers_deserialise_automatically = True
-    settings.readers_read_in_order = True
-    settings.readers_remove_read_chunks = True
-
-
-async def sleep_forever():
-    while True:
-        await asyncio.sleep(1)
 
 
 async def serve(
@@ -74,10 +65,10 @@ async def serve_command(args: argparse.Namespace):
 
     # Dynamically import the action registry
     module_path, symbol_name = registry_path.rsplit(":", 1)
+    cwd = os.getcwd()
     try:
         # Ensure current working directory is on sys.path so dotted modules
         # can be resolved relative to where the user runs the command.
-        cwd = os.getcwd()
         if cwd not in sys.path:
             sys.path.insert(0, cwd)
 
@@ -86,9 +77,6 @@ async def serve_command(args: argparse.Namespace):
         # As a fallback, allow specifying the module as a file path relative to CWD,
         # e.g. "path/to/module.py:registry" or "path/to/package:registry".
         try:
-            from importlib import util as importlib_util
-            import pathlib
-
             candidate = pathlib.Path(module_path)
             if not candidate.is_absolute():
                 candidate = pathlib.Path(cwd) / candidate
@@ -206,67 +194,3 @@ async def serve_command(args: argparse.Namespace):
         args.api_key,
         timed_token,
     )
-
-
-async def main(args: argparse.Namespace):
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
-    )
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
-
-    setup_action_engine()
-
-    if args.command == "serve":
-        return await serve_command(args)
-
-    raise ValueError(f"Unknown command: {args.command}")
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Health check for Action Engine host."
-    )
-    parser.add_argument(
-        "command",
-        help="The command to execute.",
-        choices=["serve"],
-    )
-    parser.add_argument(
-        "--api-key",
-        type=str,
-        help="API key for authenticating with the Action Engine API.",
-    )
-    parser.add_argument(
-        "--host",
-        type=str,
-        help="The name of the scoped Action Engine host.",
-    )
-    parser.add_argument(
-        "--display-name",
-        type=str,
-        required=False,
-        help="Display name for the Action Engine host.",
-    )
-    parser.add_argument(
-        "--description",
-        type=str,
-        required=False,
-        help="Description for the Action Engine host.",
-    )
-    parser.add_argument(
-        "--registry",
-        type=str,
-        help="The action registry to host. This should be an importable "
-        "path of a symbol in a Python module.",
-    )
-    return parser.parse_args()
-
-
-def sync_main():
-    asyncio.run(main(parse_args()))
-
-
-if __name__ == "__main__":
-    sync_main()

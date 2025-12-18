@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from google import genai
 from google.genai import types
 from google.genai.types import (
@@ -7,6 +9,7 @@ from google.genai.types import (
 )
 
 
+@lru_cache(maxsize=1)
 def get_gemini_client(api_key: str):
     return genai.client.AsyncClient(
         genai.client.BaseApiClient(

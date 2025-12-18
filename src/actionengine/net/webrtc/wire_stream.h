@@ -69,12 +69,10 @@ struct RtcConfig {
 
   std::optional<size_t> max_message_size = kDefaultMaxMessageSize;
 
-  uint16_t port_range_begin = 19002;
-  uint16_t port_range_end = 19002;
   bool enable_ice_udp_mux = true;
 
   std::vector<std::string> stun_servers = {
-      "stun.l.google.com:19302",  // Google's public STUN server
+      "stun:actionengine.dev:3478",
   };
   std::vector<TurnServer> turn_servers;
 };
